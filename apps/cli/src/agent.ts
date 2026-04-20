@@ -4,6 +4,7 @@ import { DEFAULT_AGENT_MODEL, DEFAULT_INSTANCE_ROOT, type SessionRecord } from "
 import { inferDatasetDefaults, requireRemoteClient, runIngest } from "./local-tools.js";
 import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/storage";
 import { login, readSession } from "./session.js";
+import { readTrackedRuns, trackRemoteRun } from "./runs.js";
 
 export type AgentMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -21,6 +22,7 @@ export type AgentAction =
   | { type: "login" }
   | { type: "listLocalDatasets" }
   | { type: "listRemoteDatasets" }
+  | { type: "listTrackedRuns" }
   | { type: "ingestAndDeploy"; input: string; mode?: "auto" | "tabular" | "unstructured"; name?: string; datasetId?: string; instanceId?: string }
   | { type: "deployInstance"; instanceId: string; datasetId?: string }
   | { type: "startRun"; datasetId: string; prompt: string };
@@ -40,7 +42,7 @@ function createPlannerPrompt(input: string, hasSession: boolean): string {
     `The user is ${hasSession ? "" : "not "}signed in.`,
     "",
     "Return JSON only with this shape:",
-    '{"action":{"type":"reply|question|login|listLocalDatasets|listRemoteDatasets|ingestAndDeploy|deployInstance|startRun", "...": "..."}}',
+    '{"action":{"type":"reply|question|login|listLocalDatasets|listRemoteDatasets|listTrackedRuns|ingestAndDeploy|deployInstance|startRun", "...": "..."}}',
     "",
     `User request: ${input}`,
   ].join("\n");
@@ -53,6 +55,9 @@ function heuristicPlan(input: string, hasSession: boolean): AgentAction {
   }
   if (/list .*remote|show .*remote|remote datasets/.test(lower)) {
     return hasSession ? { type: "listRemoteDatasets" } : { type: "login" };
+  }
+  if (/show .*runs|list .*runs|in progress runs|active runs|tracked runs/.test(lower)) {
+    return { type: "listTrackedRuns" };
   }
   if (/list .*local|show .*instances|local datasets/.test(lower)) {
     return { type: "listLocalDatasets" };
@@ -138,6 +143,16 @@ export async function executeAction(
       });
       return;
     }
+    case "listTrackedRuns": {
+      const runs = await readTrackedRuns();
+      emit({
+        role: "assistant",
+        content: runs.length > 0
+          ? `Tracked runs:\n${runs.map((item) => `- ${item.id} (${item.datasetId}, ${item.status})`).join("\n")}`
+          : "No tracked runs yet.",
+      });
+      return;
+    }
     case "ingestAndDeploy": {
       const defaults = inferDatasetDefaults(action.input);
       const instanceId = action.instanceId ?? defaults.id;
@@ -193,9 +208,21 @@ export async function executeAction(
     case "startRun": {
       const client = await requireRemoteClient();
       const result = await client.startRun(action.datasetId, action.prompt);
+      const session = await readSession();
+      if (session) {
+        await trackRemoteRun({
+          id: result.run.id,
+          datasetId: result.run.datasetId,
+          origin: session.origin,
+          status: result.run.status,
+          prompt: result.run.prompt ?? action.prompt,
+          createdAt: result.run.createdAt,
+          updatedAt: result.run.updatedAt,
+        });
+      }
       emit({
         role: "assistant",
-        content: `Started run ${result.run.id} on ${action.datasetId} with status ${result.run.status}.`,
+        content: `Started run ${result.run.id} on ${action.datasetId} with status ${result.run.status}. RESEARCH will keep tracking it.`,
       });
       return;
     }

@@ -3,7 +3,9 @@ import { Box, Static, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 
 import { executeAction, planAction, type AgentMessage } from "./agent.js";
-import { DEFAULT_WEB_ORIGIN, DEFAULT_INSTANCE_ROOT } from "./config.js";
+import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
+import { RemoteApiClient } from "./remote.js";
+import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
 import { login, readSession } from "./session.js";
 
 function roleColor(role: AgentMessage["role"]) {
@@ -32,35 +34,145 @@ function roleLabel(role: AgentMessage["role"]) {
   }
 }
 
-export function InteractiveApp() {
+type InteractiveAppProps = {
+  altScreen?: boolean;
+};
+
+async function pollTrackedRuns(
+  session: SessionRecord,
+  emit: (message: AgentMessage) => void,
+): Promise<TrackedRunRecord[]> {
+  const tracked = (await readTrackedRuns())
+    .filter((item) => item.origin === session.origin)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+
+  if (tracked.length === 0) {
+    return tracked;
+  }
+
+  const active = tracked.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
+  if (active.length === 0) {
+    return tracked;
+  }
+
+  const client = new RemoteApiClient(session);
+  const listed = await client.listRuns().catch(() => ({ runs: [] }));
+  const listedById = new Map(listed.runs.map((run) => [run.id, run]));
+
+  for (const item of active) {
+    const remote = listedById.get(item.id) ?? (await client.getRun(item.id).catch(() => null))?.run;
+    if (!remote) {
+      continue;
+    }
+
+    if (remote.status !== item.status) {
+      emit({
+        role: "tool",
+        content: `run ${item.id}: ${item.status} -> ${remote.status}`,
+      });
+    }
+
+    const eventPayload = await client.getRunEvents(item.id, item.lastEventId).catch(() => null);
+    let lastEventId = item.lastEventId;
+    if (eventPayload?.events?.length) {
+      for (const event of eventPayload.events) {
+        emit({
+          role: "tool",
+          content: `[run ${item.id}] ${event.message}`,
+        });
+      }
+      lastEventId = eventPayload.events[eventPayload.events.length - 1]?.id ?? lastEventId;
+    }
+
+    await updateTrackedRun(item.id, (current) => {
+      const now = new Date().toISOString();
+      return {
+        ...current,
+        status: remote.status,
+        prompt: remote.prompt ?? current.prompt,
+        updatedAt: remote.updatedAt ?? now,
+        lastSeenAt: now,
+        lastEventId,
+        terminalAt: isTerminalRunStatus(remote.status) ? (current.terminalAt ?? now) : undefined,
+      };
+    });
+  }
+
+  return readTrackedRuns();
+}
+
+export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const { exit } = useApp();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<AgentMessage[]>([
     {
       role: "assistant",
-      content: [
-        "RESEARCH is ready.",
-        "Try: sign in",
-        "Try: list local datasets",
-        'Try: create a dataset from "/path/to/data.parquet" and deploy it',
-      ].join("\n"),
+      content: "ready.",
     },
   ]);
   const [status, setStatus] = useState<"idle" | "thinking" | "working">("idle");
   const [busy, setBusy] = useState(false);
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [session, setSession] = useState<SessionRecord | null>(null);
+  const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
+
+  const appendMessage = (message: AgentMessage) => {
+    setMessages((current) => [...current, message]);
+  };
 
   useEffect(() => {
-    void readSession().then((session) => {
-      setSessionEmail(session ? session.origin : null);
+    void readSession().then((nextSession) => {
+      setSession(nextSession);
+    });
+    void readTrackedRuns().then((runs) => {
+      setTrackedRuns(runs);
+      const active = runs.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
+      if (active.length > 0) {
+        appendMessage({
+          role: "assistant",
+          content: `tracking ${active.length} existing run${active.length === 1 ? "" : "s"}.`,
+        });
+      }
     });
   }, []);
 
-  useInput((_input, key) => {
-    if (key.escape) {
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const runs = await pollTrackedRuns(session, (message) => {
+          if (!cancelled) {
+            appendMessage(message);
+          }
+        });
+        if (!cancelled) {
+          setTrackedRuns(runs);
+        }
+      } catch {
+        // Keep the UI steady; remote APIs may not be fully available yet.
+      }
+    };
+
+    void tick();
+    const timer = setInterval(() => {
+      void tick();
+    }, RUN_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [session]);
+
+  useInput((value, key) => {
+    if (key.escape && !altScreen) {
       exit();
     }
-    if (key.ctrl && _input === "c") {
+    if (key.ctrl && value === "c") {
       exit();
     }
   });
@@ -79,16 +191,16 @@ export function InteractiveApp() {
     if (trimmed === "/login") {
       setBusy(true);
       setStatus("working");
-      setMessages((current) => [...current, { role: "user", content: trimmed }]);
+      appendMessage({ role: "user", content: trimmed });
       setInput("");
       try {
-        const session = await login({}, (message) => {
-          setMessages((current) => [...current, { role: "tool", content: message }]);
+        const nextSession = await login({}, (message) => {
+          appendMessage({ role: "tool", content: message });
         });
-        setSessionEmail(session.origin);
-        setMessages((current) => [...current, { role: "assistant", content: `Signed in to ${session.origin}.` }]);
+        setSession(nextSession);
+        appendMessage({ role: "assistant", content: `signed in to ${nextSession.origin}` });
       } catch (error) {
-        setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : String(error) }]);
+        appendMessage({ role: "assistant", content: error instanceof Error ? error.message : String(error) });
       } finally {
         setBusy(false);
         setStatus("idle");
@@ -96,38 +208,40 @@ export function InteractiveApp() {
       return;
     }
 
-    const nextMessages = [...messages, { role: "user", content: trimmed } satisfies AgentMessage];
-    setMessages(nextMessages);
+    appendMessage({ role: "user", content: trimmed });
     setInput("");
     setBusy(true);
     setStatus("thinking");
 
     try {
-      const session = await readSession();
-      const action = await planAction(trimmed, session);
+      const nextSession = await readSession();
+      if (nextSession?.accessToken !== session?.accessToken || nextSession?.origin !== session?.origin) {
+        setSession(nextSession);
+      }
+      const action = await planAction(trimmed, nextSession);
       setStatus("working");
-      await executeAction(action, (message) => {
-        setMessages((current) => [...current, message]);
-      });
+      await executeAction(action, appendMessage);
+      setTrackedRuns(await readTrackedRuns());
     } catch (error) {
-      setMessages((current) => [
-        ...current,
-        { role: "assistant", content: error instanceof Error ? error.message : String(error) },
-      ]);
+      appendMessage({
+        role: "assistant",
+        content: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       setBusy(false);
       setStatus("idle");
     }
   }
 
-  const header = useMemo(
-    () => {
-      const sessionText = sessionEmail ? `signed in: ${sessionEmail}` : "not signed in";
-      const stateText = status === "idle" ? "ready" : status === "thinking" ? "thinking" : "working";
-      return `RESEARCH  |  ${sessionText}  |  ${stateText}  |  ${DEFAULT_WEB_ORIGIN}`;
-    },
-    [sessionEmail, status],
-  );
+  const header = useMemo(() => {
+    const auth = session ? "signed in" : "not signed in";
+    const stateText = status === "idle" ? "ready" : status === "thinking" ? "thinking" : "working";
+    const activeRuns = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
+    const runText = activeRuns.length > 0
+      ? `runs ${activeRuns.length}: ${activeRuns.slice(0, 3).map((item) => `${item.id}:${item.status}`).join(", ")}`
+      : "runs 0";
+    return `RESEARCH  ${auth}  ${stateText}  ${runText}  ${DEFAULT_WEB_ORIGIN}`;
+  }, [session, status, trackedRuns]);
 
   const transcriptItems = useMemo(
     () => messages.flatMap((message, messageIndex) =>
@@ -163,13 +277,13 @@ export function InteractiveApp() {
           onSubmit={() => {
             void submit();
           }}
-          placeholder="ask research to sign in, create datasets, deploy them, or start runs"
+          placeholder="sign in, create a dataset, deploy it, or manage runs"
         />
       </Box>
 
       <Box marginTop={1}>
         <Text color="gray" wrap="truncate-end">
-          /login  /exit  Esc  |  local root: {DEFAULT_INSTANCE_ROOT}
+          {altScreen ? "/login  /exit  Ctrl-C" : "/login  /exit  Esc"}  |  local root: {DEFAULT_INSTANCE_ROOT}
         </Text>
       </Box>
     </Box>

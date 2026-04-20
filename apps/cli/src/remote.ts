@@ -13,7 +13,17 @@ export type RemoteRunSummary = {
   datasetId: string;
   status: string;
   createdAt?: string;
+  updatedAt?: string;
   prompt?: string;
+  outputPreview?: string;
+};
+
+export type RemoteRunEvent = {
+  id: string;
+  runId: string;
+  message: string;
+  level?: "info" | "warning" | "error";
+  createdAt?: string;
 };
 
 type RequestOptions = {
@@ -47,6 +57,30 @@ export class RemoteApiClient {
       return undefined as T;
     }
 
+    return response.json() as Promise<T>;
+  }
+
+  private async requestOptional<T>(path: string, options: RequestOptions = {}): Promise<T | null> {
+    const response = await fetch(`${this.session.origin}${path}`, {
+      method: options.method ?? "GET",
+      headers: {
+        Authorization: `Bearer ${this.session.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      const detail = text.trim().length > 0 ? ` ${text.trim()}` : "";
+      throw new Error(`Remote request failed (${response.status}) for ${path}.${detail}`);
+    }
+    if (response.status === 204) {
+      return undefined as T;
+    }
     return response.json() as Promise<T>;
   }
 
@@ -88,5 +122,14 @@ export class RemoteApiClient {
       method: "POST",
       body: { prompt },
     });
+  }
+
+  async getRun(runId: string) {
+    return this.requestOptional<{ run: RemoteRunSummary }>(`/api/cli/runs/${encodeURIComponent(runId)}`);
+  }
+
+  async getRunEvents(runId: string, after?: string) {
+    const suffix = after ? `?after=${encodeURIComponent(after)}` : "";
+    return this.requestOptional<{ events: RemoteRunEvent[] }>(`/api/cli/runs/${encodeURIComponent(runId)}/events${suffix}`);
   }
 }

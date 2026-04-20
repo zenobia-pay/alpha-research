@@ -19,6 +19,21 @@ export function parseFlags(args: string[]): Record<string, string> {
   return flags;
 }
 
+export function parseCliArgs(args: string[]) {
+  const flags = parseFlags(args);
+  const positionals = args.filter((token, index) => {
+    if (token.startsWith("--")) {
+      return false;
+    }
+    const previous = args[index - 1];
+    if (previous?.startsWith("--") && !previous.startsWith("---")) {
+      return false;
+    }
+    return true;
+  });
+  return { flags, positionals };
+}
+
 export function parseFilter(filterArg: string): DatasetFilter {
   const [field, op, ...valueParts] = filterArg.split(":");
   const valueText = valueParts.join(":");

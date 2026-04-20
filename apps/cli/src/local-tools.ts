@@ -22,6 +22,7 @@ import { DEFAULT_INSTANCE_ROOT, INGEST_SCRIPT, type SessionRecord } from "./conf
 import { parseFilter } from "./flags.js";
 import { readSession } from "./session.js";
 import { RemoteApiClient } from "./remote.js";
+import { readTrackedRuns, trackRemoteRun } from "./runs.js";
 
 export function printUsage() {
   console.log([
@@ -29,6 +30,7 @@ export function printUsage() {
     "",
     "Commands:",
     "  research                         Start the interactive agent UI",
+    "  research --alt-screen           Start the interactive agent UI in alternate-screen mode",
     "  agent                           Start the interactive agent UI",
     "  install-prompt --dataset <path> [--mode auto|tabular|unstructured] [--name <name>] [--id <instance-id>]",
     "  login [--origin <web-origin>] [--token <token>]",
@@ -41,6 +43,7 @@ export function printUsage() {
     "  ingest --mode <auto|tabular|unstructured> --input <path> --id <instance-id> --name <product-name> [additional flags]",
     "  remote-datasets",
     "  remote-runs [--dataset-id <dataset-id>]",
+    "  runs",
     "  deploy-instance <instance-id> [--root <dir>] [--remote-dataset-id <dataset-id>]",
     "  start-run --dataset-id <dataset-id> --prompt <prompt>",
     "  fixture describe <dataset-id>",
@@ -261,6 +264,11 @@ export async function runScriptedCommand(command: string, rest: string[], flags:
     return true;
   }
 
+  if (command === "runs") {
+    console.log(JSON.stringify({ runs: await readTrackedRuns() }, null, 2));
+    return true;
+  }
+
   if (command === "deploy-instance") {
     const instanceId = rest[0];
     if (!instanceId) {
@@ -281,7 +289,17 @@ export async function runScriptedCommand(command: string, rest: string[], flags:
       throw new Error("You need to run `research login` first.");
     }
     const client = new RemoteApiClient(session);
-    console.log(JSON.stringify(await client.startRun(datasetId, prompt), null, 2));
+    const result = await client.startRun(datasetId, prompt);
+    await trackRemoteRun({
+      id: result.run.id,
+      datasetId: result.run.datasetId,
+      origin: session.origin,
+      status: result.run.status,
+      prompt: result.run.prompt ?? prompt,
+      createdAt: result.run.createdAt,
+      updatedAt: result.run.updatedAt,
+    });
+    console.log(JSON.stringify(result, null, 2));
     return true;
   }
 

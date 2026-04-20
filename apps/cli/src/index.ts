@@ -3,17 +3,38 @@ import React from "react";
 import { render } from "ink";
 
 import { DEFAULT_INSTALL_URL, type SessionRecord } from "./config.js";
-import { parseFlags } from "./flags.js";
+import { parseCliArgs, parseFlags } from "./flags.js";
 import { InteractiveApp } from "./interactive.js";
 import { buildInstallPrompt, handleFixture, printUsage, runScriptedCommand } from "./local-tools.js";
 import { login, readSession } from "./session.js";
 
+function enterAltScreen() {
+  process.stdout.write("\u001b[?1049h\u001b[H");
+}
+
+function leaveAltScreen() {
+  process.stdout.write("\u001b[?1049l");
+}
+
 async function main() {
-  const [command, ...rest] = process.argv.slice(2);
-  const flags = parseFlags(rest);
+  const argv = process.argv.slice(2);
+  const { flags, positionals } = parseCliArgs(argv);
+  const [command, ...rest] = positionals;
 
   if (!command || command === "agent" || command === "chat") {
-    render(React.createElement(InteractiveApp));
+    const altScreen = flags["alt-screen"] === "true";
+    if (altScreen) {
+      enterAltScreen();
+      const restore = () => {
+        leaveAltScreen();
+      };
+      process.on("exit", restore);
+      process.on("SIGINT", () => {
+        leaveAltScreen();
+        process.exit(130);
+      });
+    }
+    render(React.createElement(InteractiveApp, { altScreen }));
     return;
   }
 
