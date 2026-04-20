@@ -1,6 +1,6 @@
 # Alpha Datasets
 
-`alpha-datasets` is a dataset-centric substrate for building research products over arbitrary data, not just text corpora.
+`alpha-datasets` is a dataset-centric platform for building deployable research products over arbitrary data, not just text corpora.
 
 The core idea is:
 
@@ -15,11 +15,21 @@ The core idea is:
   - adapter contracts
   - generic query and aggregation helpers
   - optional text-compatibility projection
+- `packages/implementations`
+  - per-instance branding and product configuration
+- `packages/storage`
+  - file-backed instance bundle format and loaders
 - `packages/fixture`
   - a text-heavy tweet-thread fixture
   - a structured county-economics fixture
+- `apps/api`
+  - local API server for instance bootstrap, query, record lookup, and aggregation
+- `apps/ingest`
+  - arbitrary dataset normalizer for CSV, JSON, and Parquet input
+- `apps/frontend`
+  - product frontend for exploring any active instance
 - `apps/cli`
-  - local runner for describing datasets, previewing records, running filters, and testing text projections
+  - local runner for low-level inspection and compatibility checks
 
 ## Why This Exists
 
@@ -57,36 +67,70 @@ Install dependencies:
 npm install
 ```
 
-Describe the tweet fixture:
+Run the full local stack:
 
 ```bash
-npm run dev -- describe tweets
+npm run dev:stack
 ```
 
-Preview a text query:
+The API runs on `http://localhost:8787` and the frontend on `http://localhost:4173`.
+
+The repo ships with two demo instances:
+
+- `demo-tweets`
+- `demo-econ`
+
+You can also use the low-level CLI:
 
 ```bash
-npm run dev -- query tweets --text "housing permits"
+npm run dev:cli -- describe tweets
 ```
 
-Run a structured aggregation:
+Normalize a new arbitrary dataset into a deployable instance bundle:
 
 ```bash
-npm run dev -- aggregate county-economics --group-by state --measure median_household_income
+npm run dev:ingest -- \
+  --input ~/Downloads/Enriched\ Tweets.parquet \
+  --id enriched-tweets \
+  --name "Enriched Tweets" \
+  --dataset-id tweets \
+  --entity-type tweet \
+  --title-field tweet_id \
+  --summary-field full_text \
+  --text-fields full_text,username,account_display_name \
+  --date-field created_at
 ```
+
+That writes `data/instances/enriched-tweets/instance.json`, which the API and frontend can serve immediately.
+
+## Deployment Shape
+
+This first deployment-ready version is intentionally file-backed:
+
+- ingest turns source files into portable instance bundles
+- the API serves bundles directly from `data/instances/*/instance.json`
+- the frontend discovers instances through the API
+- each dataset instance carries its own branding and product metadata
+
+That means spinning up a new dataset is cheap:
+
+1. normalize a source file with `apps/ingest`
+2. put the generated bundle under `data/instances/<instance-id>/instance.json`
+3. start or deploy the API and frontend
+4. select the instance in the UI
 
 ## Initial Direction
 
 This repo is intentionally narrow in scope for the first commit:
 
 - define the general substrate cleanly
-- prove it with one text-style and one structured dataset
-- keep local workflows simple before adding storage, indexing, or deployments
+- attach a real API and frontend
+- make new dataset instances cheap to spin up locally
+- keep persistence simple before introducing heavier infra
 
 The next layer after this scaffold should be:
 
-1. pluggable storage backends
-2. incremental ingest pipelines
+1. pluggable storage backends beyond flat-file bundles
+2. richer ingest controls for schema overrides and field typing
 3. hybrid retrieval across structured filters and text projections
 4. runtime execution plans that can mix table operations with text-backed evidence gathering
-

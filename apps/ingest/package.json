@@ -1,0 +1,15 @@
+{
+  "name": "@alpha-datasets/ingest",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@alpha-datasets/storage": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "dev": "node --import tsx src/index.ts"
+  }
+}
+

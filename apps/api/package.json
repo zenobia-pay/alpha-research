@@ -1,0 +1,18 @@
+{
+  "name": "@alpha-datasets/api",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@alpha-datasets/core": "0.1.0",
+    "@alpha-datasets/storage": "0.1.0",
+    "hono": "^4.11.10",
+    "@hono/node-server": "^1.19.6"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "dev": "node --import tsx src/server.ts"
+  }
+}
+

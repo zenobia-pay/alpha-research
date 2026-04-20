@@ -5,11 +5,25 @@
       "path": "./packages/core"
     },
     {
+      "path": "./packages/implementations"
+    },
+    {
+      "path": "./packages/storage"
+    },
+    {
       "path": "./packages/fixture"
     },
     {
+      "path": "./apps/api"
+    },
+    {
+      "path": "./apps/ingest"
+    },
+    {
       "path": "./apps/cli"
+    },
+    {
+      "path": "./apps/frontend"
     }
   ]
 }
-

@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@alpha-datasets/core": [
+        "../../packages/core/src/index.ts"
+      ],
+      "@alpha-datasets/storage": [
+        "../../packages/storage/src/index.ts"
+      ]
+    }
+  },
+  "references": [
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/storage"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
+}
+
