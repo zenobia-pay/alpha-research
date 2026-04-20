@@ -1,6 +1,11 @@
-# CLI Auth Contract
+# CLI Auth And Remote API Contract
 
-The `research` CLI now supports browser-based login, but the web product still needs to implement the matching auth endpoint.
+The `research` CLI now has two layers:
+
+- browser-based sign-in
+- an Ink-based interactive agent shell that manages local and remote datasets
+
+The browser handoff endpoint exists. What still needs server implementation is the authenticated remote dataset and run API that the agent calls after sign-in.
 
 ## CLI Behavior
 
@@ -26,7 +31,7 @@ http://127.0.0.1:<port>/cli/callback?state=<state>&token=<session-token>
 ~/.research/session.json
 ```
 
-## Required Web Endpoint
+## Required Browser Handoff Endpoint
 
 The website should implement:
 
@@ -49,6 +54,26 @@ Expected behavior:
 ```text
 <redirect_uri>?state=<state>&token=<session-token>
 ```
+
+## Required Remote Dataset API
+
+After login succeeds, the CLI expects authenticated JSON endpoints such as:
+
+```text
+GET  /api/cli/me
+GET  /api/cli/datasets
+POST /api/cli/datasets
+POST /api/cli/datasets/:datasetId/deploy
+GET  /api/cli/runs
+POST /api/cli/datasets/:datasetId/runs
+```
+
+The current CLI uses those endpoints for:
+
+- listing remote datasets
+- registering a new dataset from a local manifest/package
+- kicking off deployments
+- starting remote research runs
 
 ## Notes
 

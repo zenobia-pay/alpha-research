@@ -4,6 +4,7 @@
     "rootDir": "src",
     "outDir": "dist",
     "composite": true,
+    "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
       "@alpha-datasets/core": [
@@ -29,6 +30,7 @@
     }
   ],
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx"
   ]
 }

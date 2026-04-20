@@ -7,15 +7,15 @@
 COPY THIS PROMPT AND DESCRIBE YOUR DATASET AT THE BOTTOM:
 
 ```text
-Install the RESEARCH CLI and ingest my dataset.
+Install the RESEARCH CLI, sign in, create a research dataset from my file, and deploy it.
 
 Run:
 curl -fsSL https://raw.githubusercontent.com/zenobia-pay/alpha-research/codex/initial-substrate/scripts/install_alpha_research.sh | bash
 
 Then run:
-research ingest --mode tabular --input "/ABSOLUTE/PATH/TO/DATASET" --id my-dataset --name <DATASET_NAME> --dataset-id <DATASET_ID>
+research
 
-Decide the dataset name, id and path based on the description. After ingest finishes, tell me which instance bundle was created and how to launch the local stack.
+Once the RESEARCH agent opens, tell it to create a dataset from "/ABSOLUTE/PATH/TO/DATASET", choose the right dataset name and id from my description, sign in if needed, and deploy it.
 
 Dataset description:
 ```
@@ -56,7 +56,7 @@ The core ideas are:
 - `apps/frontend`
   - product frontend for exploring any active instance
 - `apps/cli`
-  - local runner for low-level inspection and compatibility checks
+  - Ink-based interactive agent shell plus scripted dataset commands
 
 ## Why This Exists
 
@@ -115,13 +115,22 @@ npm run dev:cli -- fixture describe tweets
 
 The main CLI surface is `research`.
 
+Running `research` with no arguments opens the interactive agent UI.
+
 Then use it:
 
 ```bash
-research instances
 research login
-research ingest --mode tabular --input ~/Downloads/Enriched\ Tweets.parquet --id enriched-tweets --name "Enriched Tweets" --dataset-id tweets --entity-type tweet --title-field tweet_id --summary-field full_text --text-fields full_text,username,account_display_name --date-field created_at
+research
 ```
+
+Inside the agent UI, you can ask it to:
+
+- sign in
+- list local datasets
+- create a dataset from a file and deploy it
+- list remote datasets
+- start remote runs
 
 Normalize a new arbitrary tabular dataset into a deployable research package:
 
@@ -219,7 +228,7 @@ Ingestion is working for:
 
 The storage model is documented in [docs/storage-architecture.md](docs/storage-architecture.md).
 
-The RESEARCH CLI login flow targets `https://alpharesearch.nyc/cli/login` by default and stores the session locally in `~/.research/session.json`. See [docs/cli-auth.md](docs/cli-auth.md).
+The RESEARCH CLI login flow targets `https://alpharesearch.nyc/cli/login` by default and stores the session locally in `~/.research/session.json`. The interactive CLI is agent-driven, but the remote dataset and run APIs still need to exist on the server side. See [docs/cli-auth.md](docs/cli-auth.md).
 
 ## DigitalOcean Deployment
 
