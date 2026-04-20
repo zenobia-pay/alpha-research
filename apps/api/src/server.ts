@@ -80,5 +80,5 @@ serve({
   fetch: app.fetch,
   port,
 }, (info) => {
-  console.log(`alpha-datasets api listening on http://localhost:${info.port}`);
+  console.log(`alpha-research api listening on http://localhost:${info.port}`);
 });

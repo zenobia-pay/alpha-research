@@ -1,5 +1,5 @@
 {
-  "name": "alpha-datasets",
+  "name": "alpha-research",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,9 @@
     "dev:frontend": "npm run dev -w @alpha-datasets/frontend",
     "dev:ingest": "npm run dev -w @alpha-datasets/ingest",
     "dev:cli": "npm run dev -w @alpha-datasets/cli",
-    "dev:stack": "concurrently -k -n api,frontend \"npm run dev:api\" \"npm run dev:frontend\""
+    "dev:stack": "concurrently -k -n api,frontend \"npm run dev:api\" \"npm run dev:frontend\"",
+    "ingest:tabular": "python3 scripts/normalize_tabular_dataset.py",
+    "ingest:unstructured": "python3 scripts/normalize_unstructured_dataset.py"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",

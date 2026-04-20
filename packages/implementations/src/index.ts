@@ -22,8 +22,8 @@ export interface DatasetImplementationConfig {
 
 export const DEFAULT_IMPLEMENTATION: DatasetImplementationConfig = {
   id: "default",
-  productName: "Alpha Datasets",
-  siteName: "alpha datasets",
+  productName: "Alpha Research",
+  siteName: "alpha research",
   siteDescription: "Explore arbitrary datasets through a unified interface for search, filtering, and aggregation.",
   datasetId: "unknown",
   datasetLabelSingular: "record",
@@ -58,4 +58,3 @@ export function mergeImplementationConfig(
     },
   };
 }
-

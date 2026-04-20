@@ -1,6 +1,6 @@
-# Alpha Datasets
+# Alpha Research
 
-`alpha-datasets` is a dataset-centric platform for building deployable research products over arbitrary data, not just text corpora.
+`alpha-research` is a dataset-centric platform for building deployable research products over arbitrary data, not just text corpora.
 
 The core idea is:
 
@@ -25,7 +25,7 @@ The core idea is:
 - `apps/api`
   - local API server for instance bootstrap, query, record lookup, and aggregation
 - `apps/ingest`
-  - arbitrary dataset normalizer for CSV, JSON, and Parquet input
+  - arbitrary dataset normalizer for tabular and unstructured input
 - `apps/frontend`
   - product frontend for exploring any active instance
 - `apps/cli`
@@ -86,7 +86,7 @@ You can also use the low-level CLI:
 npm run dev:cli -- describe tweets
 ```
 
-Normalize a new arbitrary dataset into a deployable instance bundle:
+Normalize a new arbitrary tabular dataset into a deployable instance bundle:
 
 ```bash
 npm run dev:ingest -- \
@@ -101,7 +101,17 @@ npm run dev:ingest -- \
   --date-field created_at
 ```
 
-That writes `data/instances/enriched-tweets/instance.json`, which the API and frontend can serve immediately.
+Normalize an unstructured text corpus from a directory or file set:
+
+```bash
+npm run ingest:unstructured -- \
+  --input ~/Documents/my-corpus \
+  --id essays \
+  --name "Collected Essays" \
+  --dataset-id essays
+```
+
+That writes `data/instances/<instance-id>/instance.json`, which the API and frontend can serve immediately.
 
 ## Deployment Shape
 
@@ -118,6 +128,60 @@ That means spinning up a new dataset is cheap:
 2. put the generated bundle under `data/instances/<instance-id>/instance.json`
 3. start or deploy the API and frontend
 4. select the instance in the UI
+
+## Testing
+
+The shortest test loop is:
+
+1. `npm install`
+2. `npm run dev:stack`
+3. open `http://localhost:4173`
+4. switch between `demo-tweets` and `demo-econ`
+5. run a search and an aggregation
+
+You can also test the API directly:
+
+```bash
+curl http://localhost:8787/api/instances
+curl http://localhost:8787/api/instances/demo-tweets/bootstrap
+curl -X POST http://localhost:8787/api/instances/demo-econ/aggregate \
+  -H 'content-type: application/json' \
+  -d '{"groupBy":"state","measure":"median_household_income","op":"avg"}'
+```
+
+## Ingestion Modes
+
+The repo now supports multiple ingestion paths:
+
+- Tabular: CSV, JSON array-of-objects, Parquet
+- Unstructured: `.txt`, `.md`, `.markdown`, `.html`, `.htm`, and `.pdf` when `pypdf` is available
+
+Recommended process for a new dataset:
+
+1. Decide whether the primary unit is tabular row, thread, document, or file.
+2. Run the matching ingestion script to generate an instance bundle.
+3. Inspect the generated `instance.json`.
+4. Start the stack locally and check the dataset in the UI.
+5. If the schema needs refinement, rerun ingest with different title/summary/text field choices.
+
+## DigitalOcean Deployment
+
+The recommended production topology is:
+
+- one mounted DigitalOcean Volume for `data/instances`
+- one API/orchestrator droplet that reads bundles from that mounted volume
+- one optional ingest/worker droplet for heavier normalization or scheduled refreshes
+- one frontend deployment, either:
+  - static assets on a small droplet behind Nginx, or
+  - object storage/CDN if you want the frontend completely decoupled
+
+The current architecture works especially well when:
+
+- datasets are large enough that you want persistent attached storage
+- instance bundles are generated offline or by workers
+- API nodes should stay stateless apart from the mounted dataset volume
+
+See [ops/digitalocean/README.md](ops/digitalocean/README.md) for the concrete layout and service templates.
 
 ## Initial Direction
 

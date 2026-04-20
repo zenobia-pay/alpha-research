@@ -176,7 +176,7 @@ export default function App() {
       <header className="topbar">
         <div>
           <div className="eyebrow">Dataset-Centric Platform</div>
-          <h1>{bootstrap?.implementation.productName ?? "Alpha Datasets"}</h1>
+          <h1>{bootstrap?.implementation.productName ?? "Alpha Research"}</h1>
         </div>
         <label className="instance-picker">
           <span>Instance</span>
