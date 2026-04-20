@@ -23,10 +23,11 @@ else
 fi
 
 git -C "${INSTALL_ROOT}" checkout "${REPO_REF}"
-git -C "${INSTALL_ROOT}" pull --ff-only origin "${REPO_REF}"
+git -C "${INSTALL_ROOT}" reset --hard "origin/${REPO_REF}"
+git -C "${INSTALL_ROOT}" clean -fd
 
 cd "${INSTALL_ROOT}"
-npm install
+npm ci
 npm run build -w @alpha-datasets/cli
 
 cat > "${WRAPPER_PATH}" <<EOF
