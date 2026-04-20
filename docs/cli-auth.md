@@ -1,13 +1,13 @@
 # CLI Auth Contract
 
-The `alpha-research` CLI now supports browser-based login, but the web product still needs to implement the matching auth endpoint.
+The `research` CLI now supports browser-based login, but the web product still needs to implement the matching auth endpoint.
 
 ## CLI Behavior
 
 Running:
 
 ```bash
-alpha-research login
+research login
 ```
 
 does this:
@@ -23,7 +23,7 @@ http://127.0.0.1:<port>/cli/callback?state=<state>&token=<session-token>
 4. stores the returned token in:
 
 ```text
-~/.alpha-research/session.json
+~/.research/session.json
 ```
 
 ## Required Web Endpoint

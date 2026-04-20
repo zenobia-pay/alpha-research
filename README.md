@@ -86,27 +86,35 @@ You can also use the low-level CLI:
 npm run dev:cli -- fixture describe tweets
 ```
 
-The real CLI surface is now `alpha-research`.
+The real CLI surface is `research`.
 
-Generate the agent-install prompt:
+## Copy This To Your Agent
+
+```text
+Install the RESEARCH CLI and ingest my dataset.
+
+Run:
+curl -fsSL https://raw.githubusercontent.com/zenobia-pay/alpha-research/codex/initial-substrate/scripts/install_alpha_research.sh | bash
+
+Then run:
+research ingest --mode tabular --input "/ABSOLUTE/PATH/TO/DATASET" --id my-dataset --name "My Dataset" --dataset-id my-dataset
+
+After ingest finishes, tell me which instance bundle was created and how to launch the local stack.
+```
+
+You can also generate a customized version of that prompt:
 
 ```bash
 npm run build -w @alpha-datasets/cli
 npm run cli -- install-prompt --dataset ~/Downloads/Enriched\ Tweets.parquet --mode tabular --id enriched-tweets --name "Enriched Tweets"
 ```
 
-Install the CLI directly:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/zenobia-pay/alpha-research/codex/initial-substrate/scripts/install_alpha_research.sh | bash
-```
-
 Then use it:
 
 ```bash
-alpha-research instances
-alpha-research login
-alpha-research ingest --mode tabular --input ~/Downloads/Enriched\ Tweets.parquet --id enriched-tweets --name "Enriched Tweets" --dataset-id tweets --entity-type tweet --title-field tweet_id --summary-field full_text --text-fields full_text,username,account_display_name --date-field created_at
+research instances
+research login
+research ingest --mode tabular --input ~/Downloads/Enriched\ Tweets.parquet --id enriched-tweets --name "Enriched Tweets" --dataset-id tweets --entity-type tweet --title-field tweet_id --summary-field full_text --text-fields full_text,username,account_display_name --date-field created_at
 ```
 
 Normalize a new arbitrary tabular dataset into a deployable instance bundle:
@@ -182,7 +190,7 @@ The repo now supports multiple ingestion paths:
 Recommended process for a new dataset:
 
 1. Decide whether the primary unit is tabular row, thread, document, or file.
-2. Run `alpha-research ingest ...` or the matching ingest script to generate an instance bundle.
+2. Run `research ingest ...` or the matching ingest script to generate an instance bundle.
 3. Inspect the generated `instance.json`.
 4. Start the stack locally and check the dataset in the UI.
 5. If the schema needs refinement, rerun ingest with different title/summary/text field choices.

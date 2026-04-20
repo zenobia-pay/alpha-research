@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "bin": {
-    "alpha-research": "dist/index.js"
+    "research": "dist/index.js"
   },
   "dependencies": {
     "@alpha-datasets/core": "0.1.0",

@@ -28,7 +28,7 @@ type SessionRecord = {
   createdAt: string;
 };
 
-const SESSION_DIR = join(homedir(), ".alpha-research");
+const SESSION_DIR = join(homedir(), ".research");
 const SESSION_PATH = join(SESSION_DIR, "session.json");
 const DEFAULT_WEB_ORIGIN = process.env.ALPHA_RESEARCH_WEB_ORIGIN ?? "https://alpha-research.example.com";
 const DEFAULT_INSTALL_URL = process.env.ALPHA_RESEARCH_INSTALL_URL
@@ -73,7 +73,7 @@ function parseFilter(filterArg: string): DatasetFilter {
 
 function printUsage() {
   console.log([
-    "alpha-research",
+    "research",
     "",
     "Commands:",
     "  install-prompt --dataset <path> [--mode auto|tabular|unstructured] [--name <name>] [--id <instance-id>]",
@@ -134,7 +134,7 @@ async function login(flags: Record<string, string>) {
       accessToken: flags.token,
       createdAt: new Date().toISOString(),
     });
-    console.log("Saved alpha-research CLI session from provided token.");
+    console.log("Saved RESEARCH CLI session from provided token.");
     return;
   }
 
@@ -145,7 +145,7 @@ async function login(flags: Record<string, string>) {
   const loginUrl = new URL("/cli/login", origin);
   loginUrl.searchParams.set("state", state);
   loginUrl.searchParams.set("redirect_uri", callbackUrl);
-  loginUrl.searchParams.set("client", "alpha-research-cli");
+  loginUrl.searchParams.set("client", "research-cli");
 
   const token = await new Promise<string>((resolve, reject) => {
     const server = createServer(async (request, response) => {
@@ -161,17 +161,17 @@ async function login(flags: Record<string, string>) {
         response.statusCode = 400;
         response.end("Missing or invalid auth callback");
         server.close();
-        reject(new Error("Invalid alpha-research auth callback"));
+        reject(new Error("Invalid RESEARCH auth callback"));
         return;
       }
       response.statusCode = 200;
       response.setHeader("Content-Type", "text/html; charset=utf-8");
-      response.end("<html><body><h1>alpha-research CLI login complete</h1><p>You can return to your terminal.</p></body></html>");
+      response.end("<html><body><h1>RESEARCH CLI login complete</h1><p>You can return to your terminal.</p></body></html>");
       server.close();
       resolve(accessToken);
     });
     server.listen(port, "127.0.0.1", () => {
-      console.log(`Opening alpha-research login in browser: ${loginUrl.toString()}`);
+      console.log(`Opening RESEARCH login in browser: ${loginUrl.toString()}`);
       console.log("If the browser does not open, visit this URL manually:");
       console.log(loginUrl.toString());
       try {
@@ -188,7 +188,7 @@ async function login(flags: Record<string, string>) {
     accessToken: token,
     createdAt: new Date().toISOString(),
   });
-  console.log("Saved alpha-research CLI session.");
+  console.log("Saved RESEARCH CLI session.");
 }
 
 async function runIngest(args: string[]) {
@@ -216,14 +216,14 @@ function buildInstallPrompt(flags: Record<string, string>) {
   const id = flags.id ?? "my-dataset";
   const datasetId = flags["dataset-id"] ?? id;
   return [
-    "Copy this into Codex CLI or Claude Code:",
+    "Copy this to your agent:",
     "",
-    "Install the alpha-research CLI, log in if needed, and ingest my dataset into a local alpha-research instance.",
+    "Install the RESEARCH CLI, log in if needed, and ingest my dataset into a local Alpha Research instance.",
     "",
     `Run: curl -fsSL ${DEFAULT_INSTALL_URL} | bash`,
     "",
     "Then run:",
-    `alpha-research ingest --mode ${mode} --input "${dataset}" --id ${id} --name "${name}" --dataset-id ${datasetId}`,
+    `research ingest --mode ${mode} --input "${dataset}" --id ${id} --name "${name}" --dataset-id ${datasetId}`,
     "",
     "After ingest finishes, tell me which instance bundle was created and how to launch the local stack.",
   ].join("\n");
@@ -296,7 +296,7 @@ async function main() {
   if (command === "whoami") {
     const session = await readSession();
     if (!session) {
-      console.log("No alpha-research CLI session found.");
+      console.log("No RESEARCH CLI session found.");
       process.exitCode = 1;
       return;
     }
