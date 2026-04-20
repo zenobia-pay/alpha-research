@@ -209,7 +209,7 @@ Ingestion is working for:
 - unstructured text normalization into instance bundles
 - serving those bundles locally via the API and frontend
 
-What is **not** fully complete yet is the account-backed CLI login on the website. The CLI side is implemented, but the web app still needs the matching `/cli/login` endpoint. See [docs/cli-auth.md](docs/cli-auth.md).
+The RESEARCH CLI login flow targets `https://alpharesearch.nyc/cli/login` by default and stores the session locally in `~/.research/session.json`. See [docs/cli-auth.md](docs/cli-auth.md).
 
 ## DigitalOcean Deployment
 

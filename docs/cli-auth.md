@@ -13,7 +13,7 @@ research login
 does this:
 
 1. starts a local callback listener on `127.0.0.1`
-2. opens `${ALPHA_RESEARCH_WEB_ORIGIN}/cli/login?...`
+2. opens `${ALPHA_RESEARCH_WEB_ORIGIN:-https://alpharesearch.nyc}/cli/login?...`
 3. waits for a redirect back to:
 
 ```text

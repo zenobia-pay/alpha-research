@@ -30,7 +30,7 @@ type SessionRecord = {
 
 const SESSION_DIR = join(homedir(), ".research");
 const SESSION_PATH = join(SESSION_DIR, "session.json");
-const DEFAULT_WEB_ORIGIN = process.env.ALPHA_RESEARCH_WEB_ORIGIN ?? "https://alpha-research.example.com";
+const DEFAULT_WEB_ORIGIN = process.env.ALPHA_RESEARCH_WEB_ORIGIN ?? "https://alpharesearch.nyc";
 const DEFAULT_INSTALL_URL = process.env.ALPHA_RESEARCH_INSTALL_URL
   ?? "https://raw.githubusercontent.com/zenobia-pay/alpha-research/codex/initial-substrate/scripts/install_alpha_research.sh";
 const DEFAULT_INSTANCE_ROOT = process.env.DATASET_INSTANCE_ROOT
