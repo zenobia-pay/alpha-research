@@ -592,7 +592,10 @@ def write_sharded_instance(args: argparse.Namespace, bundle: dict[str, Any], out
 
 def stream_parquet_to_sharded_instance(args: argparse.Namespace, input_path: Path) -> dict[str, Any]:
     if pq is None:
-        raise RuntimeError("Streaming parquet ingest requires pyarrow to be installed in the Python environment.")
+        raise RuntimeError(
+            "Streaming parquet ingest requires pyarrow to be installed in the Python environment. "
+            "Try: python3 -m pip install --user --break-system-packages pyarrow"
+        )
 
     output_dir = Path(args.output_root).expanduser().resolve() / args.id
     output_dir.mkdir(parents=True, exist_ok=True)

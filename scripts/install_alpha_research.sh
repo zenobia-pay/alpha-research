@@ -23,6 +23,7 @@ else
 fi
 
 git -C "${INSTALL_ROOT}" checkout "${REPO_REF}"
+git -C "${INSTALL_ROOT}" pull --ff-only origin "${REPO_REF}"
 
 cd "${INSTALL_ROOT}"
 npm install
