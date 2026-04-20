@@ -27,6 +27,17 @@ type BootstrapPayload = {
     measures?: Array<{ key: string; label: string }>;
   };
   recordCount: number;
+  layout: string;
+  shardCount?: number;
+  storageProfile?: {
+    canonicalStore: string;
+    catalog: string;
+    vectorIndex?: string;
+    textIndex?: string;
+    tabularFormat?: string;
+    textFormat?: string;
+    textCompression?: string;
+  };
   sampleRecords: Array<{
     id: string;
     title: string;
@@ -209,6 +220,17 @@ export default function App() {
               <strong>{bootstrap?.descriptor.measures?.length ?? 0}</strong>
             </div>
           </div>
+          {bootstrap ? (
+            <p className="microcopy">
+              Layout: <strong>{bootstrap.layout}</strong>
+              {" · "}
+              Store: <strong>{bootstrap.storageProfile?.canonicalStore ?? "filesystem"}</strong>
+              {" · "}
+              Catalog: <strong>{bootstrap.storageProfile?.catalog ?? "bundle_manifest"}</strong>
+              {bootstrap.storageProfile?.vectorIndex ? ` · Vector: ${bootstrap.storageProfile.vectorIndex}` : ""}
+              {bootstrap.shardCount ? ` · Shards: ${bootstrap.shardCount}` : ""}
+            </p>
+          ) : null}
           <div className="query-bar">
             <input
               value={queryText}

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import json
 import re
 from html import unescape
@@ -38,6 +39,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--entity-type", default="row")
     parser.add_argument("--dataset-label-singular", default="record")
     parser.add_argument("--dataset-label-plural", default="records")
+    parser.add_argument("--shard-record-limit", type=int, default=50000)
+    parser.add_argument("--compression", choices=["none", "gzip"], default="gzip")
     return parser.parse_args()
 
 
@@ -58,16 +61,57 @@ def normalize_value(value: Any) -> Any:
     return str(value)
 
 
+def infer_scalar_kind(value: Any) -> str:
+    normalized = normalize_value(value)
+    if normalized in (None, "", []):
+        return "empty"
+    if isinstance(normalized, bool):
+        return "boolean"
+    if isinstance(normalized, (int, float)) and not isinstance(normalized, bool):
+        return "number"
+    text = str(normalized).strip()
+    if re.fullmatch(r"true|false", text, flags=re.IGNORECASE):
+        return "boolean"
+    if re.fullmatch(r"-?\d+(\.\d+)?", text):
+        return "number"
+    if "-" in text and len(text) >= 4:
+        return "date"
+    return "string"
+
+
+def cast_value_for_kind(value: Any, kind: str) -> Any:
+    normalized = normalize_value(value)
+    if normalized in (None, "", []):
+        return None
+    if kind == "number":
+        if isinstance(normalized, (int, float)) and not isinstance(normalized, bool):
+            return normalized
+        text = str(normalized).strip()
+        if re.fullmatch(r"-?\d+", text):
+            return int(text)
+        if re.fullmatch(r"-?\d+\.\d+", text):
+            return float(text)
+    if kind == "boolean":
+        if isinstance(normalized, bool):
+            return normalized
+        text = str(normalized).strip().lower()
+        if text == "true":
+            return True
+        if text == "false":
+            return False
+    return normalized
+
+
 def infer_kind(values: list[Any]) -> str:
-    compact = [value for value in values if value not in (None, "", [])]
+    compact = [value for value in values if normalize_value(value) not in (None, "", [])]
     if not compact:
         return "string"
-    if all(isinstance(value, bool) for value in compact):
+    scalar_kinds = [infer_scalar_kind(value) for value in compact[:100]]
+    if all(kind == "boolean" for kind in scalar_kinds):
         return "boolean"
-    if all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in compact):
+    if all(kind == "number" for kind in scalar_kinds):
         return "number"
-    lowered = [str(value).lower() for value in compact[:20]]
-    if all("-" in value and len(value) >= 4 for value in lowered):
+    if all(infer_scalar_kind(value) == "date" for value in compact[:20]):
         return "date"
     return "string"
 
@@ -86,8 +130,8 @@ def choose_title_field(rows: list[dict[str, Any]], explicit: str | None) -> str:
 def read_tabular_rows(path: Path) -> list[dict[str, Any]]:
     suffix = path.suffix.lower()
     if suffix == ".csv":
-      with path.open("r", encoding="utf-8", newline="") as handle:
-          return list(csv.DictReader(handle))
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            return list(csv.DictReader(handle))
     if suffix == ".json":
         payload = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(payload, list):
@@ -185,6 +229,137 @@ def build_bundle(
     }
 
 
+def sanitize_path_value(value: str) -> str:
+    return re.sub(r"[^a-z0-9._-]+", "-", value.lower()).strip("-")[:64] or "unknown"
+
+
+def choose_partition_keys(bundle: dict[str, Any]) -> list[str]:
+    descriptor = bundle["descriptor"]
+    keys: list[str] = []
+    if len(descriptor.get("entityTypes") or []) > 1:
+        keys.append("entityType")
+    if any(field.get("kind") == "date" for field in descriptor.get("fields") or []):
+        keys.append("observedYear")
+    geography_field = next((field for field in descriptor.get("fields") or [] if field.get("kind") == "geography"), None)
+    if geography_field:
+        keys.append(str(geography_field["key"]))
+    category_field = next((field for field in descriptor.get("fields") or [] if field.get("kind") == "category"), None)
+    if category_field:
+        keys.append(str(category_field["key"]))
+    return keys[:2]
+
+
+def infer_partition_value(record: dict[str, Any], key: str) -> str | None:
+    if key == "entityType":
+        return str(record.get("entityType") or "unknown")
+    if key == "observedYear":
+        observed_at = record.get("observedAt")
+        return str(observed_at)[:4] if observed_at else None
+    value = (record.get("values") or {}).get(key)
+    if isinstance(value, list):
+        value = value[0] if value else None
+    return None if value in (None, "") else str(value)
+
+
+def chunk_values(values: list[Any], size: int) -> list[list[Any]]:
+    return [values[index:index + size] for index in range(0, len(values), max(1, size))]
+
+
+def write_jsonl_rows(path: Path, rows: list[dict[str, Any]], compression: str) -> int:
+    payload = "".join(json.dumps(row, separators=(",", ":")) + "\n" for row in rows)
+    if compression == "gzip":
+        encoded = gzip.compress(payload.encode("utf-8"), compresslevel=6)
+        path.write_bytes(encoded)
+        return len(encoded)
+    path.write_text(payload, encoding="utf-8")
+    return path.stat().st_size
+
+
+def write_sharded_instance(args: argparse.Namespace, bundle: dict[str, Any], output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    shard_limit = max(1, args.shard_record_limit)
+    compression = args.compression
+    partition_keys = choose_partition_keys(bundle)
+    records = bundle["records"]
+    projections = [
+        projection
+        for projection_list in (bundle.get("textProjectionsByRecordId") or {}).values()
+        for projection in projection_list
+    ]
+    shards: list[dict[str, Any]] = []
+
+    for index, rows in enumerate(chunk_values(records, shard_limit)):
+        partition_entries = []
+        if rows:
+            for key in partition_keys:
+                value = infer_partition_value(rows[0], key)
+                if value:
+                    partition_entries.append((key, value))
+        partition_prefix = (
+            "/".join(f"{key}={sanitize_path_value(value)}" for key, value in partition_entries) + "/"
+            if partition_entries else ""
+        )
+        filename = f"part-{index:05d}.jsonl" + (".gz" if compression == "gzip" else "")
+        relative_path = f"records/{partition_prefix}{filename}"
+        target = output_dir / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        byte_size = write_jsonl_rows(target, rows, compression)
+        shards.append({
+            "id": f"records-{index}",
+            "kind": "records",
+            "path": relative_path,
+            "format": "jsonl",
+            "compression": compression,
+            "rowCount": len(rows),
+            "byteSize": byte_size,
+            "partitions": {key: value for key, value in partition_entries} or None,
+        })
+
+    for index, rows in enumerate(chunk_values(projections, shard_limit)):
+        filename = f"part-{index:05d}.jsonl" + (".gz" if compression == "gzip" else "")
+        relative_path = f"text-projections/{filename}"
+        target = output_dir / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        byte_size = write_jsonl_rows(target, rows, compression)
+        shards.append({
+            "id": f"text-projections-{index}",
+            "kind": "text_projections",
+            "path": relative_path,
+            "format": "jsonl",
+            "compression": compression,
+            "rowCount": len(rows),
+            "byteSize": byte_size,
+        })
+
+    manifest = {
+        "version": 2,
+        "layout": "sharded",
+        "implementation": bundle["implementation"],
+        "descriptor": bundle["descriptor"],
+        "storageProfile": {
+            "canonicalStore": "object_storage",
+            "catalog": "postgres",
+            "vectorIndex": "qdrant" if projections else "none",
+            "textIndex": "typesense" if projections else "none",
+            "tabularFormat": "parquet",
+            "textFormat": "jsonl",
+            "textCompression": compression,
+        },
+        "stats": {
+            "recordCount": len(records),
+            "textProjectionCount": len(projections),
+            "shardCount": len(shards),
+        },
+        "samples": {
+            "records": records[:12],
+        },
+        "shards": shards,
+    }
+    target = output_dir / "manifest.json"
+    target.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return target
+
+
 def build_tabular_bundle(args: argparse.Namespace, input_path: Path) -> dict[str, Any]:
     rows = read_tabular_rows(input_path)
     if not rows:
@@ -202,8 +377,10 @@ def build_tabular_bundle(args: argparse.Namespace, input_path: Path) -> dict[str
 
     descriptor_fields = []
     numeric_measures = []
+    column_kinds: dict[str, str] = {}
     for column in columns:
         kind = infer_kind(normalized_columns[column])
+        column_kinds[column] = kind
         descriptor_fields.append({
             "key": column,
             "label": column.replace("_", " ").title(),
@@ -218,7 +395,7 @@ def build_tabular_bundle(args: argparse.Namespace, input_path: Path) -> dict[str
     records: list[dict[str, Any]] = []
     projections: dict[str, list[dict[str, Any]]] = {}
     for index, row in enumerate(rows):
-        values = {key: normalize_value(value) for key, value in row.items()}
+        values = {key: cast_value_for_kind(value, column_kinds[key]) for key, value in row.items()}
         record_id = str(values.get("id") or values.get("tweet_id") or values.get("record_id") or f"{args.id}-{index + 1}")
         title = str(values.get(title_field) or f"{args.name} #{index + 1}")
         summary = str(values.get(summary_field)) if summary_field and values.get(summary_field) is not None else None
@@ -327,16 +504,19 @@ def main() -> None:
     mode = args.mode if args.mode != "auto" else detect_mode(input_path)
     bundle = build_tabular_bundle(args, input_path) if mode == "tabular" else build_unstructured_bundle(args, input_path)
     output_dir = Path(args.output_root).expanduser().resolve() / args.id
-    output_dir.mkdir(parents=True, exist_ok=True)
-    target = output_dir / "instance.json"
-    target.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
+    target = write_sharded_instance(args, bundle, output_dir)
     print(json.dumps({
         "ok": True,
         "mode": mode,
         "path": str(target),
         "records": len(bundle["records"]),
-        "textProjectionRecords": len(bundle.get("textProjectionsByRecordId") or {}),
+        "textProjectionRecords": sum(
+            len(items) for items in (bundle.get("textProjectionsByRecordId") or {}).values()
+        ),
         "numericMeasures": len(bundle["descriptor"].get("measures") or []),
+        "layout": "sharded",
+        "compression": args.compression,
+        "shardRecordLimit": args.shard_record_limit,
     }, indent=2))
 
 

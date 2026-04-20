@@ -3,11 +3,12 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { fileURLToPath } from "node:url";
 
-import { aggregateRecords, queryDataset } from "@alpha-datasets/core";
 import {
-  createBundleAdapter,
+  aggregateInstance,
+  getInstanceBootstrap,
+  getInstanceRecordById,
   listInstanceBundles,
-  loadInstanceBundle,
+  queryInstance,
 } from "@alpha-datasets/storage";
 
 const app = new Hono();
@@ -28,34 +29,25 @@ app.get("/api/instances", async (context) => {
 });
 
 app.get("/api/instances/:instanceId/bootstrap", async (context) => {
-  const bundle = await loadInstanceBundle(instanceRoot, context.req.param("instanceId"));
-  return context.json({
-    implementation: bundle.implementation,
-    descriptor: bundle.descriptor,
-    recordCount: bundle.records.length,
-    sampleRecords: bundle.records.slice(0, 12),
-    supportsTextSearch: Boolean(bundle.textProjectionsByRecordId && Object.keys(bundle.textProjectionsByRecordId).length > 0),
-  });
+  const bootstrap = await getInstanceBootstrap(instanceRoot, context.req.param("instanceId"));
+  return context.json(bootstrap);
 });
 
 app.get("/api/instances/:instanceId/records/:recordId", async (context) => {
-  const bundle = await loadInstanceBundle(instanceRoot, context.req.param("instanceId"));
-  const adapter = createBundleAdapter(bundle);
-  const record = await adapter.getRecordById(context.req.param("recordId"));
-  if (!record) {
+  const payload = await getInstanceRecordById(
+    instanceRoot,
+    context.req.param("instanceId"),
+    context.req.param("recordId"),
+  );
+  if (!payload) {
     return context.json({ error: "Record not found" }, 404);
   }
-  return context.json({
-    record,
-    textProjections: adapter.projectText?.(record) ?? [],
-  });
+  return context.json(payload);
 });
 
 app.post("/api/instances/:instanceId/query", async (context) => {
   const body = await context.req.json().catch(() => ({}));
-  const bundle = await loadInstanceBundle(instanceRoot, context.req.param("instanceId"));
-  const adapter = createBundleAdapter(bundle);
-  const result = await queryDataset(adapter, {
+  const result = await queryInstance(instanceRoot, context.req.param("instanceId"), {
     text: typeof body.text === "string" ? body.text : undefined,
     filters: Array.isArray(body.filters) ? body.filters : [],
     limit: typeof body.limit === "number" ? body.limit : 20,
@@ -65,13 +57,13 @@ app.post("/api/instances/:instanceId/query", async (context) => {
 
 app.post("/api/instances/:instanceId/aggregate", async (context) => {
   const body = await context.req.json();
-  const bundle = await loadInstanceBundle(instanceRoot, context.req.param("instanceId"));
   return context.json({
-    buckets: aggregateRecords(bundle.records, {
+    buckets: await aggregateInstance(instanceRoot, context.req.param("instanceId"), {
       groupBy: String(body.groupBy),
       measure: String(body.measure),
       op: body.op,
       limit: typeof body.limit === "number" ? body.limit : 10,
+      filters: Array.isArray(body.filters) ? body.filters : [],
     }),
   });
 });

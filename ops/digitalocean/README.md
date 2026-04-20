@@ -4,32 +4,37 @@ Recommended production layout for `alpha-research`:
 
 ## Topology
 
-- `alpha-research-data` DigitalOcean Volume
-  - mounted at `/srv/alpha-research/data`
-  - stores `data/instances/<instance-id>/instance.json`
+- object storage bucket
+  - canonical home for dataset manifests, Parquet partitions, and text-projection shards
+- managed Postgres
+  - dataset catalog
+  - shard inventory
+  - implementation and deployment metadata
+- `alpha-research-qdrant` droplet
+  - local NVMe volume
+  - Qdrant collection storage
 - `alpha-research-api` droplet
-  - runs the API/orchestrator process
-  - mounts the volume read-only or read-mostly
+  - serves the API and orchestrator
+  - maintains a local package cache under `/srv/alpha-research/cache`
 - `alpha-research-ingest` droplet
-  - optional worker for scheduled ingest or large normalization jobs
-  - mounts the same volume read-write
+  - optional worker for scheduled ingest, normalization, and backfills
 - `alpha-research-frontend` droplet or static host
   - serves the built frontend assets
   - points browser traffic at the API origin
 
 ## Why This Shape
 
-This repo is file-backed today. A mounted volume is the cleanest way to:
+For large datasets, a shared mounted volume is the wrong canonical store. The better split is:
 
-- keep API nodes stateless
-- let ingest jobs write large bundle outputs once
-- avoid shipping multi-gigabyte datasets into container images
-- support dataset refreshes without rebuilding the app tier
+- object storage for durability and cheap large artifacts
+- Postgres for catalog queries and metadata joins
+- Qdrant on local NVMe for fast vector retrieval
+- stateless API nodes with only a local cache
 
 ## Runtime Paths
 
 - code checkout: `/srv/alpha-research/repo`
-- dataset bundles: `/srv/alpha-research/data/instances`
+- local package cache: `/srv/alpha-research/cache/instances`
 - frontend build output: `/srv/alpha-research/repo/apps/frontend/dist`
 
 ## Environment
@@ -38,7 +43,10 @@ API:
 
 ```bash
 PORT=8787
-DATASET_INSTANCE_ROOT=/srv/alpha-research/data/instances
+DATASET_INSTANCE_ROOT=/srv/alpha-research/cache/instances
+DATASET_OBJECT_STORE_URL=s3://alpha-research-datasets
+DATASET_CATALOG_URL=postgres://...
+QDRANT_URL=http://alpha-research-qdrant:6333
 ```
 
 Frontend:
@@ -54,10 +62,18 @@ Use the systemd units in `ops/digitalocean/systemd/` as a starting point.
 ## Deploy Process
 
 1. Sync repo code to the droplet.
-2. Mount the DigitalOcean volume at `/srv/alpha-research/data`.
-3. Run ingest locally or on the ingest droplet to create/update bundles in `/srv/alpha-research/data/instances`.
-4. Build and restart the API.
-5. Build and deploy the frontend.
+2. Build and deploy the frontend.
+3. Build and restart the API.
+4. Run ingest on the ingest droplet.
+5. Publish the resulting package artifacts into object storage.
+6. Warm the API cache for the datasets you expect to serve heavily.
 
-For larger recurring refreshes, the ingest droplet should own normalization and write bundles onto the shared volume, while the API droplet only reads them.
+## Current Repo Status
 
+Today the repo already supports:
+
+- sharded local packages with `manifest.json`
+- lazy API reads from a local package cache
+- storage profiles that describe the intended production backend split
+
+The next production step is direct object-store and Postgres integration in the read path so the API does not depend on filesystem discovery alone.

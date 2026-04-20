@@ -45,7 +45,7 @@ The core ideas are:
 - `packages/implementations`
   - per-instance branding and product configuration
 - `packages/storage`
-  - file-backed instance bundle format and loaders
+  - sharded manifest format, lazy loaders, and compatibility support for legacy bundles
 - `packages/fixture`
   - a text-heavy tweet-thread fixture
   - a structured county-economics fixture
@@ -123,7 +123,7 @@ research login
 research ingest --mode tabular --input ~/Downloads/Enriched\ Tweets.parquet --id enriched-tweets --name "Enriched Tweets" --dataset-id tweets --entity-type tweet --title-field tweet_id --summary-field full_text --text-fields full_text,username,account_display_name --date-field created_at
 ```
 
-Normalize a new arbitrary tabular dataset into a deployable instance bundle:
+Normalize a new arbitrary tabular dataset into a deployable research package:
 
 ```bash
 npm run dev:ingest -- \
@@ -148,23 +148,31 @@ npm run ingest:unstructured -- \
   --dataset-id essays
 ```
 
-That writes `data/instances/<instance-id>/instance.json`, which the API and frontend can serve immediately.
+That writes a sharded package under `data/instances/<instance-id>/`:
+
+- `manifest.json`
+- `records/.../part-*.jsonl.gz`
+- `text-projections/.../part-*.jsonl.gz`
+
+The API and frontend can serve that package immediately.
 
 ## Deployment Shape
 
-This first deployment-ready version is intentionally file-backed:
+The local runtime serves sharded dataset packages from `DATASET_INSTANCE_ROOT`, but the intended production architecture is:
 
-- ingest turns source files into portable instance bundles
-- the API serves bundles directly from `data/instances/*/instance.json`
-- the frontend discovers instances through the API
-- each dataset instance carries its own branding and product metadata
+- canonical dataset store in object storage
+- partitioned Parquet for tabular and time-series source records
+- sharded text projections as compressed JSONL for local/runtime hydration
+- Postgres for the metadata catalog
+- Qdrant on local NVMe for vector retrieval
+- optional keyword index in Typesense, Meilisearch, or OpenSearch
 
-That means spinning up a new dataset is cheap:
+The local package format is the bridge between ingest and production:
 
 1. normalize a source file with `apps/ingest`
-2. put the generated bundle under `data/instances/<instance-id>/instance.json`
-3. start or deploy the API and frontend
-4. select the instance in the UI
+2. write a manifest plus shard set under `data/instances/<instance-id>/`
+3. mirror that package into object storage or keep it as the local cache
+4. start the API and frontend against the local cache
 
 ## Testing
 
@@ -196,8 +204,8 @@ The repo now supports multiple ingestion paths:
 Recommended process for a new dataset:
 
 1. Decide whether the primary unit is tabular row, thread, document, or file.
-2. Run `research ingest ...` or the matching ingest script to generate an instance bundle.
-3. Inspect the generated `instance.json`.
+2. Run `research ingest ...` or the matching ingest script to generate a sharded package.
+3. Inspect the generated `manifest.json` and shard directories.
 4. Start the stack locally and check the dataset in the UI.
 5. If the schema needs refinement, rerun ingest with different title/summary/text field choices.
 
@@ -205,9 +213,11 @@ Recommended process for a new dataset:
 
 Ingestion is working for:
 
-- tabular normalization into instance bundles
-- unstructured text normalization into instance bundles
-- serving those bundles locally via the API and frontend
+- tabular normalization into sharded manifest packages
+- unstructured text normalization into sharded manifest packages
+- lazy local serving of those packages via the API and frontend
+
+The storage model is documented in [docs/storage-architecture.md](docs/storage-architecture.md).
 
 The RESEARCH CLI login flow targets `https://alpharesearch.nyc/cli/login` by default and stores the session locally in `~/.research/session.json`. See [docs/cli-auth.md](docs/cli-auth.md).
 
@@ -215,8 +225,10 @@ The RESEARCH CLI login flow targets `https://alpharesearch.nyc/cli/login` by def
 
 The recommended production topology is:
 
-- one mounted DigitalOcean Volume for `data/instances`
-- one API/orchestrator droplet that reads bundles from that mounted volume
+- one object storage bucket for canonical dataset packages
+- one Postgres instance for dataset catalog and shard metadata
+- one Qdrant droplet with local NVMe for vector search
+- one API/orchestrator droplet that reads from a local shard cache or synchronized object-store mirror
 - one optional ingest/worker droplet for heavier normalization or scheduled refreshes
 - one frontend deployment, either:
   - static assets on a small droplet behind Nginx, or
@@ -224,9 +236,10 @@ The recommended production topology is:
 
 The current architecture works especially well when:
 
-- datasets are large enough that you want persistent attached storage
-- instance bundles are generated offline or by workers
-- API nodes should stay stateless apart from the mounted dataset volume
+- datasets are large enough that monolithic JSON bundles are no longer viable
+- ingest runs offline and writes canonical package artifacts into object storage
+- API nodes stay stateless apart from a local package cache
+- vector retrieval needs Qdrant performance characteristics instead of block storage
 
 See [ops/digitalocean/README.md](ops/digitalocean/README.md) for the concrete layout and service templates.
 
@@ -241,7 +254,7 @@ This repo is intentionally narrow in scope for the first commit:
 
 The next layer after this scaffold should be:
 
-1. pluggable storage backends beyond flat-file bundles
-2. richer ingest controls for schema overrides and field typing
-3. hybrid retrieval across structured filters and text projections
+1. direct object-storage readers and writers beyond local package roots
+2. Postgres-backed shard catalogs instead of filesystem discovery alone
+3. Qdrant and optional keyword-index integration in the query path
 4. runtime execution plans that can mix table operations with text-backed evidence gathering

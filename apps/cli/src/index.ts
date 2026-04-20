@@ -16,10 +16,11 @@ import {
 } from "@alpha-datasets/core";
 import { getFixtureAdapter } from "@alpha-datasets/fixture";
 import {
-  createBundleAdapter,
+  aggregateInstance,
+  buildTextCompatibleDocumentsForInstance,
+  getInstanceBootstrap,
   listInstanceBundles,
-  loadInstanceBundle,
-  type DatasetInstanceBundle,
+  queryInstance,
 } from "@alpha-datasets/storage";
 
 type SessionRecord = {
@@ -229,10 +230,6 @@ function buildInstallPrompt(flags: Record<string, string>) {
   ].join("\n");
 }
 
-async function loadBundle(instanceId: string, rootDir: string): Promise<DatasetInstanceBundle> {
-  return loadInstanceBundle(rootDir, instanceId);
-}
-
 async function handleFixture(command: string, datasetId: string | undefined, flags: Record<string, string>) {
   if (!command || !datasetId) {
     throw new Error("fixture requires a subcommand and dataset id");
@@ -326,9 +323,11 @@ async function main() {
     if (!instanceId) {
       throw new Error("describe-instance requires <instance-id>");
     }
-    const bundle = await loadBundle(instanceId, flags.root ?? DEFAULT_INSTANCE_ROOT);
-    const adapter = createBundleAdapter(bundle);
-    console.log(describeDataset(adapter));
+    console.log(JSON.stringify(
+      await getInstanceBootstrap(flags.root ?? DEFAULT_INSTANCE_ROOT, instanceId),
+      null,
+      2,
+    ));
     return;
   }
 
@@ -337,10 +336,8 @@ async function main() {
     if (!instanceId) {
       throw new Error("query-instance requires <instance-id>");
     }
-    const bundle = await loadBundle(instanceId, flags.root ?? DEFAULT_INSTANCE_ROOT);
-    const adapter = createBundleAdapter(bundle);
     const filters = flags.filter ? [parseFilter(flags.filter)] : [];
-    console.log(JSON.stringify(await queryDataset(adapter, {
+    console.log(JSON.stringify(await queryInstance(flags.root ?? DEFAULT_INSTANCE_ROOT, instanceId, {
       text: flags.text,
       filters,
       limit: flags.limit ? Number(flags.limit) : undefined,
@@ -356,12 +353,13 @@ async function main() {
     if (!flags["group-by"] || !flags.measure) {
       throw new Error("aggregate-instance requires --group-by and --measure");
     }
-    const bundle = await loadBundle(instanceId, flags.root ?? DEFAULT_INSTANCE_ROOT);
-    console.log(JSON.stringify(aggregateRecords(bundle.records, {
+    const filters = flags.filter ? [parseFilter(flags.filter)] : [];
+    console.log(JSON.stringify(await aggregateInstance(flags.root ?? DEFAULT_INSTANCE_ROOT, instanceId, {
       groupBy: flags["group-by"],
       measure: flags.measure,
       op: (flags.op as "sum" | "avg" | "min" | "max" | "count" | undefined) ?? "sum",
       limit: flags.limit ? Number(flags.limit) : undefined,
+      filters,
     }), null, 2));
     return;
   }
@@ -371,9 +369,15 @@ async function main() {
     if (!instanceId) {
       throw new Error("documents-instance requires <instance-id>");
     }
-    const bundle = await loadBundle(instanceId, flags.root ?? DEFAULT_INSTANCE_ROOT);
-    const adapter = createBundleAdapter(bundle);
-    console.log(JSON.stringify(buildTextCompatibleDocuments(adapter, bundle.records), null, 2));
+    console.log(JSON.stringify(
+      await buildTextCompatibleDocumentsForInstance(
+        flags.root ?? DEFAULT_INSTANCE_ROOT,
+        instanceId,
+        flags.limit ? Number(flags.limit) : undefined,
+      ),
+      null,
+      2,
+    ));
     return;
   }
 
