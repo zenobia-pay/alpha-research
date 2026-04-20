@@ -107,6 +107,39 @@ async function inferLocalDatasetPath(input: string): Promise<string | null> {
   }
 }
 
+function looksLikeDatasetFile(path: string) {
+  const lower = path.toLowerCase();
+  return DATASET_EXTENSIONS.some((extension) => lower.endsWith(extension));
+}
+
+async function normalizeIngestAction(sourceInput: string, action: Extract<AgentAction, { type: "ingestAndDeploy" }>, hasSession: boolean): Promise<AgentAction> {
+  const requestedInput = typeof action.input === "string" ? action.input.trim() : "";
+  const resolvedInput = requestedInput && looksLikeDatasetFile(requestedInput) && await fileExists(requestedInput)
+    ? requestedInput
+    : await inferLocalDatasetPath(`${sourceInput}\n${requestedInput}`) ?? await inferLocalDatasetPath(sourceInput);
+
+  if (!resolvedInput) {
+    return {
+      type: "question",
+      question: "I need the exact local dataset file path. Tell me the filename or give me the full path.",
+    };
+  }
+
+  const defaults = inferDatasetDefaults(resolvedInput);
+  const trimmedDatasetId = typeof action.datasetId === "string" ? action.datasetId.trim() : "";
+  const trimmedInstanceId = typeof action.instanceId === "string" ? action.instanceId.trim() : "";
+  const trimmedName = typeof action.name === "string" ? action.name.trim() : "";
+
+  return {
+    type: hasSession ? "ingestAndDeploy" : "login",
+    input: resolvedInput,
+    mode: action.mode ?? (resolvedInput.endsWith(".parquet") || resolvedInput.endsWith(".csv") || resolvedInput.endsWith(".json") ? "tabular" : "unstructured"),
+    name: trimmedName || defaults.name,
+    datasetId: trimmedDatasetId || defaults.datasetId,
+    instanceId: trimmedInstanceId || defaults.id,
+  };
+}
+
 async function heuristicPlan(input: string, hasSession: boolean): Promise<AgentAction> {
   const lower = input.toLowerCase();
   if (/sign in|login|log in/.test(lower)) {
@@ -146,6 +179,9 @@ async function heuristicPlan(input: string, hasSession: boolean): Promise<AgentA
 }
 
 async function postProcessAction(input: string, hasSession: boolean, action: AgentAction): Promise<AgentAction> {
+  if (action.type === "ingestAndDeploy") {
+    return normalizeIngestAction(input, action, hasSession);
+  }
   if (action.type !== "reply" && action.type !== "question") {
     return action;
   }
@@ -233,6 +269,10 @@ export async function executeAction(
       const instanceId = action.instanceId ?? defaults.id;
       const datasetId = action.datasetId ?? defaults.datasetId;
       const name = action.name ?? defaults.name;
+      if (!datasetId.trim()) {
+        emit({ role: "assistant", content: "I could not derive a valid dataset id from that request. Give me the exact dataset filename or full path." });
+        return;
+      }
       const client = await requireRemoteClient();
       emit({ role: "tool", content: `Registering remote dataset ${datasetId}` });
       await client.createDataset({
