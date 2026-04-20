@@ -68,6 +68,28 @@ Use the systemd units in `ops/digitalocean/systemd/` as a starting point.
 5. Publish the resulting package artifacts into object storage.
 6. Warm the API cache for the datasets you expect to serve heavily.
 
+## Signed-In CLI Flow
+
+The Worker-backed `research` CLI now targets this remote path:
+
+1. register dataset metadata with `alpharesearch.nyc`
+2. request a pre-signed Spaces upload URL
+3. upload the raw source file directly from the CLI
+4. call deploy
+5. Alpha Research provisions or reuses a dataset volume
+6. Alpha Research launches a one-off ingest droplet with the volume attached
+7. the droplet downloads the raw file, runs `normalize_dataset.py`, and writes the normalized package to the mounted volume
+8. the droplet reports run events and final manifest location back to the Alpha Research Worker
+
+Required Worker secrets for this path:
+
+- `DIGITALOCEAN_API_TOKEN`
+- `DO_SPACES_BUCKET`
+- `DO_SPACES_REGION`
+- `DO_SPACES_ACCESS_KEY_ID`
+- `DO_SPACES_SECRET_ACCESS_KEY`
+- `RESEARCH_INTERNAL_RUNNER_TOKEN`
+
 ## Current Repo Status
 
 Today the repo already supports:

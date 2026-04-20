@@ -8,6 +8,13 @@ export type RemoteDatasetSummary = {
   deploymentStatus?: string;
 };
 
+export type RemoteDatasetVolume = {
+  id: string;
+  name: string;
+  region: string;
+  mountPath: string;
+};
+
 export type RemoteRunSummary = {
   id: string;
   datasetId: string;
@@ -102,7 +109,10 @@ export class RemoteApiClient {
   async createDataset(body: {
     name: string;
     datasetId: string;
-    sourceType: "local_instance" | "remote_manifest";
+    sourceType: "uploaded_source" | "local_instance" | "remote_manifest";
+    sourceFilename?: string;
+    mode?: "auto" | "tabular" | "unstructured";
+    ingestConfig?: Record<string, string>;
     instanceId?: string;
     manifestPath?: string;
     description?: string;
@@ -113,8 +123,27 @@ export class RemoteApiClient {
     });
   }
 
+  async requestDatasetSourceUpload(datasetId: string, body: {
+    filename: string;
+    sizeBytes?: number;
+  }) {
+    return this.request<{ upload: { method: "PUT"; url: string; key: string } }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/source-upload`, {
+      method: "POST",
+      body,
+    });
+  }
+
+  async completeDatasetSourceUpload(datasetId: string, body: {
+    sizeBytes?: number;
+  }) {
+    return this.request<{ ok: true }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/source-complete`, {
+      method: "POST",
+      body,
+    });
+  }
+
   async deployDataset(datasetId: string) {
-    return this.request<{ deployment: { datasetId: string; status: string; url?: string } }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/deploy`, {
+    return this.request<{ deployment: { datasetId: string; status: string; url?: string; volume?: RemoteDatasetVolume }; run?: RemoteRunSummary }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/deploy`, {
       method: "POST",
     });
   }

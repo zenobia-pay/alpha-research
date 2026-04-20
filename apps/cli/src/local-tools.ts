@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, extname, resolve } from "node:path";
 
@@ -74,6 +75,23 @@ export async function runIngest(args: string[], logger: (message: string) => voi
     });
     child.on("error", reject);
   });
+}
+
+export async function uploadFileToPresignedUrl(filePath: string, uploadUrl: string, logger: (message: string) => void = console.log) {
+  const metadata = await stat(filePath);
+  logger(`Uploading ${filePath} (${metadata.size.toLocaleString()} bytes)`);
+  const init = {
+    method: "PUT",
+    body: createReadStream(filePath) as unknown as BodyInit,
+    duplex: "half" as const,
+  } as RequestInit & { duplex: "half" };
+  const response = await fetch(uploadUrl, init);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Upload failed (${response.status})${detail ? ` ${detail}` : ""}`);
+  }
+  logger(`Upload complete for ${filePath}`);
+  return metadata.size;
 }
 
 export function inferDatasetIngestFlags(inputPath: string) {

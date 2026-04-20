@@ -1,9 +1,9 @@
 import { access, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { DEFAULT_INSTANCE_ROOT, type SessionRecord } from "./config.js";
-import { inferDatasetDefaults, inferDatasetIngestFlags, requireRemoteClient, runIngest } from "./local-tools.js";
+import { inferDatasetDefaults, inferDatasetIngestFlags, requireRemoteClient, uploadFileToPresignedUrl } from "./local-tools.js";
 import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/storage";
 import { login, readSession } from "./session.js";
 import { readTrackedRuns, trackRemoteRun } from "./runs.js";
@@ -233,49 +233,50 @@ export async function executeAction(
       const instanceId = action.instanceId ?? defaults.id;
       const datasetId = action.datasetId ?? defaults.datasetId;
       const name = action.name ?? defaults.name;
-      emit({ role: "tool", content: `Creating local dataset package for ${action.input}` });
-      const ingestArgs = [
-        "--mode", action.mode ?? "auto",
-        "--input", action.input,
-        "--id", instanceId,
-        "--name", name,
-        "--dataset-id", datasetId,
-        "--output-root", DEFAULT_INSTANCE_ROOT,
-      ];
-      if (inferredFlags?.entityType) {
-        ingestArgs.push("--entity-type", inferredFlags.entityType);
-      }
-      if (inferredFlags?.titleField) {
-        ingestArgs.push("--title-field", inferredFlags.titleField);
-      }
-      if (inferredFlags?.summaryField) {
-        ingestArgs.push("--summary-field", inferredFlags.summaryField);
-      }
-      if (inferredFlags?.textFields) {
-        ingestArgs.push("--text-fields", inferredFlags.textFields);
-      }
-      if (inferredFlags?.dateField) {
-        ingestArgs.push("--date-field", inferredFlags.dateField);
-      }
-      await runIngest(ingestArgs, (message) => emit({ role: "tool", content: message }));
-
-      const bootstrap = await getInstanceBootstrap(DEFAULT_INSTANCE_ROOT, instanceId);
       const client = await requireRemoteClient();
       emit({ role: "tool", content: `Registering remote dataset ${datasetId}` });
       await client.createDataset({
         name,
         datasetId,
-        sourceType: "local_instance",
-        instanceId,
-        manifestPath: `${DEFAULT_INSTANCE_ROOT}/${instanceId}/manifest.json`,
-        description: bootstrap.descriptor.description,
+        sourceType: "uploaded_source",
+        sourceFilename: basename(action.input),
+        mode: action.mode ?? "auto",
+        description: `Uploaded from ${action.input}`,
+        ingestConfig: {
+          ...(inferredFlags?.entityType ? { entityType: inferredFlags.entityType } : {}),
+          ...(inferredFlags?.titleField ? { titleField: inferredFlags.titleField } : {}),
+          ...(inferredFlags?.summaryField ? { summaryField: inferredFlags.summaryField } : {}),
+          ...(inferredFlags?.textFields ? { textFields: inferredFlags.textFields } : {}),
+          ...(inferredFlags?.dateField ? { dateField: inferredFlags.dateField } : {}),
+        },
       });
-      emit({ role: "tool", content: `Deploying remote dataset ${datasetId}` });
+      emit({ role: "tool", content: `Requesting upload target for ${basename(action.input)}` });
+      const upload = await client.requestDatasetSourceUpload(datasetId, {
+        filename: basename(action.input),
+      });
+      const sizeBytes = await uploadFileToPresignedUrl(action.input, upload.upload.url, (message) => emit({ role: "tool", content: message }));
+      await client.completeDatasetSourceUpload(datasetId, { sizeBytes });
+      emit({ role: "tool", content: `Deploying remote dataset ${datasetId} to DigitalOcean` });
       const deployment = await client.deployDataset(datasetId);
       emit({
         role: "assistant",
-        content: `Created and deployed ${datasetId}. Deployment status: ${deployment.deployment.status}${deployment.deployment.url ? ` (${deployment.deployment.url})` : ""}.`,
+        content: `Created and deployed ${datasetId}. Deployment status: ${deployment.deployment.status}${deployment.deployment.volume ? ` on volume ${deployment.deployment.volume.name}` : ""}.`,
       });
+      if (deployment.run) {
+        const session = await readSession();
+        if (session) {
+          await trackRemoteRun({
+            id: deployment.run.id,
+            datasetId: deployment.run.datasetId,
+            origin: session.origin,
+            status: deployment.run.status,
+            prompt: deployment.run.prompt,
+            createdAt: deployment.run.createdAt,
+            updatedAt: deployment.run.updatedAt,
+          });
+        }
+        emit({ role: "tool", content: `Tracking deploy run ${deployment.run.id}` });
+      }
       return;
     }
     case "deployInstance": {
