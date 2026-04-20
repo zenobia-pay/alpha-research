@@ -4,7 +4,7 @@
 
 ## Installation
 
-Copy this to your agent:
+COPY THIS PROMPT AND DESCRIBE YOUR DATASET AT THE BOTTOM:
 
 ```text
 Install the RESEARCH CLI and ingest my dataset.
@@ -13,9 +13,11 @@ Run:
 curl -fsSL https://raw.githubusercontent.com/zenobia-pay/alpha-research/codex/initial-substrate/scripts/install_alpha_research.sh | bash
 
 Then run:
-research ingest --mode tabular --input "/ABSOLUTE/PATH/TO/DATASET" --id my-dataset --name "My Dataset" --dataset-id my-dataset
+research ingest --mode tabular --input "/ABSOLUTE/PATH/TO/DATASET" --id my-dataset --name <DATASET_NAME> --dataset-id <DATASET_ID>
 
-After ingest finishes, tell me which instance bundle was created and how to launch the local stack.
+Decide the dataset name, id and path based on the description. After ingest finishes, tell me which instance bundle was created and how to launch the local stack.
+
+Dataset description:
 ```
 
 You can also generate a customized version of that prompt:
