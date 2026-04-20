@@ -2,7 +2,32 @@
 
 `alpha-research` is a dataset-centric platform for building deployable research products over arbitrary data, not just text corpora.
 
-The core idea is:
+## Installation
+
+Copy this to your agent:
+
+```text
+Install the RESEARCH CLI and ingest my dataset.
+
+Run:
+curl -fsSL https://raw.githubusercontent.com/zenobia-pay/alpha-research/codex/initial-substrate/scripts/install_alpha_research.sh | bash
+
+Then run:
+research ingest --mode tabular --input "/ABSOLUTE/PATH/TO/DATASET" --id my-dataset --name "My Dataset" --dataset-id my-dataset
+
+After ingest finishes, tell me which instance bundle was created and how to launch the local stack.
+```
+
+You can also generate a customized version of that prompt:
+
+```bash
+npm run build -w @alpha-datasets/cli
+npm run cli -- install-prompt --dataset ~/Downloads/Enriched\ Tweets.parquet --mode tabular --id enriched-tweets --name "Enriched Tweets"
+```
+
+## Overview
+
+The core ideas are:
 
 - the platform centers on `dataset`, `record`, `facet`, `measure`, and `artifact`
 - text retrieval is an optional projection, not the primary ontology
@@ -86,28 +111,7 @@ You can also use the low-level CLI:
 npm run dev:cli -- fixture describe tweets
 ```
 
-The real CLI surface is `research`.
-
-## Copy This To Your Agent
-
-```text
-Install the RESEARCH CLI and ingest my dataset.
-
-Run:
-curl -fsSL https://raw.githubusercontent.com/zenobia-pay/alpha-research/codex/initial-substrate/scripts/install_alpha_research.sh | bash
-
-Then run:
-research ingest --mode tabular --input "/ABSOLUTE/PATH/TO/DATASET" --id my-dataset --name "My Dataset" --dataset-id my-dataset
-
-After ingest finishes, tell me which instance bundle was created and how to launch the local stack.
-```
-
-You can also generate a customized version of that prompt:
-
-```bash
-npm run build -w @alpha-datasets/cli
-npm run cli -- install-prompt --dataset ~/Downloads/Enriched\ Tweets.parquet --mode tabular --id enriched-tweets --name "Enriched Tweets"
-```
+The main CLI surface is `research`.
 
 Then use it:
 
