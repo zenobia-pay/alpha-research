@@ -1,4 +1,7 @@
 import OpenAI from "openai";
+import { access, readdir } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 import { DEFAULT_AGENT_MODEL, DEFAULT_INSTANCE_ROOT, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, requireRemoteClient, runIngest } from "./local-tools.js";
@@ -48,7 +51,81 @@ function createPlannerPrompt(input: string, hasSession: boolean): string {
   ].join("\n");
 }
 
-function heuristicPlan(input: string, hasSession: boolean): AgentAction {
+const DATASET_EXTENSIONS = [".parquet", ".csv", ".json", ".txt", ".md", ".markdown", ".html", ".htm", ".pdf"];
+
+async function fileExists(path: string) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function inferLocalDatasetPath(input: string): Promise<string | null> {
+  const lower = input.toLowerCase();
+  const quotedPathMatch = input.match(/"([^"]+\.(parquet|csv|json|txt|md|markdown|html|htm|pdf))"/iu);
+  if (quotedPathMatch?.[1]) {
+    return quotedPathMatch[1];
+  }
+
+  const explicitFilenameMatch = input.match(/([A-Za-z0-9 _-]+\.(parquet|csv|json|txt|md|markdown|html|htm|pdf))/iu);
+  if (explicitFilenameMatch?.[1]) {
+    const explicitName = explicitFilenameMatch[1].trim();
+    const candidates = [
+      explicitName,
+      join(homedir(), "Downloads", explicitName),
+      join(homedir(), "Desktop", explicitName),
+    ];
+    for (const candidate of candidates) {
+      if (await fileExists(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  const mentionsDownloads = /downloads?/.test(lower);
+  const mentionsDesktop = /desktop/.test(lower);
+  const directory = mentionsDesktop ? join(homedir(), "Desktop") : join(homedir(), "Downloads");
+  const wantsDataset = /dataset|file|parquet|csv|json|pdf|tweets?|text/.test(lower);
+  if (!wantsDataset) {
+    return null;
+  }
+
+  try {
+    const entries = await readdir(directory, { withFileTypes: true });
+    const files = entries
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .filter((name) => DATASET_EXTENSIONS.some((extension) => name.toLowerCase().endsWith(extension)));
+
+    if (files.length === 0) {
+      return null;
+    }
+
+    const scored = files
+      .map((name) => {
+        let score = 0;
+        const normalized = name.toLowerCase();
+        if (lower.includes("tweet") && normalized.includes("tweet")) score += 5;
+        if (lower.includes("parquet") && normalized.endsWith(".parquet")) score += 4;
+        if (lower.includes("enriched") && normalized.includes("enriched")) score += 3;
+        if (mentionsDownloads) score += 1;
+        return { name, score };
+      })
+      .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name));
+
+    const best = scored[0];
+    if (!best || best.score <= 0 && lower.includes("tweet")) {
+      return null;
+    }
+    return join(directory, best.name);
+  } catch {
+    return null;
+  }
+}
+
+async function heuristicPlan(input: string, hasSession: boolean): Promise<AgentAction> {
   const lower = input.toLowerCase();
   if (/sign in|login|log in/.test(lower)) {
     return { type: "login" };
@@ -66,9 +143,9 @@ function heuristicPlan(input: string, hasSession: boolean): AgentAction {
     return { type: "question", question: "Which remote dataset should I run against, and what prompt should I send?" };
   }
 
-  const quotedPathMatch = input.match(/"([^"]+\.(parquet|csv|json|txt|md|markdown|html|htm|pdf))"/iu);
-  if (/create|ingest|deploy/.test(lower) && quotedPathMatch) {
-    const inputPath = quotedPathMatch[1]!;
+  const inferredPath = await inferLocalDatasetPath(input);
+  if (/create|ingest|deploy|make me a dataset|make a dataset/.test(lower) && inferredPath) {
+    const inputPath = inferredPath;
     const defaults = inferDatasetDefaults(inputPath);
     return {
       type: hasSession ? "ingestAndDeploy" : "login",
@@ -86,6 +163,26 @@ function heuristicPlan(input: string, hasSession: boolean): AgentAction {
   };
 }
 
+async function postProcessAction(input: string, hasSession: boolean, action: AgentAction): Promise<AgentAction> {
+  if (action.type !== "reply" && action.type !== "question") {
+    return action;
+  }
+  const lower = input.toLowerCase();
+  const inferredPath = await inferLocalDatasetPath(input);
+  if (/create|ingest|deploy|make me a dataset|make a dataset/.test(lower) && inferredPath) {
+    const defaults = inferDatasetDefaults(inferredPath);
+    return {
+      type: hasSession ? "ingestAndDeploy" : "login",
+      input: inferredPath,
+      mode: inferredPath.endsWith(".parquet") || inferredPath.endsWith(".csv") || inferredPath.endsWith(".json") ? "tabular" : "unstructured",
+      name: defaults.name,
+      datasetId: defaults.datasetId,
+      instanceId: defaults.id,
+    };
+  }
+  return action;
+}
+
 export async function planAction(input: string, session: SessionRecord | null): Promise<AgentAction> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -100,7 +197,7 @@ export async function planAction(input: string, session: SessionRecord | null): 
     });
     const text = response.output_text.trim();
     const parsed = JSON.parse(text) as PlannerPayload;
-    return parsed.action;
+    return postProcessAction(input, Boolean(session), parsed.action);
   } catch {
     return heuristicPlan(input, Boolean(session));
   }
