@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
+  "bin": {
+    "alpha-research": "dist/index.js"
+  },
   "dependencies": {
     "@alpha-datasets/core": "0.1.0",
-    "@alpha-datasets/fixture": "0.1.0"
+    "@alpha-datasets/fixture": "0.1.0",
+    "@alpha-datasets/storage": "0.1.0"
   },
   "scripts": {
     "build": "tsc -b",

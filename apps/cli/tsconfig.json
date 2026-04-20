@@ -11,6 +11,9 @@
       ],
       "@alpha-datasets/fixture": [
         "../../packages/fixture/src/index.ts"
+      ],
+      "@alpha-datasets/storage": [
+        "../../packages/storage/src/index.ts"
       ]
     }
   },
@@ -20,10 +23,12 @@
     },
     {
       "path": "../../packages/fixture"
+    },
+    {
+      "path": "../../packages/storage"
     }
   ],
   "include": [
     "src/**/*.ts"
   ]
 }
-

@@ -16,6 +16,7 @@
     "dev:frontend": "npm run dev -w @alpha-datasets/frontend",
     "dev:ingest": "npm run dev -w @alpha-datasets/ingest",
     "dev:cli": "npm run dev -w @alpha-datasets/cli",
+    "cli": "node apps/cli/dist/index.js",
     "dev:stack": "concurrently -k -n api,frontend \"npm run dev:api\" \"npm run dev:frontend\"",
     "ingest:tabular": "python3 scripts/normalize_tabular_dataset.py",
     "ingest:unstructured": "python3 scripts/normalize_unstructured_dataset.py"

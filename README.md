@@ -83,7 +83,30 @@ The repo ships with two demo instances:
 You can also use the low-level CLI:
 
 ```bash
-npm run dev:cli -- describe tweets
+npm run dev:cli -- fixture describe tweets
+```
+
+The real CLI surface is now `alpha-research`.
+
+Generate the agent-install prompt:
+
+```bash
+npm run build -w @alpha-datasets/cli
+npm run cli -- install-prompt --dataset ~/Downloads/Enriched\ Tweets.parquet --mode tabular --id enriched-tweets --name "Enriched Tweets"
+```
+
+Install the CLI directly:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zenobia-pay/alpha-research/codex/initial-substrate/scripts/install_alpha_research.sh | bash
+```
+
+Then use it:
+
+```bash
+alpha-research instances
+alpha-research login
+alpha-research ingest --mode tabular --input ~/Downloads/Enriched\ Tweets.parquet --id enriched-tweets --name "Enriched Tweets" --dataset-id tweets --entity-type tweet --title-field tweet_id --summary-field full_text --text-fields full_text,username,account_display_name --date-field created_at
 ```
 
 Normalize a new arbitrary tabular dataset into a deployable instance bundle:
@@ -159,10 +182,20 @@ The repo now supports multiple ingestion paths:
 Recommended process for a new dataset:
 
 1. Decide whether the primary unit is tabular row, thread, document, or file.
-2. Run the matching ingestion script to generate an instance bundle.
+2. Run `alpha-research ingest ...` or the matching ingest script to generate an instance bundle.
 3. Inspect the generated `instance.json`.
 4. Start the stack locally and check the dataset in the UI.
 5. If the schema needs refinement, rerun ingest with different title/summary/text field choices.
+
+### Current Status
+
+Ingestion is working for:
+
+- tabular normalization into instance bundles
+- unstructured text normalization into instance bundles
+- serving those bundles locally via the API and frontend
+
+What is **not** fully complete yet is the account-backed CLI login on the website. The CLI side is implemented, but the web app still needs the matching `/cli/login` endpoint. See [docs/cli-auth.md](docs/cli-auth.md).
 
 ## DigitalOcean Deployment
 
