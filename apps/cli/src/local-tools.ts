@@ -82,6 +82,10 @@ export async function uploadFileToPresignedUrl(filePath: string, uploadUrl: stri
   logger(`Uploading ${filePath} (${metadata.size.toLocaleString()} bytes)`);
   const init = {
     method: "PUT",
+    headers: {
+      "Content-Length": String(metadata.size),
+      "Content-Type": "application/octet-stream",
+    },
     body: createReadStream(filePath) as unknown as BodyInit,
     duplex: "half" as const,
   } as RequestInit & { duplex: "half" };
