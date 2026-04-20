@@ -194,6 +194,10 @@ async function login(flags: Record<string, string>) {
 
 async function runIngest(args: string[]) {
   const python = process.env.PYTHON_BIN ?? "python3";
+  console.log(`Starting RESEARCH ingest via ${python} ${INGEST_SCRIPT}`);
+  if (args.length > 0) {
+    console.log(`Arguments: ${args.join(" ")}`);
+  }
   const child = spawn(python, [INGEST_SCRIPT, ...args], {
     stdio: "inherit",
     env: process.env,

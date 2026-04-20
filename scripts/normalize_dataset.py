@@ -6,6 +6,8 @@ import csv
 import gzip
 import json
 import re
+import sys
+import time
 from html import unescape
 from pathlib import Path
 from typing import Any
@@ -22,6 +24,15 @@ except Exception:
 
 
 TEXT_EXTENSIONS = {".txt", ".md", ".markdown", ".html", ".htm"}
+PROGRESS_ROW_INTERVAL = 100_000
+
+
+START_TIME = time.perf_counter()
+
+
+def log(message: str) -> None:
+    elapsed = time.perf_counter() - START_TIME
+    print(f"[research ingest +{elapsed:0.1f}s] {message}", file=sys.stderr, flush=True)
 
 
 def parse_args() -> argparse.Namespace:
@@ -129,19 +140,28 @@ def choose_title_field(rows: list[dict[str, Any]], explicit: str | None) -> str:
 
 def read_tabular_rows(path: Path) -> list[dict[str, Any]]:
     suffix = path.suffix.lower()
+    log(f"Reading tabular input from {path} ({suffix or 'no extension'})")
     if suffix == ".csv":
         with path.open("r", encoding="utf-8", newline="") as handle:
-            return list(csv.DictReader(handle))
+            rows = list(csv.DictReader(handle))
+            log(f"Loaded {len(rows):,} CSV rows")
+            return rows
     if suffix == ".json":
         payload = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(payload, list):
-            return [row for row in payload if isinstance(row, dict)]
+            rows = [row for row in payload if isinstance(row, dict)]
+            log(f"Loaded {len(rows):,} JSON rows")
+            return rows
         raise ValueError("JSON input must be a top-level array of objects")
     if suffix == ".parquet":
         if pd is None:
             raise RuntimeError("Parquet input requires pandas and pyarrow")
+        log("Loading parquet via pandas.read_parquet(...)")
         frame = pd.read_parquet(path)
-        return frame.to_dict(orient="records")
+        log(f"Loaded parquet frame with {len(frame):,} rows and {len(frame.columns):,} columns")
+        rows = frame.to_dict(orient="records")
+        log(f"Converted parquet frame into {len(rows):,} row objects")
+        return rows
     raise ValueError(f"Unsupported tabular input format: {suffix}")
 
 
@@ -176,6 +196,7 @@ def collect_unstructured_files(path: Path) -> list[Path]:
     ]
     if not files:
         raise ValueError(f"No supported text files found under {path}")
+    log(f"Collected {len(files):,} unstructured files from {path}")
     return files
 
 
@@ -287,8 +308,16 @@ def write_sharded_instance(args: argparse.Namespace, bundle: dict[str, Any], out
         for projection in projection_list
     ]
     shards: list[dict[str, Any]] = []
+    record_chunks = chunk_values(records, shard_limit)
+    projection_chunks = chunk_values(projections, shard_limit)
 
-    for index, rows in enumerate(chunk_values(records, shard_limit)):
+    log(
+        "Writing sharded package: "
+        f"{len(records):,} records, {len(projections):,} text projections, "
+        f"shard size {shard_limit:,}, compression={compression}"
+    )
+
+    for index, rows in enumerate(record_chunks):
         partition_entries = []
         if rows:
             for key in partition_keys:
@@ -304,6 +333,10 @@ def write_sharded_instance(args: argparse.Namespace, bundle: dict[str, Any], out
         target = output_dir / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
         byte_size = write_jsonl_rows(target, rows, compression)
+        log(
+            f"Wrote record shard {index + 1:,}/{max(1, len(record_chunks)):,}: "
+            f"{relative_path} ({len(rows):,} rows, {byte_size:,} bytes)"
+        )
         shards.append({
             "id": f"records-{index}",
             "kind": "records",
@@ -315,12 +348,16 @@ def write_sharded_instance(args: argparse.Namespace, bundle: dict[str, Any], out
             "partitions": {key: value for key, value in partition_entries} or None,
         })
 
-    for index, rows in enumerate(chunk_values(projections, shard_limit)):
+    for index, rows in enumerate(projection_chunks):
         filename = f"part-{index:05d}.jsonl" + (".gz" if compression == "gzip" else "")
         relative_path = f"text-projections/{filename}"
         target = output_dir / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
         byte_size = write_jsonl_rows(target, rows, compression)
+        log(
+            f"Wrote text projection shard {index + 1:,}/{max(1, len(projection_chunks)):,}: "
+            f"{relative_path} ({len(rows):,} rows, {byte_size:,} bytes)"
+        )
         shards.append({
             "id": f"text-projections-{index}",
             "kind": "text_projections",
@@ -357,6 +394,7 @@ def write_sharded_instance(args: argparse.Namespace, bundle: dict[str, Any], out
     }
     target = output_dir / "manifest.json"
     target.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    log(f"Wrote manifest to {target}")
     return target
 
 
@@ -365,11 +403,13 @@ def build_tabular_bundle(args: argparse.Namespace, input_path: Path) -> dict[str
     if not rows:
         raise ValueError("Input dataset is empty")
 
+    log(f"Inferring schema from {len(rows):,} tabular rows")
     title_field = choose_title_field(rows, args.title_field)
     summary_field = args.summary_field
     text_fields = [item.strip() for item in (args.text_fields or "").split(",") if item.strip()]
     date_field = args.date_field
     columns = list(rows[0].keys())
+    log(f"Discovered {len(columns):,} columns; title={title_field}, summary={summary_field or '-'}, date={date_field or '-'}")
     normalized_columns: dict[str, list[Any]] = {column: [] for column in columns}
     for row in rows:
         for column in columns:
@@ -422,6 +462,15 @@ def build_tabular_bundle(args: argparse.Namespace, input_path: Path) -> dict[str
                         "fields": text_fields,
                     },
                 }]
+        if (index + 1) % PROGRESS_ROW_INTERVAL == 0:
+            log(
+                f"Normalized {index + 1:,}/{len(rows):,} tabular rows "
+                f"({len(records):,} records, {len(projections):,} projection-bearing records)"
+            )
+    log(
+        f"Finished tabular normalization: {len(records):,} records, "
+        f"{len(projections):,} projection-bearing records, {len(numeric_measures):,} numeric measures"
+    )
     return build_bundle(
         args=args,
         descriptor_fields=descriptor_fields,
@@ -434,6 +483,7 @@ def build_tabular_bundle(args: argparse.Namespace, input_path: Path) -> dict[str
 
 def build_unstructured_bundle(args: argparse.Namespace, input_path: Path) -> dict[str, Any]:
     files = collect_unstructured_files(input_path)
+    log(f"Building unstructured bundle from {len(files):,} files")
     descriptor_fields = [
         {"key": "path", "label": "Path", "kind": "string"},
         {"key": "extension", "label": "Extension", "kind": "category"},
@@ -476,9 +526,13 @@ def build_unstructured_bundle(args: argparse.Namespace, input_path: Path) -> dic
             "sourceLabel": relative_path,
             "metadata": values,
         }]
+        if (index + 1) % 100 == 0:
+            log(f"Processed {index + 1:,}/{len(files):,} files")
 
     if not records:
         raise ValueError("No non-empty text documents were extracted")
+
+    log(f"Finished unstructured normalization: {len(records):,} records")
 
     return build_bundle(
         args=args,
@@ -502,9 +556,14 @@ def main() -> None:
     args = parse_args()
     input_path = Path(args.input).expanduser().resolve()
     mode = args.mode if args.mode != "auto" else detect_mode(input_path)
+    log(
+        f"Starting ingest for dataset id={args.id} name={args.name!r} "
+        f"input={input_path} mode={mode}"
+    )
     bundle = build_tabular_bundle(args, input_path) if mode == "tabular" else build_unstructured_bundle(args, input_path)
     output_dir = Path(args.output_root).expanduser().resolve() / args.id
     target = write_sharded_instance(args, bundle, output_dir)
+    log("Ingest complete")
     print(json.dumps({
         "ok": True,
         "mode": mode,
