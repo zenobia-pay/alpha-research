@@ -19,6 +19,19 @@ function roleColor(role: AgentMessage["role"]) {
   }
 }
 
+function roleLabel(role: AgentMessage["role"]) {
+  switch (role) {
+    case "user":
+      return "you";
+    case "assistant":
+      return "research";
+    case "tool":
+      return "tool";
+    default:
+      return "system";
+  }
+}
+
 export function InteractiveApp() {
   const { exit } = useApp();
   const [input, setInput] = useState("");
@@ -26,19 +39,14 @@ export function InteractiveApp() {
     {
       role: "assistant",
       content: [
-        "RESEARCH agent is ready.",
-        `Sign in target: ${DEFAULT_WEB_ORIGIN}`,
-        `Local dataset root: ${DEFAULT_INSTANCE_ROOT}`,
-        "",
-        "Try:",
-        "- sign in",
-        "- list local datasets",
-        '- create a dataset from "/path/to/data.parquet" and deploy it',
-        '- start a run on dataset my-dataset with prompt "find wage trends"',
+        "RESEARCH is ready.",
+        "Try: sign in",
+        "Try: list local datasets",
+        'Try: create a dataset from "/path/to/data.parquet" and deploy it',
       ].join("\n"),
     },
   ]);
-  const [status, setStatus] = useState("Idle");
+  const [status, setStatus] = useState<"idle" | "thinking" | "working">("idle");
   const [busy, setBusy] = useState(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
 
@@ -70,7 +78,7 @@ export function InteractiveApp() {
 
     if (trimmed === "/login") {
       setBusy(true);
-      setStatus("Signing in");
+      setStatus("working");
       setMessages((current) => [...current, { role: "user", content: trimmed }]);
       setInput("");
       try {
@@ -83,7 +91,7 @@ export function InteractiveApp() {
         setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : String(error) }]);
       } finally {
         setBusy(false);
-        setStatus("Idle");
+        setStatus("idle");
       }
       return;
     }
@@ -92,12 +100,12 @@ export function InteractiveApp() {
     setMessages(nextMessages);
     setInput("");
     setBusy(true);
-    setStatus("Planning");
+    setStatus("thinking");
 
     try {
       const session = await readSession();
       const action = await planAction(trimmed, session);
-      setStatus(`Executing ${action.type}`);
+      setStatus("working");
       await executeAction(action, (message) => {
         setMessages((current) => [...current, message]);
       });
@@ -108,34 +116,44 @@ export function InteractiveApp() {
       ]);
     } finally {
       setBusy(false);
-      setStatus("Idle");
+      setStatus("idle");
     }
   }
 
   const header = useMemo(
-    () => `Session: ${sessionEmail ?? "not signed in"} · ${status}${busy ? "…" : ""}`,
-    [busy, sessionEmail, status],
+    () => {
+      const sessionText = sessionEmail ? `signed in: ${sessionEmail}` : "not signed in";
+      const stateText = status === "idle" ? "ready" : status === "thinking" ? "thinking" : "working";
+      return `RESEARCH  |  ${sessionText}  |  ${stateText}  |  ${DEFAULT_WEB_ORIGIN}`;
+    },
+    [sessionEmail, status],
+  );
+
+  const transcriptItems = useMemo(
+    () => messages.flatMap((message, messageIndex) =>
+      message.content.split("\n").map((line, lineIndex) => ({
+        key: `${messageIndex}-${lineIndex}-${message.role}`,
+        role: message.role,
+        line: line.length > 0 ? line : " ",
+      })),
+    ),
+    [messages],
   );
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box marginBottom={1} flexDirection="column">
-        <Text bold color="magenta">RESEARCH</Text>
-        <Text color="gray">{header}</Text>
+    <Box flexDirection="column">
+      <Box marginBottom={1}>
+        <Text color="gray" wrap="truncate-end">{header}</Text>
       </Box>
 
-      <Box borderStyle="round" borderColor="gray" paddingX={1} paddingY={0} flexDirection="column" minHeight={18}>
-        <Static items={messages.slice(-20)}>
-          {(message, index) => (
-            <Box key={`${index}-${message.role}`} flexDirection="column" marginBottom={1}>
-              <Text color={roleColor(message.role)}>{message.role}</Text>
-              {message.content.split("\n").map((line, lineIndex) => (
-                <Text key={lineIndex}>{line}</Text>
-              ))}
-            </Box>
-          )}
-        </Static>
-      </Box>
+      <Static items={transcriptItems}>
+        {(message) => (
+          <Box key={message.key}>
+            <Text color={roleColor(message.role)}>{`${roleLabel(message.role)}> `}</Text>
+            <Text wrap="truncate-end">{message.line}</Text>
+          </Box>
+        )}
+      </Static>
 
       <Box marginTop={1}>
         <Text color="cyan">{"> "}</Text>
@@ -145,12 +163,14 @@ export function InteractiveApp() {
           onSubmit={() => {
             void submit();
           }}
-          placeholder="Ask RESEARCH to sign in, create datasets, deploy them, or start runs"
+          placeholder="ask research to sign in, create datasets, deploy them, or start runs"
         />
       </Box>
 
-      <Box marginTop={1} flexDirection="column">
-        <Text color="gray">Shortcuts: `/login`, `/exit`, `Esc`</Text>
+      <Box marginTop={1}>
+        <Text color="gray" wrap="truncate-end">
+          /login  /exit  Esc  |  local root: {DEFAULT_INSTANCE_ROOT}
+        </Text>
       </Box>
     </Box>
   );
