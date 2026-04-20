@@ -88,6 +88,13 @@ export class RemoteApiClient {
     return this.request<{ user: { id: string; email?: string; name?: string } }>("/api/cli/me");
   }
 
+  async planAction(input: string) {
+    return this.request<{ action: unknown }>("/api/cli/plan", {
+      method: "POST",
+      body: { input },
+    });
+  }
+
   async listDatasets() {
     return this.request<{ datasets: RemoteDatasetSummary[] }>("/api/cli/datasets");
   }

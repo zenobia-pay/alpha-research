@@ -1,9 +1,8 @@
-import OpenAI from "openai";
 import { access, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { DEFAULT_AGENT_MODEL, DEFAULT_INSTANCE_ROOT, type SessionRecord } from "./config.js";
+import { DEFAULT_INSTANCE_ROOT, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, requireRemoteClient, runIngest } from "./local-tools.js";
 import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/storage";
 import { login, readSession } from "./session.js";
@@ -33,23 +32,6 @@ export type AgentAction =
 type PlannerPayload = {
   action: AgentAction;
 };
-
-function createPlannerPrompt(input: string, hasSession: boolean): string {
-  return [
-    "You are the RESEARCH CLI planner.",
-    "Pick exactly one action for the user's request.",
-    "Prefer concrete actions over commentary.",
-    "If the user asks to create a dataset from a file path, choose ingestAndDeploy.",
-    "If sign-in is required and missing, choose login.",
-    "If information is missing that you need to continue, choose question.",
-    `The user is ${hasSession ? "" : "not "}signed in.`,
-    "",
-    "Return JSON only with this shape:",
-    '{"action":{"type":"reply|question|login|listLocalDatasets|listRemoteDatasets|listTrackedRuns|ingestAndDeploy|deployInstance|startRun", "...": "..."}}',
-    "",
-    `User request: ${input}`,
-  ].join("\n");
-}
 
 const DATASET_EXTENSIONS = [".parquet", ".csv", ".json", ".txt", ".md", ".markdown", ".html", ".htm", ".pdf"];
 
@@ -184,19 +166,14 @@ async function postProcessAction(input: string, hasSession: boolean, action: Age
 }
 
 export async function planAction(input: string, session: SessionRecord | null): Promise<AgentAction> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  if (!session) {
     return heuristicPlan(input, Boolean(session));
   }
 
   try {
-    const client = new OpenAI({ apiKey });
-    const response = await client.responses.create({
-      model: DEFAULT_AGENT_MODEL,
-      input: createPlannerPrompt(input, Boolean(session)),
-    });
-    const text = response.output_text.trim();
-    const parsed = JSON.parse(text) as PlannerPayload;
+    const client = await requireRemoteClient();
+    const payload = await client.planAction(input);
+    const parsed = payload as PlannerPayload;
     return postProcessAction(input, Boolean(session), parsed.action);
   } catch {
     return heuristicPlan(input, Boolean(session));

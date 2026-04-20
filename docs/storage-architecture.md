@@ -17,6 +17,22 @@
 - optional keyword search: Typesense, Meilisearch, or OpenSearch
 - tabular/time-series source data: partitioned Parquet
 - text projections: sharded JSONL, ideally zstd-compressed in production
+- normalized working set: mounted DigitalOcean volume attached to ingest/orchestrator droplets
+
+## Remote Ingest Direction
+
+For large datasets, normalization should happen remotely on infrastructure that already has access to the mounted volume.
+
+Recommended flow:
+
+1. the CLI authenticates to Alpha Research
+2. the backend plans ingest with the platform OpenAI key, not the user's local machine
+3. source data is uploaded or otherwise made reachable to a remote ingest worker
+4. the ingest worker writes `manifest.json` plus shard files onto the mounted DigitalOcean volume
+5. serving droplets attach that volume or hydrate a local cache from it
+6. canonical long-term artifacts can then be mirrored into object storage
+
+This avoids making the user's laptop the source of truth for deployment, and keeps the normalized dataset package colocated with the droplets that need to serve it
 
 ## Local Package Format
 
