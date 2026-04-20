@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/fixture"
+    },
+    {
+      "path": "./apps/cli"
+    }
+  ]
+}
+

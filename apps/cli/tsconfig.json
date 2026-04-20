@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@alpha-datasets/core": [
+        "../../packages/core/src/index.ts"
+      ],
+      "@alpha-datasets/fixture": [
+        "../../packages/fixture/src/index.ts"
+      ]
+    }
+  },
+  "references": [
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/fixture"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
+}
+
