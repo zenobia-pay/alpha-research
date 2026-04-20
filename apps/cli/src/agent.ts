@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { DEFAULT_AGENT_MODEL, DEFAULT_INSTANCE_ROOT, type SessionRecord } from "./config.js";
-import { inferDatasetDefaults, requireRemoteClient, runIngest } from "./local-tools.js";
+import { inferDatasetDefaults, inferDatasetIngestFlags, requireRemoteClient, runIngest } from "./local-tools.js";
 import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/storage";
 import { login, readSession } from "./session.js";
 import { readTrackedRuns, trackRemoteRun } from "./runs.js";
@@ -252,17 +252,35 @@ export async function executeAction(
     }
     case "ingestAndDeploy": {
       const defaults = inferDatasetDefaults(action.input);
+      const inferredFlags = inferDatasetIngestFlags(action.input);
       const instanceId = action.instanceId ?? defaults.id;
       const datasetId = action.datasetId ?? defaults.datasetId;
       const name = action.name ?? defaults.name;
       emit({ role: "tool", content: `Creating local dataset package for ${action.input}` });
-      await runIngest([
+      const ingestArgs = [
         "--mode", action.mode ?? "auto",
         "--input", action.input,
         "--id", instanceId,
         "--name", name,
         "--dataset-id", datasetId,
-      ], (message) => emit({ role: "tool", content: message }));
+        "--output-root", DEFAULT_INSTANCE_ROOT,
+      ];
+      if (inferredFlags?.entityType) {
+        ingestArgs.push("--entity-type", inferredFlags.entityType);
+      }
+      if (inferredFlags?.titleField) {
+        ingestArgs.push("--title-field", inferredFlags.titleField);
+      }
+      if (inferredFlags?.summaryField) {
+        ingestArgs.push("--summary-field", inferredFlags.summaryField);
+      }
+      if (inferredFlags?.textFields) {
+        ingestArgs.push("--text-fields", inferredFlags.textFields);
+      }
+      if (inferredFlags?.dateField) {
+        ingestArgs.push("--date-field", inferredFlags.dateField);
+      }
+      await runIngest(ingestArgs, (message) => emit({ role: "tool", content: message }));
 
       const bootstrap = await getInstanceBootstrap(DEFAULT_INSTANCE_ROOT, instanceId);
       const client = await requireRemoteClient();

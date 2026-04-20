@@ -76,6 +76,20 @@ export async function runIngest(args: string[], logger: (message: string) => voi
   });
 }
 
+export function inferDatasetIngestFlags(inputPath: string) {
+  const lower = inputPath.toLowerCase();
+  if (lower.includes("tweet")) {
+    return {
+      entityType: "tweet",
+      titleField: "tweet_id",
+      summaryField: "full_text",
+      textFields: "full_text,username,account_display_name",
+      dateField: "created_at",
+    };
+  }
+  return null;
+}
+
 export function buildInstallPrompt(flags: Record<string, string>, installUrl: string) {
   const dataset = flags.dataset ?? "<ABSOLUTE_DATASET_PATH>";
   const mode = flags.mode ?? "auto";
@@ -169,7 +183,22 @@ export async function deployLocalInstance(instanceId: string, flags: Record<stri
 
 export async function runScriptedCommand(command: string, rest: string[], flags: Record<string, string>) {
   if (command === "ingest") {
-    await runIngest(rest);
+    const nextArgs = [...rest];
+    if (!nextArgs.includes("--output-root")) {
+      nextArgs.push("--output-root", flags.root ?? DEFAULT_INSTANCE_ROOT);
+    }
+    const inputIndex = nextArgs.findIndex((value) => value === "--input");
+    if (inputIndex !== -1 && inputIndex + 1 < nextArgs.length) {
+      const inferredFlags = inferDatasetIngestFlags(nextArgs[inputIndex + 1]!);
+      if (inferredFlags && !nextArgs.includes("--text-fields")) {
+        nextArgs.push("--entity-type", inferredFlags.entityType);
+        nextArgs.push("--title-field", inferredFlags.titleField);
+        nextArgs.push("--summary-field", inferredFlags.summaryField);
+        nextArgs.push("--text-fields", inferredFlags.textFields);
+        nextArgs.push("--date-field", inferredFlags.dateField);
+      }
+    }
+    await runIngest(nextArgs);
     return true;
   }
 
