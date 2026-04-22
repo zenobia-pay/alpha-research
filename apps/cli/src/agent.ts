@@ -732,7 +732,7 @@ function createToolRegistry(): ToolDefinition[] {
           prompt: { type: "string" },
           type: {
             type: "string",
-            enum: ["analysis", "fetch", "transform", "label", "hypothesis"],
+            enum: ["analysis", "fetch", "transform", "label", "hypothesis", "codex"],
           },
           config: { type: "object" },
           artifacts: {
@@ -791,6 +791,45 @@ function createToolRegistry(): ToolDefinition[] {
         });
         return {
           summary: `Queued public-data fetch run ${result.run.id}.`,
+          data: result,
+        };
+      },
+    },
+    {
+      name: "start_remote_codex_run",
+      description: "Start a remote Codex-style agent run on a dataset-attached cloud environment and track its results.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          prompt: { type: "string" },
+          artifacts: {
+            type: "array",
+            items: { type: "object" },
+          },
+        },
+        required: ["datasetId", "prompt"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const result = await client.startRun(String(input.datasetId), String(input.prompt), {
+          type: "codex",
+          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+        });
+        if (context.session) {
+          await trackRemoteRun({
+            id: result.run.id,
+            datasetId: result.run.datasetId,
+            origin: context.session.origin,
+            status: result.run.status,
+            prompt: result.run.prompt ?? String(input.prompt),
+            createdAt: result.run.createdAt,
+            updatedAt: result.run.updatedAt,
+          });
+        }
+        return {
+          summary: `Queued remote Codex run ${result.run.id}.`,
           data: result,
         };
       },
