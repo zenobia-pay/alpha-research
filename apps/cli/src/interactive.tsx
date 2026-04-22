@@ -326,12 +326,6 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       <Box>
         <Text color="gray">{divider}</Text>
       </Box>
-
-      <Box marginTop={1}>
-        <Text color="gray" wrap="truncate-end">
-          {busy ? "esc to interrupt" : "? for shortcuts"}
-        </Text>
-      </Box>
     </Box>
   );
 }
