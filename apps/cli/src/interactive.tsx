@@ -337,24 +337,6 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       </Static>
 
       <Box marginTop={1}>
-        <Text color="gray">──────────────────────────────────────────────────────────────────────────────</Text>
-      </Box>
-
-      {status !== "idle" ? (
-        <Box marginTop={1}>
-          <Text color={status === "thinking" ? "yellow" : "cyan"} wrap="truncate-end">
-            {activityText}
-          </Text>
-        </Box>
-      ) : null}
-
-      <Box marginTop={1}>
-        <Text color="gray" wrap="truncate-end">
-          runs: {activeRunText}
-        </Text>
-      </Box>
-
-      <Box marginTop={1}>
         <Text color="cyan">{"> "}</Text>
         <TextInput
           value={input}
@@ -365,6 +347,20 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
           placeholder="sign in, create a dataset, deploy it, or manage runs"
         />
       </Box>
+
+      <Box marginTop={1}>
+        <Text color="gray" wrap="truncate-end">
+          runs: {activeRunText}
+        </Text>
+      </Box>
+
+      {status !== "idle" ? (
+        <Box marginTop={1}>
+          <Text color={status === "thinking" ? "yellow" : "cyan"} wrap="truncate-end">
+            {activityText}
+          </Text>
+        </Box>
+      ) : null}
 
       <Box marginTop={1}>
         <Text color="gray" wrap="truncate-end">
