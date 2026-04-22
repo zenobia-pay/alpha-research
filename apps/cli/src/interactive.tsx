@@ -18,6 +18,23 @@ function fillBar(text: string, width: number) {
   return `› ${trimmed}`.padEnd(safeWidth, " ");
 }
 
+function runStatusColor(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized === "ready" || normalized === "completed" || normalized === "succeeded") return "green";
+  if (normalized === "failed" || normalized === "error") return "red";
+  if (normalized === "cancelled" || normalized === "canceled") return "gray";
+  if (normalized === "booting") return "yellow";
+  if (normalized === "running") return "blue";
+  if (normalized === "queued") return "magenta";
+  return "yellow";
+}
+
+function summarizeRunLine(run: TrackedRunRecord) {
+  const latest = run.lastEventMessage?.trim();
+  const suffix = latest ? ` · ${latest}` : run.prompt ? ` · ${run.prompt}` : "";
+  return `${shortId(run.id)}  ${run.datasetId}  ${run.status}${suffix}`;
+}
+
 function MessageBlock({ message, width }: { message: AgentMessage; width: number }) {
   const lines = message.content.split("\n");
 
@@ -88,30 +105,34 @@ async function pollTrackedRuns(
       });
     }
 
-    const eventPayload = await client.getRunEvents(item.id, item.lastEventId).catch(() => null);
-    let lastEventId = item.lastEventId;
-    if (eventPayload?.events?.length) {
-      for (const event of eventPayload.events) {
-        emit({
-          role: "tool",
-          content: `[run ${item.id}] ${event.message}`,
-        });
+      const eventPayload = await client.getRunEvents(item.id, item.lastEventId).catch(() => null);
+      let lastEventId = item.lastEventId;
+      let lastEventMessage = item.lastEventMessage;
+      if (eventPayload?.events?.length) {
+        for (const event of eventPayload.events) {
+          emit({
+            role: "tool",
+            content: `[run ${item.id}] ${event.message}`,
+          });
+        }
+        const latestEvent = eventPayload.events[eventPayload.events.length - 1];
+        lastEventId = latestEvent?.id ?? lastEventId;
+        lastEventMessage = latestEvent?.message ?? lastEventMessage;
       }
-      lastEventId = eventPayload.events[eventPayload.events.length - 1]?.id ?? lastEventId;
-    }
 
-    await updateTrackedRun(item.id, (current) => {
-      const now = new Date().toISOString();
-      return {
+      await updateTrackedRun(item.id, (current) => {
+        const now = new Date().toISOString();
+        return {
         ...current,
         status: remote.status,
         prompt: remote.prompt ?? current.prompt,
-        updatedAt: remote.updatedAt ?? now,
-        lastSeenAt: now,
-        lastEventId,
-        terminalAt: isTerminalRunStatus(remote.status) ? (current.terminalAt ?? now) : undefined,
-      };
-    });
+          updatedAt: remote.updatedAt ?? now,
+          lastSeenAt: now,
+          lastEventId,
+          lastEventMessage,
+          terminalAt: isTerminalRunStatus(remote.status) ? (current.terminalAt ?? now) : undefined,
+        };
+      });
   }
 
   return readTrackedRuns();
@@ -323,6 +344,14 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     return stableStatusText;
   }, [stableStatusText, status]);
 
+  const activeRuns = useMemo(
+    () =>
+      trackedRuns
+        .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+    [trackedRuns],
+  );
+
   const divider = "─".repeat(Math.max(20, columns - 2));
 
   return (
@@ -338,6 +367,16 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
           <Text color={status === "thinking" ? "red" : "yellow"}>
             {`· ${activityText}`}
           </Text>
+        </Box>
+      ) : null}
+
+      {activeRuns.length > 0 ? (
+        <Box flexDirection="column" marginBottom={1}>
+          {activeRuns.map((run) => (
+            <Text key={run.id} color={runStatusColor(run.status)}>
+              {`· [run ${run.id}] ${summarizeRunLine(run)}`}
+            </Text>
+          ))}
         </Box>
       ) : null}
 

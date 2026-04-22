@@ -15,6 +15,7 @@ export type TrackedRunRecord = {
   updatedAt: string;
   lastSeenAt: string;
   lastEventId?: string;
+  lastEventMessage?: string;
   terminalAt?: string;
 };
 
@@ -83,6 +84,7 @@ export async function trackRemoteRun(run: {
     createdAt: run.createdAt ?? now,
     updatedAt: run.updatedAt ?? now,
     lastSeenAt: now,
+    lastEventMessage: undefined,
     terminalAt: isTerminalRunStatus(run.status) ? now : undefined,
   });
 }

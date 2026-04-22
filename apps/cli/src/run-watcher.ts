@@ -25,34 +25,40 @@ async function main() {
   let after = (await readTrackedRuns()).find((item) => item.id === runId)?.lastEventId;
 
   while (true) {
-    const runPayload = await client.getRun(runId).catch(() => null);
-    if (runPayload?.run) {
-      await updateTrackedRun(runId, (current) => {
-        const updatedAt = runPayload.run.updatedAt ?? new Date().toISOString();
-        return {
+    try {
+      const runPayload = await client.getRun(runId).catch(() => null);
+      if (runPayload?.run) {
+        await updateTrackedRun(runId, (current) => {
+          const updatedAt = runPayload.run.updatedAt ?? new Date().toISOString();
+          return {
+            ...current,
+            status: runPayload.run.status,
+            prompt: runPayload.run.prompt ?? current.prompt,
+            updatedAt,
+            lastSeenAt: updatedAt,
+            terminalAt: isTerminalRunStatus(runPayload.run.status) ? (current.terminalAt ?? updatedAt) : undefined,
+          };
+        });
+      }
+
+      const eventPayload = await client.getRunEvents(runId, after).catch(() => null);
+      if (eventPayload?.events?.length) {
+        const lastEvent = eventPayload.events[eventPayload.events.length - 1];
+        after = lastEvent?.id ?? after;
+        await updateTrackedRun(runId, (current) => ({
           ...current,
-          status: runPayload.run.status,
-          prompt: runPayload.run.prompt ?? current.prompt,
-          updatedAt,
-          lastSeenAt: updatedAt,
-          terminalAt: isTerminalRunStatus(runPayload.run.status) ? (current.terminalAt ?? updatedAt) : undefined,
-        };
-      });
-    }
+          lastEventId: after,
+          lastEventMessage: lastEvent?.message ?? current.lastEventMessage,
+          lastSeenAt: lastEvent?.createdAt ?? new Date().toISOString(),
+        }));
+      }
 
-    const eventPayload = await client.getRunEvents(runId, after).catch(() => null);
-    if (eventPayload?.events?.length) {
-      after = eventPayload.events[eventPayload.events.length - 1]?.id ?? after;
-      await updateTrackedRun(runId, (current) => ({
-        ...current,
-        lastEventId: after,
-        lastSeenAt: new Date().toISOString(),
-      }));
-    }
-
-    const latest = (await readTrackedRuns()).find((item) => item.id === runId);
-    if (latest && isTerminalRunStatus(latest.status)) {
-      break;
+      const latest = (await readTrackedRuns()).find((item) => item.id === runId);
+      if (latest && isTerminalRunStatus(latest.status)) {
+        break;
+      }
+    } catch {
+      // Keep polling through transient network/auth/control-plane errors.
     }
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
