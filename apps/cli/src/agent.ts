@@ -812,7 +812,7 @@ function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "start_remote_run",
-      description: "Start a structured remote run against a dataset, including hypothesis tests, public-data fetches, transformations, labeling jobs, and artifact requests.",
+      description: "Start a structured remote agent run against a dataset, including hypothesis tests, public-data fetches, transformations, labeling jobs, and artifact requests.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -821,7 +821,7 @@ function createToolRegistry(): ToolDefinition[] {
           prompt: { type: "string" },
           type: {
             type: "string",
-            enum: ["analysis", "fetch", "transform", "label", "hypothesis", "codex"],
+            enum: ["analysis", "fetch", "transform", "label", "hypothesis", "agent"],
           },
           config: { type: "object" },
           artifacts: {
@@ -989,8 +989,8 @@ function createToolRegistry(): ToolDefinition[] {
       },
     },
     {
-      name: "start_remote_codex_run",
-      description: "Start a remote Codex-style agent run on a dataset-attached cloud environment and track its results.",
+      name: "start_remote_agent_run",
+      description: "Start a remote agent run on a dataset-attached cloud environment and track its results.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -1007,7 +1007,7 @@ function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const result = await client.startRun(String(input.datasetId), String(input.prompt), {
-          type: "codex",
+          type: "agent",
           artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
         });
         if (context.session) {
@@ -1022,7 +1022,55 @@ function createToolRegistry(): ToolDefinition[] {
           });
         }
         return {
-          summary: `Queued remote Codex run ${result.run.id}.`,
+          summary: `Queued remote agent run ${result.run.id}.`,
+          data: result,
+        };
+      },
+    },
+    {
+      name: "continue_remote_agent_run",
+      description: "Continue a previous remote agent run by resuming its remote agent session with a follow-up prompt.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          runId: { type: "string" },
+          prompt: { type: "string" },
+          artifacts: {
+            type: "array",
+            items: { type: "object" },
+          },
+        },
+        required: ["runId", "prompt"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const previous = await client.getRunResults(String(input.runId));
+        const sessionArtifact = previous.artifacts.find((artifact) => artifact.type === "remote_agent_session");
+        const sessionId = sessionArtifact && typeof sessionArtifact.content === "object" && sessionArtifact.content
+          ? String((sessionArtifact.content as Record<string, unknown>).sessionId ?? "")
+          : "";
+        if (!sessionId) {
+          throw new Error(`Run ${String(input.runId)} does not have a resumable remote agent session.`);
+        }
+        const result = await client.startRun(previous.run.datasetId, String(input.prompt), {
+          type: "agent",
+          config: { remoteAgentSessionId: sessionId, parentRunId: String(input.runId) },
+          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+        });
+        if (context.session) {
+          await trackRemoteRun({
+            id: result.run.id,
+            datasetId: result.run.datasetId,
+            origin: context.session.origin,
+            status: result.run.status,
+            prompt: result.run.prompt ?? String(input.prompt),
+            createdAt: result.run.createdAt,
+            updatedAt: result.run.updatedAt,
+          });
+        }
+        return {
+          summary: `Queued continuation of remote agent session ${sessionId} as run ${result.run.id}.`,
           data: result,
         };
       },
