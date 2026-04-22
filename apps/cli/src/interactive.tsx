@@ -65,17 +65,6 @@ type InteractiveAppProps = {
   altScreen?: boolean;
 };
 
-const THINKING_VERBS = ["thinking", "planning", "interpreting", "resolving"];
-const WORKING_VERBS = [
-  "working",
-  "uploading",
-  "deploying",
-  "tracking",
-  "syncing",
-  "running",
-  "checking",
-  "processing",
-];
 const STATUS_FRAMES = ["", ".", "..", "..."];
 
 async function pollTrackedRuns(
@@ -217,7 +206,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
 
     const timer = setInterval(() => {
       setStatusTick((current) => current + 1);
-    }, 420);
+    }, 900);
 
     return () => {
       clearInterval(timer);
@@ -288,15 +277,20 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     }
   }
 
+  const stableStatusText = useMemo(() => {
+    if (status === "idle") {
+      return "ready";
+    }
+    return status === "thinking" ? "thinking" : "working";
+  }, [status]);
+
   const activityText = useMemo(() => {
     if (status === "idle") {
       return "ready";
     }
-    const verbs = status === "thinking" ? THINKING_VERBS : WORKING_VERBS;
-    const verb = verbs[statusTick % verbs.length] ?? (status === "thinking" ? "thinking" : "working");
     const frame = STATUS_FRAMES[statusTick % STATUS_FRAMES.length] ?? "";
-    return `${verb}${frame}`;
-  }, [status, statusTick]);
+    return `${stableStatusText}${frame}`;
+  }, [stableStatusText, status, statusTick]);
 
   const header = useMemo(() => {
     const auth = session ? "signed in" : "not signed in";
@@ -304,8 +298,8 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     const runText = activeRuns.length > 0
       ? `${activeRuns.length} active run${activeRuns.length === 1 ? "" : "s"} (${activeRuns.slice(0, 2).map((item) => `${shortId(item.id)}:${item.status}`).join(", ")})`
       : "no active runs";
-    return `research  ${auth}  ${activityText}  ${runText}  ${currentOrigin(session)}`;
-  }, [activityText, session, trackedRuns]);
+    return `research  ${auth}  ${stableStatusText}  ${runText}  ${currentOrigin(session)}`;
+  }, [session, stableStatusText, trackedRuns]);
   const activeRunText = useMemo(() => {
     const activeRuns = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
     if (activeRuns.length === 0) {
