@@ -96,6 +96,11 @@ const AGENT_INSTRUCTIONS = [
   "Only ask the user a question if a required tool input cannot be resolved from tools or prior results.",
 ].join("\n");
 
+function shouldExposeWaitTool(input: string) {
+  const lower = input.toLowerCase();
+  return /\b(wait|watch|follow|monitor|stay on|block until|until complete|until it finishes|keep checking)\b/.test(lower);
+}
+
 function looksLikeAuthError(error: unknown) {
   return error instanceof RemoteRequestError && error.status === 401;
 }
@@ -1256,7 +1261,7 @@ export async function runAgentTurn(
   emit: (message: AgentMessage) => void,
 ): Promise<void> {
   const localIntent = !initialSession ? maybeHandleUnauthenticatedLocalRequest(input) : null;
-  const toolRegistry = createToolRegistry();
+  const toolRegistry = createToolRegistry().filter((tool) => shouldExposeWaitTool(input) || tool.name !== "wait_for_run_completion");
   const toolsByName = new Map(toolRegistry.map((tool) => [tool.name, tool]));
   const context: ToolExecutionContext = {
     session: initialSession,
