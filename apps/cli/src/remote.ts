@@ -15,6 +15,22 @@ export type RemoteDatasetVolume = {
   mountPath: string;
 };
 
+export type RemoteDatasetDetail = RemoteDatasetSummary & {
+  updatedAt?: string;
+  manifestPath?: string | null;
+  volume?: RemoteDatasetVolume | null;
+  ingestConfig?: Record<string, unknown> | null;
+  sourceFilename?: string | null;
+  sourceType?: string | null;
+  profile?: {
+    datasetId: string;
+    schema?: unknown;
+    sampleRows?: unknown;
+    notes?: string | null;
+    updatedAt?: string;
+  } | null;
+};
+
 export type RemoteRunSummary = {
   id: string;
   datasetId: string;
@@ -31,6 +47,26 @@ export type RemoteRunEvent = {
   message: string;
   level?: "info" | "warning" | "error";
   createdAt?: string;
+};
+
+export type RemoteRunArtifact = {
+  id: string;
+  runId: string;
+  type: string;
+  title: string;
+  url?: string;
+  content?: unknown;
+  createdAt?: string;
+};
+
+export type ResearchSpec = {
+  id: string;
+  datasetId: string;
+  hypothesis: string;
+  spec?: Record<string, unknown> | null;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type RequestOptions = {
@@ -113,6 +149,25 @@ export class RemoteApiClient {
     return this.request<{ datasets: RemoteDatasetSummary[] }>("/api/cli/datasets");
   }
 
+  async getDataset(datasetId: string) {
+    return this.request<{ dataset: RemoteDatasetDetail }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}`);
+  }
+
+  async getDatasetProfile(datasetId: string) {
+    return this.request<{ profile: RemoteDatasetDetail["profile"] }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/profile`);
+  }
+
+  async updateDatasetProfile(datasetId: string, body: {
+    schema?: unknown;
+    sampleRows?: unknown;
+    notes?: string;
+  }) {
+    return this.request<{ profile: RemoteDatasetDetail["profile"] }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/profile`, {
+      method: "POST",
+      body,
+    });
+  }
+
   async createDataset(body: {
     name: string;
     datasetId: string;
@@ -160,10 +215,14 @@ export class RemoteApiClient {
     return this.request<{ runs: RemoteRunSummary[] }>(`/api/cli/runs${suffix}`);
   }
 
-  async startRun(datasetId: string, prompt: string) {
+  async startRun(datasetId: string, prompt: string, options?: {
+    type?: string;
+    config?: Record<string, unknown>;
+    artifacts?: Array<Record<string, unknown>>;
+  }) {
     return this.request<{ run: RemoteRunSummary }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/runs`, {
       method: "POST",
-      body: { prompt },
+      body: { prompt, ...options },
     });
   }
 
@@ -174,5 +233,39 @@ export class RemoteApiClient {
   async getRunEvents(runId: string, after?: string) {
     const suffix = after ? `?after=${encodeURIComponent(after)}` : "";
     return this.requestOptional<{ events: RemoteRunEvent[] }>(`/api/cli/runs/${encodeURIComponent(runId)}/events${suffix}`);
+  }
+
+  async getRunArtifacts(runId: string) {
+    return this.request<{ artifacts: RemoteRunArtifact[] }>(`/api/cli/runs/${encodeURIComponent(runId)}/artifacts`);
+  }
+
+  async getRunResults(runId: string) {
+    return this.request<{
+      run: RemoteRunSummary;
+      metadata?: { config?: unknown; artifactSpec?: unknown } | null;
+      artifacts: RemoteRunArtifact[];
+      events: RemoteRunEvent[];
+    }>(`/api/cli/runs/${encodeURIComponent(runId)}/results`);
+  }
+
+  async listResearchSpecs(datasetId?: string) {
+    const suffix = datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : "";
+    return this.request<{ specs: ResearchSpec[] }>(`/api/cli/research-specs${suffix}`);
+  }
+
+  async createResearchSpec(body: {
+    datasetId: string;
+    hypothesis: string;
+    spec?: Record<string, unknown>;
+    status?: string;
+  }) {
+    return this.request<{ spec: ResearchSpec }>("/api/cli/research-specs", {
+      method: "POST",
+      body,
+    });
+  }
+
+  async getResearchSpec(id: string) {
+    return this.request<{ spec: ResearchSpec }>(`/api/cli/research-specs/${encodeURIComponent(id)}`);
   }
 }

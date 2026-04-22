@@ -5,7 +5,7 @@ import { basename, join } from "node:path";
 import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/storage";
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, type SessionRecord } from "./config.js";
-import { inferDatasetDefaults, inferDatasetIngestFlags, uploadFileToPresignedUrl } from "./local-tools.js";
+import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
 import { RemoteApiClient } from "./remote.js";
 import { readSession, login } from "./session.js";
 import { isTerminalRunStatus, readTrackedRuns, trackRemoteRun } from "./runs.js";
@@ -82,7 +82,6 @@ const AGENT_INSTRUCTIONS = [
   "6. How to view the results of the experiment. Be precise. If there are graphs, specify the chart type and exactly what the axes are.",
   "",
   "Use the provided tools.",
-  "When the user describes a local dataset vaguely, call resolve_local_dataset first.",
   "For uploaded-file deployment flows, prefer this sequence:",
   "1. resolve_local_dataset",
   "2. register_remote_dataset",
@@ -316,6 +315,26 @@ function createToolRegistry(): ToolDefinition[] {
       },
     },
     {
+      name: "profile_local_dataset",
+      description: "Inspect a local dataset file and return a schema summary plus sample rows for remote profiling and experiment planning.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          inputPath: { type: "string" },
+        },
+        required: ["inputPath"],
+      },
+      async execute(_context, input) {
+        const inputPath = String(input.inputPath);
+        const profile = await inspectLocalDatasetFile(inputPath);
+        return {
+          summary: `Inspected local dataset ${basename(inputPath)}.`,
+          data: profile,
+        };
+      },
+    },
+    {
       name: "list_local_datasets",
       description: "List local dataset instances available in the CLI workspace.",
       inputSchema: {
@@ -353,6 +372,52 @@ function createToolRegistry(): ToolDefinition[] {
       },
     },
     {
+      name: "inspect_remote_dataset",
+      description: "Inspect a remote dataset including ingest config, deployment metadata, schema profile, and sample rows when available.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+        },
+        required: ["datasetId"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const datasetId = String(input.datasetId);
+        const payload = await client.getDataset(datasetId);
+        return {
+          summary: `Inspected remote dataset ${datasetId}.`,
+          data: payload,
+        };
+      },
+    },
+    {
+      name: "compare_remote_datasets",
+      description: "Compare multiple remote datasets by schema, ingest config, deployment status, and profile metadata.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetIds: {
+            type: "array",
+            items: { type: "string" },
+            minItems: 2,
+          },
+        },
+        required: ["datasetIds"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const datasetIds = Array.isArray(input.datasetIds) ? input.datasetIds.map(String) : [];
+        const datasets = await Promise.all(datasetIds.map(async (datasetId) => (await client.getDataset(datasetId)).dataset));
+        return {
+          summary: `Compared ${datasets.length} remote datasets.`,
+          data: { datasets },
+        };
+      },
+    },
+    {
       name: "list_tracked_runs",
       description: "List RESEARCH runs tracked locally by the CLI, including in-progress deploy or query runs.",
       inputSchema: {
@@ -370,6 +435,56 @@ function createToolRegistry(): ToolDefinition[] {
               ? `There are ${runs.length} tracked runs and none are currently active.`
               : "No tracked runs yet.",
           data: { runs },
+        };
+      },
+    },
+    {
+      name: "list_research_specs",
+      description: "List saved research specs or hypothesis plans for a dataset or account.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+        },
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const datasetId = typeof input.datasetId === "string" ? input.datasetId : undefined;
+        const payload = await client.listResearchSpecs(datasetId);
+        return {
+          summary: payload.specs.length > 0
+            ? `Found ${payload.specs.length} research spec${payload.specs.length === 1 ? "" : "s"}.`
+            : "No research specs found.",
+          data: payload,
+        };
+      },
+    },
+    {
+      name: "create_research_spec",
+      description: "Create a structured research or hypothesis plan for a dataset, including subset, shaping, labeling, and result artifact requirements.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          hypothesis: { type: "string" },
+          spec: { type: "object" },
+          status: { type: "string" },
+        },
+        required: ["datasetId", "hypothesis"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const payload = await client.createResearchSpec({
+          datasetId: String(input.datasetId),
+          hypothesis: String(input.hypothesis),
+          spec: input.spec && typeof input.spec === "object" ? input.spec as Record<string, unknown> : undefined,
+          status: typeof input.status === "string" ? input.status : undefined,
+        });
+        return {
+          summary: `Created research spec ${payload.spec.id}.`,
+          data: payload,
         };
       },
     },
@@ -419,6 +534,33 @@ function createToolRegistry(): ToolDefinition[] {
         return {
           summary: `Registered remote dataset ${datasetId}.`,
           data: result,
+        };
+      },
+    },
+    {
+      name: "update_remote_dataset_profile",
+      description: "Attach schema, sample rows, and notes to a remote dataset so future hypothesis planning can inspect the dataset content.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          schema: {},
+          sampleRows: {},
+          notes: { type: "string" },
+        },
+        required: ["datasetId"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const payload = await client.updateDatasetProfile(String(input.datasetId), {
+          schema: input.schema,
+          sampleRows: input.sampleRows,
+          notes: typeof input.notes === "string" ? input.notes : undefined,
+        });
+        return {
+          summary: `Updated profile for remote dataset ${String(input.datasetId)}.`,
+          data: payload,
         };
       },
     },
@@ -581,13 +723,22 @@ function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "start_remote_run",
-      description: "Start a long-running remote AI run against a deployed dataset.",
+      description: "Start a structured remote run against a dataset, including hypothesis tests, public-data fetches, transformations, labeling jobs, and artifact requests.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           datasetId: { type: "string" },
           prompt: { type: "string" },
+          type: {
+            type: "string",
+            enum: ["analysis", "fetch", "transform", "label", "hypothesis"],
+          },
+          config: { type: "object" },
+          artifacts: {
+            type: "array",
+            items: { type: "object" },
+          },
         },
         required: ["datasetId", "prompt"],
       },
@@ -595,7 +746,11 @@ function createToolRegistry(): ToolDefinition[] {
         const client = createRemoteClient(context);
         const datasetId = String(input.datasetId);
         const prompt = String(input.prompt);
-        const result = await client.startRun(datasetId, prompt);
+        const result = await client.startRun(datasetId, prompt, {
+          type: typeof input.type === "string" ? input.type : undefined,
+          config: input.config && typeof input.config === "object" ? input.config as Record<string, unknown> : undefined,
+          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+        });
         if (context.session) {
           await trackRemoteRun({
             id: result.run.id,
@@ -610,6 +765,132 @@ function createToolRegistry(): ToolDefinition[] {
         return {
           summary: `Started run ${result.run.id} on ${datasetId}.`,
           data: result,
+        };
+      },
+    },
+    {
+      name: "fetch_public_data",
+      description: "Queue a remote public-data acquisition run that fetches internet data into a research environment.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          sourceDescription: { type: "string" },
+          prompt: { type: "string" },
+        },
+        required: ["datasetId", "sourceDescription"],
+      },
+      async execute(context, input) {
+        const datasetId = String(input.datasetId);
+        const sourceDescription = String(input.sourceDescription);
+        const client = createRemoteClient(context);
+        const result = await client.startRun(datasetId, typeof input.prompt === "string" ? input.prompt : `Fetch public data: ${sourceDescription}`, {
+          type: "fetch",
+          config: { sourceDescription },
+        });
+        return {
+          summary: `Queued public-data fetch run ${result.run.id}.`,
+          data: result,
+        };
+      },
+    },
+    {
+      name: "run_remote_transformation",
+      description: "Queue a remote transformation run that reshapes or filters data inside an existing research environment.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          prompt: { type: "string" },
+          scriptOutline: { type: "string" },
+        },
+        required: ["datasetId", "prompt"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const result = await client.startRun(String(input.datasetId), String(input.prompt), {
+          type: "transform",
+          config: {
+            scriptOutline: typeof input.scriptOutline === "string" ? input.scriptOutline : undefined,
+          },
+        });
+        return {
+          summary: `Queued transformation run ${result.run.id}.`,
+          data: result,
+        };
+      },
+    },
+    {
+      name: "run_remote_labeling",
+      description: "Queue a remote labeling or enrichment run, including the explicit LLM prompt to use for labeling data points.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          prompt: { type: "string" },
+          labelingPrompt: { type: "string" },
+        },
+        required: ["datasetId", "labelingPrompt"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const labelingPrompt = String(input.labelingPrompt);
+        const result = await client.startRun(
+          String(input.datasetId),
+          typeof input.prompt === "string" ? input.prompt : `Run labeling job: ${labelingPrompt}`,
+          {
+            type: "label",
+            config: { labelingPrompt },
+          },
+        );
+        return {
+          summary: `Queued labeling run ${result.run.id}.`,
+          data: result,
+        };
+      },
+    },
+    {
+      name: "get_run_results",
+      description: "Retrieve a finished or in-progress run together with structured metadata, artifact requests, and accumulated events.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          runId: { type: "string" },
+        },
+        required: ["runId"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const payload = await client.getRunResults(String(input.runId));
+        return {
+          summary: `Fetched results for run ${String(input.runId)}.`,
+          data: payload,
+        };
+      },
+    },
+    {
+      name: "list_run_artifacts",
+      description: "List requested or completed artifacts for a run, such as charts, tables, or result bundles.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          runId: { type: "string" },
+        },
+        required: ["runId"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const payload = await client.getRunArtifacts(String(input.runId));
+        return {
+          summary: payload.artifacts.length > 0
+            ? `Found ${payload.artifacts.length} artifact${payload.artifacts.length === 1 ? "" : "s"} for run ${String(input.runId)}.`
+            : `No artifacts found for run ${String(input.runId)}.`,
+          data: payload,
         };
       },
     },

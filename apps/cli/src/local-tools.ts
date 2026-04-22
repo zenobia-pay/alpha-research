@@ -98,6 +98,108 @@ export async function uploadFileToPresignedUrl(filePath: string, uploadUrl: stri
   return metadata.size;
 }
 
+export async function inspectLocalDatasetFile(filePath: string) {
+  const python = process.env.PYTHON_BIN ?? "python3";
+  const script = `
+import json, os, sys
+path = sys.argv[1]
+lower = path.lower()
+
+def normalize_value(value):
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    try:
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+    except Exception:
+        pass
+    return str(value)
+
+def emit(schema, sample_rows, notes=None):
+    print(json.dumps({
+        "schema": schema,
+        "sampleRows": sample_rows,
+        "notes": notes,
+    }))
+
+if lower.endswith(".parquet"):
+    import pyarrow.parquet as pq
+    parquet = pq.ParquetFile(path)
+    schema = [
+        {"name": field.name, "type": str(field.type)}
+        for field in parquet.schema_arrow
+    ]
+    sample_rows = []
+    for batch in parquet.iter_batches(batch_size=5):
+        table = batch.to_pydict()
+        row_count = len(next(iter(table.values()), []))
+        for idx in range(row_count):
+            sample_rows.append({key: normalize_value(values[idx]) for key, values in table.items()})
+            if len(sample_rows) >= 5:
+                break
+        break
+    emit(schema, sample_rows, f"rows={parquet.metadata.num_rows}")
+elif lower.endswith(".csv"):
+    import csv
+    with open(path, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        schema = [{"name": name, "type": "string"} for name in (reader.fieldnames or [])]
+        sample_rows = []
+        for row in reader:
+            sample_rows.append({key: normalize_value(value) for key, value in row.items()})
+            if len(sample_rows) >= 5:
+                break
+    emit(schema, sample_rows)
+elif lower.endswith(".json"):
+    with open(path, encoding="utf-8") as fh:
+        payload = json.load(fh)
+    rows = payload if isinstance(payload, list) else [payload]
+    sample_rows = []
+    schema_keys = set()
+    for row in rows[:5]:
+        if isinstance(row, dict):
+            schema_keys.update(row.keys())
+            sample_rows.append({key: normalize_value(value) for key, value in row.items()})
+        else:
+            sample_rows.append({"value": normalize_value(row)})
+    schema = [{"name": key, "type": "unknown"} for key in sorted(schema_keys)] or [{"name": "value", "type": "unknown"}]
+    emit(schema, sample_rows)
+else:
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        lines = [line.rstrip("\\n") for _, line in zip(range(5), fh)]
+    emit(
+        [{"name": "text", "type": "string"}],
+        [{"text": line} for line in lines],
+        "Plain-text sample preview",
+    )
+`;
+  const child = spawn(python, ["-c", script, filePath], {
+    stdio: ["ignore", "pipe", "pipe"],
+    env: process.env,
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk.toString();
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk.toString();
+  });
+  await new Promise<void>((resolve, reject) => {
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(stderr.trim() || `inspectLocalDatasetFile failed with code ${code}`));
+    });
+    child.on("error", reject);
+  });
+  return JSON.parse(stdout) as { schema: unknown; sampleRows: unknown; notes?: string };
+}
+
 export function inferDatasetIngestFlags(inputPath: string) {
   const lower = inputPath.toLowerCase();
   if (lower.includes("tweet")) {
