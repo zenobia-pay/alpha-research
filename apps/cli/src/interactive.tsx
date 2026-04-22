@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Static, Text, useApp, useInput, useWindowSize } from "ink";
 import TextInput from "ink-text-input";
 
-import { currentOrigin, type AgentMessage, runAgentTurn } from "./agent.js";
-import { DEFAULT_INSTANCE_ROOT, RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
+import { type AgentMessage, runAgentTurn } from "./agent.js";
+import { RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
 import { clearSession, login, readSession } from "./session.js";
@@ -194,7 +194,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
 
     const timer = setInterval(() => {
       setStatusTick((current) => current + 1);
-    }, 900);
+    }, 1200);
 
     return () => {
       clearInterval(timer);
@@ -289,36 +289,10 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     return `${stableStatusText}${frame}`;
   }, [stableStatusText, status, statusTick]);
 
-  const header = useMemo(() => {
-    const auth = session ? "signed in" : "not signed in";
-    const activeRuns = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
-    const runText = activeRuns.length > 0
-      ? `${activeRuns.length} active run${activeRuns.length === 1 ? "" : "s"} (${activeRuns.slice(0, 2).map((item) => `${shortId(item.id)}:${item.status}`).join(", ")})`
-      : "no active runs";
-    return `research  ${auth}  ${stableStatusText}  ${runText}  ${currentOrigin(session)}`;
-  }, [session, stableStatusText, trackedRuns]);
-  const activeRunText = useMemo(() => {
-    const activeRuns = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
-    if (activeRuns.length === 0) {
-      return "no runs in progress";
-    }
-    return activeRuns
-      .slice(0, 3)
-      .map((item) => `${shortId(item.id)} ${item.status}`)
-      .join("  |  ");
-  }, [trackedRuns]);
   const divider = "─".repeat(Math.max(20, columns - 2));
 
   return (
     <Box flexDirection="column">
-      <Box marginBottom={1}>
-        <Text color="gray" wrap="truncate-end">{header}</Text>
-      </Box>
-
-      <Box marginBottom={1}>
-        <Text color="gray">──────────────────────────────────────────────────────────────────────────────</Text>
-      </Box>
-
       <Static items={messages}>
         {(message, index) => (
           <MessageBlock key={`${message.role}-${index}`} message={message} width={Math.max(20, columns - 1)} />
@@ -326,11 +300,10 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       </Static>
 
       {status !== "idle" ? (
-        <Box marginBottom={1} flexDirection="column">
-          <Text color="white" backgroundColor={status === "thinking" ? "red" : "yellow"}>
-            {fillBar(activityText, Math.max(20, columns - 1))}
+        <Box marginBottom={1}>
+          <Text color={status === "thinking" ? "red" : "yellow"}>
+            {`· ${activityText}`}
           </Text>
-          <Text color="gray">{busy ? "└ esc to interrupt" : "└ working"}</Text>
         </Box>
       ) : null}
 
@@ -357,18 +330,6 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       <Box marginTop={1}>
         <Text color="gray" wrap="truncate-end">
           {busy ? "esc to interrupt" : "? for shortcuts"}
-        </Text>
-      </Box>
-
-      <Box>
-        <Text color="gray" wrap="truncate-end">
-          {activeRunText}
-        </Text>
-      </Box>
-
-      <Box>
-        <Text color="gray" wrap="truncate-end">
-          {altScreen ? "/login  /logout  /exit  Ctrl-C" : "/login  /logout  /exit  Esc"}  |  root {DEFAULT_INSTANCE_ROOT}
         </Text>
       </Box>
     </Box>
