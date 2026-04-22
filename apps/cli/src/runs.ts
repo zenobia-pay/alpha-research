@@ -16,7 +16,7 @@ export type TrackedRunRecord = {
   terminalAt?: string;
 };
 
-const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled", "canceled", "error", "succeeded"]);
+const TERMINAL_STATUSES = new Set(["ready", "completed", "failed", "cancelled", "canceled", "error", "succeeded"]);
 
 export function isTerminalRunStatus(status: string | undefined) {
   return status ? TERMINAL_STATUSES.has(status.toLowerCase()) : false;

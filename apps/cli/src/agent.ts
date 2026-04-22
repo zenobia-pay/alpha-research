@@ -6,7 +6,7 @@ import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/stora
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
-import { RemoteApiClient } from "./remote.js";
+import { RemoteApiClient, RemoteRequestError } from "./remote.js";
 import { readSession, login } from "./session.js";
 import { isTerminalRunStatus, readTrackedRuns, trackRemoteRun } from "./runs.js";
 
@@ -82,6 +82,8 @@ const AGENT_INSTRUCTIONS = [
   "6. How to view the results of the experiment. Be precise. If there are graphs, specify the chart type and exactly what the axes are.",
   "",
   "Use the provided tools.",
+  "Prefer lightweight dataset queries before launching heavy transforms or analyses when the user is asking for examples, top records, or simple slices.",
+  "Do not answer with generic numbered menus when you can inspect the user's actual datasets or runs and propose one concrete next action.",
   "For uploaded-file deployment flows, prefer this sequence:",
   "1. resolve_local_dataset",
   "2. register_remote_dataset",
@@ -92,6 +94,93 @@ const AGENT_INSTRUCTIONS = [
   "Be concise. After tool work completes, summarize the result and current status.",
   "Only ask the user a question if a required tool input cannot be resolved from tools or prior results.",
 ].join("\n");
+
+function looksLikeAuthError(error: unknown) {
+  return error instanceof RemoteRequestError && error.status === 401;
+}
+
+async function withAuthRetry<T>(
+  context: ToolExecutionContext,
+  fn: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (!looksLikeAuthError(error)) {
+      throw error;
+    }
+    const refreshed = await readSession();
+    if (refreshed?.accessToken && refreshed.accessToken !== context.session?.accessToken) {
+      context.session = refreshed;
+      return fn();
+    }
+    context.emit({ role: "tool", content: "Session expired. Opening login to refresh authentication." });
+    const session = await login({}, (message) => {
+      context.emit({ role: "tool", content: message });
+    });
+    context.session = session;
+    return fn();
+  }
+}
+
+async function waitForRunCompletion(
+  client: RemoteApiClient,
+  runId: string,
+  emit?: (message: AgentMessage) => void,
+  timeoutMs = 180_000,
+) {
+  const startedAt = Date.now();
+  let after: string | undefined;
+  let delayMs = 1500;
+  let artifactCount = 0;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const eventPayload = await client.getRunEvents(runId, after).catch(() => null);
+    if (eventPayload?.events?.length) {
+      for (const event of eventPayload.events) {
+        emit?.({ role: "tool", content: `[run ${runId}] ${event.message}` });
+      }
+      after = eventPayload.events[eventPayload.events.length - 1]?.id ?? after;
+    }
+
+    const resultPayload = await client.getRunResults(runId).catch(() => null);
+    if (resultPayload) {
+      artifactCount = resultPayload.artifacts.length;
+      if (isTerminalRunStatus(resultPayload.run.status)) {
+        return {
+          complete: true,
+          run: resultPayload.run,
+          artifacts: resultPayload.artifacts,
+          events: resultPayload.events,
+          metadata: resultPayload.metadata,
+        };
+      }
+    } else {
+      const runPayload = await client.getRun(runId).catch(() => null);
+      if (runPayload?.run && isTerminalRunStatus(runPayload.run.status)) {
+        return {
+          complete: true,
+          run: runPayload.run,
+          artifacts: [],
+          events: [],
+          metadata: null,
+        };
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    delayMs = Math.min(delayMs + 1000, 8000);
+  }
+
+  const latestRun = await client.getRun(runId).catch(() => null);
+  return {
+    complete: false,
+    run: latestRun?.run ?? null,
+    artifacts: artifactCount > 0 ? [{ pending: true }] : [],
+    events: [],
+    metadata: null,
+  };
+}
 
 async function fileExists(path: string) {
   try {
@@ -769,6 +858,81 @@ function createToolRegistry(): ToolDefinition[] {
       },
     },
     {
+      name: "query_remote_dataset",
+      description: "Run a lightweight remote query against a deployed dataset and wait for a structured result artifact.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          prompt: { type: "string" },
+        },
+        required: ["datasetId", "prompt"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const datasetId = String(input.datasetId);
+        const prompt = String(input.prompt);
+        const started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
+          type: "query",
+          artifacts: [{ type: "query_result", title: "Query Result" }],
+        }));
+        if (context.session) {
+          await trackRemoteRun({
+            id: started.run.id,
+            datasetId: started.run.datasetId,
+            origin: context.session.origin,
+            status: started.run.status,
+            prompt: started.run.prompt ?? prompt,
+            createdAt: started.run.createdAt,
+            updatedAt: started.run.updatedAt,
+          });
+        }
+        const waited = await withAuthRetry(context, () => waitForRunCompletion(client, started.run.id, context.emit, 90_000));
+        if (!waited.complete) {
+          return {
+            summary: `Started query run ${started.run.id}; it is still ${waited.run?.status ?? "running"}.`,
+            data: { run: waited.run, pending: true },
+          };
+        }
+        return {
+          summary: waited.artifacts.length > 0
+            ? `Completed query run ${started.run.id} with ${waited.artifacts.length} artifact${waited.artifacts.length === 1 ? "" : "s"}.`
+            : `Query run ${started.run.id} completed.`,
+          data: waited,
+        };
+      },
+    },
+    {
+      name: "aggregate_remote_dataset",
+      description: "Run a lightweight remote aggregation against a deployed dataset and wait for a structured result artifact.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          prompt: { type: "string" },
+        },
+        required: ["datasetId", "prompt"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const datasetId = String(input.datasetId);
+        const prompt = String(input.prompt);
+        const started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
+          type: "query",
+          artifacts: [{ type: "aggregate_result", title: "Aggregate Result" }],
+        }));
+        const waited = await withAuthRetry(context, () => waitForRunCompletion(client, started.run.id, context.emit, 90_000));
+        return {
+          summary: waited.complete
+            ? `Completed aggregate run ${started.run.id}.`
+            : `Started aggregate run ${started.run.id}; it is still ${waited.run?.status ?? "running"}.`,
+          data: waited,
+        };
+      },
+    },
+    {
       name: "fetch_public_data",
       description: "Queue a remote public-data acquisition run that fetches internet data into a research environment.",
       inputSchema: {
@@ -792,6 +956,35 @@ function createToolRegistry(): ToolDefinition[] {
         return {
           summary: `Queued public-data fetch run ${result.run.id}.`,
           data: result,
+        };
+      },
+    },
+    {
+      name: "wait_for_run_completion",
+      description: "Wait for a run to finish with backoff, stream new run events, and then fetch its final results once.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          runId: { type: "string" },
+          timeoutSeconds: { type: "integer" },
+        },
+        required: ["runId"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const timeoutSeconds = typeof input.timeoutSeconds === "number" ? input.timeoutSeconds : 180;
+        const waited = await withAuthRetry(context, () => waitForRunCompletion(
+          client,
+          String(input.runId),
+          context.emit,
+          timeoutSeconds * 1000,
+        ));
+        return {
+          summary: waited.complete
+            ? `Run ${String(input.runId)} finished with status ${waited.run?.status ?? "unknown"}.`
+            : `Run ${String(input.runId)} is still ${waited.run?.status ?? "running"}.`,
+          data: waited,
         };
       },
     },
@@ -1012,11 +1205,14 @@ export async function runAgentTurn(
 
   const client = new RemoteApiClient(context.session);
   const toolSchemas = toolRegistry.map(buildToolSchema);
-  let response = await client.respond({
-    instructions: AGENT_INSTRUCTIONS,
-    input,
-    tools: toolSchemas,
-    parallel_tool_calls: false,
+  let response = await withAuthRetry(context, async () => {
+    const activeClient = new RemoteApiClient(requireSession(context));
+    return activeClient.respond({
+      instructions: AGENT_INSTRUCTIONS,
+      input,
+      tools: toolSchemas,
+      parallel_tool_calls: false,
+    }) as Promise<ResponsesApiPayload>;
   });
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
@@ -1040,7 +1236,7 @@ export async function runAgentTurn(
       }
       emit({ role: "tool", content: `Calling ${tool.name}` });
       const parsedArguments = parseJsonArguments(call.arguments);
-      const result = await tool.execute(context, parsedArguments);
+      const result = await withAuthRetry(context, () => tool.execute(context, parsedArguments));
       emit({ role: "tool", content: result.summary });
       toolOutputs.push({
         type: "function_call_output",
@@ -1065,11 +1261,14 @@ export async function runAgentTurn(
       return;
     }
 
-    response = await new RemoteApiClient(context.session).respond({
-      previous_response_id: response.id,
-      input: toolOutputs,
-      tools: toolSchemas,
-      parallel_tool_calls: false,
+    response = await withAuthRetry(context, async () => {
+      const activeClient = new RemoteApiClient(requireSession(context));
+      return activeClient.respond({
+        previous_response_id: response.id,
+        input: toolOutputs,
+        tools: toolSchemas,
+        parallel_tool_calls: false,
+      }) as Promise<ResponsesApiPayload>;
     });
   }
 

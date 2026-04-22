@@ -1,5 +1,16 @@
 import type { SessionRecord } from "./config.js";
 
+export class RemoteRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly path: string,
+  ) {
+    super(message);
+    this.name = "RemoteRequestError";
+  }
+}
+
 export type RemoteDatasetSummary = {
   id: string;
   name: string;
@@ -91,9 +102,9 @@ export class RemoteApiClient {
       const text = await response.text().catch(() => "");
       const detail = text.trim().length > 0 ? ` ${text.trim()}` : "";
       if (response.status === 404) {
-        throw new Error(`Remote CLI API is not available yet at ${this.session.origin}${path}.${detail}`);
+        throw new RemoteRequestError(`Remote CLI API is not available yet at ${this.session.origin}${path}.${detail}`, response.status, path);
       }
-      throw new Error(`Remote request failed (${response.status}) for ${path}.${detail}`);
+      throw new RemoteRequestError(`Remote request failed (${response.status}) for ${path}.${detail}`, response.status, path);
     }
 
     if (response.status === 204) {
@@ -119,7 +130,7 @@ export class RemoteApiClient {
     if (!response.ok) {
       const text = await response.text().catch(() => "");
       const detail = text.trim().length > 0 ? ` ${text.trim()}` : "";
-      throw new Error(`Remote request failed (${response.status}) for ${path}.${detail}`);
+      throw new RemoteRequestError(`Remote request failed (${response.status}) for ${path}.${detail}`, response.status, path);
     }
     if (response.status === 204) {
       return undefined as T;
