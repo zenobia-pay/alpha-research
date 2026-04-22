@@ -25,7 +25,7 @@ function MessageBlock({ message, width }: { message: AgentMessage; width: number
     return (
       <Box flexDirection="column" marginBottom={1}>
         {lines.map((line, index) => (
-          <Text key={`user-${index}`} backgroundColor="gray" color="white">
+          <Text key={`user-${index}`} backgroundColor="black" color="white">
             {fillBar(line.length > 0 ? line : " ", width)}
           </Text>
         ))}
