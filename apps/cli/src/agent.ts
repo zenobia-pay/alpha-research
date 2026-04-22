@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 
 import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/storage";
 
-import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, type SessionRecord } from "./config.js";
+import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
 import { RemoteApiClient, RemoteRequestError } from "./remote.js";
 import { readSession, login } from "./session.js";
@@ -24,6 +24,7 @@ type JsonSchema = Record<string, unknown>;
 
 type ToolExecutionContext = {
   session: SessionRecord | null;
+  sessionId: string | null;
   emit: (message: AgentMessage) => void;
 };
 
@@ -111,6 +112,11 @@ function shouldExposeWaitTool(input: string) {
   return /\b(wait|watch|follow|monitor|stay on|block until|until complete|until it finishes|keep checking)\b/.test(lower);
 }
 
+function shouldExposeRunInspectionTools(input: string) {
+  const lower = input.toLowerCase();
+  return /\b(status|results?|artifacts?|progress|check on|check status|inspect run|what happened|dashboard|open run|monitor|watch|follow)\b/.test(lower);
+}
+
 function looksLikeAuthError(error: unknown) {
   return error instanceof RemoteRequestError && error.status === 401;
 }
@@ -166,6 +172,24 @@ async function withAuthRetry<T>(
     });
     context.session = session;
     return fn();
+  }
+}
+
+async function persistSessionEntry(context: ToolExecutionContext, entry: {
+  role: "assistant" | "tool";
+  kind: string;
+  title?: string;
+  content: string;
+  metadata?: unknown;
+}) {
+  if (!context.session || !context.sessionId || !entry.content.trim()) {
+    return;
+  }
+  try {
+    const client = new RemoteApiClient(context.session);
+    await client.appendSessionEntry(context.sessionId, entry);
+  } catch {
+    // Keep the local CLI responsive even if session persistence is unavailable.
   }
 }
 
@@ -917,7 +941,7 @@ function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "query_remote_dataset",
-      description: "Run a lightweight remote query against a deployed dataset and wait for a structured result artifact.",
+      description: "Start a lightweight remote query against a deployed dataset and return immediately with a run id and dashboard link.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -966,7 +990,7 @@ function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "aggregate_remote_dataset",
-      description: "Run a lightweight remote aggregation against a deployed dataset and wait for a structured result artifact.",
+      description: "Start a lightweight remote aggregation against a deployed dataset and return immediately with a run id and dashboard link.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -1308,7 +1332,7 @@ function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "get_run_results",
-      description: "Retrieve a finished or in-progress run together with structured metadata, artifact requests, and accumulated events.",
+      description: "Retrieve a run together with current status, structured metadata, requested artifacts, produced artifacts, and recent events.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -1320,8 +1344,10 @@ function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const payload = await client.getRunResults(String(input.runId));
+        const requestedArtifacts = Array.isArray(payload.metadata?.artifactSpec) ? payload.metadata?.artifactSpec : [];
+        const producedArtifacts = payload.artifacts.filter((artifact) => artifact.url || artifact.type === "remote_agent_session");
         return {
-          summary: `Fetched results for run ${String(input.runId)}.`,
+          summary: `Run ${String(input.runId)} is ${payload.run.status}.${requestedArtifacts.length > 0 ? ` Requested artifacts: ${requestedArtifacts.length}.` : ""}${producedArtifacts.length > 0 ? ` Produced artifacts: ${producedArtifacts.length}.` : ""}`,
           data: payload,
         };
       },
@@ -1340,10 +1366,11 @@ function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const payload = await client.getRunArtifacts(String(input.runId));
+        const producedArtifacts = payload.artifacts.filter((artifact) => artifact.url || artifact.type === "remote_agent_session");
         return {
-          summary: payload.artifacts.length > 0
-            ? `Found ${payload.artifacts.length} artifact${payload.artifacts.length === 1 ? "" : "s"} for run ${String(input.runId)}.`
-            : `No artifacts found for run ${String(input.runId)}.`,
+          summary: producedArtifacts.length > 0
+            ? `Found ${producedArtifacts.length} produced artifact${producedArtifacts.length === 1 ? "" : "s"} for run ${String(input.runId)}.`
+            : `No produced artifacts found for run ${String(input.runId)} yet.`,
           data: payload,
         };
       },
@@ -1389,10 +1416,21 @@ export async function runAgentTurn(
   emit: (message: AgentMessage) => void,
 ): Promise<void> {
   const localIntent = !initialSession ? maybeHandleUnauthenticatedLocalRequest(input) : null;
-  const toolRegistry = createToolRegistry().filter((tool) => shouldExposeWaitTool(input) || tool.name !== "wait_for_run_completion");
+  const exposeWaitTool = shouldExposeWaitTool(input);
+  const exposeRunInspectionTools = shouldExposeRunInspectionTools(input);
+  const toolRegistry = createToolRegistry().filter((tool) => {
+    if (!exposeWaitTool && tool.name === "wait_for_run_completion") {
+      return false;
+    }
+    if (!exposeRunInspectionTools && (tool.name === "get_run_results" || tool.name === "list_run_artifacts")) {
+      return false;
+    }
+    return true;
+  });
   const toolsByName = new Map(toolRegistry.map((tool) => [tool.name, tool]));
   const context: ToolExecutionContext = {
     session: initialSession,
+    sessionId: null,
     emit,
   };
 
@@ -1425,16 +1463,17 @@ export async function runAgentTurn(
     return;
   }
 
-  const client = new RemoteApiClient(context.session);
   const toolSchemas = toolRegistry.map(buildToolSchema);
   let response = await withAuthRetry(context, async () => {
     const activeClient = new RemoteApiClient(requireSession(context));
-    return activeClient.respond({
+    const replied = await activeClient.respond({
       instructions: AGENT_INSTRUCTIONS,
       input,
       tools: toolSchemas,
       parallel_tool_calls: false,
-    }) as Promise<ResponsesApiPayload>;
+    });
+    context.sessionId = replied.sessionId ?? context.sessionId;
+    return replied.payload as ResponsesApiPayload;
   });
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
@@ -1458,11 +1497,48 @@ export async function runAgentTurn(
       }
       emit({ role: "tool", content: `Calling ${tool.name}` });
       const parsedArguments = parseJsonArguments(call.arguments);
+      await persistSessionEntry(context, {
+        role: "tool",
+        kind: "tool_call",
+        title: tool.name,
+        content: `Calling ${tool.name}`,
+        metadata: { name: tool.name, arguments: parsedArguments },
+      });
       const result = await withAuthRetry(context, () => tool.execute(context, parsedArguments));
       emit({ role: "tool", content: result.summary });
-      if (ASYNC_RUN_START_TOOLS.has(tool.name) && !shouldExposeWaitTool(input)) {
-        emit({ role: "assistant", content: result.summary });
+      await persistSessionEntry(context, {
+        role: "tool",
+        kind: "tool_result",
+        title: tool.name,
+        content: result.summary,
+        metadata: { name: tool.name, data: result.data },
+      });
+      if (ASYNC_RUN_START_TOOLS.has(tool.name) && !exposeWaitTool) {
+        const finalSummary =
+          context.session && context.sessionId
+            ? `${result.summary}\nTerminal session: ${dashboardTerminalSessionUrl(context.session.origin, context.sessionId, (result.data as { run?: { id?: string } } | undefined)?.run?.id ? String((result.data as { run?: { id?: string } }).run?.id) : null)}`
+            : result.summary;
+        emit({ role: "assistant", content: finalSummary });
+        await persistSessionEntry(context, {
+          role: "assistant",
+          kind: "local_summary",
+          title: "CLI summary",
+          content: finalSummary,
+        });
         return;
+      }
+      if (ASYNC_RUN_START_TOOLS.has(tool.name) && exposeWaitTool) {
+        // Stop after the first async launch even in explicit wait mode; subsequent waiting happens via the dedicated wait tool.
+        toolOutputs.push({
+          type: "function_call_output",
+          call_id: call.call_id ?? tool.name,
+          output: JSON.stringify({
+            ok: true,
+            summary: result.summary,
+            data: result.data,
+          }),
+        });
+        break;
       }
       toolOutputs.push({
         type: "function_call_output",
@@ -1489,12 +1565,14 @@ export async function runAgentTurn(
 
     response = await withAuthRetry(context, async () => {
       const activeClient = new RemoteApiClient(requireSession(context));
-      return activeClient.respond({
+      const replied = await activeClient.respond({
         previous_response_id: response.id,
         input: toolOutputs,
         tools: toolSchemas,
         parallel_tool_calls: false,
-      }) as Promise<ResponsesApiPayload>;
+      });
+      context.sessionId = replied.sessionId ?? context.sessionId;
+      return replied.payload as ResponsesApiPayload;
     });
   }
 

@@ -30,6 +30,20 @@ export function dashboardOriginFor(origin: string) {
 }
 
 export function dashboardRunUrl(origin: string, runId: string) {
-  const base = dashboardOriginFor(origin);
-  return `${base}#run-${encodeURIComponent(runId)}`;
+  const url = new URL(dashboardOriginFor(origin));
+  url.searchParams.set("view", "runs");
+  url.searchParams.set("runId", runId);
+  url.hash = `run-${encodeURIComponent(runId)}`;
+  return url.toString();
+}
+
+export function dashboardTerminalSessionUrl(origin: string, sessionId: string, runId?: string | null) {
+  const url = new URL(dashboardOriginFor(origin));
+  url.searchParams.set("view", "terminal-sessions");
+  url.searchParams.set("sessionId", sessionId);
+  if (runId) {
+    url.searchParams.set("runId", runId);
+    url.hash = `run-${encodeURIComponent(runId)}`;
+  }
+  return url.toString();
 }

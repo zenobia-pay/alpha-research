@@ -150,7 +150,35 @@ export class RemoteApiClient {
   }
 
   async respond(body: Record<string, unknown>) {
-    return this.request<Record<string, unknown>>("/api/cli/respond", {
+    const response = await fetch(`${this.session.origin}/api/cli/respond`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.session.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      const detail = text.trim().length > 0 ? ` ${text.trim()}` : "";
+      throw new RemoteRequestError(`Remote request failed (${response.status}) for /api/cli/respond.${detail}`, response.status, "/api/cli/respond");
+    }
+    const payload = await response.json() as Record<string, unknown>;
+    return {
+      payload,
+      sessionId: response.headers.get("X-Research-Session-Id"),
+    };
+  }
+
+  async appendSessionEntry(sessionId: string, body: {
+    role: string;
+    kind: string;
+    title?: string;
+    content: string;
+    metadata?: unknown;
+    createdAt?: string;
+  }) {
+    return this.request<{ id: string }>(`/api/cli/sessions/${encodeURIComponent(sessionId)}/entries`, {
       method: "POST",
       body,
     });
