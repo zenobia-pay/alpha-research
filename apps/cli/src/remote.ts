@@ -230,6 +230,12 @@ export class RemoteApiClient {
     return this.requestOptional<{ run: RemoteRunSummary }>(`/api/cli/runs/${encodeURIComponent(runId)}`);
   }
 
+  async cancelRun(runId: string) {
+    return this.request<{ run: RemoteRunSummary }>(`/api/cli/runs/${encodeURIComponent(runId)}/cancel`, {
+      method: "POST",
+    });
+  }
+
   async getRunEvents(runId: string, after?: string) {
     const suffix = after ? `?after=${encodeURIComponent(after)}` : "";
     return this.requestOptional<{ events: RemoteRunEvent[] }>(`/api/cli/runs/${encodeURIComponent(runId)}/events${suffix}`);

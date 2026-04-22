@@ -933,6 +933,38 @@ function createToolRegistry(): ToolDefinition[] {
         };
       },
     },
+    {
+      name: "cancel_remote_run",
+      description: "Cancel an in-progress remote run and terminate its cloud droplet when possible.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          runId: { type: "string" },
+        },
+        required: ["runId"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const runId = String(input.runId);
+        const payload = await client.cancelRun(runId);
+        if (context.session) {
+          await trackRemoteRun({
+            id: payload.run.id,
+            datasetId: payload.run.datasetId,
+            origin: context.session.origin,
+            status: payload.run.status,
+            prompt: payload.run.prompt,
+            createdAt: payload.run.createdAt,
+            updatedAt: payload.run.updatedAt,
+          });
+        }
+        return {
+          summary: `Cancelled remote run ${runId}.`,
+          data: payload,
+        };
+      },
+    },
   ];
 }
 

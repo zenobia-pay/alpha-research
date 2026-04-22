@@ -52,8 +52,6 @@ type InteractiveAppProps = {
   altScreen?: boolean;
 };
 
-const STATUS_FRAMES = ["", ".", "..", "..."];
-
 async function pollTrackedRuns(
   session: SessionRecord,
   emit: (message: AgentMessage) => void,
@@ -131,7 +129,6 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const [busy, setBusy] = useState(false);
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
-  const [statusTick, setStatusTick] = useState(0);
 
   const appendMessage = (message: AgentMessage) => {
     setMessages((current) => [...current, message]);
@@ -186,21 +183,6 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     };
   }, [session]);
 
-  useEffect(() => {
-    if (status === "idle") {
-      setStatusTick(0);
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setStatusTick((current) => current + 1);
-    }, 1200);
-
-    return () => {
-      clearInterval(timer);
-    };
-  }, [status]);
-
   useInput((value, key) => {
     if (key.escape && !altScreen) {
       exit();
@@ -250,6 +232,57 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       return;
     }
 
+    if (trimmed.startsWith("/cancel")) {
+      appendMessage({ role: "user", content: trimmed });
+      setInput("");
+      if (!session) {
+        appendMessage({ role: "assistant", content: "Sign in first with `/login`." });
+        return;
+      }
+
+      const parts = trimmed.split(/\s+/u).filter(Boolean);
+      const explicitRunId = parts[1];
+      const runs = await readTrackedRuns();
+      const activeRuns = runs
+        .filter((item) => item.origin === session.origin)
+        .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+      const targetRunId = explicitRunId ?? activeRuns[0]?.id;
+
+      if (!targetRunId) {
+        appendMessage({ role: "assistant", content: "No active tracked run to cancel." });
+        return;
+      }
+
+      setBusy(true);
+      setStatus("working");
+      try {
+        const client = new RemoteApiClient(session);
+        const payload = await client.cancelRun(targetRunId);
+        await updateTrackedRun(targetRunId, (current) => {
+          const timestamp = payload.run.updatedAt ?? new Date().toISOString();
+          return {
+            ...current,
+            status: payload.run.status,
+            updatedAt: timestamp,
+            lastSeenAt: timestamp,
+            terminalAt: isTerminalRunStatus(payload.run.status) ? (current.terminalAt ?? timestamp) : current.terminalAt,
+          };
+        });
+        setTrackedRuns(await readTrackedRuns());
+        appendMessage({ role: "assistant", content: `Cancelled run ${targetRunId}.` });
+      } catch (error) {
+        appendMessage({
+          role: "assistant",
+          content: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        setBusy(false);
+        setStatus("idle");
+      }
+      return;
+    }
+
     appendMessage({ role: "user", content: trimmed });
     setInput("");
     setBusy(true);
@@ -285,9 +318,8 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     if (status === "idle") {
       return "ready";
     }
-    const frame = STATUS_FRAMES[statusTick % STATUS_FRAMES.length] ?? "";
-    return `${stableStatusText}${frame}`;
-  }, [stableStatusText, status, statusTick]);
+    return stableStatusText;
+  }, [stableStatusText, status]);
 
   const divider = "─".repeat(Math.max(20, columns - 2));
 
