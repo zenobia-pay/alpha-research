@@ -102,6 +102,13 @@ export class RemoteApiClient {
     });
   }
 
+  async respond(body: Record<string, unknown>) {
+    return this.request<Record<string, unknown>>("/api/cli/respond", {
+      method: "POST",
+      body,
+    });
+  }
+
   async listDatasets() {
     return this.request<{ datasets: RemoteDatasetSummary[] }>("/api/cli/datasets");
   }

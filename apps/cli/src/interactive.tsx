@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Static, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 
-import { executeAction, planAction, type AgentMessage } from "./agent.js";
-import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
+import { currentOrigin, runAgentTurn, type AgentMessage } from "./agent.js";
+import { DEFAULT_INSTANCE_ROOT, RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
 import { login, readSession } from "./session.js";
@@ -247,9 +247,8 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       if (nextSession?.accessToken !== session?.accessToken || nextSession?.origin !== session?.origin) {
         setSession(nextSession);
       }
-      const action = await planAction(trimmed, nextSession);
       setStatus("working");
-      await executeAction(action, appendMessage);
+      await runAgentTurn(trimmed, nextSession, appendMessage);
       setTrackedRuns(await readTrackedRuns());
     } catch (error) {
       appendMessage({
@@ -278,7 +277,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     const runText = activeRuns.length > 0
       ? `runs ${activeRuns.length}: ${activeRuns.slice(0, 3).map((item) => `${item.id}:${item.status}`).join(", ")}`
       : "runs 0";
-    return `RESEARCH  ${auth}  ${activityText}  ${runText}  ${DEFAULT_WEB_ORIGIN}`;
+    return `RESEARCH  ${auth}  ${activityText}  ${runText}  ${currentOrigin(session)}`;
   }, [activityText, session, trackedRuns]);
 
   const transcriptItems = useMemo(
