@@ -38,6 +38,19 @@ type InteractiveAppProps = {
   altScreen?: boolean;
 };
 
+const THINKING_VERBS = ["thinking", "planning", "interpreting", "resolving"];
+const WORKING_VERBS = [
+  "working",
+  "uploading",
+  "deploying",
+  "tracking",
+  "syncing",
+  "running",
+  "checking",
+  "processing",
+];
+const STATUS_FRAMES = ["", ".", "..", "..."];
+
 async function pollTrackedRuns(
   session: SessionRecord,
   emit: (message: AgentMessage) => void,
@@ -114,6 +127,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const [busy, setBusy] = useState(false);
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
+  const [statusTick, setStatusTick] = useState(0);
 
   const appendMessage = (message: AgentMessage) => {
     setMessages((current) => [...current, message]);
@@ -167,6 +181,21 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       clearInterval(timer);
     };
   }, [session]);
+
+  useEffect(() => {
+    if (status === "idle") {
+      setStatusTick(0);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setStatusTick((current) => current + 1);
+    }, 420);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [status]);
 
   useInput((value, key) => {
     if (key.escape && !altScreen) {
@@ -233,15 +262,24 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     }
   }
 
+  const activityText = useMemo(() => {
+    if (status === "idle") {
+      return "ready";
+    }
+    const verbs = status === "thinking" ? THINKING_VERBS : WORKING_VERBS;
+    const verb = verbs[statusTick % verbs.length] ?? (status === "thinking" ? "thinking" : "working");
+    const frame = STATUS_FRAMES[statusTick % STATUS_FRAMES.length] ?? "";
+    return `${verb}${frame}`;
+  }, [status, statusTick]);
+
   const header = useMemo(() => {
     const auth = session ? "signed in" : "not signed in";
-    const stateText = status === "idle" ? "ready" : status === "thinking" ? "thinking" : "working";
     const activeRuns = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
     const runText = activeRuns.length > 0
       ? `runs ${activeRuns.length}: ${activeRuns.slice(0, 3).map((item) => `${item.id}:${item.status}`).join(", ")}`
       : "runs 0";
-    return `RESEARCH  ${auth}  ${stateText}  ${runText}  ${DEFAULT_WEB_ORIGIN}`;
-  }, [session, status, trackedRuns]);
+    return `RESEARCH  ${auth}  ${activityText}  ${runText}  ${DEFAULT_WEB_ORIGIN}`;
+  }, [activityText, session, trackedRuns]);
 
   const transcriptItems = useMemo(
     () => messages.flatMap((message, messageIndex) =>
@@ -286,6 +324,14 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
           {altScreen ? "/login  /exit  Ctrl-C" : "/login  /exit  Esc"}  |  local root: {DEFAULT_INSTANCE_ROOT}
         </Text>
       </Box>
+
+      {status !== "idle" ? (
+        <Box>
+          <Text color={status === "thinking" ? "yellow" : "cyan"} wrap="truncate-end">
+            {activityText}
+          </Text>
+        </Box>
+      ) : null}
     </Box>
   );
 }
