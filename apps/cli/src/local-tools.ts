@@ -23,7 +23,7 @@ import { DEFAULT_INSTANCE_ROOT, INGEST_SCRIPT, type SessionRecord } from "./conf
 import { parseFilter } from "./flags.js";
 import { readSession } from "./session.js";
 import { RemoteApiClient } from "./remote.js";
-import { readTrackedRuns, trackRemoteRun } from "./runs.js";
+import { readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
 export function printUsage() {
   console.log([
@@ -452,6 +452,7 @@ export async function runScriptedCommand(command: string, rest: string[], flags:
       createdAt: result.run.createdAt,
       updatedAt: result.run.updatedAt,
     });
+    spawnRunWatcher(result.run.id);
     console.log(JSON.stringify(result, null, 2));
     return true;
   }

@@ -1,6 +1,7 @@
+import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 
-import { RUNS_PATH } from "./config.js";
+import { RUNS_PATH, RUN_WATCHER_SCRIPT, dashboardRunUrl } from "./config.js";
 import { ensureSessionDir } from "./session.js";
 
 export type TrackedRunRecord = {
@@ -9,6 +10,7 @@ export type TrackedRunRecord = {
   origin: string;
   status: string;
   prompt?: string;
+  dashboardUrl?: string;
   createdAt: string;
   updatedAt: string;
   lastSeenAt: string;
@@ -77,9 +79,18 @@ export async function trackRemoteRun(run: {
     origin: run.origin,
     status: run.status,
     prompt: run.prompt,
+    dashboardUrl: dashboardRunUrl(run.origin, run.id),
     createdAt: run.createdAt ?? now,
     updatedAt: run.updatedAt ?? now,
     lastSeenAt: now,
     terminalAt: isTerminalRunStatus(run.status) ? now : undefined,
   });
+}
+
+export function spawnRunWatcher(runId: string) {
+  const child = spawn(process.execPath, [RUN_WATCHER_SCRIPT, "--run-id", runId], {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
 }

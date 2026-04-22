@@ -81,8 +81,10 @@ async function pollTrackedRuns(
 
     if (remote.status !== item.status) {
       emit({
-        role: "tool",
-        content: `run ${item.id}: ${item.status} -> ${remote.status}`,
+        role: isTerminalRunStatus(remote.status) ? "assistant" : "tool",
+        content: isTerminalRunStatus(remote.status)
+          ? `Run ${item.id} is ${remote.status}.${item.dashboardUrl ? ` Dashboard: ${item.dashboardUrl}` : ""}`
+          : `run ${item.id}: ${item.status} -> ${remote.status}`,
       });
     }
 

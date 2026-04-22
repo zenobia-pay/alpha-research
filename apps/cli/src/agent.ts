@@ -4,11 +4,11 @@ import { basename, join } from "node:path";
 
 import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/storage";
 
-import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, type SessionRecord } from "./config.js";
+import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
 import { RemoteApiClient, RemoteRequestError } from "./remote.js";
 import { readSession, login } from "./session.js";
-import { isTerminalRunStatus, readTrackedRuns, trackRemoteRun } from "./runs.js";
+import { isTerminalRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
 export type AgentMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -84,6 +84,7 @@ const AGENT_INSTRUCTIONS = [
   "Use the provided tools.",
   "Prefer lightweight dataset queries before launching heavy transforms or analyses when the user is asking for examples, top records, or simple slices.",
   "Do not answer with generic numbered menus when you can inspect the user's actual datasets or runs and propose one concrete next action.",
+  "When you start a remote run, do not wait for completion unless the user explicitly asks you to wait. Return immediately with the run id and dashboard link.",
   "For uploaded-file deployment flows, prefer this sequence:",
   "1. resolve_local_dataset",
   "2. register_remote_dataset",
@@ -850,9 +851,10 @@ function createToolRegistry(): ToolDefinition[] {
             createdAt: result.run.createdAt,
             updatedAt: result.run.updatedAt,
           });
+          spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Started run ${result.run.id} on ${datasetId}.`,
+          summary: `Started run ${result.run.id} on ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
           data: result,
         };
       },
@@ -887,19 +889,11 @@ function createToolRegistry(): ToolDefinition[] {
             createdAt: started.run.createdAt,
             updatedAt: started.run.updatedAt,
           });
-        }
-        const waited = await withAuthRetry(context, () => waitForRunCompletion(client, started.run.id, context.emit, 90_000));
-        if (!waited.complete) {
-          return {
-            summary: `Started query run ${started.run.id}; it is still ${waited.run?.status ?? "running"}.`,
-            data: { run: waited.run, pending: true },
-          };
+          spawnRunWatcher(started.run.id);
         }
         return {
-          summary: waited.artifacts.length > 0
-            ? `Completed query run ${started.run.id} with ${waited.artifacts.length} artifact${waited.artifacts.length === 1 ? "" : "s"}.`
-            : `Query run ${started.run.id} completed.`,
-          data: waited,
+          summary: `Started query run ${started.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, started.run.id)}`,
+          data: { run: started.run, pending: true },
         };
       },
     },
@@ -923,12 +917,21 @@ function createToolRegistry(): ToolDefinition[] {
           type: "query",
           artifacts: [{ type: "aggregate_result", title: "Aggregate Result" }],
         }));
-        const waited = await withAuthRetry(context, () => waitForRunCompletion(client, started.run.id, context.emit, 90_000));
+        if (context.session) {
+          await trackRemoteRun({
+            id: started.run.id,
+            datasetId: started.run.datasetId,
+            origin: context.session.origin,
+            status: started.run.status,
+            prompt: started.run.prompt ?? prompt,
+            createdAt: started.run.createdAt,
+            updatedAt: started.run.updatedAt,
+          });
+          spawnRunWatcher(started.run.id);
+        }
         return {
-          summary: waited.complete
-            ? `Completed aggregate run ${started.run.id}.`
-            : `Started aggregate run ${started.run.id}; it is still ${waited.run?.status ?? "running"}.`,
-          data: waited,
+          summary: `Started aggregate run ${started.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, started.run.id)}`,
+          data: { run: started.run, pending: true },
         };
       },
     },
@@ -953,8 +956,20 @@ function createToolRegistry(): ToolDefinition[] {
           type: "fetch",
           config: { sourceDescription },
         });
+        if (context.session) {
+          await trackRemoteRun({
+            id: result.run.id,
+            datasetId: result.run.datasetId,
+            origin: context.session.origin,
+            status: result.run.status,
+            prompt: result.run.prompt,
+            createdAt: result.run.createdAt,
+            updatedAt: result.run.updatedAt,
+          });
+          spawnRunWatcher(result.run.id);
+        }
         return {
-          summary: `Queued public-data fetch run ${result.run.id}.`,
+          summary: `Queued public-data fetch run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
           data: result,
         };
       },
@@ -1020,9 +1035,10 @@ function createToolRegistry(): ToolDefinition[] {
             createdAt: result.run.createdAt,
             updatedAt: result.run.updatedAt,
           });
+          spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Queued remote agent run ${result.run.id}.`,
+          summary: `Queued remote agent run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
           data: result,
         };
       },
@@ -1068,9 +1084,10 @@ function createToolRegistry(): ToolDefinition[] {
             createdAt: result.run.createdAt,
             updatedAt: result.run.updatedAt,
           });
+          spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Queued continuation of remote agent session ${sessionId} as run ${result.run.id}.`,
+          summary: `Queued continuation of remote agent session ${sessionId} as run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
           data: result,
         };
       },
@@ -1096,8 +1113,20 @@ function createToolRegistry(): ToolDefinition[] {
             scriptOutline: typeof input.scriptOutline === "string" ? input.scriptOutline : undefined,
           },
         });
+        if (context.session) {
+          await trackRemoteRun({
+            id: result.run.id,
+            datasetId: result.run.datasetId,
+            origin: context.session.origin,
+            status: result.run.status,
+            prompt: result.run.prompt,
+            createdAt: result.run.createdAt,
+            updatedAt: result.run.updatedAt,
+          });
+          spawnRunWatcher(result.run.id);
+        }
         return {
-          summary: `Queued transformation run ${result.run.id}.`,
+          summary: `Queued transformation run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
           data: result,
         };
       },
@@ -1126,8 +1155,20 @@ function createToolRegistry(): ToolDefinition[] {
             config: { labelingPrompt },
           },
         );
+        if (context.session) {
+          await trackRemoteRun({
+            id: result.run.id,
+            datasetId: result.run.datasetId,
+            origin: context.session.origin,
+            status: result.run.status,
+            prompt: result.run.prompt,
+            createdAt: result.run.createdAt,
+            updatedAt: result.run.updatedAt,
+          });
+          spawnRunWatcher(result.run.id);
+        }
         return {
-          summary: `Queued labeling run ${result.run.id}.`,
+          summary: `Queued labeling run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
           data: result,
         };
       },
