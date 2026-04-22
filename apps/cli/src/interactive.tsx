@@ -1,60 +1,47 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Static, Text, useApp, useInput } from "ink";
+import { Box, Static, Text, useApp, useInput, useWindowSize } from "ink";
 import TextInput from "ink-text-input";
 
-import { currentOrigin, runAgentTurn, type AgentMessage } from "./agent.js";
+import { currentOrigin, type AgentMessage, runAgentTurn } from "./agent.js";
 import { DEFAULT_INSTANCE_ROOT, RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
 import { clearSession, login, readSession } from "./session.js";
 
-function roleColor(role: AgentMessage["role"]) {
-  switch (role) {
-    case "user":
-      return "cyan";
-    case "assistant":
-      return "green";
-    case "tool":
-      return "yellow";
-    default:
-      return "gray";
-  }
-}
-
-function roleLabel(role: AgentMessage["role"]) {
-  switch (role) {
-    case "user":
-      return "you";
-    case "assistant":
-      return "research";
-    case "tool":
-      return "tool";
-    default:
-      return "system";
-  }
-}
-
 function shortId(value: string, size = 8) {
   return value.length > size ? value.slice(0, size) : value;
 }
 
-function MessageBlock({ message }: { message: AgentMessage }) {
+function fillBar(text: string, width: number) {
+  const safeWidth = Math.max(8, width);
+  const trimmed = text.length > safeWidth - 4 ? `${text.slice(0, safeWidth - 7)}...` : text;
+  return `› ${trimmed}`.padEnd(safeWidth, " ");
+}
+
+function MessageBlock({ message, width }: { message: AgentMessage; width: number }) {
   const lines = message.content.split("\n");
-  const label = roleLabel(message.role);
-  const labelColor = roleColor(message.role);
+
+  if (message.role === "user") {
+    return (
+      <Box flexDirection="column" marginBottom={1}>
+        {lines.map((line, index) => (
+          <Text key={`user-${index}`} backgroundColor="gray" color="white">
+            {fillBar(line.length > 0 ? line : " ", width)}
+          </Text>
+        ))}
+      </Box>
+    );
+  }
 
   return (
     <Box flexDirection="column" marginBottom={1}>
       {lines.map((line, index) => (
-        <Box key={`${label}-${index}`}>
-          <Box width={10}>
-            <Text color={index === 0 ? labelColor : "gray"}>
-              {index === 0 ? label.padEnd(8, " ") : " ".repeat(8)}
-            </Text>
-          </Box>
-          <Box flexGrow={1}>
-            <Text color={message.role === "tool" ? "yellow" : undefined}>{line.length > 0 ? line : " "}</Text>
-          </Box>
+        <Box key={`${message.role}-${index}`}>
+          {message.role === "tool" ? (
+            <Text color="yellow">{`${index === 0 ? "· " : "  "}${line.length > 0 ? line : " "}`}</Text>
+          ) : (
+            <Text>{line.length > 0 ? line : " "}</Text>
+          )}
         </Box>
       ))}
     </Box>
@@ -132,6 +119,7 @@ async function pollTrackedRuns(
 
 export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const { exit } = useApp();
+  const { columns } = useWindowSize();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<AgentMessage[]>([
     {
@@ -319,6 +307,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       .map((item) => `${shortId(item.id)} ${item.status}`)
       .join("  |  ");
   }, [trackedRuns]);
+  const divider = "─".repeat(Math.max(20, columns - 2));
 
   return (
     <Box flexDirection="column">
@@ -332,39 +321,54 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
 
       <Static items={messages}>
         {(message, index) => (
-          <MessageBlock key={`${message.role}-${index}`} message={message} />
+          <MessageBlock key={`${message.role}-${index}`} message={message} width={Math.max(20, columns - 1)} />
         )}
       </Static>
 
-      <Box marginTop={1}>
-        <Text color="cyan">{"> "}</Text>
+      {status !== "idle" ? (
+        <Box marginBottom={1} flexDirection="column">
+          <Text color="white" backgroundColor={status === "thinking" ? "red" : "yellow"}>
+            {fillBar(activityText, Math.max(20, columns - 1))}
+          </Text>
+          <Text color="gray">{busy ? "└ esc to interrupt" : "└ working"}</Text>
+        </Box>
+      ) : null}
+
+      <Box>
+        <Text color="gray">{divider}</Text>
+      </Box>
+
+      <Box>
+        <Text color="gray">{"> "}</Text>
         <TextInput
           value={input}
           onChange={setInput}
           onSubmit={() => {
             void submit();
           }}
-          placeholder="sign in, create a dataset, deploy it, or manage runs"
+          placeholder=""
         />
       </Box>
 
+      <Box>
+        <Text color="gray">{divider}</Text>
+      </Box>
+
       <Box marginTop={1}>
         <Text color="gray" wrap="truncate-end">
-          runs: {activeRunText}
+          {busy ? "esc to interrupt" : "? for shortcuts"}
         </Text>
       </Box>
 
-      {status !== "idle" ? (
-        <Box marginTop={1}>
-          <Text color={status === "thinking" ? "yellow" : "cyan"} wrap="truncate-end">
-            {activityText}
-          </Text>
-        </Box>
-      ) : null}
-
-      <Box marginTop={1}>
+      <Box>
         <Text color="gray" wrap="truncate-end">
-          {altScreen ? "/login  /exit  Ctrl-C" : "/login  /exit  Esc"}  |  root {DEFAULT_INSTANCE_ROOT}
+          {activeRunText}
+        </Text>
+      </Box>
+
+      <Box>
+        <Text color="gray" wrap="truncate-end">
+          {altScreen ? "/login  /logout  /exit  Ctrl-C" : "/login  /logout  /exit  Esc"}  |  root {DEFAULT_INSTANCE_ROOT}
         </Text>
       </Box>
     </Box>
