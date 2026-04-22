@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 
@@ -21,6 +21,10 @@ export async function readSession(): Promise<SessionRecord | null> {
   } catch {
     return null;
   }
+}
+
+export async function clearSession() {
+  await rm(SESSION_PATH, { force: true });
 }
 
 export function openBrowser(url: string) {

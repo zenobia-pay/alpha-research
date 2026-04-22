@@ -6,7 +6,7 @@ import { currentOrigin, runAgentTurn, type AgentMessage } from "./agent.js";
 import { DEFAULT_INSTANCE_ROOT, RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
-import { login, readSession } from "./session.js";
+import { clearSession, login, readSession } from "./session.js";
 
 function roleColor(role: AgentMessage["role"]) {
   switch (role) {
@@ -250,6 +250,15 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
         setBusy(false);
         setStatus("idle");
       }
+      return;
+    }
+
+    if (trimmed === "/logout") {
+      appendMessage({ role: "user", content: trimmed });
+      setInput("");
+      await clearSession();
+      setSession(null);
+      appendMessage({ role: "assistant", content: "signed out locally" });
       return;
     }
 
