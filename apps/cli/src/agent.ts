@@ -57,6 +57,16 @@ type ResponsesApiPayload = {
 
 const DATASET_EXTENSIONS = [".parquet", ".csv", ".json", ".txt", ".md", ".markdown", ".html", ".htm", ".pdf"];
 const MAX_TOOL_ROUNDS = 12;
+const ASYNC_RUN_START_TOOLS = new Set([
+  "start_remote_run",
+  "query_remote_dataset",
+  "aggregate_remote_dataset",
+  "fetch_public_data",
+  "start_remote_agent_run",
+  "continue_remote_agent_run",
+  "run_remote_transformation",
+  "run_remote_labeling",
+]);
 
 const AGENT_INSTRUCTIONS = [
   "You are RESEARCH, a CLI agent for helping knowledge workers work faster.",
@@ -103,6 +113,36 @@ function shouldExposeWaitTool(input: string) {
 
 function looksLikeAuthError(error: unknown) {
   return error instanceof RemoteRequestError && error.status === 401;
+}
+
+function parseRemoteErrorJson(error: RemoteRequestError) {
+  const match = error.message.match(/(\{[\s\S]*\})\s*$/);
+  if (!match?.[1]) {
+    return null;
+  }
+  try {
+    return JSON.parse(match[1]) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function summarizeBusyDatasetConflict(error: RemoteRequestError) {
+  if (error.status !== 409) {
+    return null;
+  }
+  const payload = parseRemoteErrorJson(error);
+  if (!payload || typeof payload.error !== "string" || !payload.error.includes("active run holding its volume")) {
+    return null;
+  }
+  const activeRuns = Array.isArray(payload.activeRuns) ? payload.activeRuns as Array<Record<string, unknown>> : [];
+  const first = activeRuns[0];
+  if (!first) {
+    return payload.error;
+  }
+  const runId = typeof first.id === "string" ? first.id : "unknown";
+  const status = typeof first.status === "string" ? first.status : "running";
+  return `Dataset is already busy with run ${runId} (${status}). Open ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)} or ask me to check that run instead of starting another one.`;
 }
 
 async function withAuthRetry<T>(
@@ -841,11 +881,22 @@ function createToolRegistry(): ToolDefinition[] {
         const client = createRemoteClient(context);
         const datasetId = String(input.datasetId);
         const prompt = String(input.prompt);
-        const result = await client.startRun(datasetId, prompt, {
-          type: typeof input.type === "string" ? input.type : undefined,
-          config: input.config && typeof input.config === "object" ? input.config as Record<string, unknown> : undefined,
-          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
-        });
+        let result;
+        try {
+          result = await client.startRun(datasetId, prompt, {
+            type: typeof input.type === "string" ? input.type : undefined,
+            config: input.config && typeof input.config === "object" ? input.config as Record<string, unknown> : undefined,
+            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+          });
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: result.run.id,
@@ -880,10 +931,21 @@ function createToolRegistry(): ToolDefinition[] {
         const client = createRemoteClient(context);
         const datasetId = String(input.datasetId);
         const prompt = String(input.prompt);
-        const started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
-          type: "query",
-          artifacts: [{ type: "query_result", title: "Query Result" }],
-        }));
+        let started;
+        try {
+          started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
+            type: "query",
+            artifacts: [{ type: "query_result", title: "Query Result" }],
+          }));
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: started.run.id,
@@ -918,10 +980,21 @@ function createToolRegistry(): ToolDefinition[] {
         const client = createRemoteClient(context);
         const datasetId = String(input.datasetId);
         const prompt = String(input.prompt);
-        const started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
-          type: "query",
-          artifacts: [{ type: "aggregate_result", title: "Aggregate Result" }],
-        }));
+        let started;
+        try {
+          started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
+            type: "query",
+            artifacts: [{ type: "aggregate_result", title: "Aggregate Result" }],
+          }));
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: started.run.id,
@@ -957,10 +1030,21 @@ function createToolRegistry(): ToolDefinition[] {
         const datasetId = String(input.datasetId);
         const sourceDescription = String(input.sourceDescription);
         const client = createRemoteClient(context);
-        const result = await client.startRun(datasetId, typeof input.prompt === "string" ? input.prompt : `Fetch public data: ${sourceDescription}`, {
-          type: "fetch",
-          config: { sourceDescription },
-        });
+        let result;
+        try {
+          result = await client.startRun(datasetId, typeof input.prompt === "string" ? input.prompt : `Fetch public data: ${sourceDescription}`, {
+            type: "fetch",
+            config: { sourceDescription },
+          });
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: result.run.id,
@@ -1026,10 +1110,21 @@ function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const result = await client.startRun(String(input.datasetId), String(input.prompt), {
-          type: "agent",
-          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
-        });
+        let result;
+        try {
+          result = await client.startRun(String(input.datasetId), String(input.prompt), {
+            type: "agent",
+            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+          });
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: result.run.id,
@@ -1074,11 +1169,22 @@ function createToolRegistry(): ToolDefinition[] {
         if (!sessionId) {
           throw new Error(`Run ${String(input.runId)} does not have a resumable remote agent session.`);
         }
-        const result = await client.startRun(previous.run.datasetId, String(input.prompt), {
-          type: "agent",
-          config: { remoteAgentSessionId: sessionId, parentRunId: String(input.runId) },
-          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
-        });
+        let result;
+        try {
+          result = await client.startRun(previous.run.datasetId, String(input.prompt), {
+            type: "agent",
+            config: { remoteAgentSessionId: sessionId, parentRunId: String(input.runId) },
+            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+          });
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: result.run.id,
@@ -1112,12 +1218,23 @@ function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const result = await client.startRun(String(input.datasetId), String(input.prompt), {
-          type: "transform",
-          config: {
-            scriptOutline: typeof input.scriptOutline === "string" ? input.scriptOutline : undefined,
-          },
-        });
+        let result;
+        try {
+          result = await client.startRun(String(input.datasetId), String(input.prompt), {
+            type: "transform",
+            config: {
+              scriptOutline: typeof input.scriptOutline === "string" ? input.scriptOutline : undefined,
+            },
+          });
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: result.run.id,
@@ -1152,14 +1269,25 @@ function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const labelingPrompt = String(input.labelingPrompt);
-        const result = await client.startRun(
-          String(input.datasetId),
-          typeof input.prompt === "string" ? input.prompt : `Run labeling job: ${labelingPrompt}`,
-          {
-            type: "label",
-            config: { labelingPrompt },
-          },
-        );
+        let result;
+        try {
+          result = await client.startRun(
+            String(input.datasetId),
+            typeof input.prompt === "string" ? input.prompt : `Run labeling job: ${labelingPrompt}`,
+            {
+              type: "label",
+              config: { labelingPrompt },
+            },
+          );
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: result.run.id,
@@ -1332,6 +1460,10 @@ export async function runAgentTurn(
       const parsedArguments = parseJsonArguments(call.arguments);
       const result = await withAuthRetry(context, () => tool.execute(context, parsedArguments));
       emit({ role: "tool", content: result.summary });
+      if (ASYNC_RUN_START_TOOLS.has(tool.name) && !shouldExposeWaitTool(input)) {
+        emit({ role: "assistant", content: result.summary });
+        return;
+      }
       toolOutputs.push({
         type: "function_call_output",
         call_id: call.call_id ?? tool.name,
