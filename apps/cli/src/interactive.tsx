@@ -34,6 +34,33 @@ function roleLabel(role: AgentMessage["role"]) {
   }
 }
 
+function shortId(value: string, size = 8) {
+  return value.length > size ? value.slice(0, size) : value;
+}
+
+function MessageBlock({ message }: { message: AgentMessage }) {
+  const lines = message.content.split("\n");
+  const label = roleLabel(message.role);
+  const labelColor = roleColor(message.role);
+
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      {lines.map((line, index) => (
+        <Box key={`${label}-${index}`}>
+          <Box width={10}>
+            <Text color={index === 0 ? labelColor : "gray"}>
+              {index === 0 ? label.padEnd(8, " ") : " ".repeat(8)}
+            </Text>
+          </Box>
+          <Box flexGrow={1}>
+            <Text color={message.role === "tool" ? "yellow" : undefined}>{line.length > 0 ? line : " "}</Text>
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
 type InteractiveAppProps = {
   altScreen?: boolean;
 };
@@ -275,21 +302,20 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     const auth = session ? "signed in" : "not signed in";
     const activeRuns = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
     const runText = activeRuns.length > 0
-      ? `runs ${activeRuns.length}: ${activeRuns.slice(0, 3).map((item) => `${item.id}:${item.status}`).join(", ")}`
-      : "runs 0";
-    return `RESEARCH  ${auth}  ${activityText}  ${runText}  ${currentOrigin(session)}`;
+      ? `${activeRuns.length} active run${activeRuns.length === 1 ? "" : "s"} (${activeRuns.slice(0, 2).map((item) => `${shortId(item.id)}:${item.status}`).join(", ")})`
+      : "no active runs";
+    return `research  ${auth}  ${activityText}  ${runText}  ${currentOrigin(session)}`;
   }, [activityText, session, trackedRuns]);
-
-  const transcriptItems = useMemo(
-    () => messages.flatMap((message, messageIndex) =>
-      message.content.split("\n").map((line, lineIndex) => ({
-        key: `${messageIndex}-${lineIndex}-${message.role}`,
-        role: message.role,
-        line: line.length > 0 ? line : " ",
-      })),
-    ),
-    [messages],
-  );
+  const activeRunText = useMemo(() => {
+    const activeRuns = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
+    if (activeRuns.length === 0) {
+      return "no runs in progress";
+    }
+    return activeRuns
+      .slice(0, 3)
+      .map((item) => `${shortId(item.id)} ${item.status}`)
+      .join("  |  ");
+  }, [trackedRuns]);
 
   return (
     <Box flexDirection="column">
@@ -297,14 +323,33 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
         <Text color="gray" wrap="truncate-end">{header}</Text>
       </Box>
 
-      <Static items={transcriptItems}>
-        {(message) => (
-          <Box key={message.key}>
-            <Text color={roleColor(message.role)}>{`${roleLabel(message.role)}> `}</Text>
-            <Text wrap="truncate-end">{message.line}</Text>
-          </Box>
+      <Box marginBottom={1}>
+        <Text color="gray">──────────────────────────────────────────────────────────────────────────────</Text>
+      </Box>
+
+      <Static items={messages}>
+        {(message, index) => (
+          <MessageBlock key={`${message.role}-${index}`} message={message} />
         )}
       </Static>
+
+      <Box marginTop={1}>
+        <Text color="gray">──────────────────────────────────────────────────────────────────────────────</Text>
+      </Box>
+
+      {status !== "idle" ? (
+        <Box marginTop={1}>
+          <Text color={status === "thinking" ? "yellow" : "cyan"} wrap="truncate-end">
+            {activityText}
+          </Text>
+        </Box>
+      ) : null}
+
+      <Box marginTop={1}>
+        <Text color="gray" wrap="truncate-end">
+          runs: {activeRunText}
+        </Text>
+      </Box>
 
       <Box marginTop={1}>
         <Text color="cyan">{"> "}</Text>
@@ -320,17 +365,9 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
 
       <Box marginTop={1}>
         <Text color="gray" wrap="truncate-end">
-          {altScreen ? "/login  /exit  Ctrl-C" : "/login  /exit  Esc"}  |  local root: {DEFAULT_INSTANCE_ROOT}
+          {altScreen ? "/login  /exit  Ctrl-C" : "/login  /exit  Esc"}  |  root {DEFAULT_INSTANCE_ROOT}
         </Text>
       </Box>
-
-      {status !== "idle" ? (
-        <Box>
-          <Text color={status === "thinking" ? "yellow" : "cyan"} wrap="truncate-end">
-            {activityText}
-          </Text>
-        </Box>
-      ) : null}
     </Box>
   );
 }
