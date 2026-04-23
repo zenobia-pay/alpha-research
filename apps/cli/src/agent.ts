@@ -229,7 +229,7 @@ function renderStructuredResult(result: Record<string, unknown>) {
 
 function summarizeRunResultsForHumans(
   payload: {
-    run: { id: string; datasetId: string; status: string };
+    run: { id: string; datasetId: string; status: string; prompt?: string };
     artifacts: Array<{ title?: string; type?: string; content?: unknown }>;
   },
   origin: string,
@@ -241,6 +241,10 @@ function summarizeRunResultsForHumans(
     "Last completed run",
     `${payload.run.id} · ${payload.run.datasetId} · ${formatStatusForHumans(payload.run.status)}`,
   ];
+  const prompt = payload.run.prompt?.trim();
+  if (prompt) {
+    lines.push("", "Original request", prompt);
+  }
   if (structuredResult) {
     lines.push("", renderStructuredResult(structuredResult));
   }
@@ -1505,6 +1509,7 @@ function createToolRegistry(): ToolDefinition[] {
               id: payload.run.id,
               datasetId: payload.run.datasetId,
               status: payload.run.status,
+              prompt: payload.run.prompt,
             },
             artifacts: producedArtifacts,
           },
