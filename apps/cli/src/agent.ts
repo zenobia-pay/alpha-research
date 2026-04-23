@@ -181,7 +181,7 @@ async function withAuthRetry<T>(
 }
 
 async function persistSessionEntry(context: ToolExecutionContext, entry: {
-  role: "assistant" | "tool";
+  role: "assistant" | "tool" | "user";
   kind: string;
   title?: string;
   content: string;
@@ -1496,12 +1496,28 @@ export async function runAgentTurn(
     return replied.payload as ResponsesApiPayload;
   });
 
+  await persistSessionEntry(context, {
+    role: "user",
+    kind: "local_user",
+    title: "CLI input",
+    content: input,
+    metadata: {
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    },
+  });
+
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const functionCalls = extractFunctionCalls(response);
     if (functionCalls.length === 0) {
       const text = extractOutputText(response);
       emit({
         role: "assistant",
+        content: text || "Done.",
+      });
+      await persistSessionEntry(context, {
+        role: "assistant",
+        kind: "local_assistant",
+        title: "CLI response",
         content: text || "Done.",
       });
       return {
