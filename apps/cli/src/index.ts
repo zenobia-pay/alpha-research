@@ -3,6 +3,7 @@ import React from "react";
 import { render } from "ink";
 
 import { DEFAULT_INSTALL_URL, type SessionRecord } from "./config.js";
+import { type AgentMessage, runAgentTurn } from "./agent.js";
 import { parseCliArgs, parseFlags } from "./flags.js";
 import { InteractiveApp } from "./interactive.js";
 import { buildInstallPrompt, handleFixture, printUsage, runScriptedCommand } from "./local-tools.js";
@@ -16,10 +17,30 @@ function leaveAltScreen() {
   process.stdout.write("\u001b[?1049l");
 }
 
+function printAgentMessage(message: AgentMessage) {
+  const prefix = message.role === "tool" ? "· " : "";
+  const lines = message.content.split("\n");
+  for (const line of lines) {
+    console.log(`${prefix}${line}`);
+  }
+}
+
+async function runPromptMode(prompt: string) {
+  const session = await readSession();
+  const conversationState = await runAgentTurn(prompt, session, printAgentMessage);
+  return conversationState;
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   const { flags, positionals } = parseCliArgs(argv);
   const [command, ...rest] = positionals;
+  const promptFlag = typeof flags.prompt === "string" ? flags.prompt.trim() : "";
+
+  if (promptFlag) {
+    await runPromptMode(promptFlag);
+    return;
+  }
 
   if (!command || command === "agent" || command === "chat") {
     const altScreen = flags["alt-screen"] === "true";
@@ -35,6 +56,15 @@ async function main() {
       });
     }
     render(React.createElement(InteractiveApp, { altScreen }));
+    return;
+  }
+
+  if (command === "prompt") {
+    const prompt = rest.join(" ").trim();
+    if (!prompt) {
+      throw new Error("Missing prompt text. Use `research prompt \"...\"` or `research --prompt \"...\"`.");
+    }
+    await runPromptMode(prompt);
     return;
   }
 
