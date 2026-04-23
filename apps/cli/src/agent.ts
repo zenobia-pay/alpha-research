@@ -274,6 +274,22 @@ function shouldExposeRunInspectionTools(input: string) {
   return /\b(status|results?|artifacts?|progress|check on|check status|inspect run|what happened|dashboard|open run|monitor|watch|follow)\b/.test(lower);
 }
 
+function looksLikeIncompleteTask(input: string) {
+  const normalized = input.trim().toLowerCase();
+  return /(?:^|\s)(?:then|and|so)\s*(?:\.{2,}|…)\s*$/.test(normalized);
+}
+
+function shouldStartFreshConversation(input: string) {
+  const lower = input.trim().toLowerCase();
+  if (lower.length < 80) {
+    return false;
+  }
+  return (
+    /\b(?:here'?s what i want you to do|make me|create|build|set up|kick off|start)\b/.test(lower)
+    && /\b(?:dataset|environment|run|analysis|experiment)\b/.test(lower)
+  );
+}
+
 function looksLikeAuthError(error: unknown) {
   return error instanceof RemoteRequestError && error.status === 401;
 }
@@ -1589,6 +1605,17 @@ export async function runAgentTurn(
   emit: (message: AgentMessage) => void,
   conversationState?: AgentConversationState,
 ): Promise<AgentConversationState> {
+  if (looksLikeIncompleteTask(input)) {
+    emit({
+      role: "assistant",
+      content: "Your request ends mid-instruction after `Then ...`. Send the rest of the task and I’ll start it.",
+    });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
   const localIntent = !initialSession ? maybeHandleUnauthenticatedLocalRequest(input) : null;
   const exposeWaitTool = shouldExposeWaitTool(input);
   const exposeRunInspectionTools = shouldExposeRunInspectionTools(input);
@@ -1644,12 +1671,15 @@ export async function runAgentTurn(
   }
 
   const toolSchemas = toolRegistry.map(buildToolSchema);
+  const previousResponseId = shouldStartFreshConversation(input)
+    ? undefined
+    : conversationState?.previousResponseId ?? undefined;
   let response = await withAuthRetry(context, async () => {
     const activeClient = new RemoteApiClient(requireSession(context));
     const replied = await activeClient.respond({
       instructions: AGENT_INSTRUCTIONS,
       input,
-      previous_response_id: conversationState?.previousResponseId ?? undefined,
+      previous_response_id: previousResponseId,
       tools: toolSchemas,
       parallel_tool_calls: false,
     });

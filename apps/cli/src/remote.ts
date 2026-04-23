@@ -150,14 +150,31 @@ export class RemoteApiClient {
   }
 
   async respond(body: Record<string, unknown>) {
-    const response = await fetch(`${this.session.origin}/api/cli/respond`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.session.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+    let response: Response;
+    try {
+      response = await fetch(`${this.session.origin}/api/cli/respond`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.session.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new RemoteRequestError(
+          "Remote agent planning timed out after 90s for /api/cli/respond. If a run was started, use `what runs are active?` to inspect it.",
+          408,
+          "/api/cli/respond",
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!response.ok) {
       const text = await response.text().catch(() => "");
       const detail = text.trim().length > 0 ? ` ${text.trim()}` : "";
