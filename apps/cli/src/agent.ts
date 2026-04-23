@@ -72,6 +72,7 @@ const ASYNC_RUN_START_TOOLS = new Set([
   "continue_remote_agent_run",
   "run_remote_transformation",
   "run_remote_labeling",
+  "create_public_data_environment",
 ]);
 
 const AGENT_INSTRUCTIONS = [
@@ -98,6 +99,8 @@ const AGENT_INSTRUCTIONS = [
   "6. How to view the results of the experiment. Be precise. If there are graphs, specify the chart type and exactly what the axes are.",
   "",
   "Use the provided tools.",
+  "For datasets that must be fetched from public internet/API sources, use create_public_data_environment. Do not use deploy_remote_dataset unless there is an uploaded/local source or normalized local instance.",
+  "For public-data environments, make a concrete acquisition plan in the remote prompt: sources, APIs, files to fetch, normalized output tables, manifest, and validation checks.",
   "Prefer lightweight dataset queries before launching heavy transforms or analyses when the user is asking for examples, top records, or simple slices.",
   "Do not answer with generic numbered menus when you can inspect the user's actual datasets or runs and propose one concrete next action.",
   "When you start a remote run, do not wait for completion unless the user explicitly asks you to wait. Return immediately with the run id and dashboard link.",
@@ -840,12 +843,13 @@ function createToolRegistry(): ToolDefinition[] {
         const datasetId = String(input.datasetId);
         const name = String(input.name);
         const inputPath = typeof input.inputPath === "string" ? input.inputPath : "";
+        const isPublicPlaceholder = inputPath.startsWith("public://");
         const inferredFlags = inputPath ? inferDatasetIngestFlags(inputPath) : null;
         const result = await client.createDataset({
           datasetId,
           name,
-          sourceType: "uploaded_source",
-          sourceFilename: inputPath ? basename(inputPath) : undefined,
+          sourceType: isPublicPlaceholder ? "public_data" : "uploaded_source",
+          sourceFilename: inputPath ? (isPublicPlaceholder ? "internet" : basename(inputPath)) : undefined,
           mode: (typeof input.mode === "string" ? input.mode : (inputPath ? inferModeFromPath(inputPath) : "auto")) as
             "auto" | "tabular" | "unstructured",
           description: typeof input.description === "string"
@@ -893,6 +897,54 @@ function createToolRegistry(): ToolDefinition[] {
         return {
           summary: `Updated profile for remote dataset ${String(input.datasetId)}.`,
           data: payload,
+        };
+      },
+    },
+    {
+      name: "create_public_data_environment",
+      description: "Create a new remote research environment from public internet/API data by provisioning an empty dataset volume and prompting a remote agent to fetch, normalize, validate, and document the data.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          name: { type: "string" },
+          description: { type: "string" },
+          sourceDescription: { type: "string" },
+          prompt: { type: "string" },
+          artifacts: {
+            type: "array",
+            items: { type: "object" },
+          },
+        },
+        required: ["datasetId", "name", "sourceDescription", "prompt"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const datasetId = String(input.datasetId);
+        const prompt = String(input.prompt);
+        const result = await client.createPublicDataEnvironment(datasetId, {
+          name: String(input.name),
+          description: typeof input.description === "string" ? input.description : undefined,
+          sourceDescription: String(input.sourceDescription),
+          prompt,
+          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+        });
+        if (context.session) {
+          await trackRemoteRun({
+            id: result.run.id,
+            datasetId: result.run.datasetId,
+            origin: context.session.origin,
+            status: result.run.status,
+            prompt: result.run.prompt ?? prompt,
+            createdAt: result.run.createdAt,
+            updatedAt: result.run.updatedAt,
+          });
+          spawnRunWatcher(result.run.id);
+        }
+        return {
+          summary: `Started public-data environment build ${result.run.id} for ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          data: result,
         };
       },
     },

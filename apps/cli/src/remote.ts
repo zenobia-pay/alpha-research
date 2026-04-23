@@ -227,7 +227,7 @@ export class RemoteApiClient {
   async createDataset(body: {
     name: string;
     datasetId: string;
-    sourceType: "uploaded_source" | "local_instance" | "remote_manifest";
+    sourceType: "uploaded_source" | "local_instance" | "remote_manifest" | "public_data";
     sourceFilename?: string;
     mode?: "auto" | "tabular" | "unstructured";
     ingestConfig?: Record<string, string>;
@@ -263,6 +263,28 @@ export class RemoteApiClient {
   async deployDataset(datasetId: string) {
     return this.request<{ deployment: { datasetId: string; status: string; url?: string; volume?: RemoteDatasetVolume }; run?: RemoteRunSummary }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/deploy`, {
       method: "POST",
+    });
+  }
+
+  async createPublicDataEnvironment(datasetId: string, body: {
+    name?: string;
+    description?: string;
+    sourceDescription: string;
+    prompt: string;
+    artifacts?: Array<Record<string, unknown>>;
+  }) {
+    return this.request<{
+      dataset: RemoteDatasetSummary | null;
+      environment: {
+        datasetId: string;
+        status: string;
+        volume?: RemoteDatasetVolume;
+        manifestPath?: string;
+      };
+      run: RemoteRunSummary;
+    }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/public-environment`, {
+      method: "POST",
+      body,
     });
   }
 
