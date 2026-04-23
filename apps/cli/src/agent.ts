@@ -101,6 +101,9 @@ const AGENT_INSTRUCTIONS = [
   "Prefer lightweight dataset queries before launching heavy transforms or analyses when the user is asking for examples, top records, or simple slices.",
   "Do not answer with generic numbered menus when you can inspect the user's actual datasets or runs and propose one concrete next action.",
   "When you start a remote run, do not wait for completion unless the user explicitly asks you to wait. Return immediately with the run id and dashboard link.",
+  "When the user asks for run results, render them as a concise human-readable report. Do not dump raw JSON unless explicitly asked.",
+  "For run results, explain artifacts as saved run outputs and tell the user to view them on the run page.",
+  "For completed runs, give 2-3 concrete follow-up suggestions grounded in the result.",
   "For uploaded-file deployment flows, prefer this sequence:",
   "1. resolve_local_dataset",
   "2. register_remote_dataset",
@@ -111,6 +114,151 @@ const AGENT_INSTRUCTIONS = [
   "Be concise. After tool work completes, summarize the result and current status.",
   "Only ask the user a question if a required tool input cannot be resolved from tools or prior results.",
 ].join("\n");
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatStatusForHumans(status: string | undefined) {
+  const normalized = (status ?? "").toLowerCase();
+  if (normalized === "ready") return "completed successfully";
+  if (normalized === "completed") return "completed successfully";
+  if (normalized === "running") return "running";
+  if (normalized === "booting") return "booting";
+  if (normalized === "queued") return "queued";
+  if (normalized === "failed") return "failed";
+  if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
+  return status ?? "unknown";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isProducedArtifact(artifact: { type?: string }) {
+  return artifact.type !== "requested_artifact" && artifact.type !== "remote_agent_session";
+}
+
+function artifactBullet(artifact: { title?: string; type?: string }) {
+  const title = typeof artifact.title === "string" && artifact.title.trim() ? artifact.title.trim() : artifact.type ?? "artifact";
+  if (artifact.type === "structured_result" || title === "result.json") {
+    return `${title} — structured result data`;
+  }
+  if (artifact.type === "remote_agent_summary") {
+    return `${title} — short written summary from the remote run`;
+  }
+  if (artifact.type === "remote_agent_transcript") {
+    return `${title} — full remote execution log`;
+  }
+  if (title.endsWith(".md")) {
+    return `${title} — markdown summary/report`;
+  }
+  return title;
+}
+
+function findStructuredResultArtifact(artifacts: Array<{ title?: string; type?: string; content?: unknown }>) {
+  return artifacts.find((artifact) => artifact.type === "structured_result" && isRecord(artifact.content))
+    ?? artifacts.find((artifact) => artifact.title === "result.json" && isRecord(artifact.content));
+}
+
+function inferFollowUpSuggestions(
+  datasetId: string,
+  result: Record<string, unknown> | null,
+): string[] {
+  const suggestions: string[] = [];
+  if (!result) {
+    return [
+      `Open the run page for ${datasetId} and inspect the produced artifacts.`,
+      `Ask for a narrower follow-up analysis on ${datasetId}.`,
+    ];
+  }
+  if ("created_at_min" in result || "created_at_max" in result || "monthly_counts" in result) {
+    suggestions.push("Trend tweet volume over time and highlight spikes by month.");
+  }
+  if ("top_usernames" in result || "top_accounts" in result) {
+    suggestions.push("Profile the top accounts and compare engagement or posting patterns.");
+  }
+  if ("duplicate_tweet_rows" in result || "distinct_tweet_ids" in result) {
+    suggestions.push("Inspect duplicate tweet IDs and verify whether deduplication is needed before deeper analysis.");
+  }
+  if ("quote_rows" in result || "quote_share" in result || datasetId.includes("tweet")) {
+    suggestions.push("Find the most-quoted or highest-engagement tweets and inspect why they spread.");
+  }
+  return [...new Set(suggestions)].slice(0, 3);
+}
+
+function renderStructuredResult(result: Record<string, unknown>) {
+  const lines: string[] = [];
+  const rowCount = typeof result.total_rows === "number" ? formatNumber(result.total_rows) : null;
+  const distinctTweetIds = typeof result.distinct_tweet_ids === "number" ? formatNumber(result.distinct_tweet_ids) : null;
+  const duplicateRows = typeof result.duplicate_tweet_rows === "number" ? formatNumber(result.duplicate_tweet_rows) : null;
+  const createdAtMin = typeof result.created_at_min === "string" ? result.created_at_min : null;
+  const createdAtMax = typeof result.created_at_max === "string" ? result.created_at_max : null;
+  if (rowCount || distinctTweetIds || duplicateRows || createdAtMin || createdAtMax) {
+    lines.push("Key results");
+    if (rowCount) lines.push(`- Rows: ${rowCount}`);
+    if (distinctTweetIds) lines.push(`- Distinct tweet IDs: ${distinctTweetIds}`);
+    if (duplicateRows) lines.push(`- Duplicate tweet rows: ${duplicateRows}`);
+    if (createdAtMin || createdAtMax) lines.push(`- Date range: ${createdAtMin ?? "unknown"} to ${createdAtMax ?? "unknown"}`);
+  }
+  const topUsernames = Array.isArray(result.top_usernames) ? result.top_usernames : [];
+  if (topUsernames.length > 0) {
+    lines.push("", "Top usernames");
+    for (const entry of topUsernames.slice(0, 5)) {
+      if (!isRecord(entry)) continue;
+      const username = typeof entry.username === "string" ? entry.username : "unknown";
+      const count = typeof entry.row_count === "number" ? formatNumber(entry.row_count) : String(entry.row_count ?? "unknown");
+      lines.push(`- ${username}: ${count}`);
+    }
+  }
+  const dataQuality: string[] = [];
+  if (typeof result.missing_tweet_id_rows === "number") dataQuality.push(`Missing tweet IDs: ${formatNumber(result.missing_tweet_id_rows)}`);
+  if (typeof result.missing_username_rows === "number") dataQuality.push(`Missing usernames: ${formatNumber(result.missing_username_rows)}`);
+  if (typeof result.missing_created_rows === "number") dataQuality.push(`Missing timestamps: ${formatNumber(result.missing_created_rows)}`);
+  if (dataQuality.length > 0) {
+    lines.push("", "Data quality");
+    for (const line of dataQuality) {
+      lines.push(`- ${line}`);
+    }
+  }
+  if (lines.length === 0) {
+    lines.push("Structured result", `- ${JSON.stringify(result)}`);
+  }
+  return lines.join("\n");
+}
+
+function summarizeRunResultsForHumans(
+  payload: {
+    run: { id: string; datasetId: string; status: string };
+    artifacts: Array<{ title?: string; type?: string; content?: unknown }>;
+  },
+  origin: string,
+) {
+  const producedArtifacts = payload.artifacts.filter(isProducedArtifact);
+  const resultArtifact = findStructuredResultArtifact(producedArtifacts);
+  const structuredResult = resultArtifact?.content && isRecord(resultArtifact.content) ? resultArtifact.content : null;
+  const lines = [
+    "Last completed run",
+    `${payload.run.id} · ${payload.run.datasetId} · ${formatStatusForHumans(payload.run.status)}`,
+  ];
+  if (structuredResult) {
+    lines.push("", renderStructuredResult(structuredResult));
+  }
+  if (producedArtifacts.length > 0) {
+    lines.push(
+      "",
+      "Artifacts",
+      "Artifacts are the saved outputs from the run. Open them on the run page:",
+      ...producedArtifacts.map((artifact) => `- ${artifactBullet(artifact)}`),
+    );
+  }
+  lines.push("", "Dashboard", dashboardRunUrl(origin, payload.run.id));
+  const suggestions = inferFollowUpSuggestions(payload.run.datasetId, structuredResult);
+  if (suggestions.length > 0) {
+    lines.push("", "Suggested follow-ups", ...suggestions.map((suggestion) => `- ${suggestion}`));
+  }
+  return lines.join("\n");
+}
 
 function shouldExposeWaitTool(input: string) {
   const lower = input.toLowerCase();
@@ -594,9 +742,9 @@ function createToolRegistry(): ToolDefinition[] {
         const active = runs.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
         return {
           summary: active.length > 0
-            ? `There are ${active.length} active tracked run${active.length === 1 ? "" : "s"}.`
+            ? `Loaded run history. ${active.length} active run${active.length === 1 ? "" : "s"} right now.`
             : runs.length > 0
-              ? `There are ${runs.length} tracked runs and none are currently active.`
+              ? "Loaded run history."
               : "No tracked runs yet.",
           data: { runs },
         };
@@ -1350,9 +1498,20 @@ function createToolRegistry(): ToolDefinition[] {
         const client = createRemoteClient(context);
         const payload = await client.getRunResults(String(input.runId));
         const requestedArtifacts = Array.isArray(payload.metadata?.artifactSpec) ? payload.metadata?.artifactSpec : [];
-        const producedArtifacts = payload.artifacts.filter((artifact) => artifact.url || artifact.type === "remote_agent_session");
+        const producedArtifacts = payload.artifacts.filter(isProducedArtifact);
+        const humanSummary = summarizeRunResultsForHumans(
+          {
+            run: {
+              id: payload.run.id,
+              datasetId: payload.run.datasetId,
+              status: payload.run.status,
+            },
+            artifacts: producedArtifacts,
+          },
+          requireSession(context).origin,
+        );
         return {
-          summary: `Run ${String(input.runId)} is ${payload.run.status}.${requestedArtifacts.length > 0 ? ` Requested artifacts: ${requestedArtifacts.length}.` : ""}${producedArtifacts.length > 0 ? ` Produced artifacts: ${producedArtifacts.length}.` : ""}`,
+          summary: `${humanSummary}${requestedArtifacts.length > 0 ? `\n\nRequested artifacts: ${requestedArtifacts.length}` : ""}`,
           data: payload,
         };
       },
@@ -1371,10 +1530,14 @@ function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const payload = await client.getRunArtifacts(String(input.runId));
-        const producedArtifacts = payload.artifacts.filter((artifact) => artifact.url || artifact.type === "remote_agent_session");
+        const producedArtifacts = payload.artifacts.filter(isProducedArtifact);
         return {
           summary: producedArtifacts.length > 0
-            ? `Found ${producedArtifacts.length} produced artifact${producedArtifacts.length === 1 ? "" : "s"} for run ${String(input.runId)}.`
+            ? [
+              `Found ${producedArtifacts.length} artifact${producedArtifacts.length === 1 ? "" : "s"} for run ${String(input.runId)}.`,
+              "Artifacts are the saved outputs from the run. Open them on the run page:",
+              ...producedArtifacts.map((artifact) => `- ${artifactBullet(artifact)}`),
+            ].join("\n")
             : `No produced artifacts found for run ${String(input.runId)} yet.`,
           data: payload,
         };
