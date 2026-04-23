@@ -28,6 +28,11 @@ type ToolExecutionContext = {
   emit: (message: AgentMessage) => void;
 };
 
+export type AgentConversationState = {
+  sessionId: string | null;
+  previousResponseId: string | null;
+};
+
 type ToolDefinition = {
   name: string;
   description: string;
@@ -1414,7 +1419,8 @@ export async function runAgentTurn(
   input: string,
   initialSession: SessionRecord | null,
   emit: (message: AgentMessage) => void,
-): Promise<void> {
+  conversationState?: AgentConversationState,
+): Promise<AgentConversationState> {
   const localIntent = !initialSession ? maybeHandleUnauthenticatedLocalRequest(input) : null;
   const exposeWaitTool = shouldExposeWaitTool(input);
   const exposeRunInspectionTools = shouldExposeRunInspectionTools(input);
@@ -1430,7 +1436,7 @@ export async function runAgentTurn(
   const toolsByName = new Map(toolRegistry.map((tool) => [tool.name, tool]));
   const context: ToolExecutionContext = {
     session: initialSession,
-    sessionId: null,
+    sessionId: conversationState?.sessionId ?? null,
     emit,
   };
 
@@ -1442,7 +1448,10 @@ export async function runAgentTurn(
     emit({ role: "tool", content: `Running ${tool.name}` });
     const result = await tool.execute(context, {});
     emit({ role: "assistant", content: typeof result.data === "object" ? JSON.stringify(result.data, null, 2) : result.summary });
-    return;
+    return {
+      sessionId: context.sessionId,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
   }
 
   if (!context.session && maybeAutoLoginRequest(input)) {
@@ -1460,7 +1469,10 @@ export async function runAgentTurn(
       role: "assistant",
       content: "Sign in first with `/login`, then ask me to create datasets, deploy them, or manage runs.",
     });
-    return;
+    return {
+      sessionId: context.sessionId,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
   }
 
   const toolSchemas = toolRegistry.map(buildToolSchema);
@@ -1469,10 +1481,18 @@ export async function runAgentTurn(
     const replied = await activeClient.respond({
       instructions: AGENT_INSTRUCTIONS,
       input,
+      previous_response_id: conversationState?.previousResponseId ?? undefined,
       tools: toolSchemas,
       parallel_tool_calls: false,
     });
     context.sessionId = replied.sessionId ?? context.sessionId;
+    conversationState = {
+      sessionId: context.sessionId,
+      previousResponseId:
+        typeof (replied.payload as { id?: unknown }).id === "string"
+          ? String((replied.payload as { id?: unknown }).id)
+          : conversationState?.previousResponseId ?? null,
+    };
     return replied.payload as ResponsesApiPayload;
   });
 
@@ -1484,7 +1504,10 @@ export async function runAgentTurn(
         role: "assistant",
         content: text || "Done.",
       });
-      return;
+      return {
+        sessionId: context.sessionId,
+        previousResponseId: conversationState?.previousResponseId ?? null,
+      };
     }
 
     const toolOutputs: Array<{ type: "function_call_output"; call_id: string; output: string }> = [];
@@ -1525,7 +1548,10 @@ export async function runAgentTurn(
           title: "CLI summary",
           content: finalSummary,
         });
-        return;
+        return {
+          sessionId: context.sessionId,
+          previousResponseId: conversationState?.previousResponseId ?? null,
+        };
       }
       if (ASYNC_RUN_START_TOOLS.has(tool.name) && exposeWaitTool) {
         // Stop after the first async launch even in explicit wait mode; subsequent waiting happens via the dedicated wait tool.
@@ -1560,7 +1586,10 @@ export async function runAgentTurn(
         role: "assistant",
         content: "Your RESEARCH session was cleared while tools were running. Sign in again with `/login`.",
       });
-      return;
+      return {
+        sessionId: context.sessionId,
+        previousResponseId: conversationState?.previousResponseId ?? null,
+      };
     }
 
     response = await withAuthRetry(context, async () => {
@@ -1572,6 +1601,13 @@ export async function runAgentTurn(
         parallel_tool_calls: false,
       });
       context.sessionId = replied.sessionId ?? context.sessionId;
+      conversationState = {
+        sessionId: context.sessionId,
+        previousResponseId:
+          typeof (replied.payload as { id?: unknown }).id === "string"
+            ? String((replied.payload as { id?: unknown }).id)
+            : conversationState?.previousResponseId ?? null,
+      };
       return replied.payload as ResponsesApiPayload;
     });
   }
@@ -1580,6 +1616,10 @@ export async function runAgentTurn(
     role: "assistant",
     content: "I hit the tool-call limit before finishing. Try again or narrow the request.",
   });
+  return {
+    sessionId: context.sessionId,
+    previousResponseId: conversationState?.previousResponseId ?? null,
+  };
 }
 
 export function currentOrigin(session: SessionRecord | null) {

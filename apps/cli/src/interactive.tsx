@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Static, Text, useApp, useInput, useWindowSize } from "ink";
 import TextInput from "ink-text-input";
 
-import { type AgentMessage, runAgentTurn } from "./agent.js";
+import { type AgentConversationState, type AgentMessage, runAgentTurn } from "./agent.js";
 import { RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
@@ -152,6 +152,10 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const [busy, setBusy] = useState(false);
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
+  const [conversationState, setConversationState] = useState<AgentConversationState>({
+    sessionId: null,
+    previousResponseId: null,
+  });
 
   const appendMessage = (message: AgentMessage) => {
     setMessages((current) => [...current, message]);
@@ -236,6 +240,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
           appendMessage({ role: "tool", content: message });
         });
         setSession(nextSession);
+        setConversationState({ sessionId: null, previousResponseId: null });
         appendMessage({ role: "assistant", content: `signed in to ${nextSession.origin}` });
       } catch (error) {
         appendMessage({ role: "assistant", content: error instanceof Error ? error.message : String(error) });
@@ -251,6 +256,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       setInput("");
       await clearSession();
       setSession(null);
+      setConversationState({ sessionId: null, previousResponseId: null });
       appendMessage({ role: "assistant", content: "signed out locally" });
       return;
     }
@@ -317,7 +323,8 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
         setSession(nextSession);
       }
       setStatus("working");
-      await runAgentTurn(trimmed, nextSession, appendMessage);
+      const nextConversationState = await runAgentTurn(trimmed, nextSession, appendMessage, conversationState);
+      setConversationState(nextConversationState);
       setTrackedRuns(await readTrackedRuns());
     } catch (error) {
       appendMessage({
