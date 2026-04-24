@@ -73,6 +73,7 @@ const ASYNC_RUN_START_TOOLS = new Set([
   "run_remote_transformation",
   "run_remote_labeling",
   "create_public_data_environment",
+  "create_research_environment",
 ]);
 
 const AGENT_INSTRUCTIONS = [
@@ -99,8 +100,9 @@ const AGENT_INSTRUCTIONS = [
   "6. How to view the results of the experiment. Be precise. If there are graphs, specify the chart type and exactly what the axes are.",
   "",
   "Use the provided tools.",
-  "For datasets that must be fetched from public internet/API sources, use create_public_data_environment. Do not use deploy_remote_dataset unless there is an uploaded/local source or normalized local instance.",
-  "For public-data environments, make a concrete acquisition plan in the remote prompt: sources, APIs, files to fetch, normalized output tables, manifest, and validation checks.",
+  "For new environments that involve public internet/API sources, private/local files, paid exports, or any mix of sources, prefer create_research_environment.",
+  "Use create_public_data_environment only for simple public-only environments. Do not use deploy_remote_dataset unless there is one uploaded/local source that only needs normalization.",
+  "For environment creation, make a concrete acquisition plan in the remote prompt: public sources, private files, APIs, files to fetch, normalized output tables, manifest, and validation checks.",
   "Prefer lightweight dataset queries before launching heavy transforms or analyses when the user is asking for examples, top records, or simple slices.",
   "Do not answer with generic numbered menus when you can inspect the user's actual datasets or runs and propose one concrete next action.",
   "When you start a remote run, do not wait for completion unless the user explicitly asks you to wait. Return immediately with the run id and dashboard link.",
@@ -897,6 +899,97 @@ function createToolRegistry(): ToolDefinition[] {
         return {
           summary: `Updated profile for remote dataset ${String(input.datasetId)}.`,
           data: payload,
+        };
+      },
+    },
+    {
+      name: "create_research_environment",
+      description: "Create a remote research environment from public sources, private/local uploaded files, or a mix. This provisions a dataset volume, uploads local private sources when provided, and prompts a remote agent to fetch, stage, normalize, validate, and document all data.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+          name: { type: "string" },
+          description: { type: "string" },
+          sourceDescription: { type: "string" },
+          publicSources: {
+            type: "array",
+            items: { type: "object" },
+          },
+          localPaths: {
+            type: "array",
+            items: { type: "string" },
+          },
+          prompt: { type: "string" },
+          artifacts: {
+            type: "array",
+            items: { type: "object" },
+          },
+        },
+        required: ["datasetId", "name", "prompt"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const datasetId = String(input.datasetId);
+        const name = String(input.name);
+        const prompt = String(input.prompt);
+        const publicSources = Array.isArray(input.publicSources)
+          ? input.publicSources as Array<Record<string, unknown>>
+          : [];
+        const localPaths = Array.isArray(input.localPaths)
+          ? input.localPaths.map((value) => String(value)).filter(Boolean)
+          : [];
+        await client.createDataset({
+          datasetId,
+          name,
+          sourceType: localPaths.length > 0 && (publicSources.length > 0 || input.sourceDescription) ? "mixed_data" : localPaths.length > 0 ? "private_data" : "public_data",
+          sourceFilename: localPaths.length > 0 && (publicSources.length > 0 || input.sourceDescription) ? "mixed" : localPaths.length > 0 ? "private-uploads" : "internet",
+          mode: "tabular",
+          description: typeof input.description === "string" ? input.description : undefined,
+        });
+        const privateSources: Array<{ key: string; filename: string; sizeBytes?: number; description?: string }> = [];
+        for (const inputPath of localPaths) {
+          const filename = basename(inputPath);
+          const upload = await client.requestDatasetSourceUpload(datasetId, {
+            filename,
+            sizeBytes: (await stat(inputPath)).size,
+          });
+          context.emit({ role: "tool", content: `Uploading ${inputPath}` });
+          const sizeBytes = await uploadFileToPresignedUrl(inputPath, upload.upload.url, (message) => {
+            context.emit({ role: "tool", content: message });
+          });
+          privateSources.push({
+            key: upload.upload.key,
+            filename,
+            sizeBytes,
+            description: `Uploaded from ${inputPath}`,
+          });
+        }
+        const result = await client.createResearchEnvironment(datasetId, {
+          name,
+          description: typeof input.description === "string" ? input.description : undefined,
+          sourceDescription: typeof input.sourceDescription === "string" ? input.sourceDescription : undefined,
+          publicSources,
+          privateSources,
+          prompt,
+          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+        });
+        if (context.session) {
+          await trackRemoteRun({
+            id: result.run.id,
+            datasetId: result.run.datasetId,
+            origin: context.session.origin,
+            status: result.run.status,
+            prompt: result.run.prompt ?? prompt,
+            createdAt: result.run.createdAt,
+            updatedAt: result.run.updatedAt,
+          });
+          spawnRunWatcher(result.run.id);
+        }
+        return {
+          summary: `Started research environment build ${result.run.id} for ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          data: result,
         };
       },
     },
