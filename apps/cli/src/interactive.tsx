@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Static, Text, useApp, useInput, useWindowSize } from "ink";
 import TextInput from "ink-text-input";
+import { MarkdownText } from "@assistant-ui/react-ink-markdown";
 
 import { type AgentConversationState, type AgentMessage, runAgentTurn } from "./agent.js";
 import { RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
@@ -35,12 +36,26 @@ function summarizeRunLine(run: TrackedRunRecord) {
   return `${shortId(run.id)}  ${run.datasetId}  ${run.status}${suffix}`;
 }
 
+function roleLabel(role: AgentMessage["role"]) {
+  if (role === "user") return "you";
+  if (role === "tool") return "tool";
+  if (role === "system") return "system";
+  return "research";
+}
+
+function roleColor(role: AgentMessage["role"]) {
+  if (role === "user") return "blue";
+  if (role === "tool") return "yellow";
+  if (role === "system") return "gray";
+  return "green";
+}
+
 function MessageBlock({ message, width }: { message: AgentMessage; width: number }) {
   const lines = message.content.split("\n");
 
   if (message.role === "user") {
     return (
-      <Box flexDirection="column" marginBottom={1}>
+      <Box flexDirection="column">
         {lines.map((line, index) => (
           <Text key={`user-${index}`} backgroundColor="black" color="white">
             {fillBar(line.length > 0 ? line : " ", width)}
@@ -51,16 +66,42 @@ function MessageBlock({ message, width }: { message: AgentMessage; width: number
   }
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      {lines.map((line, index) => (
-        <Box key={`${message.role}-${index}`}>
-          {message.role === "tool" ? (
-            <Text color="yellow">{`${index === 0 ? "· " : "  "}${line.length > 0 ? line : " "}`}</Text>
-          ) : (
-            <Text>{line.length > 0 ? line : " "}</Text>
-          )}
+    <Box flexDirection="column">
+      {message.role === "assistant" ? (
+        <Box flexDirection="column">
+          <Box>
+            <Text bold color={roleColor(message.role)}>{`${roleLabel(message.role)} `}</Text>
+          </Box>
+          <MarkdownText text={message.content} />
         </Box>
-      ))}
+      ) : (
+        lines.map((line, index) => (
+          <Box key={`${message.role}-${index}`}>
+            <Text color={roleColor(message.role)}>
+              {`${index === 0 ? "· " : "  "}${line.length > 0 ? line : " "}`}
+            </Text>
+          </Box>
+        ))
+      )}
+    </Box>
+  );
+}
+
+function ActivityIndicator({ status }: { status: "thinking" | "working" }) {
+  const [dots, setDots] = useState(".");
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDots((current) => (current.length >= 3 ? "." : `${current}.`));
+    }, 650);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <Box>
+      <Text color={status === "thinking" ? "red" : "yellow"}>
+        {`· ${status}${dots}`}
+      </Text>
     </Box>
   );
 }
@@ -337,20 +378,6 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     }
   }
 
-  const stableStatusText = useMemo(() => {
-    if (status === "idle") {
-      return "ready";
-    }
-    return status === "thinking" ? "thinking" : "working";
-  }, [status]);
-
-  const activityText = useMemo(() => {
-    if (status === "idle") {
-      return "ready";
-    }
-    return stableStatusText;
-  }, [stableStatusText, status]);
-
   const activeRuns = useMemo(
     () =>
       trackedRuns
@@ -359,7 +386,8 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     [trackedRuns],
   );
 
-  const divider = "─".repeat(Math.max(20, columns - 2));
+  const inputBorderColor = status === "thinking" ? "red" : status === "working" ? "yellow" : "gray";
+  const inputWidth = Math.max(20, columns - 4);
 
   return (
     <Box flexDirection="column">
@@ -370,41 +398,29 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       </Static>
 
       {status !== "idle" ? (
-        <Box marginBottom={1}>
-          <Text color={status === "thinking" ? "red" : "yellow"}>
-            {`· ${activityText}`}
-          </Text>
-        </Box>
+        <ActivityIndicator status={status} />
       ) : null}
 
       {activeRuns.length > 0 ? (
-        <Box flexDirection="column" marginBottom={1}>
+        <Box flexDirection="column">
           {activeRuns.map((run) => (
             <Text key={run.id} color={runStatusColor(run.status)}>
-              {`· [run ${run.id}] ${summarizeRunLine(run)}`}
+              {`· ${summarizeRunLine(run)}`}
             </Text>
           ))}
         </Box>
       ) : null}
 
-      <Box>
-        <Text color="gray">{divider}</Text>
-      </Box>
-
-      <Box>
-        <Text color="gray">{"> "}</Text>
+      <Box borderStyle="round" borderColor={inputBorderColor} paddingX={1} width={inputWidth}>
+        <Text color={status === "idle" ? "gray" : inputBorderColor}>{"> "}</Text>
         <TextInput
           value={input}
           onChange={setInput}
           onSubmit={() => {
             void submit();
           }}
-          placeholder=""
+          placeholder="ask RESEARCH"
         />
-      </Box>
-
-      <Box>
-        <Text color="gray">{divider}</Text>
       </Box>
     </Box>
   );
