@@ -7,11 +7,10 @@ Type=simple
 WorkingDirectory=/srv/alpha-research/repo
 Environment=PORT=8787
 Environment=DATASET_INSTANCE_ROOT=/srv/alpha-research/data/instances
-ExecStart=/usr/bin/npm run dev:api
+ExecStart=/usr/bin/node apps/api/dist/server.js
 Restart=always
 RestartSec=5
 User=root
 
 [Install]
 WantedBy=multi-user.target
-

@@ -17,6 +17,12 @@ type GoldenFixture = {
   response: Record<string, unknown>;
   datasets?: RemoteDatasetSummary[];
   run?: RemoteRunSummary;
+  results?: {
+    run: RemoteRunSummary;
+    metadata?: { artifactSpec?: unknown };
+    events: Array<{ id: string; runId: string; message: string }>;
+    artifacts: Array<{ id: string; runId: string; type: string; title: string; content?: unknown }>;
+  };
   expectedToolCalls: string[];
   expectedSummaryIncludes: string[];
 };
@@ -76,6 +82,61 @@ for (const fixture of await readFixtures()) {
             id: "run-1",
             datasetId: "dataset",
             status: "booting",
+          },
+        };
+      },
+      async createPublicDataEnvironment() {
+        toolCalls.push("create_public_data_environment");
+        return {
+          dataset: null,
+          environment: { datasetId: fixture.run?.datasetId ?? "public-dataset", status: "booting" },
+          run: fixture.run ?? {
+            id: "run-public",
+            datasetId: "public-dataset",
+            status: "booting",
+            prompt: "Fetch public data.",
+          },
+        };
+      },
+      async startRun() {
+        toolCalls.push("query_remote_dataset");
+        return {
+          run: fixture.run ?? {
+            id: "run-query",
+            datasetId: "dataset",
+            status: "booting",
+            prompt: "Run query.",
+          },
+        };
+      },
+      async getRunResults() {
+        toolCalls.push("get_run_results");
+        return fixture.results ?? {
+          run: fixture.run ?? {
+            id: "run-results",
+            datasetId: "dataset",
+            status: "ready",
+            prompt: "Summarize the run.",
+          },
+          metadata: { artifactSpec: [{ type: "json", title: "Result JSON" }] },
+          events: [{ id: "evt-1", runId: "run-results", message: "Run completed." }],
+          artifacts: [{
+            id: "artifact-1",
+            runId: "run-results",
+            type: "structured_result",
+            title: "result.json",
+            content: { total_rows: 10, distinct_tweet_ids: 10 },
+          }],
+        };
+      },
+      async cancelRun() {
+        toolCalls.push("cancel_remote_run");
+        return {
+          run: fixture.run ?? {
+            id: "run-cancel",
+            datasetId: "dataset",
+            status: "cancelled",
+            prompt: "Stop this run.",
           },
         };
       },

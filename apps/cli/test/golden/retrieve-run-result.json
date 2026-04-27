@@ -1,0 +1,65 @@
+{
+  "name": "retrieve run result",
+  "prompt": "show the result for run-results-1",
+  "response": {
+    "id": "resp-results-1",
+    "output": [
+      {
+        "type": "function_call",
+        "call_id": "call-results-1",
+        "name": "get_run_results",
+        "arguments": "{\"runId\":\"run-results-1\"}"
+      }
+    ]
+  },
+  "results": {
+    "run": {
+      "id": "run-results-1",
+      "datasetId": "enriched-tweets",
+      "status": "ready",
+      "prompt": "Find high-engagement tweets."
+    },
+    "metadata": {
+      "artifactSpec": [
+        {
+          "type": "json",
+          "title": "Result JSON"
+        }
+      ]
+    },
+    "events": [
+      {
+        "id": "evt-results-1",
+        "runId": "run-results-1",
+        "message": "Run completed."
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "artifact-results-1",
+        "runId": "run-results-1",
+        "type": "structured_result",
+        "title": "result.json",
+        "content": {
+          "total_rows": 100,
+          "distinct_tweet_ids": 97,
+          "duplicate_tweet_rows": 3,
+          "top_usernames": [
+            {
+              "username": "example",
+              "row_count": 12
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "expectedToolCalls": [
+    "get_run_results"
+  ],
+  "expectedSummaryIncludes": [
+    "Original request\nFind high-engagement tweets.",
+    "Rows: 100",
+    "Artifacts are the saved outputs from the run"
+  ]
+}

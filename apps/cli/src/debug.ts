@@ -27,23 +27,39 @@ async function readPackageVersion() {
   }
 }
 
-export async function buildRunDebugBundle(runId: string) {
-  const session = await readSession();
+export type RunDebugDeps = {
+  readSession: typeof readSession;
+  createRemoteClient: (session: SessionRecord) => Pick<RemoteApiClient, "getRun" | "getRunResults" | "getRunEvents" | "getRunArtifacts">;
+  readTrackedRuns: typeof readTrackedRuns;
+  now: () => Date;
+};
+
+export function createDefaultRunDebugDeps(): RunDebugDeps {
+  return {
+    readSession,
+    createRemoteClient: (session) => new RemoteApiClient(session),
+    readTrackedRuns,
+    now: () => new Date(),
+  };
+}
+
+export async function buildRunDebugBundle(runId: string, deps: RunDebugDeps = createDefaultRunDebugDeps()) {
+  const session = await deps.readSession();
   if (!session) {
     throw new Error("You need to sign in first. Run `research login`.");
   }
-  const client = new RemoteApiClient(session);
+  const client = deps.createRemoteClient(session);
   const [runPayload, resultsPayload, eventsPayload, artifactsPayload, trackedRuns] = await Promise.all([
     client.getRun(runId).catch((error) => ({ error: error instanceof Error ? error.message : String(error) })),
     client.getRunResults(runId).catch((error) => ({ error: error instanceof Error ? error.message : String(error) })),
     client.getRunEvents(runId).catch((error) => ({ error: error instanceof Error ? error.message : String(error) })),
     client.getRunArtifacts(runId).catch((error) => ({ error: error instanceof Error ? error.message : String(error) })),
-    readTrackedRuns(),
+    deps.readTrackedRuns(),
   ]);
   const tracked = trackedRuns.find((run) => run.id === runId) ?? null;
   const sessionId = tracked && "sessionId" in tracked ? String((tracked as Record<string, unknown>).sessionId ?? "") : "";
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: deps.now().toISOString(),
     cli: {
       version: await readPackageVersion(),
       node: process.version,

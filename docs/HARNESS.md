@@ -5,11 +5,16 @@ The RESEARCH CLI harness makes agent behavior inspectable, deterministic, and sa
 ## Local Harness Commands
 
 ```bash
+npm run agent:check
 npm run harness:check
 npm run test:cli
 npm run test:golden
 npm run build
 npm run typecheck
+npm run docs:check
+npm run architecture:check
+npm run smoke:local
+npm run deploy:check
 ```
 
 `harness:check` validates:
@@ -18,6 +23,16 @@ npm run typecheck
 - tool registry names, descriptions, schemas, and JSON serialization
 - canonical dashboard run URL generation
 - no normal CLI harness path requires a local `OPENAI_API_KEY`
+
+`agent:check` is the canonical full local gate. It runs build, typecheck, tests, harness validation, docs consistency, architecture boundaries, local API smoke, and deployment readiness checks.
+
+`docs:check` validates that agent-facing docs are present, linked paths exist, documented npm scripts exist, and run lifecycle statuses stay aligned with `apps/cli/src/runs.ts`.
+
+`architecture:check` enforces workspace dependency boundaries and keeps `apps/cli/src/tool-registry.ts` metadata-only.
+
+`smoke:local` starts the local API against fixture instances and verifies health, instance listing, and bootstrap payloads.
+
+`deploy:check` validates DigitalOcean service files and confirms built API/frontend artifacts exist after `npm run build`.
 
 ## Deterministic Test Rules
 
@@ -51,6 +66,9 @@ Golden tests should cover durable user workflows:
 - retrieve the result of the last run
 - cancel an active run
 - handle auth refresh or backend active-run conflicts
+- handle failed run results with diagnostic guidance
+- handle wait-for-run-completion timeout
+- create public-data environments
 
 ## Runtime Seams
 

@@ -32,6 +32,11 @@ npm run test
 npm run test:cli
 npm run test:golden
 npm run harness:check
+npm run docs:check
+npm run architecture:check
+npm run smoke:local
+npm run deploy:check
+npm run agent:check
 npm run dev:cli
 npm run cli -- --prompt "show remote datasets"
 ```
@@ -59,6 +64,7 @@ The debug command redacts the session token and uses the saved CLI session. It s
 - Do not require a local `OPENAI_API_KEY` for normal CLI agent turns; model calls go through the backend.
 - Keep deterministic tests offline. Live Alpha Research or DigitalOcean checks must be explicit opt-in smoke tests.
 - Keep tool schemas serializable and validate them with `npm run harness:check`.
+- Run `npm run agent:check` before shipping broad harness, CLI, API, frontend, or deployment changes.
 - If a change touches run lifecycle semantics, update `docs/RUN_LIFECYCLE.md`.
 - If a change moves CLI concepts or entry points, update `docs/ARCHITECTURE.md` and this file.
 
@@ -67,5 +73,7 @@ The debug command redacts the session token and uses the saved CLI session. It s
 - `docs/ARCHITECTURE.md`: system map and data flow.
 - `docs/RUN_LIFECYCLE.md`: remote run states and ownership rules.
 - `docs/HARNESS.md`: deterministic harness and golden test details.
+- `docs/QUALITY.md`: mechanical quality rules and architecture boundaries.
+- `docs/AGENT_WORKFLOWS.md`: repeatable recipes for common agent changes.
 - `docs/cli-auth.md`: browser login and remote API contract.
 - `docs/storage-architecture.md`: sharded dataset package and production storage direction.

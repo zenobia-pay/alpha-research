@@ -1,0 +1,27 @@
+{
+  "name": "cancel active run",
+  "prompt": "cancel run run-cancel-1",
+  "response": {
+    "id": "resp-cancel-1",
+    "output": [
+      {
+        "type": "function_call",
+        "call_id": "call-cancel-1",
+        "name": "cancel_remote_run",
+        "arguments": "{\"runId\":\"run-cancel-1\"}"
+      }
+    ]
+  },
+  "run": {
+    "id": "run-cancel-1",
+    "datasetId": "enriched-tweets",
+    "status": "cancelled",
+    "prompt": "Stop this run."
+  },
+  "expectedToolCalls": [
+    "cancel_remote_run"
+  ],
+  "expectedSummaryIncludes": [
+    "Cancelled remote run run-cancel-1"
+  ]
+}

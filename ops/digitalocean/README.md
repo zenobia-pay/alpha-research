@@ -62,11 +62,13 @@ Use the systemd units in `ops/digitalocean/systemd/` as a starting point.
 ## Deploy Process
 
 1. Sync repo code to the droplet.
-2. Build and deploy the frontend.
-3. Build and restart the API.
-4. Run ingest on the ingest droplet.
-5. Publish the resulting package artifacts into object storage.
-6. Warm the API cache for the datasets you expect to serve heavily.
+2. Install dependencies with `npm ci`.
+3. Build all workspaces with `npm run build`.
+4. Restart the API systemd unit, which runs `node apps/api/dist/server.js`.
+5. Restart or publish the frontend preview/static host from `apps/frontend/dist`.
+6. Run ingest on the ingest droplet.
+7. Publish the resulting package artifacts into object storage.
+8. Warm the API cache for the datasets you expect to serve heavily.
 
 ## Signed-In CLI Flow
 

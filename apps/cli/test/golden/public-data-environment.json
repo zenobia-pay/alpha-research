@@ -1,0 +1,28 @@
+{
+  "name": "public data environment",
+  "prompt": "create a public data environment from SEC filings for payment company risk factors",
+  "response": {
+    "id": "resp-public-env-1",
+    "output": [
+      {
+        "type": "function_call",
+        "call_id": "call-public-env-1",
+        "name": "create_public_data_environment",
+        "arguments": "{\"datasetId\":\"sec-risk-factors\",\"name\":\"SEC Risk Factors\",\"sourceDescription\":\"Public SEC filings for payment companies\",\"prompt\":\"Fetch public SEC filings for payment companies, normalize risk factor sections, write a manifest, and validate source coverage.\"}"
+      }
+    ]
+  },
+  "run": {
+    "id": "run-public-env-1",
+    "datasetId": "sec-risk-factors",
+    "status": "booting",
+    "prompt": "Fetch public SEC filings."
+  },
+  "expectedToolCalls": [
+    "create_public_data_environment"
+  ],
+  "expectedSummaryIncludes": [
+    "Started public-data environment build run-public-env-1",
+    "https://dashboard.alpharesearch.nyc/?view=runs&runId=run-public-env-1#run-run-public-env-1"
+  ]
+}

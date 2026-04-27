@@ -8,6 +8,8 @@ import {
   type AgentRuntimeDeps,
 } from "../src/agent.js";
 import type { SessionRecord } from "../src/config.js";
+import { buildRunDebugBundle } from "../src/debug.js";
+import { RemoteRequestError } from "../src/remote.js";
 
 const session = {
   origin: "https://alpharesearch.nyc",
@@ -154,4 +156,156 @@ test("run result retrieval includes original prompt and artifacts", async () => 
   assert.match(toolOutput, /Quick sanity check\./);
   assert.match(toolOutput, /Artifacts are the saved outputs from the run/);
   assert.match(toolOutput, /Suggested follow-ups/);
+});
+
+test("busy dataset conflict returns blocking run guidance", async () => {
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "terminal-session-3",
+          payload: {
+            id: "response-2",
+            output_text: "Done.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Done." }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-3",
+        payload: {
+          id: "response-1",
+          output: [{
+            type: "function_call",
+            call_id: "call-1",
+            name: "query_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "busy-dataset", prompt: "Run analysis." }),
+          }],
+        },
+      };
+    },
+    async startRun() {
+      throw new RemoteRequestError(
+        'Remote request failed (409) for /api/cli/datasets/busy-dataset/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-blocking","status":"running"}]}',
+        409,
+        "/api/cli/datasets/busy-dataset/runs",
+      );
+    },
+    async appendSessionEntry() {
+      return { id: "entry-1" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("run analysis on busy dataset", session, emit, undefined, deps);
+
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Dataset is already busy with run run-blocking/);
+  assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
+});
+
+test("wait for run completion can time out deterministically", async () => {
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "terminal-session-4",
+          payload: {
+            id: "response-2",
+            output_text: "Still running.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Still running." }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-4",
+        payload: {
+          id: "response-1",
+          output: [{
+            type: "function_call",
+            call_id: "call-1",
+            name: "wait_for_run_completion",
+            arguments: JSON.stringify({ runId: "run-slow", timeoutSeconds: 0 }),
+          }],
+        },
+      };
+    },
+    async getRun() {
+      return { run: { id: "run-slow", datasetId: "dataset", status: "running" } };
+    },
+    async getRunEvents() {
+      return { events: [] };
+    },
+    async getRunResults() {
+      return {
+        run: { id: "run-slow", datasetId: "dataset", status: "running" },
+        metadata: null,
+        events: [],
+        artifacts: [],
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-1" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("wait for run-slow until complete", session, emit, undefined, deps);
+
+  assert.match(messages.map((message) => message.content).join("\n"), /Run run-slow is still running/);
+});
+
+test("run debug bundle redacts session token and includes remote evidence", async () => {
+  const bundle = await buildRunDebugBundle("run-debug-1", {
+    readSession: async () => ({
+      origin: "https://alpharesearch.nyc",
+      accessToken: "test-token-secret",
+      createdAt: "2026-04-22T00:00:00.000Z",
+    }),
+    createRemoteClient: () => ({
+      async getRun() {
+        return { run: { id: "run-debug-1", datasetId: "dataset", status: "failed" } };
+      },
+      async getRunResults() {
+        return {
+          run: { id: "run-debug-1", datasetId: "dataset", status: "failed" },
+          metadata: { artifactSpec: [] },
+          events: [{ id: "evt-1", runId: "run-debug-1", message: "Failed." }],
+          artifacts: [],
+        };
+      },
+      async getRunEvents() {
+        return { events: [{ id: "evt-1", runId: "run-debug-1", message: "Failed." }] };
+      },
+      async getRunArtifacts() {
+        return { artifacts: [] };
+      },
+    }),
+    readTrackedRuns: async () => [{
+      id: "run-debug-1",
+      datasetId: "dataset",
+      origin: "https://alpharesearch.nyc",
+      status: "failed",
+      createdAt: "2026-04-22T00:00:00.000Z",
+      updatedAt: "2026-04-22T00:00:00.000Z",
+      lastSeenAt: "2026-04-22T00:00:00.000Z",
+    }],
+    now: () => new Date("2026-04-22T12:00:00.000Z"),
+  });
+
+  assert.equal(bundle.generatedAt, "2026-04-22T12:00:00.000Z");
+  assert.equal(bundle.session?.accessTokenPreview, "test-tok...redacted");
+  assert.equal(JSON.stringify(bundle).includes("test-token-secret"), false);
+  assert.match(bundle.dashboardUrl, /run-debug-1/);
+  assert.deepEqual(bundle.remote.events, { events: [{ id: "evt-1", runId: "run-debug-1", message: "Failed." }] });
 });
