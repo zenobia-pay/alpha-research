@@ -90,7 +90,7 @@ async function request<T>(session: SessionRecord, path: string): Promise<T> {
 
 function runCli(sessionDir: string) {
   return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-    const timeoutMs = Number(process.env.RESEARCH_PRODUCT_E2E_TIMEOUT_MS ?? String(20 * 60 * 1000));
+    const timeoutMs = Number(process.env.RESEARCH_PRODUCT_E2E_TIMEOUT_MS ?? String(90 * 60 * 1000));
     const child = spawn(process.execPath, ["apps/cli/dist/index.js", "--prompt", prompt], {
       env: {
         ...process.env,
@@ -169,6 +169,12 @@ async function main() {
   const session = await readSession(sessionDir);
 
   const startedAt = Date.now();
+  console.log([
+    "Starting live slow econ product E2E.",
+    `Origin: ${session.origin}`,
+    `Session dir: ${sessionDir}`,
+    `Timeout: ${Number(process.env.RESEARCH_PRODUCT_E2E_TIMEOUT_MS ?? String(90 * 60 * 1000))}ms`,
+  ].join("\n"));
   const { stdout, stderr } = await runCli(sessionDir);
   const runIds = extractRunIds(`${stdout}\n${stderr}`);
   assert.ok(runIds.length > 0, `Expected CLI output to include at least one run id.\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`);

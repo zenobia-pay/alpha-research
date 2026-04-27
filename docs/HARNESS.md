@@ -14,7 +14,8 @@ npm run typecheck
 npm run docs:check
 npm run architecture:check
 npm run smoke:local
-npm run product:e2e:econ
+npm run test:slow
+npm run test:slow:econ
 npm run deploy:check
 ```
 
@@ -35,7 +36,7 @@ npm run deploy:check
 
 `deploy:check` validates DigitalOcean service files and confirms built API/frontend artifacts exist after `npm run build`.
 
-`product:e2e:econ` is an opt-in live product E2E. It refuses to run unless `RESEARCH_PRODUCT_E2E_LIVE=1` is set because it calls the real Alpha Research backend and may provision cloud resources. It requires either an existing `research login` session or `RESEARCH_E2E_TOKEN`.
+`test:slow:econ` is the fundamental live product E2E for the current product promise. It calls the real Alpha Research backend, can provision cloud resources, and can run for a long time while async jobs complete. It requires either an existing `research login` session or `RESEARCH_E2E_TOKEN`.
 
 ## Deterministic Test Rules
 
@@ -97,14 +98,24 @@ The success case proves the CLI can orchestrate the full promised workflow again
 
 This hermetic product workflow test validates the CLI orchestration contract and the shape of the plan/results without calling live public data APIs, Alpha Research production, OpenAI, or DigitalOcean.
 
-For a full live proof, run:
+## Slow Product E2E
+
+The slow product E2E is intentionally not part of `agent:check`. It is the test to run when validating whether the actual product works end to end, not just whether the local harness and control-plane contracts are healthy.
+
+Run it with:
 
 ```bash
 npm run build
-RESEARCH_PRODUCT_E2E_LIVE=1 npm run product:e2e:econ
+npm run test:slow:econ
 ```
 
-The live E2E uses the built CLI against the real backend, extracts run ids from the real CLI output, fetches `/api/cli/runs/:runId/results`, and fails unless the evidence contains successful terminal runs, produced artifacts, all required sources, and proof terms for manifest, row counts, missingness, join keys, source URLs, labeling, charts, and artifacts.
+The live E2E uses the built CLI against the real backend, waits for the long-running async workflow, extracts run ids from the real CLI output, fetches `/api/cli/runs/:runId/results`, and fails unless the evidence contains successful terminal runs, produced artifacts, all required sources, and proof terms for manifest, row counts, missingness, join keys, source URLs, labeling, charts, and artifacts.
+
+The default timeout is 90 minutes. Override it when needed:
+
+```bash
+RESEARCH_PRODUCT_E2E_TIMEOUT_MS=7200000 npm run test:slow:econ
+```
 
 ## Runtime Seams
 
