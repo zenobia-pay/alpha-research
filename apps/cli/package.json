@@ -12,8 +12,8 @@
     "@alpha-datasets/storage": "0.1.0",
     "@assistant-ui/react-ink": "^0.0.12",
     "@assistant-ui/react-ink-markdown": "^0.0.11",
+    "assistant-cloud": "^0.1.27",
     "ink": "^7.0.1",
-    "ink-text-input": "^6.0.0",
     "openai": "^6.3.0"
   },
   "scripts": {
