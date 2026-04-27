@@ -98,6 +98,14 @@ The success case proves the CLI can orchestrate the full promised workflow again
 
 This hermetic product workflow test validates the CLI orchestration contract and the shape of the plan/results without calling live public data APIs, Alpha Research production, OpenAI, or DigitalOcean.
 
+The same harness also includes a planning-quality contract for vague experiment requests:
+
+```text
+what's up with tweets? Can you run an experiment for me on what types of tweets go viral?
+```
+
+The success case requires the agent to inspect `enriched-tweets`, avoid launching a run, and respond with a concrete experiment design for confirmation. The design must define virality as the top 0.1% by quote tweets, sample 100 random viral tweets, specify an LLM labeling schema and strict JSON labeling prompt, specify visualizations and synthesis, and ask whether to proceed or use alternatives such as retweets/likes or a control group.
+
 ## Slow Product E2E
 
 The slow product E2E is intentionally not part of `agent:check`. It is the test to run when validating whether the actual product works end to end, not just whether the local harness and control-plane contracts are healthy.

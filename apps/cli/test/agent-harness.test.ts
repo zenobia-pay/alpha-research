@@ -310,6 +310,120 @@ test("run debug bundle redacts session token and includes remote evidence", asyn
   assert.deepEqual(bundle.remote.events, { events: [{ id: "evt-1", runId: "run-debug-1", message: "Failed." }] });
 });
 
+test("product planning: vague viral tweets request designs scoped experiment before running", async () => {
+  const calls: string[] = [];
+  const finalPlan = [
+    "This is not precise enough to run yet: `viral` needs an operational definition and the experiment needs a fixed sample, labels, and output artifact.",
+    "",
+    "Here is the experiment I would run:",
+    "- Dataset: enriched-tweets.",
+    "- Virality definition: tweets in the top 0.1% by quote_tweet_count.",
+    "- Sample: pick 100 random viral tweets from that top 0.1%, stratified by month if the timestamps support it.",
+    "- Labeling: run an LLM labeling job on each tweet using the tweet text and available metadata.",
+    "- Structured fields to extract: hook_type, topic, emotional_tone, controversy_level, novelty, specificity, media_or_link_presence, named_entities, audience_target, call_to_action, quote_tweet_reason, and concise_rationale.",
+    "- Labeling prompt: classify why this tweet was quote-tweeted; return strict JSON with the structured fields and a one-sentence rationale grounded only in the tweet text/metadata.",
+    "- Visualization: show a bar chart of hook_type frequency, stacked bars for emotional_tone by controversy_level, and a table of representative examples with labels and quote counts.",
+    "- Synthesis prompt: summarize which tweet traits are overrepresented among the viral sample and which hypotheses should be tested on a larger matched control set.",
+    "",
+    "Does this design look good, or do you want an alternative definition like retweets/likes, a control group of non-viral tweets, or a different labeling schema?",
+  ].join("\n");
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "planning-session",
+          payload: {
+            id: "planning-final",
+            output_text: finalPlan,
+            output: [{ type: "message", content: [{ type: "output_text", text: finalPlan }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "planning-session",
+        payload: {
+          id: "planning-initial",
+          output: [{
+            type: "function_call",
+            call_id: "call-inspect-tweets",
+            name: "inspect_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "enriched-tweets" }),
+          }],
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-1" };
+    },
+    async getDataset(datasetId: string) {
+      calls.push("getDataset");
+      assert.equal(datasetId, "enriched-tweets");
+      return {
+        dataset: {
+          id: "enriched-tweets",
+          name: "Enriched Tweets",
+          status: "ready",
+          deploymentStatus: "ready",
+          profile: {
+            datasetId: "enriched-tweets",
+            schema: [
+              { name: "tweet_id", type: "string" },
+              { name: "full_text", type: "string" },
+              { name: "created_at", type: "timestamp" },
+              { name: "quote_tweet_count", type: "number" },
+              { name: "retweet_count", type: "number" },
+              { name: "favorite_count", type: "number" },
+            ],
+            sampleRows: [{
+              tweet_id: "tweet-1",
+              full_text: "Example tweet",
+              quote_tweet_count: 42,
+            }],
+            notes: "Quote tweet counts are available and suitable for a virality threshold.",
+          },
+        },
+      };
+    },
+    async startRun() {
+      calls.push("startRun");
+      throw new Error("Vague planning request should not start a run before confirmation.");
+    },
+    async createResearchSpec() {
+      calls.push("createResearchSpec");
+      throw new Error("Vague planning request should not create a spec before confirmation.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "what's up with tweets? Can you run an experiment for me on what types of tweets go viral?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.deepEqual(calls, ["getDataset"]);
+  const joinedMessages = messages.map((message) => message.content).join("\n");
+  assert.match(joinedMessages, /Calling inspect_remote_dataset/);
+  assert.match(joinedMessages, /not precise enough|needs an operational definition/i);
+  assert.match(joinedMessages, /top 0\.1% by quote_tweet_count/i);
+  assert.match(joinedMessages, /100 random viral tweets/i);
+  assert.match(joinedMessages, /Structured fields to extract/i);
+  assert.match(joinedMessages, /hook_type/i);
+  assert.match(joinedMessages, /controversy_level/i);
+  assert.match(joinedMessages, /strict JSON/i);
+  assert.match(joinedMessages, /bar chart/i);
+  assert.match(joinedMessages, /representative examples/i);
+  assert.match(joinedMessages, /Does this design look good/i);
+  assert.match(joinedMessages, /alternative definition like retweets\/likes|control group/i);
+});
+
 test("product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts", async () => {
   const calls: Array<{ name: string; body?: unknown; prompt?: string; options?: unknown }> = [];
   const requiredPublicSources = [
