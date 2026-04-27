@@ -70,6 +70,30 @@ Golden tests should cover durable user workflows:
 - handle wait-for-run-completion timeout
 - create public-data environments
 
+## Product Workflow Success Case
+
+`apps/cli/test/agent-harness.test.ts` includes a product-level success contract for an econ research hypothesis workflow:
+
+```text
+Make me an econ dataset with all necessary econ datasets for a housing-cycle hypothesis,
+then wait until complete and show me the results and artifacts.
+```
+
+The success case proves the CLI can orchestrate the full promised workflow against hermetic remote fakes:
+
+1. inspect existing remote datasets
+2. create a research environment with a concrete acquisition plan
+3. require source coverage for FRED, Fannie Mae, FHFA, BLS, BEA, Census, and Treasury
+4. require normalization, source URLs, row counts, missingness, join-key, and coverage validation
+5. wait for the environment build run to complete
+6. create a structured research spec with subset, shaping, labeling, and artifact requirements
+7. run the transformation script for a county-month analysis panel
+8. run the labeling job with an explicit market-regime labeling prompt
+9. run the hypothesis analysis with requested table, chart, and markdown artifacts
+10. wait for the analysis run and retrieve final artifacts
+
+This is still a hermetic product workflow test. It validates the CLI orchestration contract and the shape of the plan/results without calling live public data APIs, Alpha Research production, OpenAI, or DigitalOcean.
+
 ## Runtime Seams
 
 `AgentRuntimeDeps` is the main harness seam:

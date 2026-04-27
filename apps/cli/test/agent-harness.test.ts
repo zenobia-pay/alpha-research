@@ -309,3 +309,374 @@ test("run debug bundle redacts session token and includes remote evidence", asyn
   assert.match(bundle.dashboardUrl, /run-debug-1/);
   assert.deepEqual(bundle.remote.events, { events: [{ id: "evt-1", runId: "run-debug-1", message: "Failed." }] });
 });
+
+test("product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts", async () => {
+  const calls: Array<{ name: string; body?: unknown; prompt?: string; options?: unknown }> = [];
+  const responses = [
+    {
+      name: "list_remote_datasets",
+      arguments: {},
+    },
+    {
+      name: "create_research_environment",
+      arguments: {
+        datasetId: "econ-housing-cycle",
+        name: "Economics Housing Cycle Research Environment",
+        description: "Housing and macroeconomic data for testing regional affordability and credit-cycle hypotheses.",
+        sourceDescription: "Public macro, housing, mortgage, credit, labor, inflation, and demographic data.",
+        publicSources: [
+          { name: "FRED", kind: "api", requiredSeries: ["FEDFUNDS", "MORTGAGE30US", "CPIAUCSL", "UNRATE"] },
+          { name: "Fannie Mae", kind: "public-download", requiredTables: ["National Housing Survey", "mortgage performance indicators"] },
+          { name: "FHFA", kind: "public-download", requiredTables: ["House Price Index"] },
+          { name: "BLS", kind: "api", requiredSeries: ["local unemployment", "CPI"] },
+          { name: "BEA", kind: "api", requiredSeries: ["personal income", "GDP"] },
+          { name: "Census", kind: "api", requiredSeries: ["ACS household income", "building permits"] },
+          { name: "Treasury", kind: "api", requiredSeries: ["yield curve"] },
+        ],
+        prompt: [
+          "Build the econ housing-cycle research environment.",
+          "Fetch and stage FRED, Fannie Mae, FHFA, BLS, BEA, Census, and Treasury sources.",
+          "Use monthly or quarterly observations from 2000 onward where available.",
+          "Normalize source tables into a manifest-backed dataset with date, geography, source, series_id, value, unit, and vintage fields.",
+          "Create derived county/state/month panels for affordability, labor markets, rates, prices, income, permits, and mortgage indicators.",
+          "Validate coverage, row counts, missingness, join keys, source URLs, and reproducible fetch scripts.",
+        ].join(" "),
+        artifacts: [
+          { type: "manifest", title: "Normalized dataset manifest" },
+          { type: "coverage_report", title: "Source coverage and validation report" },
+        ],
+      },
+    },
+    {
+      name: "wait_for_run_completion",
+      arguments: { runId: "run-env", timeoutSeconds: 0 },
+    },
+    {
+      name: "create_research_spec",
+      arguments: {
+        datasetId: "econ-housing-cycle",
+        hypothesis: "Rising mortgage rates reduce housing permits most in counties with weaker income growth.",
+        spec: {
+          subset: {
+            geography: "county",
+            frequency: "monthly",
+            startDate: "2000-01-01",
+            requiredFields: [
+              "mortgage_rate_30y",
+              "housing_permits",
+              "median_household_income",
+              "unemployment_rate",
+              "house_price_index",
+            ],
+          },
+          shaping: {
+            panel: "county_month",
+            joins: ["date", "county_fips"],
+            transforms: ["rate deltas", "income growth", "permit growth", "lagged controls"],
+          },
+          labeling: {
+            required: true,
+            outputField: "market_regime_label",
+            prompt: "Label each county-month as expansion, slowdown, or stress using rates, unemployment, permits, and HPI movement.",
+          },
+          artifacts: [
+            { type: "table", title: "County-month regression-ready panel" },
+            { type: "chart", title: "Permit sensitivity by income-growth quartile", chart: "line", x: "month", y: "permit_growth" },
+            { type: "chart", title: "Rate shock response by market regime", chart: "bar", x: "market_regime_label", y: "permit_response" },
+          ],
+        },
+        status: "ready",
+      },
+    },
+    {
+      name: "run_remote_transformation",
+      arguments: {
+        datasetId: "econ-housing-cycle",
+        prompt: "Create the county-month analysis panel for the housing-rate hypothesis.",
+        scriptOutline: "Join FRED mortgage rates, FHFA HPI, Census permits/income, BLS unemployment, and BEA income by county_fips/month; compute lags, deltas, quartiles, and missingness flags.",
+      },
+    },
+    {
+      name: "wait_for_run_completion",
+      arguments: { runId: "run-transform", timeoutSeconds: 0 },
+    },
+    {
+      name: "run_remote_labeling",
+      arguments: {
+        datasetId: "econ-housing-cycle",
+        prompt: "Label market regimes on the county-month panel.",
+        labelingPrompt: "For each county-month, assign expansion, slowdown, or stress using mortgage-rate changes, unemployment trend, HPI trend, permit growth, and income growth. Return the label and short rationale.",
+      },
+    },
+    {
+      name: "wait_for_run_completion",
+      arguments: { runId: "run-label", timeoutSeconds: 0 },
+    },
+    {
+      name: "start_remote_run",
+      arguments: {
+        datasetId: "econ-housing-cycle",
+        prompt: "Test whether rising mortgage rates reduce housing permits most in counties with weaker income growth, using the labeled county-month panel.",
+        type: "hypothesis",
+        config: {
+          hypothesis: "Rising mortgage rates reduce housing permits most in counties with weaker income growth.",
+          subset: "county_month_panel_2000_present",
+          model: "fixed effects panel regression with lagged controls",
+        },
+        artifacts: [
+          { type: "table", title: "Regression summary" },
+          { type: "chart", title: "Permit sensitivity by income-growth quartile", chart: "line", x: "month", y: "permit_growth" },
+          { type: "chart", title: "Rate shock response by market regime", chart: "bar", x: "market_regime_label", y: "permit_response" },
+          { type: "markdown", title: "Hypothesis report" },
+        ],
+      },
+    },
+    {
+      name: "wait_for_run_completion",
+      arguments: { runId: "run-hypothesis", timeoutSeconds: 0 },
+    },
+    {
+      name: "get_run_results",
+      arguments: { runId: "run-hypothesis" },
+    },
+  ];
+
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        const next = responses.shift();
+        if (!next) {
+          return {
+            sessionId: "product-session",
+            payload: {
+              id: "product-final",
+              output_text: "The econ research workflow completed with a validated dataset, spec, labels, and hypothesis artifacts.",
+              output: [{
+                type: "message",
+                content: [{
+                  type: "output_text",
+                  text: "The econ research workflow completed with a validated dataset, spec, labels, and hypothesis artifacts.",
+                }],
+              }],
+            },
+          };
+        }
+        return {
+          sessionId: "product-session",
+          payload: {
+            id: `product-${next.name}`,
+            output: [{
+              type: "function_call",
+              call_id: `call-${next.name}-${responses.length}`,
+              name: next.name,
+              arguments: JSON.stringify(next.arguments),
+            }],
+          },
+        };
+      }
+      const first = responses.shift();
+      assert.ok(first);
+      return {
+        sessionId: "product-session",
+        payload: {
+          id: "product-initial",
+          output: [{
+            type: "function_call",
+            call_id: "call-initial",
+            name: first.name,
+            arguments: JSON.stringify(first.arguments),
+          }],
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-1" };
+    },
+    async listDatasets() {
+      calls.push({ name: "listDatasets" });
+      return { datasets: [] };
+    },
+    async createDataset(body: unknown) {
+      calls.push({ name: "createDataset", body });
+      return { dataset: { id: "econ-housing-cycle", name: "Economics Housing Cycle Research Environment", status: "draft" } };
+    },
+    async createResearchEnvironment(_datasetId: string, body: unknown) {
+      calls.push({ name: "createResearchEnvironment", body });
+      return {
+        dataset: { id: "econ-housing-cycle", name: "Economics Housing Cycle Research Environment", status: "building" },
+        environment: {
+          datasetId: "econ-housing-cycle",
+          status: "booting",
+          manifestPath: "data/instances/econ-housing-cycle/manifest.json",
+        },
+        run: {
+          id: "run-env",
+          datasetId: "econ-housing-cycle",
+          status: "booting",
+          prompt: "Build the econ housing-cycle research environment.",
+        },
+      };
+    },
+    async createResearchSpec(body: unknown) {
+      calls.push({ name: "createResearchSpec", body });
+      return {
+        spec: {
+          id: "spec-housing-rates",
+          datasetId: "econ-housing-cycle",
+          hypothesis: "Rising mortgage rates reduce housing permits most in counties with weaker income growth.",
+          spec: (body as { spec?: Record<string, unknown> }).spec,
+          status: "ready",
+        },
+      };
+    },
+    async startRun(datasetId: string, prompt: string, options?: { type?: string }) {
+      calls.push({ name: "startRun", prompt, options });
+      const idByType: Record<string, string> = {
+        transform: "run-transform",
+        label: "run-label",
+        hypothesis: "run-hypothesis",
+      };
+      return {
+        run: {
+          id: idByType[options?.type ?? ""] ?? "run-analysis",
+          datasetId,
+          status: "running",
+          prompt,
+        },
+      };
+    },
+    async getRunEvents(runId: string) {
+      return { events: [{ id: `evt-${runId}`, runId, message: `${runId} completed.` }] };
+    },
+    async getRunResults(runId: string) {
+      const baseRun = {
+        id: runId,
+        datasetId: "econ-housing-cycle",
+        status: "ready",
+        prompt: runId === "run-hypothesis"
+          ? "Test whether rising mortgage rates reduce housing permits most in counties with weaker income growth."
+          : "Workflow step completed.",
+      };
+      if (runId === "run-hypothesis") {
+        return {
+          run: baseRun,
+          metadata: {
+            artifactSpec: [
+              { type: "table", title: "Regression summary" },
+              { type: "chart", title: "Permit sensitivity by income-growth quartile" },
+              { type: "chart", title: "Rate shock response by market regime" },
+              { type: "markdown", title: "Hypothesis report" },
+            ],
+          },
+          events: [{ id: "evt-run-hypothesis", runId, message: "Hypothesis run completed." }],
+          artifacts: [
+            {
+              id: "artifact-result",
+              runId,
+              type: "structured_result",
+              title: "result.json",
+              content: {
+                total_rows: 312000,
+                analysis_panel: "county_month_panel_2000_present",
+                finding: "Rate increases have the largest negative permit response in the lowest income-growth quartile.",
+                charts: ["Permit sensitivity by income-growth quartile", "Rate shock response by market regime"],
+              },
+            },
+            { id: "artifact-table", runId, type: "table", title: "Regression summary" },
+            { id: "artifact-chart-1", runId, type: "chart", title: "Permit sensitivity by income-growth quartile" },
+            { id: "artifact-chart-2", runId, type: "chart", title: "Rate shock response by market regime" },
+            { id: "artifact-report", runId, type: "markdown", title: "Hypothesis report.md" },
+          ],
+        };
+      }
+      return {
+        run: baseRun,
+        metadata: { artifactSpec: [] },
+        events: [{ id: `evt-${runId}`, runId, message: `${runId} completed.` }],
+        artifacts: [{ id: `artifact-${runId}`, runId, type: "structured_result", title: "result.json", content: { ok: true } }],
+      };
+    },
+    async getRun(runId: string) {
+      return { run: { id: runId, datasetId: "econ-housing-cycle", status: "ready" } };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Make me an econ dataset with all necessary econ datasets for a housing-cycle hypothesis, then wait until complete and show me the results and artifacts.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const callNames = calls.map((call) => call.name);
+  assert.deepEqual(callNames, [
+    "listDatasets",
+    "createDataset",
+    "createResearchEnvironment",
+    "createResearchSpec",
+    "startRun",
+    "startRun",
+    "startRun",
+  ]);
+  assert.equal(responses.length, 0);
+
+  const environmentBody = calls.find((call) => call.name === "createResearchEnvironment")?.body as {
+    publicSources?: Array<{ name?: string }>;
+    prompt?: string;
+    artifacts?: Array<{ type?: string; title?: string }>;
+  };
+  const sourceNames = new Set(environmentBody.publicSources?.map((source) => source.name));
+  for (const required of ["FRED", "Fannie Mae", "FHFA", "BLS", "BEA", "Census", "Treasury"]) {
+    assert.equal(sourceNames.has(required), true, `missing required public source ${required}`);
+    assert.match(environmentBody.prompt ?? "", new RegExp(required.replace(" ", "\\s+"), "u"));
+  }
+  assert.match(environmentBody.prompt ?? "", /Normalize source tables/i);
+  assert.match(environmentBody.prompt ?? "", /Validate coverage, row counts, missingness, join keys, source URLs/i);
+  assert.deepEqual(environmentBody.artifacts?.map((artifact) => artifact.type), ["manifest", "coverage_report"]);
+
+  const specBody = calls.find((call) => call.name === "createResearchSpec")?.body as {
+    spec?: {
+      subset?: { requiredFields?: string[] };
+      shaping?: { transforms?: string[] };
+      labeling?: { required?: boolean; prompt?: string };
+      artifacts?: Array<{ type?: string; title?: string; chart?: string; x?: string; y?: string }>;
+    };
+  };
+  assert.deepEqual(specBody.spec?.subset?.requiredFields, [
+    "mortgage_rate_30y",
+    "housing_permits",
+    "median_household_income",
+    "unemployment_rate",
+    "house_price_index",
+  ]);
+  assert.equal(specBody.spec?.labeling?.required, true);
+  assert.match(specBody.spec?.labeling?.prompt ?? "", /expansion, slowdown, or stress/i);
+  assert.ok(specBody.spec?.artifacts?.some((artifact) =>
+    artifact.type === "chart"
+    && artifact.title === "Permit sensitivity by income-growth quartile"
+    && artifact.x === "month"
+    && artifact.y === "permit_growth"
+  ));
+
+  const runTypes = calls
+    .filter((call) => call.name === "startRun")
+    .map((call) => (call.options as { type?: string }).type);
+  assert.deepEqual(runTypes, ["transform", "label", "hypothesis"]);
+
+  const joinedMessages = messages.map((message) => message.content).join("\n");
+  assert.match(joinedMessages, /Started research environment build run-env/);
+  assert.match(joinedMessages, /Created research spec spec-housing-rates/);
+  assert.match(joinedMessages, /Queued transformation run run-transform/);
+  assert.match(joinedMessages, /Queued labeling run run-label/);
+  assert.match(joinedMessages, /Started run run-hypothesis/);
+  assert.match(joinedMessages, /Regression summary/);
+  assert.match(joinedMessages, /Permit sensitivity by income-growth quartile/);
+  assert.match(joinedMessages, /Hypothesis report\.md/);
+});
