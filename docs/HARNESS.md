@@ -14,6 +14,7 @@ npm run typecheck
 npm run docs:check
 npm run architecture:check
 npm run smoke:local
+npm run product:e2e:econ
 npm run deploy:check
 ```
 
@@ -33,6 +34,8 @@ npm run deploy:check
 `smoke:local` starts the local API against fixture instances and verifies health, instance listing, and bootstrap payloads.
 
 `deploy:check` validates DigitalOcean service files and confirms built API/frontend artifacts exist after `npm run build`.
+
+`product:e2e:econ` is an opt-in live product E2E. It refuses to run unless `RESEARCH_PRODUCT_E2E_LIVE=1` is set because it calls the real Alpha Research backend and may provision cloud resources. It requires either an existing `research login` session or `RESEARCH_E2E_TOKEN`.
 
 ## Deterministic Test Rules
 
@@ -92,7 +95,16 @@ The success case proves the CLI can orchestrate the full promised workflow again
 9. run the hypothesis analysis with requested table, chart, and markdown artifacts
 10. wait for the analysis run and retrieve final artifacts
 
-This is still a hermetic product workflow test. It validates the CLI orchestration contract and the shape of the plan/results without calling live public data APIs, Alpha Research production, OpenAI, or DigitalOcean.
+This hermetic product workflow test validates the CLI orchestration contract and the shape of the plan/results without calling live public data APIs, Alpha Research production, OpenAI, or DigitalOcean.
+
+For a full live proof, run:
+
+```bash
+npm run build
+RESEARCH_PRODUCT_E2E_LIVE=1 npm run product:e2e:econ
+```
+
+The live E2E uses the built CLI against the real backend, extracts run ids from the real CLI output, fetches `/api/cli/runs/:runId/results`, and fails unless the evidence contains successful terminal runs, produced artifacts, all required sources, and proof terms for manifest, row counts, missingness, join keys, source URLs, labeling, charts, and artifacts.
 
 ## Runtime Seams
 

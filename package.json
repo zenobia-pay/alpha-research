@@ -17,6 +17,7 @@
     "docs:check": "tsx scripts/docs-check.ts",
     "architecture:check": "tsx scripts/architecture-check.ts",
     "smoke:local": "tsx scripts/smoke-local.ts",
+    "product:e2e:econ": "tsx scripts/product-e2e-econ.ts",
     "deploy:check": "tsx scripts/deploy-check.ts",
     "agent:check": "npm run build && npm run typecheck && npm run test && npm run harness:check && npm run docs:check && npm run architecture:check && npm run smoke:local && npm run deploy:check",
     "dev": "npm run dev -w @alpha-datasets/frontend",
