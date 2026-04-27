@@ -312,6 +312,50 @@ test("run debug bundle redacts session token and includes remote evidence", asyn
 
 test("product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts", async () => {
   const calls: Array<{ name: string; body?: unknown; prompt?: string; options?: unknown }> = [];
+  const requiredPublicSources = [
+    { name: "Federal Reserve / FRED", url: "https://fred.stlouisfed.org/" },
+    { name: "U.S. Census Bureau", url: "https://www.census.gov/data.html" },
+    { name: "Zillow", url: "https://www.zillow.com/research/data/" },
+    { name: "National Association of Realtors", url: "https://www.nar.realtor/research-and-statistics" },
+    { name: "Fannie Mae", url: "https://www.fanniemae.com/research-and-insights/surveys" },
+    { name: "BLS", url: "https://www.bls.gov/data/" },
+    { name: "Consumer Price Index", url: "https://www.bls.gov/cpi/" },
+    { name: "Case-Shiller Index", url: "https://www.spglobal.com/spdji/en/index-family/corelogic-sp-case-shiller/" },
+    { name: "NBER", url: "https://www.nber.org/" },
+    { name: "Freddie Mac", url: "https://mf.freddiemac.com/aimi" },
+    { name: "Redfin", url: "https://www.redfin.com/news/data-center/" },
+    { name: "IMF", url: "https://www.imf.org/en/Data" },
+    { name: "Federal Reserve Bank of New York", url: "https://www.newyorkfed.org/data-and-statistics" },
+    { name: "Apartment List", url: "https://www.apartmentlist.com/research/category/data-rent-estimates" },
+    { name: "Pew Research Center", url: "https://www.pewresearch.org/" },
+    { name: "American Community Survey", url: "https://www.census.gov/programs-surveys/acs/data.html" },
+    { name: "CoreLogic", url: "https://www.corelogic.com/intelligence/us-home-price-insights/" },
+    { name: "FHFA Home Price Index", url: "https://www.fhfa.gov/data/hpi" },
+    { name: "American Time Use Survey", url: "https://www.bls.gov/tus/" },
+    { name: "Current Population Survey", url: "https://www.census.gov/programs-surveys/cps.html" },
+    { name: "Senior Loan Officer Opinion Survey", url: "https://www.federalreserve.gov/data/sloos.htm" },
+    { name: "ONS", url: "https://www.ons.gov.uk/" },
+    { name: "Personal Consumption Expenditures", url: "https://www.bea.gov/data/consumer-spending/main" },
+    { name: "American Housing Survey", url: "https://www.census.gov/programs-surveys/ahs.html" },
+    { name: "BEA", url: "https://www.bea.gov/data" },
+    { name: "Consumer Expenditure Survey", url: "https://www.bls.gov/cex/" },
+    { name: "General Social Survey", url: "https://gss.norc.org/" },
+    { name: "Panel Study of Income Dynamics", url: "https://psidonline.isr.umich.edu/" },
+    { name: "Zillow Home Value Index", url: "https://www.zillow.com/research/data/" },
+    { name: "Architecture Billings Index", url: "https://www.aia.org/aia-architecture-billings-index" },
+    { name: "Consumer Credit Panel", url: "https://www.newyorkfed.org/data-and-statistics/data-visualization/household-credit-and-debt" },
+    { name: "Current Employment Statistics", url: "https://www.bls.gov/ces/" },
+    { name: "Gallup", url: "https://news.gallup.com/" },
+    { name: "IRS Statistics", url: "https://www.irs.gov/statistics" },
+    { name: "Job Openings and Labor Turnover Survey", url: "https://www.bls.gov/jlt/" },
+    { name: "Local Area Unemployment Statistics", url: "https://www.bls.gov/lau/" },
+    { name: "OECD", url: "https://www.oecd.org/en/data/indicators/housing-prices.html" },
+    { name: "Our World in Data", url: "https://ourworldindata.org/" },
+    { name: "Pulsenomics Home Price Expectations Survey", url: "https://pulsenomics.com/surveys/" },
+    { name: "Wells Fargo / NAHB Housing Market Index", url: "https://www.nahb.org/news-and-economics/housing-economics/indices/housing-market-index" },
+    { name: "World Happiness Report", url: "https://worldhappiness.report/data/" },
+    { name: "Zillow Observed Rent Index", url: "https://www.zillow.com/research/data/" },
+  ];
   const responses = [
     {
       name: "list_remote_datasets",
@@ -324,18 +368,10 @@ test("product workflow success: econ research hypothesis creates data environmen
         name: "Economics Housing Cycle Research Environment",
         description: "Housing and macroeconomic data for testing regional affordability and credit-cycle hypotheses.",
         sourceDescription: "Public macro, housing, mortgage, credit, labor, inflation, and demographic data.",
-        publicSources: [
-          { name: "FRED", kind: "api", requiredSeries: ["FEDFUNDS", "MORTGAGE30US", "CPIAUCSL", "UNRATE"] },
-          { name: "Fannie Mae", kind: "public-download", requiredTables: ["National Housing Survey", "mortgage performance indicators"] },
-          { name: "FHFA", kind: "public-download", requiredTables: ["House Price Index"] },
-          { name: "BLS", kind: "api", requiredSeries: ["local unemployment", "CPI"] },
-          { name: "BEA", kind: "api", requiredSeries: ["personal income", "GDP"] },
-          { name: "Census", kind: "api", requiredSeries: ["ACS household income", "building permits"] },
-          { name: "Treasury", kind: "api", requiredSeries: ["yield curve"] },
-        ],
+        publicSources: requiredPublicSources.map((source) => ({ ...source, kind: "public-data-source" })),
         prompt: [
           "Build the econ housing-cycle research environment.",
-          "Fetch and stage FRED, Fannie Mae, FHFA, BLS, BEA, Census, and Treasury sources.",
+          `Fetch and stage this required source catalog: ${requiredPublicSources.map((source) => `${source.name}: ${source.url}`).join("; ")}.`,
           "Use monthly or quarterly observations from 2000 onward where available.",
           "Normalize source tables into a manifest-backed dataset with date, geography, source, series_id, value, unit, and vintage fields.",
           "Create derived county/state/month panels for affordability, labor markets, rates, prices, income, permits, and mortgage indicators.",
@@ -633,9 +669,10 @@ test("product workflow success: econ research hypothesis creates data environmen
     artifacts?: Array<{ type?: string; title?: string }>;
   };
   const sourceNames = new Set(environmentBody.publicSources?.map((source) => source.name));
-  for (const required of ["FRED", "Fannie Mae", "FHFA", "BLS", "BEA", "Census", "Treasury"]) {
-    assert.equal(sourceNames.has(required), true, `missing required public source ${required}`);
-    assert.match(environmentBody.prompt ?? "", new RegExp(required.replace(" ", "\\s+"), "u"));
+  for (const required of requiredPublicSources) {
+    assert.equal(sourceNames.has(required.name), true, `missing required public source ${required.name}`);
+    assert.match(environmentBody.prompt ?? "", new RegExp(required.name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
+    assert.match(environmentBody.prompt ?? "", new RegExp(required.url.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }
   assert.match(environmentBody.prompt ?? "", /Normalize source tables/i);
   assert.match(environmentBody.prompt ?? "", /Validate coverage, row counts, missingness, join keys, source URLs/i);

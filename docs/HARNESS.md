@@ -87,7 +87,7 @@ The success case proves the CLI can orchestrate the full promised workflow again
 
 1. inspect existing remote datasets
 2. create a research environment with a concrete acquisition plan
-3. require source coverage for FRED, Fannie Mae, FHFA, BLS, BEA, Census, and Treasury
+3. require source coverage for the full econ and housing source catalog
 4. require normalization, source URLs, row counts, missingness, join-key, and coverage validation
 5. wait for the environment build run to complete
 6. create a structured research spec with subset, shaping, labeling, and artifact requirements
@@ -109,7 +109,52 @@ npm run build
 npm run test:slow:econ
 ```
 
-The live E2E uses the built CLI against the real backend, waits for the long-running async workflow, extracts run ids from the real CLI output, fetches `/api/cli/runs/:runId/results`, and fails unless the evidence contains successful terminal runs, produced artifacts, all required sources, and proof terms for manifest, row counts, missingness, join keys, source URLs, labeling, charts, and artifacts.
+The live E2E uses the built CLI against the real backend, waits for the long-running async workflow, extracts run ids from the real CLI output, fetches `/api/cli/runs/:runId/results`, and fails unless the evidence contains successful terminal runs, produced artifacts, every required source name and URL, and proof terms for manifest, row counts, missingness, join keys, source URLs, labeling, charts, and artifacts.
+
+The required source catalog is:
+
+- Federal Reserve / FRED: https://fred.stlouisfed.org/
+- U.S. Census Bureau: https://www.census.gov/data.html
+- Zillow: https://www.zillow.com/research/data/
+- National Association of Realtors: https://www.nar.realtor/research-and-statistics
+- Fannie Mae: https://www.fanniemae.com/research-and-insights/surveys
+- BLS: https://www.bls.gov/data/
+- Consumer Price Index: https://www.bls.gov/cpi/
+- Case-Shiller Index: https://www.spglobal.com/spdji/en/index-family/corelogic-sp-case-shiller/
+- NBER: https://www.nber.org/
+- Freddie Mac: https://mf.freddiemac.com/aimi
+- Redfin: https://www.redfin.com/news/data-center/
+- IMF: https://www.imf.org/en/Data
+- Federal Reserve Bank of New York: https://www.newyorkfed.org/data-and-statistics
+- Apartment List: https://www.apartmentlist.com/research/category/data-rent-estimates
+- Pew Research Center: https://www.pewresearch.org/
+- American Community Survey: https://www.census.gov/programs-surveys/acs/data.html
+- CoreLogic: https://www.corelogic.com/intelligence/us-home-price-insights/
+- FHFA Home Price Index: https://www.fhfa.gov/data/hpi
+- American Time Use Survey: https://www.bls.gov/tus/
+- Current Population Survey: https://www.census.gov/programs-surveys/cps.html
+- Senior Loan Officer Opinion Survey: https://www.federalreserve.gov/data/sloos.htm
+- ONS: https://www.ons.gov.uk/
+- Personal Consumption Expenditures: https://www.bea.gov/data/consumer-spending/main
+- American Housing Survey: https://www.census.gov/programs-surveys/ahs.html
+- BEA: https://www.bea.gov/data
+- Consumer Expenditure Survey: https://www.bls.gov/cex/
+- General Social Survey: https://gss.norc.org/
+- Panel Study of Income Dynamics: https://psidonline.isr.umich.edu/
+- Zillow Home Value Index: https://www.zillow.com/research/data/
+- Architecture Billings Index: https://www.aia.org/aia-architecture-billings-index
+- Consumer Credit Panel: https://www.newyorkfed.org/data-and-statistics/data-visualization/household-credit-and-debt
+- Current Employment Statistics: https://www.bls.gov/ces/
+- Gallup: https://news.gallup.com/
+- IRS Statistics: https://www.irs.gov/statistics
+- Job Openings and Labor Turnover Survey: https://www.bls.gov/jlt/
+- Local Area Unemployment Statistics: https://www.bls.gov/lau/
+- OECD: https://www.oecd.org/en/data/indicators/housing-prices.html
+- Our World in Data: https://ourworldindata.org/
+- Pulsenomics Home Price Expectations Survey: https://pulsenomics.com/surveys/
+- Wells Fargo / NAHB Housing Market Index: https://www.nahb.org/news-and-economics/housing-economics/indices/housing-market-index
+- World Happiness Report: https://worldhappiness.report/data/
+- Zillow Observed Rent Index: https://www.zillow.com/research/data/
 
 The default timeout is 90 minutes. Override it when needed:
 
