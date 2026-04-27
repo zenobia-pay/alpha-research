@@ -24,75 +24,39 @@ type RunResults = {
   artifacts: Array<{ id: string; runId: string; type: string; title: string; content?: unknown }>;
 };
 
-const requiredSources = [
-  { name: "Federal Reserve / FRED", url: "https://fred.stlouisfed.org/" },
-  { name: "U.S. Census Bureau", url: "https://www.census.gov/data.html" },
-  { name: "Zillow", url: "https://www.zillow.com/research/data/" },
-  { name: "National Association of Realtors", url: "https://www.nar.realtor/research-and-statistics" },
-  { name: "Fannie Mae", url: "https://www.fanniemae.com/research-and-insights/surveys" },
-  { name: "BLS", url: "https://www.bls.gov/data/" },
-  { name: "Consumer Price Index", url: "https://www.bls.gov/cpi/" },
-  { name: "Case-Shiller Index", url: "https://www.spglobal.com/spdji/en/index-family/corelogic-sp-case-shiller/" },
-  { name: "NBER", url: "https://www.nber.org/" },
-  { name: "Freddie Mac", url: "https://mf.freddiemac.com/aimi" },
-  { name: "Redfin", url: "https://www.redfin.com/news/data-center/" },
-  { name: "IMF", url: "https://www.imf.org/en/Data" },
-  { name: "Federal Reserve Bank of New York", url: "https://www.newyorkfed.org/data-and-statistics" },
-  { name: "Apartment List", url: "https://www.apartmentlist.com/research/category/data-rent-estimates" },
-  { name: "Pew Research Center", url: "https://www.pewresearch.org/" },
-  { name: "American Community Survey", url: "https://www.census.gov/programs-surveys/acs/data.html" },
-  { name: "CoreLogic", url: "https://www.corelogic.com/intelligence/us-home-price-insights/" },
-  { name: "FHFA Home Price Index", url: "https://www.fhfa.gov/data/hpi" },
-  { name: "American Time Use Survey", url: "https://www.bls.gov/tus/" },
-  { name: "Current Population Survey", url: "https://www.census.gov/programs-surveys/cps.html" },
-  { name: "Senior Loan Officer Opinion Survey", url: "https://www.federalreserve.gov/data/sloos.htm" },
-  { name: "ONS", url: "https://www.ons.gov.uk/" },
-  { name: "Personal Consumption Expenditures", url: "https://www.bea.gov/data/consumer-spending/main" },
-  { name: "American Housing Survey", url: "https://www.census.gov/programs-surveys/ahs.html" },
-  { name: "BEA", url: "https://www.bea.gov/data" },
-  { name: "Consumer Expenditure Survey", url: "https://www.bls.gov/cex/" },
-  { name: "General Social Survey", url: "https://gss.norc.org/" },
-  { name: "Panel Study of Income Dynamics", url: "https://psidonline.isr.umich.edu/" },
-  { name: "Zillow Home Value Index", url: "https://www.zillow.com/research/data/" },
-  { name: "Architecture Billings Index", url: "https://www.aia.org/aia-architecture-billings-index" },
-  { name: "Consumer Credit Panel", url: "https://www.newyorkfed.org/data-and-statistics/data-visualization/household-credit-and-debt" },
-  { name: "Current Employment Statistics", url: "https://www.bls.gov/ces/" },
-  { name: "Gallup", url: "https://news.gallup.com/" },
-  { name: "IRS Statistics", url: "https://www.irs.gov/statistics" },
-  { name: "Job Openings and Labor Turnover Survey", url: "https://www.bls.gov/jlt/" },
-  { name: "Local Area Unemployment Statistics", url: "https://www.bls.gov/lau/" },
-  { name: "OECD", url: "https://www.oecd.org/en/data/indicators/housing-prices.html" },
-  { name: "Our World in Data", url: "https://ourworldindata.org/" },
-  { name: "Pulsenomics Home Price Expectations Survey", url: "https://pulsenomics.com/surveys/" },
-  { name: "Wells Fargo / NAHB Housing Market Index", url: "https://www.nahb.org/news-and-economics/housing-economics/indices/housing-market-index" },
-  { name: "World Happiness Report", url: "https://worldhappiness.report/data/" },
-  { name: "Zillow Observed Rent Index", url: "https://www.zillow.com/research/data/" },
-];
 const requiredEvidence = [
-  "manifest",
-  "row count",
-  "missingness",
-  "join",
-  "source URL",
-  "county",
-  "month",
+  "enriched-tweets",
+  "quote_tweet_count",
+  "top 0.1%",
+  "100",
+  "random",
   "label",
-  "chart",
+  "hook_type",
+  "emotional_tone",
+  "controversy_level",
+  "strict json",
+  "bar chart",
+  "representative examples",
   "artifact",
 ];
 
 const prompt = [
-  "Make me an econ dataset with all necessary econ datasets for a housing-cycle hypothesis.",
-  "Use this required source catalog:",
-  requiredSources.map((source) => `${source.name}: ${source.url}`).join("; "),
-  "Download the needed datasets, normalize them into a research environment, validate coverage, row counts, missingness, join keys, and source URLs.",
-  "Then create the analysis subset, write and run the transformation script, run any necessary labeling, choose the visualization artifacts, test the hypothesis, wait until complete, and show me the results and artifacts.",
+  "what's up with tweets? Can you run an experiment for me on what types of tweets go viral?",
+  "This is the live slow E2E, so first do the proper planning and state the precise design.",
+  "Use the enriched-tweets dataset.",
+  "For this test, treat the following design as approved and then actually run it end to end on DigitalOcean:",
+  "Define viral as tweets in the top 0.1% by quote_tweet_count.",
+  "Pick 100 random viral tweets from that top 0.1%, stratified by month if timestamps are available.",
+  "Run LLM labeling on each sampled tweet.",
+  "Extract strict JSON fields: hook_type, topic, emotional_tone, controversy_level, novelty, specificity, media_or_link_presence, named_entities, audience_target, call_to_action, quote_tweet_reason, concise_rationale.",
+  "Produce visualizations: bar chart of hook_type frequency, stacked bars for emotional_tone by controversy_level, and a table of representative examples with labels and quote counts.",
+  "Wait until the remote run succeeds, then show the results and artifacts.",
 ].join(" ");
 
 function requireLiveOptIn() {
   if (process.env.RESEARCH_PRODUCT_E2E_LIVE !== "1") {
     throw new Error(
-      "Refusing to run live product E2E without RESEARCH_PRODUCT_E2E_LIVE=1. "
+      "Refusing to run live tweet product E2E without RESEARCH_PRODUCT_E2E_LIVE=1. "
       + "This test calls the real Alpha Research backend and may provision cloud resources.",
     );
   }
@@ -161,7 +125,7 @@ function runCli(sessionDir: string) {
       stdout += String(chunk);
       if (stdout.includes("Dataset is already busy")) {
         fail(new Error([
-          "Live econ product E2E could not start because a dataset is already busy.",
+          "Live tweet product E2E could not start because the dataset is already busy.",
           "Partial STDOUT:",
           stdout,
           "Partial STDERR:",
@@ -174,7 +138,7 @@ function runCli(sessionDir: string) {
     });
     timeout = setTimeout(() => {
       fail(new Error([
-        `Live product E2E timed out after ${timeoutMs}ms.`,
+        `Live tweet product E2E timed out after ${timeoutMs}ms.`,
         "The real CLI/backend workflow did not complete inside the test budget.",
         "Partial STDOUT:",
         stdout || "<empty>",
@@ -208,7 +172,7 @@ function stringifyEvidence(value: unknown) {
 }
 
 function assertEvidenceContains(evidence: string, needle: string) {
-  assert.ok(evidence.includes(needle.toLowerCase()), `Expected live E2E evidence to include ${needle}`);
+  assert.ok(evidence.includes(needle.toLowerCase()), `Expected live tweet E2E evidence to include ${needle}`);
 }
 
 function assertTerminalSuccess(results: RunResults[]) {
@@ -221,21 +185,21 @@ function assertTerminalSuccess(results: RunResults[]) {
 
 function assertProducedArtifacts(results: RunResults[]) {
   const artifacts = results.flatMap((result) => result.artifacts);
-  assert.ok(artifacts.length > 0, "Expected live product workflow to produce artifacts.");
+  assert.ok(artifacts.length > 0, "Expected live tweet workflow to produce artifacts.");
   assert.ok(
-    artifacts.some((artifact) => /manifest|coverage|validation|report|chart|table|result/iu.test(`${artifact.type} ${artifact.title}`)),
-    `Expected manifest/coverage/validation/report/chart/table/result artifacts. Saw: ${artifacts.map((artifact) => `${artifact.type}:${artifact.title}`).join(", ")}`,
+    artifacts.some((artifact) => /label|chart|table|result|report|summary/iu.test(`${artifact.type} ${artifact.title}`)),
+    `Expected label/chart/table/result/report artifacts. Saw: ${artifacts.map((artifact) => `${artifact.type}:${artifact.title}`).join(", ")}`,
   );
 }
 
 async function main() {
   requireLiveOptIn();
-  const sessionDir = process.env.RESEARCH_SESSION_DIR ?? join(".tmp", "research-product-e2e-live");
+  const sessionDir = process.env.RESEARCH_SESSION_DIR ?? join(".tmp", "research-product-e2e-tweets-live");
   const session = await readSession(sessionDir);
 
   const startedAt = Date.now();
   console.log([
-    "Starting live slow econ product E2E.",
+    "Starting live slow tweets product E2E.",
     `Origin: ${session.origin}`,
     `Session dir: ${sessionDir}`,
     `Timeout: ${Number(process.env.RESEARCH_PRODUCT_E2E_TIMEOUT_MS ?? String(90 * 60 * 1000))}ms`,
@@ -263,17 +227,13 @@ async function main() {
     stderr,
     results,
   });
-  for (const source of requiredSources) {
-    assertEvidenceContains(evidence, source.name);
-    assertEvidenceContains(evidence, source.url);
-  }
   for (const needle of requiredEvidence) {
     assertEvidenceContains(evidence, needle);
   }
 
   const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
   console.log([
-    `Live econ product E2E passed in ${elapsedSeconds}s.`,
+    `Live tweets product E2E passed in ${elapsedSeconds}s.`,
     `Runs inspected: ${results.map((result) => `${result.run.id}:${result.run.status}`).join(", ")}`,
     `Artifacts inspected: ${results.flatMap((result) => result.artifacts).length}`,
   ].join("\n"));

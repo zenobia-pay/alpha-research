@@ -16,6 +16,7 @@ npm run architecture:check
 npm run smoke:local
 npm run test:slow
 npm run test:slow:econ
+npm run test:slow:tweets
 npm run deploy:check
 ```
 
@@ -36,7 +37,7 @@ npm run deploy:check
 
 `deploy:check` validates DigitalOcean service files and confirms built API/frontend artifacts exist after `npm run build`.
 
-`test:slow:econ` is the fundamental live product E2E for the current product promise. It calls the real Alpha Research backend, can provision cloud resources, and can run for a long time while async jobs complete. It requires either an existing `research login` session or `RESEARCH_E2E_TOKEN`.
+`test:slow` runs the live product E2E suite. It currently includes `test:slow:econ` and `test:slow:tweets`. These tests call the real Alpha Research backend, can provision cloud resources, and can run for a long time while async jobs complete. They require either an existing `research login` session or `RESEARCH_E2E_TOKEN`.
 
 ## Deterministic Test Rules
 
@@ -110,14 +111,21 @@ The success case requires the agent to inspect `enriched-tweets`, avoid launchin
 
 The slow product E2E is intentionally not part of `agent:check`. It is the test to run when validating whether the actual product works end to end, not just whether the local harness and control-plane contracts are healthy.
 
-Run it with:
+Run the full slow suite with:
 
 ```bash
 npm run build
-npm run test:slow:econ
+npm run test:slow
 ```
 
-The live E2E uses the built CLI against the real backend, waits for the long-running async workflow, extracts run ids from the real CLI output, fetches `/api/cli/runs/:runId/results`, and fails unless the evidence contains successful terminal runs, produced artifacts, every required source name and URL, and proof terms for manifest, row counts, missingness, join keys, source URLs, labeling, charts, and artifacts.
+Run individual cases with:
+
+```bash
+npm run test:slow:econ
+npm run test:slow:tweets
+```
+
+The econ live E2E uses the built CLI against the real backend, waits for the long-running async workflow, extracts run ids from the real CLI output, fetches `/api/cli/runs/:runId/results`, and fails unless the evidence contains successful terminal runs, produced artifacts, every required source name and URL, and proof terms for manifest, row counts, missingness, join keys, source URLs, labeling, charts, and artifacts.
 
 The required source catalog is:
 
@@ -169,6 +177,14 @@ The default timeout is 90 minutes. Override it when needed:
 ```bash
 RESEARCH_PRODUCT_E2E_TIMEOUT_MS=7200000 npm run test:slow:econ
 ```
+
+The tweets live E2E uses this prompt:
+
+```text
+what's up with tweets? Can you run an experiment for me on what types of tweets go viral?
+```
+
+Because slow tests are non-interactive, the prompt also includes explicit test approval to run the planned design. The test fails unless the real workflow uses `enriched-tweets`, defines viral as the top 0.1% by `quote_tweet_count`, samples 100 random viral tweets, runs labeling with strict JSON fields, produces visualizations, reaches terminal success, and exposes artifacts in run results.
 
 ## Runtime Seams
 
