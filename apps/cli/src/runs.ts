@@ -90,6 +90,9 @@ export async function trackRemoteRun(run: {
 }
 
 export function spawnRunWatcher(runId: string) {
+  if (process.env.RESEARCH_DISABLE_RUN_WATCHER === "1") {
+    return;
+  }
   const child = spawn(process.execPath, [RUN_WATCHER_SCRIPT, "--run-id", runId], {
     detached: true,
     stdio: "ignore",

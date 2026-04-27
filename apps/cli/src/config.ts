@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const SESSION_DIR = join(homedir(), ".research");
+export const SESSION_DIR = process.env.RESEARCH_SESSION_DIR ?? join(homedir(), ".research");
 export const SESSION_PATH = join(SESSION_DIR, "session.json");
 export const RUNS_PATH = join(SESSION_DIR, "runs.json");
 export const DEFAULT_WEB_ORIGIN = process.env.ALPHA_RESEARCH_WEB_ORIGIN ?? "https://alpharesearch.nyc";

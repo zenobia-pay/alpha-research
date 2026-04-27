@@ -37,6 +37,10 @@ The core ideas are:
 
 ## Repo Shape
 
+- `AGENTS.md`
+  - agent-facing map of the repo, common commands, and debug workflow
+- `docs/ARCHITECTURE.md`, `docs/RUN_LIFECYCLE.md`, `docs/HARNESS.md`
+  - canonical CLI architecture, remote run lifecycle, and harness engineering docs
 - `packages/core`
   - dataset model
   - adapter contracts
@@ -132,6 +136,19 @@ Inside the agent UI, you can ask it to:
 - list remote datasets
 - start remote runs
 
+Non-interactive prompt mode is available for harnesses and scripts:
+
+```bash
+research --prompt "show remote datasets"
+```
+
+Debug a remote run without relying on screenshots:
+
+```bash
+research debug run <run-id>
+research debug run <run-id> --output /tmp/research-run-debug.json
+```
+
 Normalize a new arbitrary tabular dataset into a deployable research package:
 
 ```bash
@@ -194,6 +211,16 @@ The local package format is still the bridge between ingest and production:
 4. optionally mirror that package into object storage for long-term canonical storage
 
 ## Testing
+
+Harness checks for the RESEARCH CLI:
+
+```bash
+npm run harness:check
+npm run test:cli
+npm run test:golden
+```
+
+These run offline against fake remote clients and isolated CLI session state.
 
 The shortest test loop is:
 

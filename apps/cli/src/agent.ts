@@ -6,7 +6,7 @@ import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/stora
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
-import { RemoteApiClient, RemoteRequestError } from "./remote.js";
+import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType } from "./remote.js";
 import { readSession, login } from "./session.js";
 import { isTerminalRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
@@ -15,17 +15,18 @@ export type AgentMessage = {
   content: string;
 };
 
-type AgentToolResult = {
+export type AgentToolResult = {
   summary: string;
   data?: unknown;
 };
 
 type JsonSchema = Record<string, unknown>;
 
-type ToolExecutionContext = {
+export type ToolExecutionContext = {
   session: SessionRecord | null;
   sessionId: string | null;
   emit: (message: AgentMessage) => void;
+  deps: AgentRuntimeDeps;
 };
 
 export type AgentConversationState = {
@@ -33,12 +34,35 @@ export type AgentConversationState = {
   previousResponseId: string | null;
 };
 
-type ToolDefinition = {
+export type ToolDefinition = {
   name: string;
   description: string;
   inputSchema: JsonSchema;
   execute: (context: ToolExecutionContext, input: Record<string, unknown>) => Promise<AgentToolResult>;
 };
+
+export type ToolRegistryMetadata = {
+  name: string;
+  description: string;
+  inputSchema: JsonSchema;
+  asyncRunStart: boolean;
+};
+
+export type AgentRuntimeDeps = {
+  createRemoteClient: (session: SessionRecord) => RemoteApiClientType;
+  readSession: typeof readSession;
+  login: typeof login;
+  createToolRegistry: () => ToolDefinition[];
+};
+
+export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
+  return {
+    createRemoteClient: (session) => new RemoteApiClient(session),
+    readSession,
+    login,
+    createToolRegistry,
+  };
+}
 
 type ResponseFunctionCall = {
   type: "function_call";
@@ -339,13 +363,13 @@ async function withAuthRetry<T>(
     if (!looksLikeAuthError(error)) {
       throw error;
     }
-    const refreshed = await readSession();
+    const refreshed = await context.deps.readSession();
     if (refreshed?.accessToken && refreshed.accessToken !== context.session?.accessToken) {
       context.session = refreshed;
       return fn();
     }
     context.emit({ role: "tool", content: "Session expired. Opening login to refresh authentication." });
-    const session = await login({}, (message) => {
+    const session = await context.deps.login({}, (message) => {
       context.emit({ role: "tool", content: message });
     });
     context.session = session;
@@ -364,7 +388,7 @@ async function persistSessionEntry(context: ToolExecutionContext, entry: {
     return;
   }
   try {
-    const client = new RemoteApiClient(context.session);
+    const client = context.deps.createRemoteClient(context.session);
     await client.appendSessionEntry(context.sessionId, entry);
   } catch {
     // Keep the local CLI responsive even if session persistence is unavailable.
@@ -521,7 +545,7 @@ function requireSession(context: ToolExecutionContext) {
 }
 
 function createRemoteClient(context: ToolExecutionContext) {
-  return new RemoteApiClient(requireSession(context));
+  return context.deps.createRemoteClient(requireSession(context));
 }
 
 function parseJsonArguments(rawArguments: string | undefined) {
@@ -586,7 +610,7 @@ function maybeHandleUnauthenticatedLocalRequest(input: string) {
   return null;
 }
 
-function createToolRegistry(): ToolDefinition[] {
+export function createToolRegistry(): ToolDefinition[] {
   return [
     {
       name: "login",
@@ -1744,11 +1768,51 @@ function createToolRegistry(): ToolDefinition[] {
   ];
 }
 
+export function getToolRegistryMetadata(): ToolRegistryMetadata[] {
+  return createToolRegistry().map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+    asyncRunStart: ASYNC_RUN_START_TOOLS.has(tool.name),
+  }));
+}
+
+export function validateToolRegistry(tools: ToolDefinition[] = createToolRegistry()) {
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  for (const tool of tools) {
+    if (!tool.name || !/^[a-z][a-z0-9_]*$/u.test(tool.name)) {
+      errors.push(`Invalid tool name: ${tool.name || "<empty>"}`);
+    }
+    if (seen.has(tool.name)) {
+      errors.push(`Duplicate tool name: ${tool.name}`);
+    }
+    seen.add(tool.name);
+    if (!tool.description || tool.description.trim().length < 20) {
+      errors.push(`Tool ${tool.name} needs a concise description.`);
+    }
+    if (!isRecord(tool.inputSchema) || tool.inputSchema.type !== "object") {
+      errors.push(`Tool ${tool.name} must use an object JSON schema.`);
+    }
+    try {
+      JSON.stringify(buildToolSchema(tool));
+    } catch {
+      errors.push(`Tool ${tool.name} schema is not JSON serializable.`);
+    }
+  }
+  return {
+    ok: errors.length === 0,
+    errors,
+    tools: tools.map((tool) => tool.name),
+  };
+}
+
 export async function runAgentTurn(
   input: string,
   initialSession: SessionRecord | null,
   emit: (message: AgentMessage) => void,
   conversationState?: AgentConversationState,
+  deps: AgentRuntimeDeps = createDefaultAgentRuntimeDeps(),
 ): Promise<AgentConversationState> {
   if (looksLikeIncompleteTask(input)) {
     emit({
@@ -1764,7 +1828,7 @@ export async function runAgentTurn(
   const localIntent = !initialSession ? maybeHandleUnauthenticatedLocalRequest(input) : null;
   const exposeWaitTool = shouldExposeWaitTool(input);
   const exposeRunInspectionTools = shouldExposeRunInspectionTools(input);
-  const toolRegistry = createToolRegistry().filter((tool) => {
+  const toolRegistry = deps.createToolRegistry().filter((tool) => {
     if (!exposeWaitTool && tool.name === "wait_for_run_completion") {
       return false;
     }
@@ -1778,6 +1842,7 @@ export async function runAgentTurn(
     session: initialSession,
     sessionId: conversationState?.sessionId ?? null,
     emit,
+    deps,
   };
 
   if (!context.session && localIntent) {
@@ -1820,7 +1885,7 @@ export async function runAgentTurn(
     ? undefined
     : conversationState?.previousResponseId ?? undefined;
   let response = await withAuthRetry(context, async () => {
-    const activeClient = new RemoteApiClient(requireSession(context));
+    const activeClient = deps.createRemoteClient(requireSession(context));
     const replied = await activeClient.respond({
       instructions: AGENT_INSTRUCTIONS,
       input,
@@ -1936,7 +2001,7 @@ export async function runAgentTurn(
       });
     }
 
-    const refreshedSession = await readSession();
+    const refreshedSession = await deps.readSession();
     if (refreshedSession?.accessToken !== context.session.accessToken || refreshedSession?.origin !== context.session.origin) {
       context.session = refreshedSession;
     }
@@ -1952,7 +2017,7 @@ export async function runAgentTurn(
     }
 
     response = await withAuthRetry(context, async () => {
-      const activeClient = new RemoteApiClient(requireSession(context));
+      const activeClient = deps.createRemoteClient(requireSession(context));
       const replied = await activeClient.respond({
         previous_response_id: response.id,
         input: toolOutputs,

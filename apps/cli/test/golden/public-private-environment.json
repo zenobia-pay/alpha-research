@@ -1,0 +1,28 @@
+{
+  "name": "mixed public private environment",
+  "prompt": "set up an econ research environment using FRED plus my private sales export",
+  "response": {
+    "id": "resp-env-1",
+    "output": [
+      {
+        "type": "function_call",
+        "call_id": "call-env-1",
+        "name": "create_research_environment",
+        "arguments": "{\"datasetId\":\"econ-research\",\"name\":\"Economics Research\",\"sourceDescription\":\"FRED public data plus uploaded private sales export\",\"publicSources\":[{\"name\":\"FRED\",\"kind\":\"api\"}],\"localPaths\":[],\"prompt\":\"Create the economics research environment. Fetch FRED public macro series, leave clear instructions for adding the private sales export, normalize tables, write a manifest, and validate row counts.\"}"
+      }
+    ]
+  },
+  "run": {
+    "id": "run-env-1",
+    "datasetId": "econ-research",
+    "status": "booting",
+    "prompt": "Create the economics research environment."
+  },
+  "expectedToolCalls": [
+    "create_research_environment"
+  ],
+  "expectedSummaryIncludes": [
+    "Started research environment build run-env-1",
+    "https://dashboard.alpharesearch.nyc/?view=runs&runId=run-env-1#run-run-env-1"
+  ]
+}

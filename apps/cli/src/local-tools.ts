@@ -38,6 +38,7 @@ export function printUsage() {
     "  install-prompt --dataset <path> [--mode auto|tabular|unstructured] [--name <name>] [--id <instance-id>]",
     "  login [--origin <web-origin>] [--token <token>]",
     "  whoami",
+    "  debug run <run-id> [--output <path>]",
     "  instances [--root <dir>]",
     "  describe-instance <instance-id> [--root <dir>]",
     "  query-instance <instance-id> [--root <dir>] [--text <query>] [--filter <field:eq:value>]",

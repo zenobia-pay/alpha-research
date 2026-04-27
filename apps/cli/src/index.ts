@@ -4,6 +4,7 @@ import { render } from "ink";
 
 import { DEFAULT_INSTALL_URL, type SessionRecord } from "./config.js";
 import { type AgentMessage, runAgentTurn } from "./agent.js";
+import { runDebugCommand } from "./debug.js";
 import { parseCliArgs, parseFlags } from "./flags.js";
 import { buildInstallPrompt, handleFixture, printUsage, runScriptedCommand } from "./local-tools.js";
 import { login, readSession } from "./session.js";
@@ -95,6 +96,11 @@ async function main() {
       createdAt: session.createdAt,
       accessTokenPreview: `${session.accessToken.slice(0, 8)}...`,
     }, null, 2));
+    return;
+  }
+
+  if (command === "debug") {
+    await runDebugCommand(rest, flags);
     return;
   }
 

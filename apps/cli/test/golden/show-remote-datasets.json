@@ -1,0 +1,29 @@
+{
+  "name": "show remote datasets",
+  "prompt": "show remote datasets",
+  "response": {
+    "id": "resp-datasets-1",
+    "output": [
+      {
+        "type": "function_call",
+        "call_id": "call-datasets-1",
+        "name": "list_remote_datasets",
+        "arguments": "{}"
+      }
+    ]
+  },
+  "datasets": [
+    {
+      "id": "enriched-tweets",
+      "name": "Enriched Tweets",
+      "status": "ready",
+      "deploymentStatus": "ready"
+    }
+  ],
+  "expectedToolCalls": [
+    "list_remote_datasets"
+  ],
+  "expectedSummaryIncludes": [
+    "Found 1 remote dataset"
+  ]
+}
