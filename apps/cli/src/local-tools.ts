@@ -39,6 +39,7 @@ export function printUsage() {
     "  login [--origin <web-origin>] [--token <token>]",
     "  whoami",
     "  debug run <run-id> [--output <path>]",
+    "  symphony [path-to-WORKFLOW.md]",
     "  instances [--root <dir>]",
     "  describe-instance <instance-id> [--root <dir>]",
     "  query-instance <instance-id> [--root <dir>] [--text <query>] [--filter <field:eq:value>]",

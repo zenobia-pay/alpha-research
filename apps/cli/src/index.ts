@@ -104,6 +104,12 @@ async function main() {
     return;
   }
 
+  if (command === "symphony") {
+    const { runSymphonyCommand } = await import("./symphony.js");
+    await runSymphonyCommand(rest);
+    return;
+  }
+
   if (command === "fixture") {
     const [fixtureCommand, datasetId, ...tail] = rest;
     await handleFixture(fixtureCommand, datasetId, parseFlags(tail));

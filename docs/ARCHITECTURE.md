@@ -9,6 +9,7 @@ The RESEARCH CLI is a local agent shell for creating and operating remote resear
 - `research` starts the Assistant UI / Ink TUI in `apps/cli/src/interactive.tsx`.
 - `research --prompt "<text>"` runs one non-interactive agent turn.
 - `research prompt "<text>"` is equivalent to `--prompt`.
+- `research symphony [path-to-WORKFLOW.md]` starts the Symphony scheduler for Linear-backed issue execution.
 - Slash commands in the TUI, such as `/login`, `/logout`, `/cancel`, `/exit`, bypass the model loop when possible.
 
 The TUI uses `useLocalRuntime` from Assistant UI. User messages flow into `runAgentTurn` in `apps/cli/src/agent.ts`, and emitted tool/assistant messages are streamed back into the thread.
@@ -24,6 +25,12 @@ The TUI uses `useLocalRuntime` from Assistant UI. User messages flow into `runAg
 5. Stop when the backend returns assistant text or when an async run-start tool returns immediately.
 
 The agent runtime has an `AgentRuntimeDeps` seam so tests can inject fake sessions, fake remote clients, and fake tool registries without touching real user state or the network.
+
+## Symphony Scheduler
+
+`apps/cli/src/symphony.ts` implements the OpenAI Symphony draft service contract for local operation. It loads `WORKFLOW.md`, resolves typed tracker/workspace/hook/agent/Codex config, polls Linear issues in configured active states, creates sanitized per-issue workspaces, runs workspace hooks, launches the configured Codex app-server command from the issue workspace, reconciles tracker state, and schedules retries with exponential backoff.
+
+The implementation is intentionally high-trust and local: hook scripts are trusted repository configuration, the Codex subprocess runs with the approval and sandbox settings configured for the installed Codex app-server, and user-input-required behavior is treated as a worker failure rather than waiting indefinitely. Symphony writes structured `key=value` logs to stderr and keeps scheduler state in memory; restarts recover from Linear state and preserved workspaces rather than a durable scheduler database.
 
 ## Tool Registry
 
