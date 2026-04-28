@@ -200,6 +200,17 @@ function inherit(command: string, args: string[], cwd: string, env = process.env
   }
 }
 
+function symphonyProcessEnv() {
+  const nodeBin = dirname(process.execPath);
+  const existingPath = process.env.PATH ?? "";
+  return {
+    ...process.env,
+    ALPHA_RESEARCH_NODE_VERSION: process.env.ALPHA_RESEARCH_NODE_VERSION ?? process.version.replace(/^v/u, ""),
+    NVM_DIR: process.env.NVM_DIR ?? resolve(homedir(), ".nvm"),
+    PATH: existingPath.startsWith(`${nodeBin}:`) ? existingPath : `${nodeBin}:${existingPath}`,
+  };
+}
+
 async function linearGraphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
   const apiKey = process.env.LINEAR_API_KEY;
   if (!apiKey) throw new Error("LINEAR_API_KEY is not set");
@@ -320,7 +331,7 @@ async function start(flags: Map<string, string | boolean>) {
     "--i-understand-that-this-will-be-running-without-the-usual-guardrails",
   ], {
     cwd: resolve(symphonyDir, "elixir"),
-    env: process.env,
+    env: symphonyProcessEnv(),
     stdio: "inherit",
   });
   await new Promise<void>((resolvePromise, reject) => {
