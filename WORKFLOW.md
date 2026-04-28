@@ -18,6 +18,8 @@ workspace:
 hooks:
   after_create: |
     git clone "${ALPHA_RESEARCH_REPO_URL:-https://github.com/zenobia-pay/alpha-research.git}" .
+    git config user.name "${GIT_AUTHOR_NAME:-Codex}"
+    git config user.email "${GIT_AUTHOR_EMAIL:-codex@users.noreply.github.com}"
     npm install
   before_run: |
     git status --short --branch
