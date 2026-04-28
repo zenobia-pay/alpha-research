@@ -9,6 +9,7 @@ const WORKFLOW_PATH = resolve(ROOT, "WORKFLOW.md");
 const DEFAULT_SYMPHONY_DIR = resolve(ROOT, ".tmp", "openai-symphony");
 const SYMPHONY_REPO = "https://github.com/openai/symphony.git";
 const LINEAR_ENDPOINT = "https://api.linear.app/graphql";
+const LOCAL_ENV_PATH = resolve(ROOT, ".env.local");
 
 type CommandResult = {
   ok: boolean;
@@ -16,6 +17,21 @@ type CommandResult = {
   stderr: string;
   status: number | null;
 };
+
+async function loadLocalEnv() {
+  if (!existsSync(LOCAL_ENV_PATH)) return;
+  const source = await readFile(LOCAL_ENV_PATH, "utf8");
+  for (const line of source.split(/\r?\n/u)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const equalsIndex = trimmed.indexOf("=");
+    if (equalsIndex === -1) continue;
+    const key = trimmed.slice(0, equalsIndex).trim();
+    const rawValue = trimmed.slice(equalsIndex + 1).trim();
+    if (!key || process.env[key]) continue;
+    process.env[key] = rawValue.replace(/^["']|["']$/gu, "");
+  }
+}
 
 function run(command: string, args: string[], cwd = ROOT, env = process.env): CommandResult {
   const result = spawnSync(command, args, {
@@ -42,7 +58,7 @@ function printUsage() {
     "  npm run symphony:start -- --seed --title \"Small test issue\"",
     "",
     "Environment:",
-    "  LINEAR_API_KEY              Required. Linear API key for polling and seed issue creation.",
+    "  LINEAR_API_KEY              Required. Linear API key for polling and seed issue creation. May be set in .env.local.",
     "  ALPHA_RESEARCH_REPO_URL     Optional. Repo URL cloned into issue workspaces.",
     "  SYMPHONY_DIR                Optional. Upstream Symphony checkout path. Defaults to .tmp/openai-symphony.",
   ].join("\n"));
@@ -106,7 +122,15 @@ async function doctor() {
     ["git", () => requireTool("git")],
     ["npm", () => requireTool("npm")],
     ["codex", () => requireTool("codex")],
-    ["mise", () => requireTool("mise")],
+    ["mise", () => {
+      try {
+        return requireTool("mise");
+      } catch (error) {
+        const brew = run("bash", ["-lc", "command -v brew"]);
+        if (brew.ok) return "missing; will install automatically with Homebrew during bootstrap/start";
+        throw error;
+      }
+    }],
   ];
 
   let failed = false;
@@ -156,12 +180,13 @@ async function bootstrap() {
     inherit("git", ["pull", "--ff-only"], symphonyDir);
   }
 
-  inherit("mise", ["trust"], symphonyDir);
-  inherit("mise", ["install"], symphonyDir);
-  inherit("mise", ["exec", "--", "mix", "setup"], symphonyDir);
-  inherit("mise", ["exec", "--", "mix", "build"], symphonyDir);
+  const elixirDir = resolve(symphonyDir, "elixir");
+  inherit("mise", ["trust"], elixirDir);
+  inherit("mise", ["install"], elixirDir);
+  inherit("mise", ["exec", "--", "mix", "setup"], elixirDir);
+  inherit("mise", ["exec", "--", "mix", "build"], elixirDir);
 
-  const binary = resolve(symphonyDir, "elixir", "bin", "symphony");
+  const binary = resolve(elixirDir, "bin", "symphony");
   if (!existsSync(binary)) {
     throw new Error(`Expected Symphony binary at ${binary}`);
   }
@@ -302,6 +327,7 @@ async function start(flags: Map<string, string | boolean>) {
 }
 
 async function main() {
+  await loadLocalEnv();
   const { command, flags } = parseArgs(process.argv.slice(2));
   if (command === "help" || command === "--help") {
     printUsage();

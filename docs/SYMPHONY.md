@@ -5,7 +5,6 @@ This repo is configured for OpenAI Symphony with `WORKFLOW.md` at the repository
 ## One Command
 
 ```bash
-export LINEAR_API_KEY=...
 npm run symphony:start
 ```
 
@@ -39,15 +38,15 @@ npm run symphony:start
 
 Environment variables:
 
-- `LINEAR_API_KEY`: required for Linear polling and issue seeding.
+- `LINEAR_API_KEY`: required for Linear polling and issue seeding. The wrapper loads this from `.env.local` when present.
 - `ALPHA_RESEARCH_REPO_URL`: optional clone URL for issue workspaces. Defaults to `https://github.com/zenobia-pay/alpha-research.git`.
 - `SYMPHONY_DIR`: optional upstream Symphony checkout path. Defaults to `.tmp/openai-symphony`.
 - `GIT_AUTHOR_NAME` and `GIT_AUTHOR_EMAIL`: optional per-workspace Git identity. Defaults to `Codex <codex@users.noreply.github.com>`.
 
 ## Linear Configuration
 
-- Project: `Alpha Research`
-- Project slug: `alpha-research-9d652e13cf8e`
+- Project: `Alpha Research CLI`
+- Project slug: `27b5ad2a438f`
 - Active states: `Todo`, `In Progress`
 - Handoff state: `In Review`
 - Terminal states: `Done`, `Canceled`, `Cancelled`, `Duplicate`

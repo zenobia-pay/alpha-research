@@ -2,7 +2,7 @@
 tracker:
   kind: linear
   api_key: $LINEAR_API_KEY
-  project_slug: "alpha-research-9d652e13cf8e"
+  project_slug: "27b5ad2a438f"
   active_states:
     - Todo
     - In Progress
