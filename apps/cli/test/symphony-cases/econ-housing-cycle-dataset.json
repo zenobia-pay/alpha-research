@@ -1,0 +1,84 @@
+{
+  "name": "econ housing cycle dataset build",
+  "prompt": "Make me an econ dataset with all necessary econ datasets for a housing-cycle hypothesis.",
+  "description": "A user asks for a research-ready housing-cycle dataset. The CLI should create a remote research environment with a concrete acquisition and validation plan instead of answering abstractly.",
+  "remote": {
+    "datasets": [],
+    "createResearchEnvironmentRun": {
+      "id": "run-symphony-econ-build",
+      "datasetId": "econ-housing-cycle",
+      "status": "booting",
+      "prompt": "Build a county-month housing-cycle research dataset."
+    }
+  },
+  "modelRounds": [
+    {
+      "toolCalls": [
+        {
+          "name": "list_remote_datasets",
+          "arguments": {}
+        }
+      ]
+    },
+    {
+      "toolCalls": [
+        {
+          "name": "create_research_environment",
+          "arguments": {
+            "datasetId": "econ-housing-cycle",
+            "name": "Housing-cycle economics panel",
+            "description": "County-month research panel for testing housing-cycle hypotheses.",
+            "sourceDescription": "Public macro, housing, labor, credit, demographic, and sentiment sources needed for a housing-cycle hypothesis.",
+            "publicSources": [
+              { "name": "FRED", "url": "https://fred.stlouisfed.org/" },
+              { "name": "U.S. Census Bureau", "url": "https://www.census.gov/data.html" },
+              { "name": "Zillow Research Data", "url": "https://www.zillow.com/research/data/" },
+              { "name": "BLS", "url": "https://www.bls.gov/data/" },
+              { "name": "Redfin Data Center", "url": "https://www.redfin.com/news/data-center/" },
+              { "name": "FHFA Home Price Index", "url": "https://www.fhfa.gov/data/hpi" },
+              { "name": "NBER", "url": "https://www.nber.org/" }
+            ],
+            "prompt": "Fetch, stage, normalize, validate, and document a county-month housing-cycle research dataset. Include FRED macro indicators, Census/ACS population and income fields, Zillow/Redfin housing price and rent series, BLS labor and CPI series, FHFA HPI, and NBER recession indicators. Produce source URLs, row counts, missingness checks, join-key validation, temporal coverage, data dictionary, and a manifest. The output must be ready for a hypothesis test about housing-cycle dynamics.",
+            "artifacts": [
+              { "type": "manifest", "title": "Dataset manifest" },
+              { "type": "markdown", "title": "Validation report" },
+              { "type": "json", "title": "Schema and source catalog" }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "toolCalls": [
+      "list_remote_datasets",
+      "create_research_environment"
+    ],
+    "assistantIncludes": [
+      "Started research environment build run-symphony-econ-build",
+      "econ-housing-cycle"
+    ],
+    "createdDataset": {
+      "datasetId": "econ-housing-cycle",
+      "sourceType": "public_data"
+    },
+    "researchEnvironmentPromptIncludes": [
+      "FRED",
+      "Census",
+      "Zillow",
+      "BLS",
+      "FHFA",
+      "NBER",
+      "row counts",
+      "missingness",
+      "join-key",
+      "source URLs",
+      "manifest"
+    ],
+    "researchEnvironmentSourcesInclude": [
+      "https://fred.stlouisfed.org/",
+      "https://www.census.gov/data.html",
+      "https://www.zillow.com/research/data/"
+    ]
+  }
+}

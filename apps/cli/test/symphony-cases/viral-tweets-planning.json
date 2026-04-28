@@ -1,0 +1,48 @@
+{
+  "name": "viral tweets experiment planning",
+  "prompt": "what's up with tweets? Can you run an experiment for me on what types of tweets go viral?",
+  "description": "A vague hypothesis request should become a scoped experimental design before the CLI launches expensive remote work.",
+  "remote": {
+    "datasets": [
+      {
+        "id": "enriched-tweets",
+        "name": "Enriched Tweets",
+        "status": "ready"
+      }
+    ]
+  },
+  "modelRounds": [
+    {
+      "toolCalls": [
+        {
+          "name": "list_remote_datasets",
+          "arguments": {}
+        }
+      ]
+    },
+    {
+      "assistant": "I found `enriched-tweets`. Before launching a run, here is the experiment design: define viral tweets as the top 0.1% by `quote_tweet_count`, sample 100 random viral tweets, label each with strict JSON fields for topic, hook style, emotional valence, audience, and media format, then compare visualizations and synthesis against alternative metrics such as retweets/likes or a matched control group. Should I proceed with this design?"
+    }
+  ],
+  "expected": {
+    "toolCalls": [
+      "list_remote_datasets"
+    ],
+    "assistantIncludes": [
+      "enriched-tweets",
+      "top 0.1%",
+      "quote_tweet_count",
+      "100 random viral tweets",
+      "strict JSON",
+      "visualizations",
+      "control group",
+      "Should I proceed"
+    ],
+    "forbiddenToolCalls": [
+      "query_remote_dataset",
+      "start_remote_run",
+      "run_remote_labeling",
+      "start_remote_agent_run"
+    ]
+  }
+}

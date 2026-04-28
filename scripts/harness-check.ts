@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 
 import { dashboardRunUrl } from "../apps/cli/src/config.js";
 import { getToolRegistryMetadata, validateToolRegistry } from "../apps/cli/src/tool-registry.js";
@@ -9,6 +9,7 @@ const requiredDocs = [
   "docs/ARCHITECTURE.md",
   "docs/RUN_LIFECYCLE.md",
   "docs/HARNESS.md",
+  "docs/SYMPHONY.md",
 ];
 
 async function assertFile(path: string) {
@@ -56,6 +57,24 @@ for (const asyncTool of [
   "create_research_environment",
 ]) {
   assert.equal(metadata.find((tool) => tool.name === asyncTool)?.asyncRunStart, true, `${asyncTool} should be classified as async run-start`);
+}
+
+const packageJson = JSON.parse(await readFile("package.json", "utf8")) as { scripts?: Record<string, string> };
+assert.ok(packageJson.scripts?.["symphony:test"], "package.json should expose npm run symphony:test");
+
+const symphonyCaseFiles = (await readdir("apps/cli/test/symphony-cases")).filter((file) => file.endsWith(".json"));
+assert.ok(symphonyCaseFiles.length > 0, "At least one Symphony TDD case should exist");
+for (const file of symphonyCaseFiles) {
+  const parsed = JSON.parse(await readFile(`apps/cli/test/symphony-cases/${file}`, "utf8")) as {
+    name?: unknown;
+    prompt?: unknown;
+    modelRounds?: unknown;
+    expected?: unknown;
+  };
+  assert.equal(typeof parsed.name, "string", `${file} should include a name`);
+  assert.equal(typeof parsed.prompt, "string", `${file} should include a prompt`);
+  assert.ok(Array.isArray(parsed.modelRounds), `${file} should include modelRounds`);
+  assert.equal(typeof parsed.expected, "object", `${file} should include expected assertions`);
 }
 
 assert.equal(

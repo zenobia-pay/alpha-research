@@ -61,3 +61,13 @@ The `WORKFLOW.md` prompt tells the agent to:
 - Create a branch from the Linear branch name or `codex/<issue-id>`.
 - Implement, validate, commit, push, and open or update a PR.
 - Move the issue to `In Review` only after validation and PR handoff are complete.
+
+## Test-Driven CLI Development
+
+For Alpha Research CLI work, Symphony issues should start with a deterministic acceptance case whenever the request is about research behavior:
+
+```bash
+npm run symphony:test
+```
+
+Cases live in `apps/cli/test/symphony-cases/*.json`. Each case describes a user query or hypothesis, fake backend state, expected tool calls, and required evidence such as source URLs, row-count validation, labeling prompts, artifacts, or final answer text. This is the red/green loop for building the CLI: add the case from the Linear issue first, make it fail, implement the behavior, then make it pass before running broader checks.

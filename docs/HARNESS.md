@@ -9,6 +9,7 @@ npm run agent:check
 npm run harness:check
 npm run test:cli
 npm run test:golden
+npm run symphony:test
 npm run build
 npm run typecheck
 npm run docs:check
@@ -38,6 +39,31 @@ npm run deploy:check
 `deploy:check` validates DigitalOcean service files and confirms built API/frontend artifacts exist after `npm run build`.
 
 `test:slow` runs the live product E2E suite. It currently includes `test:slow:econ` and `test:slow:tweets`. These tests call the real Alpha Research backend, can provision cloud resources, and can run for a long time while async jobs complete. They require either an existing `research login` session or `RESEARCH_E2E_TOKEN`.
+
+## Symphony TDD Cases
+
+Symphony development cases live under `apps/cli/test/symphony-cases`. They are declarative JSON acceptance tests for user research requests and hypotheses. A case captures:
+
+- the user prompt
+- the model/tool plan expected from the CLI agent loop
+- fake remote datasets, runs, and artifacts
+- required tool-call sequence
+- required dataset-build, hypothesis, prompt, source, and final-answer evidence
+
+Run them with:
+
+```bash
+npm run symphony:test
+```
+
+Use this loop when developing the Alpha Research CLI with Symphony:
+
+1. Convert the Linear issue or user research request into a new JSON case.
+2. Run `npm run symphony:test` and confirm the case fails for the missing behavior.
+3. Implement the smallest CLI/runtime change needed.
+4. Re-run `npm run symphony:test`, then the broader relevant gate.
+
+These tests are hermetic. They do not call Linear, OpenAI, DigitalOcean, or the live Alpha Research backend. Live validation still belongs in the explicit slow product E2E tests.
 
 ## Deterministic Test Rules
 
