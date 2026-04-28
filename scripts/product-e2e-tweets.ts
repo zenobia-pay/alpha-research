@@ -163,7 +163,7 @@ function runCli(sessionDir: string, session: SessionRecord) {
     child.stdout.on("data", (chunk) => {
       stdout += String(chunk);
       if (stdout.includes("Dataset is already busy")) {
-        const runId = stdout.match(/\brun ([A-Za-z0-9_-]+)/u)?.[1] ?? null;
+        const runId = extractBusyRunId(stdout);
         fail(new BusyDatasetError([
           "Live tweet product E2E could not start because the dataset is already busy.",
           "Partial STDOUT:",
@@ -214,6 +214,13 @@ function isRetryableCliStartupFailure(stdout: string, stderr: string) {
   const combined = `${stdout}\n${stderr}`;
   return extractRunIds(combined).length === 0
     && /fetch failed|UND_ERR_SOCKET|ECONNRESET|ETIMEDOUT|EAI_AGAIN|other side closed/iu.test(combined);
+}
+
+function extractBusyRunId(text: string) {
+  return text.match(/\bbusy with run\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/iu)?.[1]
+    ?? text.match(/\bblocking run\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/iu)?.[1]
+    ?? text.match(/\brun\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/iu)?.[1]
+    ?? null;
 }
 
 function extractRunIds(text: string) {

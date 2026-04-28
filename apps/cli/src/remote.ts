@@ -271,6 +271,7 @@ export class RemoteApiClient {
     description?: string;
     sourceDescription: string;
     prompt: string;
+    resources?: Record<string, unknown>;
     artifacts?: Array<Record<string, unknown>>;
   }) {
     return this.request<{
@@ -300,6 +301,7 @@ export class RemoteApiClient {
       description?: string;
     }>;
     prompt: string;
+    resources?: Record<string, unknown>;
     artifacts?: Array<Record<string, unknown>>;
   }) {
     return this.request<{

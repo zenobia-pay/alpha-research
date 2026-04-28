@@ -1016,6 +1016,7 @@ export function createToolRegistry(): ToolDefinition[] {
           publicSources,
           privateSources,
           prompt,
+          resources: STANDARD_ANALYSIS_RESOURCES,
           artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
         });
         if (context.session) {
@@ -1064,6 +1065,7 @@ export function createToolRegistry(): ToolDefinition[] {
           description: typeof input.description === "string" ? input.description : undefined,
           sourceDescription: String(input.sourceDescription),
           prompt,
+          resources: STANDARD_ANALYSIS_RESOURCES,
           artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
         });
         if (context.session) {
