@@ -312,7 +312,13 @@ async function start(flags: Map<string, string | boolean>) {
   console.log(`Starting Symphony with ${WORKFLOW_PATH}`);
   console.log(`Workspaces: ${workspaceRoot}`);
 
-  const child = spawn("mise", ["exec", "--", binary, WORKFLOW_PATH], {
+  const child = spawn("mise", [
+    "exec",
+    "--",
+    binary,
+    WORKFLOW_PATH,
+    "--i-understand-that-this-will-be-running-without-the-usual-guardrails",
+  ], {
     cwd: resolve(symphonyDir, "elixir"),
     env: process.env,
     stdio: "inherit",
