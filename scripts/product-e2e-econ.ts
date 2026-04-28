@@ -24,6 +24,20 @@ type RunResults = {
   artifacts: Array<{ id: string; runId: string; type: string; title: string; content?: unknown }>;
 };
 
+class BusyDatasetError extends Error {
+  constructor(message: string, readonly runId: string | null) {
+    super(message);
+    this.name = "BusyDatasetError";
+  }
+}
+
+class RetryableCliStartupError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RetryableCliStartupError";
+  }
+}
+
 const requiredSources = [
   { name: "Federal Reserve / FRED", url: "https://fred.stlouisfed.org/" },
   { name: "U.S. Census Bureau", url: "https://www.census.gov/data.html" },
@@ -83,8 +97,8 @@ const requiredEvidence = [
 
 const prompt = [
   "Make me an econ dataset with all necessary econ datasets for a housing-cycle hypothesis.",
-  "Use this required source catalog:",
-  requiredSources.map((source) => `${source.name}: ${source.url}`).join("; "),
+  `Use every source in this required source catalog: ${requiredSources.map((source) => source.name).join(", ")}.`,
+  "Discover and record each exact source URL in the dataset source registry and final artifacts.",
   "Download the needed datasets, normalize them into a research environment, validate coverage, row counts, missingness, join keys, and source URLs.",
   "Then create the analysis subset, write and run the transformation script, run any necessary labeling, choose the visualization artifacts, test the hypothesis, wait until complete, and show me the results and artifacts.",
 ].join(" ");
@@ -135,7 +149,32 @@ async function request<T>(session: SessionRecord, path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function runCli(sessionDir: string) {
+async function cancelRun(session: SessionRecord, runId: string) {
+  await fetch(`${session.origin}/api/cli/runs/${encodeURIComponent(runId)}/cancel`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  }).catch(() => null);
+}
+
+async function waitForTerminalRun(session: SessionRecord, runId: string, timeoutMs: number) {
+  const terminalStatuses = new Set(["ready", "completed", "succeeded", "failed", "error", "cancelled", "canceled"]);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const payload = await request<{ run: RunSummary }>(session, `/api/cli/runs/${encodeURIComponent(runId)}`)
+      .catch(() => null);
+    const status = payload?.run.status.toLowerCase();
+    if (status && terminalStatuses.has(status)) {
+      return payload?.run;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10_000));
+  }
+  return null;
+}
+
+function runCli(sessionDir: string, session: SessionRecord) {
   return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
     const timeoutMs = Number(process.env.RESEARCH_PRODUCT_E2E_TIMEOUT_MS ?? String(90 * 60 * 1000));
     const child = spawn(process.execPath, ["apps/cli/dist/index.js", "--prompt", prompt], {
@@ -160,19 +199,23 @@ function runCli(sessionDir: string) {
     child.stdout.on("data", (chunk) => {
       stdout += String(chunk);
       if (stdout.includes("Dataset is already busy")) {
-        fail(new Error([
+        const runId = stdout.match(/\brun ([A-Za-z0-9_-]+)/u)?.[1] ?? null;
+        fail(new BusyDatasetError([
           "Live econ product E2E could not start because a dataset is already busy.",
           "Partial STDOUT:",
           stdout,
           "Partial STDERR:",
           stderr || "<empty>",
-        ].join("\n")));
+        ].join("\n"), runId));
       }
     });
     child.stderr.on("data", (chunk) => {
       stderr += String(chunk);
     });
     timeout = setTimeout(() => {
+      for (const runId of extractRunIds(stdout)) {
+        void cancelRun(session, runId);
+      }
       fail(new Error([
         `Live product E2E timed out after ${timeoutMs}ms.`,
         "The real CLI/backend workflow did not complete inside the test budget.",
@@ -193,14 +236,27 @@ function runCli(sessionDir: string) {
         resolve({ stdout, stderr });
         return;
       }
-      reject(new Error(`research CLI exited ${code}\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`));
+      const message = `research CLI exited ${code}\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`;
+      if (isRetryableCliStartupFailure(stdout, stderr)) {
+        reject(new RetryableCliStartupError(message));
+        return;
+      }
+      reject(new Error(message));
     });
   });
 }
 
+function isRetryableCliStartupFailure(stdout: string, stderr: string) {
+  const combined = `${stdout}\n${stderr}`;
+  return extractRunIds(combined).length === 0
+    && /fetch failed|UND_ERR_SOCKET|ECONNRESET|ETIMEDOUT|EAI_AGAIN|other side closed/iu.test(combined);
+}
+
 function extractRunIds(text: string) {
-  const matches = text.matchAll(/\brun[-_][A-Za-z0-9][A-Za-z0-9_-]*/gu);
-  return [...new Set([...matches].map((match) => match[0]))];
+  const explicitIds = [...text.matchAll(/\brun[-_][A-Za-z0-9][A-Za-z0-9_-]*/gu)].map((match) => match[0]);
+  const labelledUuidIds = [...text.matchAll(/\brun\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/giu)]
+    .map((match) => match[1]);
+  return [...new Set([...explicitIds, ...labelledUuidIds])];
 }
 
 function stringifyEvidence(value: unknown) {
@@ -240,7 +296,31 @@ async function main() {
     `Session dir: ${sessionDir}`,
     `Timeout: ${Number(process.env.RESEARCH_PRODUCT_E2E_TIMEOUT_MS ?? String(90 * 60 * 1000))}ms`,
   ].join("\n"));
-  const { stdout, stderr } = await runCli(sessionDir);
+  let stdout = "";
+  let stderr = "";
+  const retryUntil = Date.now() + Number(process.env.RESEARCH_PRODUCT_E2E_BUSY_RETRY_MS ?? String(20 * 60 * 1000));
+  for (;;) {
+    try {
+      const output = await runCli(sessionDir, session);
+      stdout = output.stdout;
+      stderr = output.stderr;
+      break;
+    } catch (error) {
+      if (!(error instanceof BusyDatasetError) && !(error instanceof RetryableCliStartupError)) {
+        throw error;
+      }
+      if (Date.now() >= retryUntil) {
+        throw error;
+      }
+      console.log(error.message);
+      if (error instanceof BusyDatasetError && error.runId) {
+        console.log(`Waiting for blocking run ${error.runId} to become terminal before retrying.`);
+        await waitForTerminalRun(session, error.runId, 5 * 60 * 1000);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 30_000));
+      console.log("Retrying live econ product E2E after transient startup failure.");
+    }
+  }
   const runIds = extractRunIds(`${stdout}\n${stderr}`);
   assert.ok(runIds.length > 0, `Expected CLI output to include at least one run id.\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`);
 

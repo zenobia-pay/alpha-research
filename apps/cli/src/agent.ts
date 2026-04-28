@@ -55,6 +55,24 @@ export type AgentRuntimeDeps = {
   createToolRegistry: () => ToolDefinition[];
 };
 
+const STANDARD_ANALYSIS_RESOURCES = {
+  profile: "standard-analysis",
+  runnerSize: "s-8vcpu-16gb",
+  workspaceDiskGb: 500,
+};
+
+function withStandardAnalysisResources(config?: Record<string, unknown>) {
+  return {
+    ...(config ?? {}),
+    resources: {
+      ...STANDARD_ANALYSIS_RESOURCES,
+      ...(config?.resources && typeof config.resources === "object"
+        ? config.resources as Record<string, unknown>
+        : {}),
+    },
+  };
+}
+
 export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
   return {
     createRemoteClient: (session) => new RemoteApiClient(session),
@@ -130,6 +148,7 @@ const AGENT_INSTRUCTIONS = [
   "Prefer lightweight dataset queries before launching heavy transforms or analyses when the user is asking for examples, top records, or simple slices.",
   "Do not answer with generic numbered menus when you can inspect the user's actual datasets or runs and propose one concrete next action.",
   "When you start a remote run, do not wait for completion unless the user explicitly asks you to wait. Return immediately with the run id and dashboard link.",
+  "If a waited-on remote run finishes as failed, cancelled, or errored, stop and report that run's diagnostics/results. Do not start a replacement run unless the user explicitly asks you to retry.",
   "When the user asks for run results, render them as a concise human-readable report. Do not dump raw JSON unless explicitly asked.",
   "For run results, explain artifacts as saved run outputs and tell the user to view them on the run page.",
   "For completed runs, give 2-3 concrete follow-up suggestions grounded in the result.",
@@ -1251,7 +1270,7 @@ export function createToolRegistry(): ToolDefinition[] {
         try {
           result = await client.startRun(datasetId, prompt, {
             type: typeof input.type === "string" ? input.type : undefined,
-            config: input.config && typeof input.config === "object" ? input.config as Record<string, unknown> : undefined,
+            config: withStandardAnalysisResources(input.config && typeof input.config === "object" ? input.config as Record<string, unknown> : undefined),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
           });
         } catch (error) {
@@ -1480,6 +1499,7 @@ export function createToolRegistry(): ToolDefinition[] {
         try {
           result = await client.startRun(String(input.datasetId), String(input.prompt), {
             type: "agent",
+            config: withStandardAnalysisResources(),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
           });
         } catch (error) {
@@ -1539,7 +1559,7 @@ export function createToolRegistry(): ToolDefinition[] {
         try {
           result = await client.startRun(previous.run.datasetId, String(input.prompt), {
             type: "agent",
-            config: { remoteAgentSessionId: sessionId, parentRunId: String(input.runId) },
+            config: withStandardAnalysisResources({ remoteAgentSessionId: sessionId, parentRunId: String(input.runId) }),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
           });
         } catch (error) {
@@ -1588,9 +1608,9 @@ export function createToolRegistry(): ToolDefinition[] {
         try {
           result = await client.startRun(String(input.datasetId), String(input.prompt), {
             type: "transform",
-            config: {
+            config: withStandardAnalysisResources({
               scriptOutline: typeof input.scriptOutline === "string" ? input.scriptOutline : undefined,
-            },
+            }),
           });
         } catch (error) {
           if (error instanceof RemoteRequestError) {
@@ -1642,7 +1662,7 @@ export function createToolRegistry(): ToolDefinition[] {
             typeof input.prompt === "string" ? input.prompt : `Run labeling job: ${labelingPrompt}`,
             {
               type: "label",
-              config: { labelingPrompt },
+              config: withStandardAnalysisResources({ labelingPrompt }),
             },
           );
         } catch (error) {

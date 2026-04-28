@@ -186,6 +186,18 @@ what's up with tweets? Can you run an experiment for me on what types of tweets 
 
 Because slow tests are non-interactive, the prompt also includes explicit test approval to run the planned design. The test fails unless the real workflow uses `enriched-tweets`, defines viral as the top 0.1% by `quote_tweet_count`, samples 100 random viral tweets, runs labeling with strict JSON fields, produces visualizations, reaches terminal success, and exposes artifacts in run results.
 
+For non-query product runs, the CLI sends a first-class runtime resource contract in `config.resources`:
+
+```json
+{
+  "profile": "standard-analysis",
+  "runnerSize": "s-8vcpu-16gb",
+  "workspaceDiskGb": 500
+}
+```
+
+The backend runner provisioner must honor this contract before these slow product E2Es can pass reliably. The user prompt should not contain infrastructure caveats or low-disk workarounds; resource sizing belongs in the run contract and provisioning layer. A failed waited-on run should be reported with diagnostics rather than silently retried with a rewritten run prompt.
+
 ## Runtime Seams
 
 `AgentRuntimeDeps` is the main harness seam:
