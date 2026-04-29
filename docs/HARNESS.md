@@ -34,6 +34,8 @@ npm run deploy:check
 
 `docs/PRODUCT_TEST_BRIEFING.md` is the product-facing map of what every CLI, golden, Symphony, and slow E2E test proves. `docs:check` fails if a named test, golden fixture, Symphony case, or slow test script is not documented there, so test changes and product briefing changes must land together.
 
+`docs:check` also compares changed files against the current branch base when git history is available. If product test contract files change (`apps/cli/test/*`, golden fixtures, Symphony cases, slow E2E scripts, or slow-test npm scripts in `package.json`), `docs/PRODUCT_TEST_BRIEFING.md` must be in the same change. In CI, `.github/workflows/ci.yml` checks out full history so this guard can compare against the push or pull-request base.
+
 `architecture:check` enforces workspace dependency boundaries and keeps `apps/cli/src/tool-registry.ts` metadata-only.
 
 `smoke:local` starts the local API against fixture instances and verifies health, instance listing, and bootstrap payloads.
