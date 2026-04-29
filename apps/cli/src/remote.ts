@@ -38,6 +38,19 @@ export type RemoteDatasetDetail = RemoteDatasetSummary & {
     schema?: unknown;
     sampleRows?: unknown;
     notes?: string | null;
+    briefingMarkdown?: string | null;
+    briefingArtifactId?: string | null;
+    profileArtifactId?: string | null;
+    sources?: unknown;
+    tables?: unknown;
+    timeCoverage?: unknown;
+    geographyCoverage?: unknown;
+    formats?: unknown;
+    transformations?: unknown;
+    quality?: unknown;
+    limitations?: unknown;
+    describedRunId?: string | null;
+    describedAt?: string;
     updatedAt?: string;
   } | null;
 };
@@ -224,6 +237,19 @@ export class RemoteApiClient {
     schema?: unknown;
     sampleRows?: unknown;
     notes?: string;
+    briefingMarkdown?: string;
+    briefingArtifactId?: string;
+    profileArtifactId?: string;
+    sources?: unknown;
+    tables?: unknown;
+    timeCoverage?: unknown;
+    geographyCoverage?: unknown;
+    formats?: unknown;
+    transformations?: unknown;
+    quality?: unknown;
+    limitations?: unknown;
+    describedRunId?: string;
+    describedAt?: string;
   }) {
     return this.request<{ profile: RemoteDatasetDetail["profile"] }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/profile`, {
       method: "POST",

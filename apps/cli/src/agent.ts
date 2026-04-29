@@ -61,6 +61,11 @@ const STANDARD_ANALYSIS_RESOURCES = {
   workspaceDiskGb: 500,
 };
 
+const DATASET_BRIEFING_ARTIFACTS = [
+  { type: "markdown", title: "Dataset Briefing" },
+  { type: "json", title: "Dataset Profile" },
+] as const;
+
 function mountedDatasetGrounding(datasetId: string) {
   return {
     required: true,
@@ -102,6 +107,28 @@ function withMountedDatasetGroundingPrompt(datasetId: string, prompt: string) {
   ].join("\n");
 }
 
+function datasetBriefingPrompt(datasetId: string) {
+  return [
+    `Describe dataset ${datasetId}.`,
+    "",
+    "Produce a durable documentation briefing for humans. Do not include query instructions, starter analyses, or suggestions for how to use agents; this is a dataset documentation task only.",
+    "",
+    "Inspect the mounted dataset exhaustively before writing:",
+    "- Mounted files and directory structure.",
+    "- Manifest files, source registries, table catalogs, README files, data dictionaries, normalization reports, and QA reports.",
+    "- Parquet, CSV, JSON, DuckDB, and other stored data formats.",
+    "- Table schemas, column types, units, nullable/null-share fields when available, primary keys, join keys, grains, and sample rows.",
+    "- Source provenance, exact source URLs or API endpoints, direct/proxy/metadata-only status, license/access notes, fetch dates, row counts, and coverage.",
+    "- Native and normalized time scales, first/last observations, update cadences, geography levels, crosswalks, transformations, derived fields, QA checks, limitations, and known gaps.",
+    "",
+    "Create these artifacts:",
+    "1. Dataset Briefing — markdown document with these exact sections: Overview; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps.",
+    "2. Dataset Profile — structured JSON backing data with summary, sources, tables, schemas/columns, timeCoverage, geographyCoverage, formats, transformations, quality, limitations, and generatedAt.",
+    "",
+    "The briefing should be detailed enough that a reader can understand exactly what data exists, where it came from, what shape it is in, and what caveats apply without opening the raw files.",
+  ].join("\n");
+}
+
 export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
   return {
     createRemoteClient: (session) => new RemoteApiClient(session),
@@ -139,6 +166,7 @@ const ASYNC_RUN_START_TOOLS = new Set([
   "query_remote_dataset",
   "aggregate_remote_dataset",
   "fetch_public_data",
+  "describe_remote_dataset",
   "start_remote_agent_run",
   "continue_remote_agent_run",
   "run_remote_transformation",
@@ -182,6 +210,7 @@ const AGENT_INSTRUCTIONS = [
   "When the user asks for run results, render them as a concise human-readable report. Do not dump raw JSON unless explicitly asked.",
   "For run results, explain artifacts as saved run outputs and tell the user to view them on the run page.",
   "For completed runs, give 2-3 concrete follow-up suggestions grounded in the result.",
+  "When the user asks to describe, document, inventory, or inspect what is inside a remote dataset, use describe_remote_dataset. The describe run must produce dataset documentation artifacts and should not include query instructions or starter analyses.",
   "For uploaded-file deployment flows, prefer this sequence:",
   "1. resolve_local_dataset",
   "2. register_remote_dataset",
@@ -1582,6 +1611,58 @@ export function createToolRegistry(): ToolDefinition[] {
             ? `Run ${String(input.runId)} finished with status ${waited.run?.status ?? "unknown"}.`
             : `Run ${String(input.runId)} is still ${waited.run?.status ?? "running"}.`,
           data: waited,
+        };
+      },
+    },
+    {
+      name: "describe_remote_dataset",
+      description: "Start a remote Codex CLI describe run that generates durable dataset documentation artifacts: a human Dataset Briefing markdown document and structured Dataset Profile JSON. Use this when the user wants to describe, document, inventory, or inspect what data, sources, schemas, time scales, formats, QA status, and limitations exist in a dataset.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          datasetId: { type: "string" },
+        },
+        required: ["datasetId"],
+      },
+      async execute(context, input) {
+        const client = createRemoteClient(context);
+        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        let result;
+        try {
+          result = await withAuthRetry(context, () => client.startRun(
+            datasetId,
+            withMountedDatasetGroundingPrompt(datasetId, datasetBriefingPrompt(datasetId)),
+            {
+              type: "describe",
+              config: withStandardAnalysisResources({ describeDataset: true }, datasetId),
+              artifacts: [...DATASET_BRIEFING_ARTIFACTS],
+            },
+          ));
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
+        if (context.session) {
+          await trackRemoteRun({
+            id: result.run.id,
+            datasetId: result.run.datasetId,
+            origin: context.session.origin,
+            status: result.run.status,
+            prompt: result.run.prompt ?? datasetBriefingPrompt(datasetId),
+            createdAt: result.run.createdAt,
+            updatedAt: result.run.updatedAt,
+          });
+          spawnRunWatcher(result.run.id);
+        }
+        return {
+          summary: `Started dataset briefing run ${result.run.id} for ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          data: result,
         };
       },
     },

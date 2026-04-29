@@ -106,6 +106,85 @@ test("async query run returns immediately with canonical dashboard and terminal 
   });
 });
 
+test("dataset describe request starts briefing run with required artifacts", async () => {
+  let startedDatasetId = "";
+  let startedPrompt = "";
+  let startedOptions: Record<string, unknown> | undefined;
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "terminal-session-describe",
+        payload: {
+          id: "response-describe",
+          output: [{
+            type: "function_call",
+            call_id: "call-describe",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async listDatasets() {
+      return { datasets: [{ id: "econ", name: "Economics", status: "ready" }] };
+    },
+    async startRun(datasetId: string, prompt: string, options?: Record<string, unknown>) {
+      startedDatasetId = datasetId;
+      startedPrompt = prompt;
+      startedOptions = options;
+      return {
+        run: {
+          id: "run-describe",
+          datasetId,
+          status: "booting",
+          prompt,
+          createdAt: "2026-04-29T00:00:00.000Z",
+          updatedAt: "2026-04-29T00:00:00.000Z",
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-describe" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("describe dataset econ", session, emit, undefined, deps);
+
+  assert.equal(startedDatasetId, "econ");
+  assert.equal(startedOptions?.type, "describe");
+  assert.deepEqual(startedOptions?.artifacts, [
+    { type: "markdown", title: "Dataset Briefing" },
+    { type: "json", title: "Dataset Profile" },
+  ]);
+  assert.equal((startedOptions?.config as Record<string, unknown>)?.describeDataset, true);
+  assert.deepEqual((startedOptions?.config as Record<string, unknown>)?.mountedDatasetGrounding, {
+    required: true,
+    datasetId: "econ",
+    mountPaths: [
+      "/mnt/alpha-research/data/instances/econ",
+      "/mnt/alpha-research/datasets/econ",
+      "dataset",
+    ],
+    failOnUnreadable: true,
+    disallowExternalFallback: true,
+  });
+  assert.match(startedPrompt, /Dataset Briefing/);
+  assert.match(startedPrompt, /Dataset Profile/);
+  assert.match(startedPrompt, /Overview; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps/);
+  assert.match(startedPrompt, /Do not include query instructions, starter analyses, or suggestions/);
+  assert.doesNotMatch(startedPrompt, /Suggested follow-ups/);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Started dataset briefing run run-describe for econ/);
+  assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-describe&runId=run-describe#run-run-describe/);
+});
+
 test("run result retrieval includes original prompt and artifacts", async () => {
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
