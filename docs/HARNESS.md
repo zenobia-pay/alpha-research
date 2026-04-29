@@ -32,6 +32,8 @@ npm run deploy:check
 
 `docs:check` validates that agent-facing docs are present, linked paths exist, documented npm scripts exist, and run lifecycle statuses stay aligned with `apps/cli/src/runs.ts`.
 
+`docs/PRODUCT_TEST_BRIEFING.md` is the product-facing map of what every CLI, golden, Symphony, and slow E2E test proves. `docs:check` fails if a named test, golden fixture, Symphony case, or slow test script is not documented there, so test changes and product briefing changes must land together.
+
 `architecture:check` enforces workspace dependency boundaries and keeps `apps/cli/src/tool-registry.ts` metadata-only.
 
 `smoke:local` starts the local API against fixture instances and verifies health, instance listing, and bootstrap payloads.

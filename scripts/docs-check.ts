@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 
 const markdownFiles = [
   "AGENTS.md",
@@ -7,6 +7,7 @@ const markdownFiles = [
   "docs/ARCHITECTURE.md",
   "docs/RUN_LIFECYCLE.md",
   "docs/HARNESS.md",
+  "docs/PRODUCT_TEST_BRIEFING.md",
   "docs/QUALITY.md",
   "docs/AGENT_WORKFLOWS.md",
 ];
@@ -46,6 +47,7 @@ function extractCommands(markdown: string) {
 
 const rootPackage = await readJson<{ scripts: Record<string, string> }>("package.json");
 const agentGuide = await readFile("AGENTS.md", "utf8");
+const productTestBriefing = await readFile("docs/PRODUCT_TEST_BRIEFING.md", "utf8");
 
 for (const doc of markdownFiles) {
   assert.equal(await fileExists(doc), true, `${doc} should exist`);
@@ -63,6 +65,30 @@ for (const command of extractCommands(agentGuide)) {
 
 for (const doc of ["docs/ARCHITECTURE.md", "docs/RUN_LIFECYCLE.md", "docs/HARNESS.md"]) {
   assert.ok(agentGuide.includes(doc), `AGENTS.md should link ${doc}`);
+}
+
+for (const scriptName of Object.keys(rootPackage.scripts).filter((name) => name === "test:slow" || name.startsWith("test:slow:"))) {
+  assert.ok(productTestBriefing.includes(scriptName), `docs/PRODUCT_TEST_BRIEFING.md should document npm script ${scriptName}`);
+}
+
+for (const testFile of ["apps/cli/test/agent-harness.test.ts", "apps/cli/test/registry.test.ts"]) {
+  const source = await readFile(testFile, "utf8");
+  for (const match of source.matchAll(/\btest\("([^"]+)"/gu)) {
+    const testName = match[1]!;
+    assert.ok(productTestBriefing.includes(testName), `docs/PRODUCT_TEST_BRIEFING.md should document test "${testName}" from ${testFile}`);
+  }
+}
+
+for (const filename of await readdir("apps/cli/test/golden")) {
+  if (!filename.endsWith(".json")) continue;
+  const fixture = await readJson<{ name: string }>(`apps/cli/test/golden/${filename}`);
+  assert.ok(productTestBriefing.includes(`golden: ${fixture.name}`), `docs/PRODUCT_TEST_BRIEFING.md should document golden fixture ${filename}`);
+}
+
+for (const filename of await readdir("apps/cli/test/symphony-cases")) {
+  if (!filename.endsWith(".json")) continue;
+  const fixture = await readJson<{ name: string }>(`apps/cli/test/symphony-cases/${filename}`);
+  assert.ok(productTestBriefing.includes(`symphony case: ${fixture.name}`), `docs/PRODUCT_TEST_BRIEFING.md should document Symphony case ${filename}`);
 }
 
 const runLifecycle = await readFile("docs/RUN_LIFECYCLE.md", "utf8");
