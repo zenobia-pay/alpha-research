@@ -19,6 +19,7 @@
     "prompt": "Fetch public SEC filings."
   },
   "expectedToolCalls": [
+    "list_remote_datasets",
     "create_public_data_environment"
   ],
   "expectedSummaryIncludes": [

@@ -6,7 +6,7 @@ import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/stora
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
-import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType } from "./remote.js";
+import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
 import { readSession, login } from "./session.js";
 import { isTerminalRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
@@ -61,7 +61,21 @@ const STANDARD_ANALYSIS_RESOURCES = {
   workspaceDiskGb: 500,
 };
 
-function withStandardAnalysisResources(config?: Record<string, unknown>) {
+function mountedDatasetGrounding(datasetId: string) {
+  return {
+    required: true,
+    datasetId,
+    mountPaths: [
+      `/mnt/alpha-research/data/instances/${datasetId}`,
+      `/mnt/alpha-research/datasets/${datasetId}`,
+      "dataset",
+    ],
+    failOnUnreadable: true,
+    disallowExternalFallback: true,
+  };
+}
+
+function withStandardAnalysisResources(config?: Record<string, unknown>, datasetId?: string) {
   return {
     ...(config ?? {}),
     resources: {
@@ -70,7 +84,22 @@ function withStandardAnalysisResources(config?: Record<string, unknown>) {
         ? config.resources as Record<string, unknown>
         : {}),
     },
+    ...(datasetId ? { mountedDatasetGrounding: mountedDatasetGrounding(datasetId) } : {}),
   };
+}
+
+function withMountedDatasetGroundingPrompt(datasetId: string, prompt: string) {
+  return [
+    `Mounted dataset grounding is mandatory for dataset \`${datasetId}\`.`,
+    "Before doing analysis, read and validate the mounted dataset from the attached dataset volume, preferring these paths in order:",
+    `1. /mnt/alpha-research/data/instances/${datasetId}`,
+    `2. /mnt/alpha-research/datasets/${datasetId}`,
+    "3. ./dataset only if it is a mount/symlink/copy of the attached dataset volume.",
+    "If the mounted dataset cannot be found, opened, or parsed, fail the run loudly with the exact paths checked and the read error.",
+    "Do not download public sample data, GitHub CSVs, web search results, synthetic replacements, or any other external fallback to complete this dataset-grounded task.",
+    "",
+    prompt,
+  ].join("\n");
 }
 
 export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
@@ -143,6 +172,7 @@ const AGENT_INSTRUCTIONS = [
   "",
   "Use the provided tools.",
   "For new environments that involve public internet/API sources, private/local files, paid exports, or any mix of sources, prefer create_research_environment.",
+  "Before creating a research environment, list remote datasets and reuse or extend an existing semantically matching research environment when one exists. Do not create duplicate environments for the same domain, source catalog, or hypothesis family.",
   "Use create_public_data_environment only for simple public-only environments. Do not use deploy_remote_dataset unless there is one uploaded/local source that only needs normalization.",
   "For environment creation, make a concrete acquisition plan in the remote prompt: public sources, private files, APIs, files to fetch, normalized output tables, manifest, and validation checks.",
   "Prefer lightweight dataset queries before launching heavy transforms or analyses when the user is asking for examples, top records, or simple slices.",
@@ -181,6 +211,69 @@ function formatStatusForHumans(status: string | undefined) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function reusableEnvironmentTokens(value: string) {
+  const stopWords = new Set([
+    "a", "an", "and", "api", "catalog", "data", "dataset", "environment", "for", "from", "new", "of", "or",
+    "public", "research", "source", "sources", "the", "to", "v1", "with",
+  ]);
+  return [...new Set(value.toLowerCase().split(/[^a-z0-9]+/u)
+    .filter((token) => token.length >= 3 && !stopWords.has(token) && !/^\d+$/u.test(token)))];
+}
+
+function datasetReuseScore(requestedText: string, dataset: RemoteDatasetSummary) {
+  if (dataset.status && !["ready", "deployed"].includes(dataset.status.toLowerCase())) {
+    return 0;
+  }
+  const requested = new Set(reusableEnvironmentTokens(requestedText));
+  if (requested.size === 0) return 0;
+  const candidateText = [dataset.id, dataset.name].join(" ");
+  const candidate = reusableEnvironmentTokens(candidateText);
+  const overlap = candidate.filter((token) => requested.has(token));
+  const readinessBonus = dataset.status?.toLowerCase() === "ready" ? 1 : 0;
+  return overlap.length + readinessBonus;
+}
+
+function selectReusableEnvironmentDatasetId(
+  requestedDatasetId: string,
+  request: Record<string, unknown>,
+  datasets: RemoteDatasetSummary[],
+) {
+  if (datasets.some((dataset) => dataset.id === requestedDatasetId && ["ready", "deployed"].includes((dataset.status ?? "").toLowerCase()))) {
+    return requestedDatasetId;
+  }
+  const publicSources = Array.isArray(request.publicSources)
+    ? request.publicSources.map((source) => isRecord(source) ? `${source.name ?? ""} ${source.url ?? ""}` : "").join(" ")
+    : "";
+  const requestedText = [
+    requestedDatasetId,
+    request.name,
+    request.description,
+    request.sourceDescription,
+    publicSources,
+  ].filter((value) => typeof value === "string").join(" ");
+  const scored = datasets
+    .map((dataset) => ({ dataset, score: datasetReuseScore(requestedText, dataset) }))
+    .filter((entry) => entry.score >= 3)
+    .sort((left, right) => right.score - left.score || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? "")));
+  return scored[0]?.dataset.id ?? requestedDatasetId;
+}
+
+async function resolveRunnableEnvironmentDatasetId(
+  context: ToolExecutionContext,
+  client: RemoteApiClientType,
+  requestedDatasetId: string,
+  request: Record<string, unknown>,
+) {
+  const existingDatasets = typeof client.listDatasets === "function"
+    ? await client.listDatasets().catch(() => ({ datasets: [] }))
+    : { datasets: [] };
+  const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, request, existingDatasets.datasets);
+  if (datasetId !== requestedDatasetId) {
+    context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of unavailable duplicate ${requestedDatasetId}.` });
+  }
+  return datasetId;
 }
 
 function isProducedArtifact(artifact: { type?: string }) {
@@ -734,7 +827,7 @@ export function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "list_remote_datasets",
-      description: "List datasets registered on the remote Alpha Research control plane.",
+      description: "List datasets registered on the remote Alpha Research control plane. Use this before creating a research environment so existing matching environments can be reused or extended instead of duplicated.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -947,7 +1040,7 @@ export function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "create_research_environment",
-      description: "Create a remote research environment from public sources, private/local uploaded files, or a mix. This provisions a dataset volume, uploads local private sources when provided, and prompts a remote agent to fetch, stage, normalize, validate, and document all data.",
+      description: "Create or extend a remote research environment from public sources, private/local uploaded files, or a mix. This provisions a dataset volume, uploads local private sources when provided, and prompts a remote agent to fetch, stage, normalize, validate, and document all data. Prefer an existing semantically matching datasetId from list_remote_datasets when extending the same domain or source catalog.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -974,7 +1067,9 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = String(input.datasetId);
+        const requestedDatasetId = String(input.datasetId);
+        const existingDatasets = await client.listDatasets().catch(() => ({ datasets: [] }));
+        const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, input, existingDatasets.datasets);
         const name = String(input.name);
         const prompt = String(input.prompt);
         const publicSources = Array.isArray(input.publicSources)
@@ -983,14 +1078,18 @@ export function createToolRegistry(): ToolDefinition[] {
         const localPaths = Array.isArray(input.localPaths)
           ? input.localPaths.map((value) => String(value)).filter(Boolean)
           : [];
-        await client.createDataset({
-          datasetId,
-          name,
-          sourceType: localPaths.length > 0 && (publicSources.length > 0 || input.sourceDescription) ? "mixed_data" : localPaths.length > 0 ? "private_data" : "public_data",
-          sourceFilename: localPaths.length > 0 && (publicSources.length > 0 || input.sourceDescription) ? "mixed" : localPaths.length > 0 ? "private-uploads" : "internet",
-          mode: "tabular",
-          description: typeof input.description === "string" ? input.description : undefined,
-        });
+        if (datasetId === requestedDatasetId) {
+          await client.createDataset({
+            datasetId,
+            name,
+            sourceType: localPaths.length > 0 && (publicSources.length > 0 || input.sourceDescription) ? "mixed_data" : localPaths.length > 0 ? "private_data" : "public_data",
+            sourceFilename: localPaths.length > 0 && (publicSources.length > 0 || input.sourceDescription) ? "mixed" : localPaths.length > 0 ? "private-uploads" : "internet",
+            mode: "tabular",
+            description: typeof input.description === "string" ? input.description : undefined,
+          });
+        } else {
+          context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of creating duplicate ${requestedDatasetId}.` });
+        }
         const privateSources: Array<{ key: string; filename: string; sizeBytes?: number; description?: string }> = [];
         for (const inputPath of localPaths) {
           const filename = basename(inputPath);
@@ -1039,7 +1138,7 @@ export function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "create_public_data_environment",
-      description: "Create a new remote research environment from public internet/API data by provisioning an empty dataset volume and prompting a remote agent to fetch, normalize, validate, and document the data.",
+      description: "Create or extend a remote research environment from public internet/API data by provisioning a dataset volume and prompting a remote agent to fetch, normalize, validate, and document the data. Prefer an existing semantically matching datasetId from list_remote_datasets when extending the same domain or source catalog.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -1058,7 +1157,12 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = String(input.datasetId);
+        const requestedDatasetId = String(input.datasetId);
+        const existingDatasets = await client.listDatasets().catch(() => ({ datasets: [] }));
+        const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, input, existingDatasets.datasets);
+        if (datasetId !== requestedDatasetId) {
+          context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of creating duplicate ${requestedDatasetId}.` });
+        }
         const prompt = String(input.prompt);
         const result = await client.createPublicDataEnvironment(datasetId, {
           name: String(input.name),
@@ -1266,13 +1370,13 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = String(input.datasetId);
+        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
         const prompt = String(input.prompt);
         let result;
         try {
-          result = await client.startRun(datasetId, prompt, {
+          result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, prompt), {
             type: typeof input.type === "string" ? input.type : undefined,
-            config: withStandardAnalysisResources(input.config && typeof input.config === "object" ? input.config as Record<string, unknown> : undefined),
+            config: withStandardAnalysisResources(input.config && typeof input.config === "object" ? input.config as Record<string, unknown> : undefined, datasetId),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
           });
         } catch (error) {
@@ -1316,12 +1420,13 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = String(input.datasetId);
+        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
         const prompt = String(input.prompt);
         let started;
         try {
-          started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
+          started = await withAuthRetry(context, () => client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, prompt), {
             type: "query",
+            config: withStandardAnalysisResources(undefined, datasetId),
             artifacts: [{ type: "query_result", title: "Query Result" }],
           }));
         } catch (error) {
@@ -1365,12 +1470,13 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = String(input.datasetId);
+        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
         const prompt = String(input.prompt);
         let started;
         try {
-          started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
+          started = await withAuthRetry(context, () => client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, prompt), {
             type: "query",
+            config: withStandardAnalysisResources(undefined, datasetId),
             artifacts: [{ type: "aggregate_result", title: "Aggregate Result" }],
           }));
         } catch (error) {
@@ -1414,9 +1520,9 @@ export function createToolRegistry(): ToolDefinition[] {
         required: ["datasetId", "sourceDescription"],
       },
       async execute(context, input) {
-        const datasetId = String(input.datasetId);
         const sourceDescription = String(input.sourceDescription);
         const client = createRemoteClient(context);
+        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
         let result;
         try {
           result = await client.startRun(datasetId, typeof input.prompt === "string" ? input.prompt : `Fetch public data: ${sourceDescription}`, {
@@ -1497,11 +1603,12 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
+        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
         let result;
         try {
-          result = await client.startRun(String(input.datasetId), String(input.prompt), {
+          result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
             type: "agent",
-            config: withStandardAnalysisResources(),
+            config: withStandardAnalysisResources(undefined, datasetId),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
           });
         } catch (error) {
@@ -1559,9 +1666,9 @@ export function createToolRegistry(): ToolDefinition[] {
         }
         let result;
         try {
-          result = await client.startRun(previous.run.datasetId, String(input.prompt), {
+          result = await client.startRun(previous.run.datasetId, withMountedDatasetGroundingPrompt(previous.run.datasetId, String(input.prompt)), {
             type: "agent",
-            config: withStandardAnalysisResources({ remoteAgentSessionId: sessionId, parentRunId: String(input.runId) }),
+            config: withStandardAnalysisResources({ remoteAgentSessionId: sessionId, parentRunId: String(input.runId) }, previous.run.datasetId),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
           });
         } catch (error) {
@@ -1606,13 +1713,14 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
+        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
         let result;
         try {
-          result = await client.startRun(String(input.datasetId), String(input.prompt), {
+          result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
             type: "transform",
             config: withStandardAnalysisResources({
               scriptOutline: typeof input.scriptOutline === "string" ? input.scriptOutline : undefined,
-            }),
+            }, datasetId),
           });
         } catch (error) {
           if (error instanceof RemoteRequestError) {
@@ -1657,14 +1765,15 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const labelingPrompt = String(input.labelingPrompt);
+        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
         let result;
         try {
           result = await client.startRun(
-            String(input.datasetId),
-            typeof input.prompt === "string" ? input.prompt : `Run labeling job: ${labelingPrompt}`,
+            datasetId,
+            withMountedDatasetGroundingPrompt(datasetId, typeof input.prompt === "string" ? input.prompt : `Run labeling job: ${labelingPrompt}`),
             {
               type: "label",
-              config: withStandardAnalysisResources({ labelingPrompt }),
+              config: withStandardAnalysisResources({ labelingPrompt }, datasetId),
             },
           );
         } catch (error) {

@@ -36,6 +36,8 @@ test("unauthenticated local run request bypasses remote planning", async () => {
 
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {
   const calls: string[] = [];
+  let startedPrompt = "";
+  let startedOptions: Record<string, unknown> | undefined;
   const fakeClient = {
     async respond() {
       calls.push("respond");
@@ -55,8 +57,10 @@ test("async query run returns immediately with canonical dashboard and terminal 
         },
       };
     },
-    async startRun() {
+    async startRun(_datasetId: string, prompt: string, options?: Record<string, unknown>) {
       calls.push("startRun");
+      startedPrompt = prompt;
+      startedOptions = options;
       return {
         run: {
           id: "run-123",
@@ -87,6 +91,19 @@ test("async query run returns immediately with canonical dashboard and terminal 
   assert.match(final, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-123#run-run-123/);
   assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-1&runId=run-123#run-run-123/);
   assert.equal(calls.includes("startRun"), true);
+  assert.match(startedPrompt, /Mounted dataset grounding is mandatory for dataset `enriched-tweets`/);
+  assert.match(startedPrompt, /Do not download public sample data, GitHub CSVs/);
+  assert.deepEqual((startedOptions?.config as Record<string, unknown>)?.mountedDatasetGrounding, {
+    required: true,
+    datasetId: "enriched-tweets",
+    mountPaths: [
+      "/mnt/alpha-research/data/instances/enriched-tweets",
+      "/mnt/alpha-research/datasets/enriched-tweets",
+      "dataset",
+    ],
+    failOnUnreadable: true,
+    disallowExternalFallback: true,
+  });
 });
 
 test("run result retrieval includes original prompt and artifacts", async () => {
@@ -768,11 +785,15 @@ test("product workflow success: econ research hypothesis creates data environmen
   const callNames = calls.map((call) => call.name);
   assert.deepEqual(callNames, [
     "listDatasets",
+    "listDatasets",
     "createDataset",
     "createResearchEnvironment",
     "createResearchSpec",
+    "listDatasets",
     "startRun",
+    "listDatasets",
     "startRun",
+    "listDatasets",
     "startRun",
   ]);
   assert.equal(responses.length, 0);

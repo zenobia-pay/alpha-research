@@ -151,7 +151,8 @@ export class RemoteApiClient {
 
   async respond(body: Record<string, unknown>) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 90_000);
+    const timeoutMs = Number(process.env.RESEARCH_CLI_RESPOND_TIMEOUT_MS ?? String(5 * 60 * 1000));
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
     try {
       response = await fetch(`${this.session.origin}/api/cli/respond`, {
@@ -166,7 +167,7 @@ export class RemoteApiClient {
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         throw new RemoteRequestError(
-          "Remote agent planning timed out after 90s for /api/cli/respond. If a run was started, use `what runs are active?` to inspect it.",
+          `Remote agent planning timed out after ${Math.round(timeoutMs / 1000)}s for /api/cli/respond. If a run was started, use \`what runs are active?\` to inspect it.`,
           408,
           "/api/cli/respond",
         );
@@ -207,6 +208,12 @@ export class RemoteApiClient {
 
   async getDataset(datasetId: string) {
     return this.request<{ dataset: RemoteDatasetDetail }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}`);
+  }
+
+  async deleteDataset(datasetId: string) {
+    return this.request<{ ok: boolean; deleted: boolean; datasetId?: string }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}`, {
+      method: "DELETE",
+    });
   }
 
   async getDatasetProfile(datasetId: string) {

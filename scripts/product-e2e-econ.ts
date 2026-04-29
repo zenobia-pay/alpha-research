@@ -24,6 +24,12 @@ type RunResults = {
   artifacts: Array<{ id: string; runId: string; type: string; title: string; content?: unknown }>;
 };
 
+type DatasetSummary = {
+  id: string;
+  name: string;
+  status?: string;
+};
+
 class BusyDatasetError extends Error {
   constructor(message: string, readonly runId: string | null) {
     super(message);
@@ -82,7 +88,7 @@ const requiredSources = [
   { name: "World Happiness Report", url: "https://worldhappiness.report/data/" },
   { name: "Zillow Observed Rent Index", url: "https://www.zillow.com/research/data/" },
 ];
-const requiredEvidence = [
+const requiredEnvironmentEvidence = [
   "manifest",
   "row count",
   "missingness",
@@ -90,18 +96,37 @@ const requiredEvidence = [
   "source URL",
   "county",
   "month",
-  "label",
-  "chart",
   "artifact",
 ];
+const requiredHypothesisEvidence = [
+  ...requiredEnvironmentEvidence,
+  "label",
+  "chart",
+  "hypothesis",
+];
 
-const prompt = [
-  "Make me an econ dataset with all necessary econ datasets for a housing-cycle hypothesis.",
+const mode = process.env.RESEARCH_PRODUCT_E2E_ECON_MODE === "hypothesis" ? "hypothesis" : "environment";
+const canonicalDatasetId = "econ";
+
+const environmentPrompt = [
+  "Create the canonical economics research environment.",
+  `The dataset id must be ${canonicalDatasetId}; datasets are named after fields of humanities, and this field is economics.`,
+  "Set it up from scratch as an economics dataset with all necessary econ datasets for a housing-cycle hypothesis.",
   `Use every source in this required source catalog: ${requiredSources.map((source) => source.name).join(", ")}.`,
   "Discover and record each exact source URL in the dataset source registry and final artifacts.",
   "Download the needed datasets, normalize them into a research environment, validate coverage, row counts, missingness, join keys, and source URLs.",
+  "Produce source_registry.csv, table_catalog.json, normalized tables, crosswalks, a DuckDB catalog, a dataset README, and a QA report.",
+  "Wait until the environment build completes, then show me the results and artifacts.",
+].join(" ");
+
+const hypothesisPrompt = [
+  `Use the existing canonical economics research environment ${canonicalDatasetId}.`,
+  "Test this housing-cycle hypothesis: rising mortgage rates reduce housing permits most in counties with weaker income growth.",
+  "First inspect whether the necessary data exists in the environment.",
   "Then create the analysis subset, write and run the transformation script, run any necessary labeling, choose the visualization artifacts, test the hypothesis, wait until complete, and show me the results and artifacts.",
 ].join(" ");
+
+const prompt = mode === "environment" ? environmentPrompt : hypothesisPrompt;
 
 function requireLiveOptIn() {
   if (process.env.RESEARCH_PRODUCT_E2E_LIVE !== "1") {
@@ -149,6 +174,21 @@ async function request<T>(session: SessionRecord, path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function requestWithMethod<T>(session: SessionRecord, path: string, method: string): Promise<T> {
+  const response = await fetch(`${session.origin}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Remote request failed ${response.status} for ${method} ${path}: ${body}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 async function cancelRun(session: SessionRecord, runId: string) {
   await fetch(`${session.origin}/api/cli/runs/${encodeURIComponent(runId)}/cancel`, {
     method: "POST",
@@ -172,6 +212,33 @@ async function waitForTerminalRun(session: SessionRecord, runId: string, timeout
     await new Promise((resolve) => setTimeout(resolve, 10_000));
   }
   return null;
+}
+
+function isPriorEconAttempt(dataset: DatasetSummary) {
+  const text = `${dataset.id} ${dataset.name}`.toLowerCase();
+  return /\becon\b|economics|housing[-_]cycle|housing cycle/u.test(text);
+}
+
+async function deletePriorEconAttempts(session: SessionRecord) {
+  const payload = await request<{ datasets: DatasetSummary[] }>(session, "/api/cli/datasets");
+  const targets = payload.datasets.filter(isPriorEconAttempt);
+  if (targets.length === 0) {
+    console.log("No prior econ environment attempts to delete.");
+    return;
+  }
+  console.log(`Deleting ${targets.length} prior econ environment attempt${targets.length === 1 ? "" : "s"} before fresh environment test.`);
+  for (const dataset of targets) {
+    const runs = await request<{ runs: RunSummary[] }>(session, `/api/cli/runs?datasetId=${encodeURIComponent(dataset.id)}`)
+      .catch(() => ({ runs: [] }));
+    for (const run of runs.runs) {
+      if (!["ready", "completed", "succeeded", "failed", "error", "cancelled", "canceled"].includes(run.status.toLowerCase())) {
+        await cancelRun(session, run.id);
+        await waitForTerminalRun(session, run.id, 2 * 60 * 1000);
+      }
+    }
+    await requestWithMethod(session, `/api/cli/datasets/${encodeURIComponent(dataset.id)}`, "DELETE");
+    console.log(`Deleted prior econ dataset ${dataset.id}.`);
+  }
 }
 
 function runCli(sessionDir: string, session: SessionRecord) {
@@ -295,10 +362,13 @@ async function main() {
   requireLiveOptIn();
   const sessionDir = process.env.RESEARCH_SESSION_DIR ?? join(".tmp", "research-product-e2e-live");
   const session = await readSession(sessionDir);
+  if (mode === "environment") {
+    await deletePriorEconAttempts(session);
+  }
 
   const startedAt = Date.now();
   console.log([
-    "Starting live slow econ product E2E.",
+    `Starting live slow econ ${mode} product E2E.`,
     `Origin: ${session.origin}`,
     `Session dir: ${sessionDir}`,
     `Timeout: ${Number(process.env.RESEARCH_PRODUCT_E2E_TIMEOUT_MS ?? String(90 * 60 * 1000))}ms`,
@@ -350,17 +420,20 @@ async function main() {
     stderr,
     results,
   });
-  for (const source of requiredSources) {
-    assertEvidenceContains(evidence, source.name);
-    assertEvidenceContains(evidence, source.url);
+  if (mode === "environment") {
+    for (const source of requiredSources) {
+      assertEvidenceContains(evidence, source.name);
+      assertEvidenceContains(evidence, source.url);
+    }
   }
+  const requiredEvidence = mode === "environment" ? requiredEnvironmentEvidence : requiredHypothesisEvidence;
   for (const needle of requiredEvidence) {
     assertEvidenceContains(evidence, needle);
   }
 
   const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
   console.log([
-    `Live econ product E2E passed in ${elapsedSeconds}s.`,
+    `Live econ ${mode} product E2E passed in ${elapsedSeconds}s.`,
     `Runs inspected: ${results.map((result) => `${result.run.id}:${result.run.status}`).join(", ")}`,
     `Artifacts inspected: ${results.flatMap((result) => result.artifacts).length}`,
   ].join("\n"));

@@ -19,6 +19,7 @@
     "prompt": "Create the economics research environment."
   },
   "expectedToolCalls": [
+    "list_remote_datasets",
     "create_research_environment"
   ],
   "expectedSummaryIncludes": [
