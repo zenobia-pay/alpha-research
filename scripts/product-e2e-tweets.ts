@@ -58,6 +58,9 @@ const prompt = [
   "what's up with tweets? Can you run an experiment for me on what types of tweets go viral?",
   "This is the live slow E2E, so first do the proper planning and state the precise design.",
   "Use the enriched-tweets dataset.",
+  "Mounted dataset grounding is mandatory: every remote analysis, transform, and labeling step must read enriched-tweets from the attached mounted dataset volume.",
+  "If enriched-tweets cannot be found, opened, parsed, or contains no readable tweet rows, fail loudly with the exact mounted paths checked and do not use external fallback data.",
+  "Do not download or use GitHub sample CSVs, web search results, synthetic tweets, or any public replacement dataset.",
   "For this test, treat the following design as approved and then actually run it end to end on DigitalOcean:",
   "Define viral as tweets in the top 0.1% by quote_tweet_count.",
   "Pick 100 random viral tweets from that top 0.1%, stratified by month if timestamps are available.",
@@ -255,6 +258,20 @@ function assertProducedArtifacts(results: RunResults[]) {
   );
 }
 
+function assertNoExternalFallback(evidence: string) {
+  const forbiddenPatterns = [
+    /raw\.githubusercontent\.com/iu,
+    /github\.com\/[^"'\\\s]+\.csv/iu,
+    /curl\s+-L\s+-o\s+dataset\/[^"'\\\s]+\.csv/iu,
+    /download(?:ed|ing)?\s+(?:and\s+)?(?:used\s+)?(?:an\s+)?external/iu,
+    /sample\s+csv/iu,
+    /Twitter-X-dataset-samples/iu,
+  ];
+  for (const pattern of forbiddenPatterns) {
+    assert.doesNotMatch(evidence, pattern, `Live tweet workflow used external fallback data matching ${pattern}`);
+  }
+}
+
 async function main() {
   requireLiveOptIn();
   const sessionDir = process.env.RESEARCH_SESSION_DIR ?? join(".tmp", "research-product-e2e-tweets-live");
@@ -308,6 +325,8 @@ async function main() {
   assertTerminalSuccess(results);
   assertProducedArtifacts(results);
 
+  const runtimeEvidence = stringifyEvidence({ stdout, stderr, results });
+  assertNoExternalFallback(runtimeEvidence);
   const evidence = stringifyEvidence({
     prompt,
     stdout,
