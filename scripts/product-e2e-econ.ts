@@ -88,8 +88,30 @@ const requiredSources = [
   { name: "World Happiness Report", url: "https://worldhappiness.report/data/" },
   { name: "Zillow Observed Rent Index", url: "https://www.zillow.com/research/data/" },
 ];
-const requiredEnvironmentEvidence = [
+const requiredDiscoveryEvidence = [
+  "source_registry.plan.json",
+  "discovery",
+  "canonical_url",
+  "direct_download_url",
+  "fetchability",
+  "active",
+  "metadata_only",
+  "gated",
+];
+const requiredNormalizationPlanEvidence = [
+  "normalization_plan.json",
+  "raw_inventory",
+  "target_tables",
+  "raw_to_normalized",
+  "primary_keys",
+  "join_keys",
+  "qa_checks",
+];
+const requiredNormalizationExecutionEvidence = [
   "manifest",
+  "source_registry.csv",
+  "table_catalog.json",
+  "qa_report",
   "row count",
   "missingness",
   "join",
@@ -98,24 +120,86 @@ const requiredEnvironmentEvidence = [
   "month",
   "artifact",
 ];
+const requiredEnvironmentEvidence = [
+  ...requiredDiscoveryEvidence,
+  ...requiredNormalizationPlanEvidence,
+  ...requiredNormalizationExecutionEvidence,
+  "raw_inventory.json",
+  "normalized",
+  "duckdb",
+];
 const requiredHypothesisEvidence = [
-  ...requiredEnvironmentEvidence,
+  ...requiredNormalizationExecutionEvidence,
   "label",
   "chart",
   "hypothesis",
 ];
 
-const mode = process.env.RESEARCH_PRODUCT_E2E_ECON_MODE === "hypothesis" ? "hypothesis" : "environment";
+type EconMode = "discover" | "normalization-plan" | "normalization-execution" | "environment" | "hypothesis";
+
+function parseMode(value: string | undefined): EconMode {
+  if (value === "discover"
+    || value === "normalization-plan"
+    || value === "normalization-execution"
+    || value === "hypothesis"
+    || value === "environment") {
+    return value;
+  }
+  return "environment";
+}
+
+const mode = parseMode(process.env.RESEARCH_PRODUCT_E2E_ECON_MODE);
 const canonicalDatasetId = "econ";
 
+const sourceCatalogText = requiredSources.map((source) => `${source.name}: ${source.url}`).join("; ");
+
+const discoveryPrompt = [
+  "Run the Econ Discovery Agent for the canonical economics research environment.",
+  `The dataset id must be ${canonicalDatasetId}; datasets are named after fields of humanities, and this field is economics.`,
+  "Create the environment if it does not already exist, but do not normalize data in this stage.",
+  `Required source catalog: ${sourceCatalogText}.`,
+  "For every source, decide which datasets are relevant for housing-cycle economics research.",
+  "Find the canonical landing page and the direct public API/download endpoints when available.",
+  "Classify each source as active, metadata_only, gated, or missing. Use metadata_only only when data is not publicly fetchable without credentials, manual agreements, or proprietary access.",
+  "Produce and register source_registry.plan.json with fields: source_name, required_url, canonical_url, direct_download_url, api_endpoint, fetchability, relevance, expected_tables, geography, frequency, license, gating_reason, notes.",
+  "Also produce discovery_report.md summarizing coverage and unresolved sources.",
+  "Wait until complete, then show me the run id, dashboard link, and artifacts.",
+].join(" ");
+
+const normalizationPlanPrompt = [
+  `Use the existing canonical economics research environment ${canonicalDatasetId}.`,
+  "Run the Econ Normalization Planning Agent only.",
+  "Read source_registry.plan.json and any raw_inventory.json already present. If raw_inventory.json is absent, explicitly plan against the discovered sources and mark raw inventory as pending.",
+  "Do not execute ETL in this stage.",
+  "Produce and register normalization_plan.json with target_tables, table_schemas, raw_to_normalized mappings, primary_keys, join_keys, date/geography/frequency harmonization rules, source provenance fields, and qa_checks.",
+  "The plan must cover all active/fetchable sources from discovery and explicitly exclude only gated/metadata_only sources with reasons.",
+  "Also produce normalization_plan.md for humans.",
+  "Wait until complete, then show me the run id, dashboard link, and artifacts.",
+].join(" ");
+
+const normalizationExecutionPrompt = [
+  `Use the existing canonical economics research environment ${canonicalDatasetId}.`,
+  "Run the Econ Acquisition, Normalization Execution, and QA Agents.",
+  "Read source_registry.plan.json and normalization_plan.json. Fetch all active/fetchable raw datasets, write raw_inventory.json with checksums, byte sizes, retrieval timestamps, and source registry ids.",
+  "Then execute normalization according to normalization_plan.json.",
+  "Produce normalized parquet or CSV tables, source_registry.csv, table_catalog.json, manifest.json, qa_checks.json, qa_report.md, and a DuckDB catalog if possible.",
+  "Success requires row_count > 0 for each active/fetchable source. metadata_only and gated sources must not count as data success.",
+  "Fail loudly if a public/fetchable source cannot be downloaded or normalized.",
+  "Wait until complete, then show me the run id, dashboard link, and artifacts.",
+].join(" ");
+
 const environmentPrompt = [
-  "Create the canonical economics research environment.",
+  "Run the Econ Orchestrator Agent end to end for the canonical economics research environment.",
   `The dataset id must be ${canonicalDatasetId}; datasets are named after fields of humanities, and this field is economics.`,
   "Set it up from scratch as an economics dataset with all necessary econ datasets for a housing-cycle hypothesis.",
-  `Use every source in this required source catalog: ${requiredSources.map((source) => source.name).join(", ")}.`,
-  "Discover and record each exact source URL in the dataset source registry and final artifacts.",
-  "Download the needed datasets, normalize them into a research environment, validate coverage, row counts, missingness, join keys, and source URLs.",
-  "Produce source_registry.csv, table_catalog.json, normalized tables, crosswalks, a DuckDB catalog, a dataset README, and a QA report.",
+  `Use every source in this required source catalog: ${sourceCatalogText}.`,
+  "Stage 1 Discovery Agent: produce source_registry.plan.json and discovery_report.md.",
+  "Stage 2 Acquisition Agent: download all active/fetchable raw datasets and produce raw_inventory.json.",
+  "Stage 3 Normalization Planning Agent: produce normalization_plan.json with schemas, mappings, keys, harmonization, and QA checks.",
+  "Stage 4 Normalization Execution Agent: execute ETL and produce normalized tables.",
+  "Stage 5 QA Agent: validate coverage, row counts, missingness, join keys, source URLs, and artifacts.",
+  "Produce source_registry.csv, table_catalog.json, normalized tables, crosswalks, a DuckDB catalog, manifest.json, dataset README, qa_checks.json, and qa_report.md.",
+  "Do not accept placeholder metadata as success for publicly fetchable sources.",
   "Wait until the environment build completes, then show me the results and artifacts.",
 ].join(" ");
 
@@ -126,7 +210,15 @@ const hypothesisPrompt = [
   "Then create the analysis subset, write and run the transformation script, run any necessary labeling, choose the visualization artifacts, test the hypothesis, wait until complete, and show me the results and artifacts.",
 ].join(" ");
 
-const prompt = mode === "environment" ? environmentPrompt : hypothesisPrompt;
+const promptByMode: Record<EconMode, string> = {
+  discover: discoveryPrompt,
+  "normalization-plan": normalizationPlanPrompt,
+  "normalization-execution": normalizationExecutionPrompt,
+  environment: environmentPrompt,
+  hypothesis: hypothesisPrompt,
+};
+
+const prompt = promptByMode[mode];
 
 function requireLiveOptIn() {
   if (process.env.RESEARCH_PRODUCT_E2E_LIVE !== "1") {
@@ -358,11 +450,37 @@ function assertProducedArtifacts(results: RunResults[]) {
   );
 }
 
+function numericField(value: unknown, field: string) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const candidate = (value as Record<string, unknown>)[field];
+  return typeof candidate === "number" ? candidate : null;
+}
+
+function assertNoMissingRequiredTables(results: RunResults[]) {
+  const structuredArtifacts = results
+    .flatMap((result) => result.artifacts)
+    .filter((artifact) => artifact.type === "structured_result" && artifact.content && typeof artifact.content === "object");
+  assert.ok(structuredArtifacts.length > 0, "Expected a structured_result artifact with table coverage counts.");
+
+  for (const artifact of structuredArtifacts) {
+    const missingTables = numericField(artifact.content, "missing_tables");
+    if (missingTables !== null) {
+      assert.equal(missingTables, 0, `${artifact.title} still reports ${missingTables} missing required table(s).`);
+    }
+    const activeTables = numericField(artifact.content, "active_tables");
+    if (activeTables !== null) {
+      assert.ok(activeTables > 0, `${artifact.title} did not report any active normalized tables.`);
+    }
+  }
+}
+
 async function main() {
   requireLiveOptIn();
   const sessionDir = process.env.RESEARCH_SESSION_DIR ?? join(".tmp", "research-product-e2e-live");
   const session = await readSession(sessionDir);
-  if (mode === "environment") {
+  if (mode === "environment" || mode === "discover") {
     await deletePriorEconAttempts(session);
   }
 
@@ -413,6 +531,9 @@ async function main() {
   assert.ok(results.length > 0, `Expected remote result bundles for run ids: ${runIds.join(", ")}`);
   assertTerminalSuccess(results);
   assertProducedArtifacts(results);
+  if (mode === "environment" || mode === "normalization-execution") {
+    assertNoMissingRequiredTables(results);
+  }
 
   const evidence = stringifyEvidence({
     prompt,
@@ -420,13 +541,20 @@ async function main() {
     stderr,
     results,
   });
-  if (mode === "environment") {
+  if (mode === "environment" || mode === "discover") {
     for (const source of requiredSources) {
       assertEvidenceContains(evidence, source.name);
       assertEvidenceContains(evidence, source.url);
     }
   }
-  const requiredEvidence = mode === "environment" ? requiredEnvironmentEvidence : requiredHypothesisEvidence;
+  const requiredEvidenceByMode: Record<EconMode, string[]> = {
+    discover: requiredDiscoveryEvidence,
+    "normalization-plan": requiredNormalizationPlanEvidence,
+    "normalization-execution": requiredNormalizationExecutionEvidence,
+    environment: requiredEnvironmentEvidence,
+    hypothesis: requiredHypothesisEvidence,
+  };
+  const requiredEvidence = requiredEvidenceByMode[mode];
   for (const needle of requiredEvidence) {
     assertEvidenceContains(evidence, needle);
   }

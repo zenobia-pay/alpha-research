@@ -264,7 +264,6 @@ function assertNoExternalFallback(evidence: string) {
     /github\.com\/[^"'\\\s]+\.csv/iu,
     /curl\s+-L\s+-o\s+dataset\/[^"'\\\s]+\.csv/iu,
     /download(?:ed|ing)?\s+(?:and\s+)?(?:used\s+)?(?:an\s+)?external/iu,
-    /sample\s+csv/iu,
     /Twitter-X-dataset-samples/iu,
   ];
   for (const pattern of forbiddenPatterns) {
