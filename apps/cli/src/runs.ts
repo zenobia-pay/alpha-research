@@ -19,10 +19,32 @@ export type TrackedRunRecord = {
   terminalAt?: string;
 };
 
-const TERMINAL_STATUSES = new Set(["ready", "completed", "failed", "cancelled", "canceled", "error", "succeeded"]);
+const TERMINAL_SUCCESS_STATUSES = new Set(["ready", "completed", "succeeded"]);
+const TERMINAL_FAILURE_STATUSES = new Set(["failed", "error"]);
+const TERMINAL_CANCELLED_STATUSES = new Set(["cancelled", "canceled"]);
+const TERMINAL_UNCERTAIN_STATUSES = new Set(["unknown", "worker_unreachable"]);
+
+const TERMINAL_STATUSES = new Set([
+  ...TERMINAL_SUCCESS_STATUSES,
+  ...TERMINAL_FAILURE_STATUSES,
+  ...TERMINAL_CANCELLED_STATUSES,
+  ...TERMINAL_UNCERTAIN_STATUSES,
+]);
 
 export function isTerminalRunStatus(status: string | undefined) {
   return status ? TERMINAL_STATUSES.has(status.toLowerCase()) : false;
+}
+
+export function isTerminalRunSuccessStatus(status: string | undefined) {
+  return status ? TERMINAL_SUCCESS_STATUSES.has(status.toLowerCase()) : false;
+}
+
+export function isTerminalRunFailureStatus(status: string | undefined) {
+  return status ? TERMINAL_FAILURE_STATUSES.has(status.toLowerCase()) : false;
+}
+
+export function isUncertainRunStatus(status: string | undefined) {
+  return status ? TERMINAL_UNCERTAIN_STATUSES.has(status.toLowerCase()) : false;
 }
 
 export async function readTrackedRuns(): Promise<TrackedRunRecord[]> {

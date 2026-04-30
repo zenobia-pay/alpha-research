@@ -9,8 +9,11 @@ Canonical statuses:
 - `queued`: accepted by the backend but not yet assigned infrastructure.
 - `booting`: droplet or pooled runner is being prepared.
 - `running`: remote agent or script is executing.
+- `reporting_delayed`: worker execution may still be healthy, but callback/report delivery to the control plane is delayed.
+- `reconciling`: backend is inspecting durable worker state, logs, and dataset-volume artifacts before deciding terminal status.
 - `ready` / `completed` / `succeeded`: terminal success. The user-facing label should be "completed successfully".
 - `failed` / `error`: terminal failure. Events/logs must explain the failure.
+- `unknown` / `worker_unreachable`: terminal-uncertain state. The control plane lost confidence in worker state and must reconcile durable worker/volume evidence before this is treated as success or product failure.
 - `cancelled` / `canceled`: terminal cancellation.
 
 The CLI treats terminal statuses through `isTerminalRunStatus` in `apps/cli/src/runs.ts`.
@@ -21,6 +24,9 @@ The CLI treats terminal statuses through `isTerminalRunStatus` in `apps/cli/src/
 - The CLI's tracked-run file is only a local cache for user feedback and polling.
 - A dataset volume may be held by one active run at a time. A backend `409` active-run conflict should produce a clear message with the blocking run id and dashboard URL.
 - Cancelling a run should update backend state and release the volume lock when cleanup completes.
+- A worker-to-control-plane transport timeout is not itself a product failure. The backend should record `reporting_delayed`, `reconciling`, `unknown`, or `worker_unreachable` and inspect durable evidence before assigning `failed`.
+- `failed` should mean the worker or lifecycle manager has explicit failure evidence, such as a process exit, failed QA, missing required files after execution, user-visible exception, or unrecoverable provisioning error.
+- Worker execution should write durable state under the run workspace, such as `.remote-agent/runs/<run-id>/status.json`, so reconciliation can distinguish "work failed" from "reporting failed".
 
 ## CLI Start Flow
 
@@ -33,6 +39,8 @@ The CLI treats terminal statuses through `isTerminalRunStatus` in `apps/cli/src/
 ## Waiting Flow
 
 If the user asks to wait, the agent can expose `wait_for_run_completion`. That tool streams new events with backoff and fetches final results once a terminal status is reached or the timeout expires.
+
+If waiting reaches `unknown` or `worker_unreachable`, the CLI should report lifecycle uncertainty and point to debug evidence. It should not describe the run as a product failure unless backend results include explicit execution failure evidence.
 
 ## Results Flow
 
@@ -66,6 +74,8 @@ research debug run <run-id> --output /tmp/research-run-debug.json
 ```
 
 The debug bundle is the agent-readable object to inspect before making lifecycle changes.
+
+For `unknown` or `worker_unreachable`, the debug bundle should be treated as a reconciliation input. Inspect remote events, transcripts, artifacts, worker status files, and dataset-volume outputs before retrying or declaring product failure.
 
 ## Stale Runs
 

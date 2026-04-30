@@ -15,12 +15,12 @@
       <p class="lede">Readable product explanations for every test contract. Each entry describes how the product is used, what actions are taken, and what assertions are made.</p>
     </header>
 
-    <section class="stat-grid"><div><span>Briefings</span><strong>27</strong></div><div><span>Assertions</span><strong>137</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
+    <section class="stat-grid"><div><span>Briefings</span><strong>29</strong></div><div><span>Assertions</span><strong>160</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
 
     <section class="panel controls">
       <div>
         <h2>Browse The Tests</h2>
-        <p class="lede"><span id="visible-count">27</span> briefings visible. Search by feature, assertion, dataset, run type, or artifact.</p>
+        <p class="lede"><span id="visible-count">29</span> briefings visible. Search by feature, assertion, dataset, run type, or artifact.</p>
       </div>
       <label>
         <span>Search</span>
@@ -33,7 +33,7 @@
       <div>
         <h2>Coverage Mix</h2>
         <table class="hypothesis-table">
-          <tbody><tr><td>CLI Product</td><td>9</td></tr><tr><td>Golden Transcript</td><td>5</td></tr><tr><td>Registry Contract</td><td>3</td></tr><tr><td>Slow E2E</td><td>8</td></tr><tr><td>Symphony Case</td><td>2</td></tr></tbody>
+          <tbody><tr><td>CLI Product</td><td>11</td></tr><tr><td>Golden Transcript</td><td>5</td></tr><tr><td>Registry Contract</td><td>3</td></tr><tr><td>Slow E2E</td><td>8</td></tr><tr><td>Symphony Case</td><td>2</td></tr></tbody>
         </table>
       </div>
       <div>
@@ -312,9 +312,41 @@
 <li>The response says one remote dataset was found.</li></ul>
   </div>
 </article>
-<article class="briefing-card" id="product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running" data-title="product planning: vague viral tweets request designs scoped experiment before running" data-category="CLI Product">
+<article class="briefing-card" id="non-resumable-run-continuation-returns-artifacts-instead-of-crashing" data-title="non-resumable run continuation returns artifacts instead of crashing" data-category="CLI Product">
   <div class="section-head">
     <span>10 · CLI Product</span>
+    <a href="#non-resumable-run-continuation-returns-artifacts-instead-of-crashing">#</a>
+  </div>
+  <h2>non-resumable run continuation returns artifacts instead of crashing</h2>
+  <p class="test-name"><span>Test name</span><code>non-resumable run continuation returns artifacts instead of crashing</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Live product E2E runs can finish successfully with normal summary and transcript artifacts while still lacking a resumable terminal session. Before this coverage, <code>continue_remote_agent_run</code> threw an exception in that state, which made a successful remote run look like a failed CLI command.</p>
+<p>This test protects the CLI trust boundary: missing resumability is product state, not process failure. The assistant receives a structured <code>not_resumable</code> tool result and can recover without losing the evidence from the run.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks the CLI to continue work from a previous remote run. The prior run completed and produced durable artifacts, but the backend result bundle does not include a <code>remote_agent_session</code> artifact that can be resumed.</p>
+<p>The product should not turn that backend shape into a local CLI crash. It should keep the conversation alive, tell the assistant that the run is not resumable, and expose the saved artifacts so the assistant can summarize them or ask the user to start a fresh follow-up run.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness simulates an authenticated CLI turn where the remote planner asks to call <code>continue_remote_agent_run</code> for <code>run-no-session</code>.</p>
+<p>The fake backend returns a ready run with a normal <code>Remote Agent Summary</code> artifact and no <code>remote_agent_session</code> artifact. The CLI executes the tool, returns a non-crashing tool result, and sends that result back to the planner.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The tool result reports <code>reason: not_resumable</code>.</li>
+<li>The produced <code>Remote Agent Summary</code> artifact is included in the tool result.</li>
+<li>The CLI does not call <code>startRun</code> for a continuation that lacks a resumable session.</li>
+<li>The final assistant message includes that the run does not have a resumable remote agent session.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running" data-title="product planning: vague viral tweets request designs scoped experiment before running" data-category="CLI Product">
+  <div class="section-head">
+    <span>11 · CLI Product</span>
     <a href="#product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running">#</a>
   </div>
   <h2>A vague viral-tweets question becomes a scoped experiment plan</h2>
@@ -349,7 +381,7 @@
 </article>
 <article class="briefing-card" id="product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts" data-title="product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts" data-category="CLI Product">
   <div class="section-head">
-    <span>11 · CLI Product</span>
+    <span>12 · CLI Product</span>
     <a href="#product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts">#</a>
   </div>
   <h2>An economics hypothesis runs through the full research workflow</h2>
@@ -380,9 +412,40 @@
 <li>Final results include table, chart, and markdown artifacts.</li></ul>
   </div>
 </article>
+<article class="briefing-card" id="run-debug-bundle-classifies-worker-unreachable-state-as-lifecycle-uncertain" data-title="run debug bundle classifies worker-unreachable state as lifecycle-uncertain" data-category="CLI Product">
+  <div class="section-head">
+    <span>13 · CLI Product</span>
+    <a href="#run-debug-bundle-classifies-worker-unreachable-state-as-lifecycle-uncertain">#</a>
+  </div>
+  <h2>run debug bundle classifies worker-unreachable state as lifecycle-uncertain</h2>
+  <p class="test-name"><span>Test name</span><code>run debug bundle classifies worker-unreachable state as lifecycle-uncertain</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Remote workers can lose callback connectivity to the backend even when execution state on the droplet or dataset volume may still contain useful evidence. Treating that transport loss as a normal <code>failed</code> run hides the real lifecycle question.</p>
+<p>This test protects the source-of-truth model: backend run status, durable worker state, and dataset artifacts need reconciliation before lifecycle-uncertain runs are classified as product failures.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>An engineer investigates a remote run where the control plane lost confidence in the worker state. The run is not known to have succeeded, but it also does not have explicit product failure evidence.</p>
+<p>The debug command should preserve this distinction so the engineer knows to reconcile worker logs, status files, and dataset-volume artifacts before retrying or declaring the product workflow failed.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness builds a run debug bundle for <code>run-unknown-1</code>. The fake backend returns status <code>worker_unreachable</code>, a callback-timeout event, and no artifacts.</p>
+<p>The debug bundle is built without leaking the session token and includes a lifecycle interpretation derived from the remote run status.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The lifecycle classification is <code>terminal_uncertain</code>.</li>
+<li>The lifecycle message tells the user that reconciliation is needed.</li>
+<li>The debug bundle still includes the remote evidence needed for follow-up investigation.</li></ul>
+  </div>
+</article>
 <article class="briefing-card" id="run-debug-bundle-redacts-session-token-and-includes-remote-evidence" data-title="run debug bundle redacts session token and includes remote evidence" data-category="CLI Product">
   <div class="section-head">
-    <span>12 · CLI Product</span>
+    <span>14 · CLI Product</span>
     <a href="#run-debug-bundle-redacts-session-token-and-includes-remote-evidence">#</a>
   </div>
   <h2>Run debug bundles preserve evidence without leaking tokens</h2>
@@ -412,7 +475,7 @@
 </article>
 <article class="briefing-card" id="run-result-retrieval-includes-original-prompt-and-artifacts" data-title="run result retrieval includes original prompt and artifacts" data-category="CLI Product">
   <div class="section-head">
-    <span>13 · CLI Product</span>
+    <span>15 · CLI Product</span>
     <a href="#run-result-retrieval-includes-original-prompt-and-artifacts">#</a>
   </div>
   <h2>Run results include the original request and saved artifacts</h2>
@@ -442,7 +505,7 @@
 </article>
 <article class="briefing-card" id="symphony-case-econ-housing-cycle-dataset-build" data-title="symphony case: econ housing cycle dataset build" data-category="Symphony Case">
   <div class="section-head">
-    <span>14 · Symphony Case</span>
+    <span>16 · Symphony Case</span>
     <a href="#symphony-case-econ-housing-cycle-dataset-build">#</a>
   </div>
   <h2>Housing-cycle dataset requests become concrete environment plans</h2>
@@ -473,7 +536,7 @@
 </article>
 <article class="briefing-card" id="symphony-case-viral-tweets-experiment-planning" data-title="symphony case: viral tweets experiment planning" data-category="Symphony Case">
   <div class="section-head">
-    <span>15 · Symphony Case</span>
+    <span>17 · Symphony Case</span>
     <a href="#symphony-case-viral-tweets-experiment-planning">#</a>
   </div>
   <h2>Viral tweet experiments are planned before work starts</h2>
@@ -506,7 +569,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-discover" data-title="test:slow:econ:discover" data-category="Slow E2E">
   <div class="section-head">
-    <span>16 · Slow E2E</span>
+    <span>18 · Slow E2E</span>
     <a href="#test-slow-econ-discover">#</a>
   </div>
   <h2>Economics discovery classifies source fetchability</h2>
@@ -523,21 +586,25 @@
     <div>
       <h3>Actions Taken</h3>
       <p>The product creates or reuses the canonical <code>econ</code> environment, inspects the required source catalog, classifies source fetchability, records canonical URLs and direct download/API endpoints, and produces discovery artifacts.</p>
+<p>Discovery output is expected to become durable handoff state for later economics stages, especially the source registry plan consumed by normalization planning and execution.</p>
+<p>Sources that return login walls, HTTP 401/403 responses, challenge pages, paid terms, or manual agreement requirements are classified as <code>gated</code>, not <code>active</code>.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
     <ul><li><code>source_registry.plan.json</code> is produced.</li>
+<li>The source registry plan can serve as downstream stage input.</li>
 <li>Discovery evidence is present.</li>
 <li>Canonical URLs and direct download URLs are recorded.</li>
 <li>Fetchability is classified.</li>
 <li>Active, metadata-only, and gated source states are represented.</li>
+<li>Credential-challenge endpoints are not treated as public active sources.</li>
 <li>Artifacts are available.</li></ul>
   </div>
 </article>
 <article class="briefing-card" id="test-slow-econ-environment" data-title="test:slow:econ:environment" data-category="Slow E2E">
   <div class="section-head">
-    <span>17 · Slow E2E</span>
+    <span>19 · Slow E2E</span>
     <a href="#test-slow-econ-environment">#</a>
   </div>
   <h2>The economics environment builds end to end</h2>
@@ -554,11 +621,17 @@
     <div>
       <h3>Actions Taken</h3>
       <p>The product runs discovery, acquisition, normalization planning, normalization execution, and QA as one orchestrated environment build.</p>
+<p>The environment build exercises the same source-registry handoff guarantees as the staged suite: discovery output must remain durable enough for acquisition, normalization, QA, and downstream analysis.</p>
+<p>Credentialed or challenge-protected sources are represented as gated registry entries so the orchestrator can continue with truly public/fetchable data.</p>
+<p>The live environment test may use bounded representative acquisition for public sources, but it still requires durable normalized outputs and QA artifacts.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
     <ul><li>Discovery evidence is present.</li>
+<li>Source-registry handoff artifacts remain available across orchestrated stages.</li>
+<li>Gated source classification is respected during acquisition and QA.</li>
+<li>Representative public-source acquisition produces normalized data and QA artifacts.</li>
 <li>Normalization planning evidence is present.</li>
 <li>Normalization execution evidence is present.</li>
 <li>Raw inventory, normalized outputs, manifest, source registry, table catalog, DuckDB catalog, row counts, missingness, joins, source URLs, and artifacts are represented.</li></ul>
@@ -566,7 +639,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-hypothesis" data-title="test:slow:econ:hypothesis" data-category="Slow E2E">
   <div class="section-head">
-    <span>18 · Slow E2E</span>
+    <span>20 · Slow E2E</span>
     <a href="#test-slow-econ-hypothesis">#</a>
   </div>
   <h2>The economics dataset supports hypothesis analysis</h2>
@@ -583,18 +656,22 @@
     <div>
       <h3>Actions Taken</h3>
       <p>The product uses the canonical <code>econ</code> environment, checks whether required data exists, creates the analysis subset, runs transformation and labeling as needed, chooses visualization artifacts, tests the housing-cycle hypothesis, waits for completion, and shows results.</p>
+<p>The hypothesis stage depends on the earlier environment having durable source registry, normalization, and QA outputs rather than only transient agent transcripts.</p>
+<p>Analysis provenance should distinguish public/fetchable inputs from gated sources that were excluded for lack of credentials.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
     <ul><li>The workflow reaches terminal success.</li>
 <li>Produced artifacts exist.</li>
+<li>Durable upstream registry and QA evidence is available for analysis provenance.</li>
+<li>Gated source exclusions remain visible in provenance.</li>
 <li>Row-count, missingness, join, source URL, county, month, labeling, chart, and hypothesis evidence are present.</li></ul>
   </div>
 </article>
 <article class="briefing-card" id="test-slow-econ-normalization-execution" data-title="test:slow:econ:normalization-execution" data-category="Slow E2E">
   <div class="section-head">
-    <span>19 · Slow E2E</span>
+    <span>21 · Slow E2E</span>
     <a href="#test-slow-econ-normalization-execution">#</a>
   </div>
   <h2>Economics normalization produces validated tables</h2>
@@ -611,12 +688,19 @@
     <div>
       <h3>Actions Taken</h3>
       <p>The product fetches active/fetchable raw data, writes raw inventory, executes normalization, and produces normalized data plus QA artifacts.</p>
+<p>Before fetching, the execution stage verifies that a durable source registry is available from the mounted dataset. If <code>source_registry.plan.json</code> is missing, it may reconstruct it from persisted registry files such as <code>source_registry.csv</code> or manifest entries, but it must fail loudly if no durable registry exists.</p>
+<p>The execution stage also revalidates active endpoints. If an endpoint returns a credential challenge such as HTTP 401/403, it updates the registry to <code>gated</code> with a reason and excludes that source from active-source success criteria.</p>
+<p>Because this is a live product E2E, execution completes a bounded real acquisition batch across representative public sources rather than attempting every catalog source in one test run. Public sources outside the batch can be marked <code>deferred_fetchable</code> with notes, while fetched sources must normalize to non-empty tables.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
     <ul><li><code>manifest.json</code> is produced.</li>
 <li><code>source_registry.csv</code> is produced.</li>
+<li>Missing source-registry inputs are reconstructed from durable registry evidence or reported as hard failures.</li>
+<li>Credential-challenge endpoints are reclassified as <code>gated</code> before active-source success is evaluated.</li>
+<li>Representative public sources are fetched and normalized with non-empty row counts.</li>
+<li>Public sources outside the bounded E2E batch are marked <code>deferred_fetchable</code> with notes.</li>
 <li><code>table_catalog.json</code> is produced.</li>
 <li><code>qa_report</code> evidence is present.</li>
 <li>Row counts, missingness, joins, source URLs, county fields, and month fields are validated.</li>
@@ -625,7 +709,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-normalization-plan" data-title="test:slow:econ:normalization-plan" data-category="Slow E2E">
   <div class="section-head">
-    <span>20 · Slow E2E</span>
+    <span>22 · Slow E2E</span>
     <a href="#test-slow-econ-normalization-plan">#</a>
   </div>
   <h2>Economics discovery becomes an executable normalization plan</h2>
@@ -642,11 +726,15 @@
     <div>
       <h3>Actions Taken</h3>
       <p>The product reads discovery outputs, plans the normalized table shape, and produces planning artifacts without executing ETL.</p>
+<p>If the mounted dataset does not already expose <code>source_registry.plan.json</code>, the planning stage reconstructs or recreates it from durable discovery evidence and writes it back beside the normalization plan so later stages can run from the dataset volume alone.</p>
+<p>The plan keeps credential-challenge sources gated so execution only treats genuinely public/fetchable sources as active.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
     <ul><li><code>normalization_plan.json</code> is produced.</li>
+<li><code>source_registry.plan.json</code> is preserved or recreated for downstream acquisition.</li>
+<li>Gated source classifications are carried into the normalization plan.</li>
 <li>Raw inventory status is represented.</li>
 <li>Target tables are defined.</li>
 <li>Raw-to-normalized mappings are defined.</li>
@@ -656,7 +744,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ" data-title="test:slow:econ" data-category="Slow E2E">
   <div class="section-head">
-    <span>21 · Slow E2E</span>
+    <span>23 · Slow E2E</span>
     <a href="#test-slow-econ">#</a>
   </div>
   <h2>The staged economics journey works as a suite</h2>
@@ -673,18 +761,24 @@
     <div>
       <h3>Actions Taken</h3>
       <p>The product runs discovery, normalization planning, normalization execution, environment orchestration, and hypothesis analysis in order.</p>
+<p>The staged journey also proves that handoff artifacts survive between stages. Discovery and planning outputs, especially <code>source_registry.plan.json</code>, must remain available in the mounted economics dataset for acquisition and normalization.</p>
+<p>The journey treats credential-challenge endpoints as gated handoff state, not as active public data that can block all downstream work.</p>
+<p>The normalization-execution stage uses a bounded representative public acquisition batch so the suite proves real fetching, normalization, and QA without requiring every public catalog source to complete in one live test.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
     <ul><li>Every economics stage reaches its expected success criteria.</li>
+<li>Source-registry handoff state survives from discovery/planning into execution.</li>
+<li>Gated endpoints are excluded from active-source fetch success criteria.</li>
+<li>Bounded public-source acquisition still produces real normalized rows and QA artifacts.</li>
 <li>The journey moves from source discovery to usable hypothesis artifacts.</li>
 <li>A failure in any stage fails the economics suite.</li></ul>
   </div>
 </article>
 <article class="briefing-card" id="test-slow-tweets" data-title="test:slow:tweets" data-category="Slow E2E">
   <div class="section-head">
-    <span>22 · Slow E2E</span>
+    <span>24 · Slow E2E</span>
     <a href="#test-slow-tweets">#</a>
   </div>
   <h2>The viral tweets workflow uses mounted enriched-tweets data</h2>
@@ -720,7 +814,7 @@
 </article>
 <article class="briefing-card" id="test-slow" data-title="test:slow" data-category="Slow E2E">
   <div class="section-head">
-    <span>23 · Slow E2E</span>
+    <span>25 · Slow E2E</span>
     <a href="#test-slow">#</a>
   </div>
   <h2>The full slow product suite completes</h2>
@@ -748,7 +842,7 @@
 </article>
 <article class="briefing-card" id="tool-registry-is-structurally-valid-and-serializable" data-title="tool registry is structurally valid and serializable" data-category="Registry Contract">
   <div class="section-head">
-    <span>24 · Registry Contract</span>
+    <span>26 · Registry Contract</span>
     <a href="#tool-registry-is-structurally-valid-and-serializable">#</a>
   </div>
   <h2>The tool registry stays stable for product actions</h2>
@@ -777,7 +871,7 @@
 </article>
 <article class="briefing-card" id="tool-registry-metadata-exposes-async-run-start-tools" data-title="tool registry metadata exposes async run-start tools" data-category="Registry Contract">
   <div class="section-head">
-    <span>25 · Registry Contract</span>
+    <span>27 · Registry Contract</span>
     <a href="#tool-registry-metadata-exposes-async-run-start-tools">#</a>
   </div>
   <h2>Async run-start tools are marked for progress tracking</h2>
@@ -804,7 +898,7 @@
 </article>
 <article class="briefing-card" id="unauthenticated-local-run-request-bypasses-remote-planning" data-title="unauthenticated local run request bypasses remote planning" data-category="CLI Product">
   <div class="section-head">
-    <span>26 · CLI Product</span>
+    <span>28 · CLI Product</span>
     <a href="#unauthenticated-local-run-request-bypasses-remote-planning">#</a>
   </div>
   <h2>Local run status works without sign-in</h2>
@@ -832,7 +926,7 @@
 </article>
 <article class="briefing-card" id="wait-for-run-completion-can-time-out-deterministically" data-title="wait for run completion can time out deterministically" data-category="CLI Product">
   <div class="section-head">
-    <span>27 · CLI Product</span>
+    <span>29 · CLI Product</span>
     <a href="#wait-for-run-completion-can-time-out-deterministically">#</a>
   </div>
   <h2>Waiting on a run reports still-running state clearly</h2>

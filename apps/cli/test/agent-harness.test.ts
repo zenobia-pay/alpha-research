@@ -254,6 +254,90 @@ test("run result retrieval includes original prompt and artifacts", async () => 
   assert.match(toolOutput, /Suggested follow-ups/);
 });
 
+test("non-resumable run continuation returns artifacts instead of crashing", async () => {
+  const calls: string[] = [];
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      calls.push("respond");
+      if (Array.isArray(body.input)) {
+        const toolOutput = JSON.parse(String((body.input[0] as Record<string, unknown>).output)) as {
+          summary: string;
+          data: { reason?: string; artifacts?: Array<{ title: string }> };
+        };
+        assert.equal(toolOutput.data.reason, "not_resumable");
+        assert.equal(toolOutput.data.artifacts?.[0]?.title, "Remote Agent Summary");
+        return {
+          sessionId: "terminal-session-non-resumable",
+          payload: {
+            id: "response-non-resumable-2",
+            output_text: `Could not resume. ${toolOutput.summary}`,
+            output: [{
+              type: "message",
+              content: [{ type: "output_text", text: `Could not resume. ${toolOutput.summary}` }],
+            }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-non-resumable",
+        payload: {
+          id: "response-non-resumable-1",
+          output: [{
+            type: "function_call",
+            call_id: "call-non-resumable",
+            name: "continue_remote_agent_run",
+            arguments: JSON.stringify({
+              runId: "run-no-session",
+              prompt: "Continue from the prior output.",
+            }),
+          }],
+        },
+      };
+    },
+    async getRunResults() {
+      calls.push("getRunResults");
+      return {
+        run: {
+          id: "run-no-session",
+          datasetId: "econ",
+          status: "ready",
+          prompt: "Original run.",
+        },
+        metadata: null,
+        events: [],
+        artifacts: [{
+          id: "artifact-summary",
+          runId: "run-no-session",
+          type: "markdown",
+          title: "Remote Agent Summary",
+          content: "Finished without a resumable session.",
+        }],
+      };
+    },
+    async startRun() {
+      calls.push("startRun");
+      throw new Error("startRun should not be called for a non-resumable continuation.");
+    },
+    async appendSessionEntry() {
+      calls.push("appendSessionEntry");
+      return { id: "entry-non-resumable" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("continue run-no-session", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /does not have a resumable remote agent session/);
+  assert.equal(calls.includes("getRunResults"), true);
+  assert.equal(calls.includes("startRun"), false);
+});
+
 test("busy dataset conflict returns blocking run guidance", async () => {
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
@@ -403,7 +487,42 @@ test("run debug bundle redacts session token and includes remote evidence", asyn
   assert.equal(bundle.session?.accessTokenPreview, "test-tok...redacted");
   assert.equal(JSON.stringify(bundle).includes("test-token-secret"), false);
   assert.match(bundle.dashboardUrl, /run-debug-1/);
+  assert.equal(bundle.lifecycle.classification, "terminal_failure");
   assert.deepEqual(bundle.remote.events, { events: [{ id: "evt-1", runId: "run-debug-1", message: "Failed." }] });
+});
+
+test("run debug bundle classifies worker-unreachable state as lifecycle-uncertain", async () => {
+  const bundle = await buildRunDebugBundle("run-unknown-1", {
+    readSession: async () => ({
+      origin: "https://alpharesearch.nyc",
+      accessToken: "test-token-secret",
+      createdAt: "2026-04-22T00:00:00.000Z",
+    }),
+    createRemoteClient: () => ({
+      async getRun() {
+        return { run: { id: "run-unknown-1", datasetId: "dataset", status: "worker_unreachable" } };
+      },
+      async getRunResults() {
+        return {
+          run: { id: "run-unknown-1", datasetId: "dataset", status: "worker_unreachable" },
+          metadata: { artifactSpec: [] },
+          events: [{ id: "evt-1", runId: "run-unknown-1", message: "Worker callback timed out." }],
+          artifacts: [],
+        };
+      },
+      async getRunEvents() {
+        return { events: [{ id: "evt-1", runId: "run-unknown-1", message: "Worker callback timed out." }] };
+      },
+      async getRunArtifacts() {
+        return { artifacts: [] };
+      },
+    }),
+    readTrackedRuns: async () => [],
+    now: () => new Date("2026-04-22T12:00:00.000Z"),
+  });
+
+  assert.equal(bundle.lifecycle.classification, "terminal_uncertain");
+  assert.match(bundle.lifecycle.message, /reconciled|reconciliation/);
 });
 
 test("product planning: vague viral tweets request designs scoped experiment before running", async () => {

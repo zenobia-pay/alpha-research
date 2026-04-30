@@ -8,7 +8,7 @@ import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTe
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
 import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
 import { readSession, login } from "./session.js";
-import { isTerminalRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
+import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
 export type AgentMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -235,6 +235,7 @@ function formatStatusForHumans(status: string | undefined) {
   if (normalized === "queued") return "queued";
   if (normalized === "failed") return "failed";
   if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
+  if (isUncertainRunStatus(normalized)) return "unknown: worker state needs reconciliation";
   return status ?? "unknown";
 }
 
@@ -1608,7 +1609,9 @@ export function createToolRegistry(): ToolDefinition[] {
         ));
         return {
           summary: waited.complete
-            ? `Run ${String(input.runId)} finished with status ${waited.run?.status ?? "unknown"}.`
+            ? isUncertainRunStatus(waited.run?.status)
+              ? `Run ${String(input.runId)} is ${waited.run?.status ?? "unknown"}; worker state needs backend reconciliation before this should be treated as success or product failure.`
+              : `Run ${String(input.runId)} finished with status ${waited.run?.status ?? "unknown"}.`
             : `Run ${String(input.runId)} is still ${waited.run?.status ?? "running"}.`,
           data: waited,
         };
@@ -1743,7 +1746,15 @@ export function createToolRegistry(): ToolDefinition[] {
           ? String((sessionArtifact.content as Record<string, unknown>).sessionId ?? "")
           : "";
         if (!sessionId) {
-          throw new Error(`Run ${String(input.runId)} does not have a resumable remote agent session.`);
+          return {
+            summary: `Run ${String(input.runId)} does not have a resumable remote agent session. Use the saved run artifacts or start a new run for follow-up work.`,
+            data: {
+              ok: false,
+              reason: "not_resumable",
+              run: previous.run,
+              artifacts: previous.artifacts.filter(isProducedArtifact),
+            },
+          };
         }
         let result;
         try {

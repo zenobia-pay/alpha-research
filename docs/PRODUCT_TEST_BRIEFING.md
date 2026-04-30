@@ -16,9 +16,11 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [async query run returns immediately with canonical dashboard and terminal links](product-tests/async-query-run-returns-immediately-with-canonical-dashboard-and-terminal-links.md)
 - [dataset describe request starts briefing run with required artifacts](product-tests/dataset-describe-request-starts-briefing-run-with-required-artifacts.md)
 - [run result retrieval includes original prompt and artifacts](product-tests/run-result-retrieval-includes-original-prompt-and-artifacts.md)
+- [non-resumable run continuation returns artifacts instead of crashing](product-tests/non-resumable-run-continuation-returns-artifacts-instead-of-crashing.md)
 - [busy dataset conflict returns blocking run guidance](product-tests/busy-dataset-conflict-returns-blocking-run-guidance.md)
 - [wait for run completion can time out deterministically](product-tests/wait-for-run-completion-can-time-out-deterministically.md)
 - [run debug bundle redacts session token and includes remote evidence](product-tests/run-debug-bundle-redacts-session-token-and-includes-remote-evidence.md)
+- [run debug bundle classifies worker-unreachable state as lifecycle-uncertain](product-tests/run-debug-bundle-classifies-worker-unreachable-state-as-lifecycle-uncertain.md)
 - [product planning: vague viral tweets request designs scoped experiment before running](product-tests/product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running.md)
 - [product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts](product-tests/product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts.md)
 

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 import { dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { RemoteApiClient } from "./remote.js";
-import { readTrackedRuns } from "./runs.js";
+import { isTerminalRunFailureStatus, isTerminalRunSuccessStatus, isUncertainRunStatus, readTrackedRuns } from "./runs.js";
 import { readSession } from "./session.js";
 
 function redactSession(session: SessionRecord | null) {
@@ -43,6 +43,42 @@ export function createDefaultRunDebugDeps(): RunDebugDeps {
   };
 }
 
+function runFromPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || !("run" in payload)) {
+    return null;
+  }
+  const run = (payload as { run?: unknown }).run;
+  return run && typeof run === "object" ? run as { status?: string } : null;
+}
+
+function lifecycleInterpretation(runPayload: unknown, resultsPayload: unknown) {
+  const status = runFromPayload(resultsPayload)?.status ?? runFromPayload(runPayload)?.status;
+  if (isTerminalRunSuccessStatus(status)) {
+    return {
+      classification: "terminal_success",
+      message: "The backend reports a successful terminal run.",
+    };
+  }
+  if (isTerminalRunFailureStatus(status)) {
+    return {
+      classification: "terminal_failure",
+      message: "The backend reports an explicit terminal failure. Inspect events, transcript, and artifacts for product or execution failure evidence.",
+    };
+  }
+  if (isUncertainRunStatus(status)) {
+    return {
+      classification: "terminal_uncertain",
+      message: "The backend reports uncertain worker state. This should be reconciled against durable worker status and dataset-volume artifacts before treating it as success or product failure.",
+    };
+  }
+  return {
+    classification: status ? "nonterminal_or_unclassified" : "unavailable",
+    message: status
+      ? "The run is not in a known terminal success, failure, cancellation, or uncertainty state."
+      : "No run status was available from the inspected payloads.",
+  };
+}
+
 export async function buildRunDebugBundle(runId: string, deps: RunDebugDeps = createDefaultRunDebugDeps()) {
   const session = await deps.readSession();
   if (!session) {
@@ -75,6 +111,7 @@ export async function buildRunDebugBundle(runId: string, deps: RunDebugDeps = cr
       events: eventsPayload,
       artifacts: artifactsPayload,
     },
+    lifecycle: lifecycleInterpretation(runPayload, resultsPayload),
   };
 }
 
