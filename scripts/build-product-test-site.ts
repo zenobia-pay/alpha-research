@@ -4,8 +4,10 @@ import { basename, join } from "node:path";
 type Briefing = {
   slug: string;
   title: string;
+  displayTitle: string;
   category: string;
   productUse: string;
+  whyThisTest: string;
   actionsTaken: string;
   assertionsMade: string[];
 };
@@ -46,6 +48,39 @@ function categoryFor(title: string) {
   return "CLI Product";
 }
 
+function displayTitleFor(title: string) {
+  const titles: Record<string, string> = {
+    "async query run returns immediately with canonical dashboard and terminal links": "A tweet query starts a trackable run and returns usable links",
+    "busy dataset conflict returns blocking run guidance": "A busy dataset points the user to the blocking run",
+    "dashboard run links use canonical dashboard route": "Run links always open the right dashboard page",
+    "dataset describe request starts briefing run with required artifacts": "Describe dataset creates briefing and profile artifacts",
+    "golden: cancel active run": "Canceling a run gives a clear confirmation",
+    "golden: mixed public private environment": "Mixed public and private sources start a research environment build",
+    "golden: public data environment": "Public SEC data setup starts an environment build",
+    "golden: retrieve run result": "Completed run results are readable and artifact-aware",
+    "golden: show remote datasets": "Dataset discovery shows what is available",
+    "product planning: vague viral tweets request designs scoped experiment before running": "A vague viral-tweets question becomes a scoped experiment plan",
+    "product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts": "An economics hypothesis runs through the full research workflow",
+    "run debug bundle redacts session token and includes remote evidence": "Run debug bundles preserve evidence without leaking tokens",
+    "run result retrieval includes original prompt and artifacts": "Run results include the original request and saved artifacts",
+    "symphony case: econ housing cycle dataset build": "Housing-cycle dataset requests become concrete environment plans",
+    "symphony case: viral tweets experiment planning": "Viral tweet experiments are planned before work starts",
+    "test:slow:econ:discover": "Economics discovery classifies source fetchability",
+    "test:slow:econ:environment": "The economics environment builds end to end",
+    "test:slow:econ:hypothesis": "The economics dataset supports hypothesis analysis",
+    "test:slow:econ:normalization-execution": "Economics normalization produces validated tables",
+    "test:slow:econ:normalization-plan": "Economics discovery becomes an executable normalization plan",
+    "test:slow:econ": "The staged economics journey works as a suite",
+    "test:slow:tweets": "The viral tweets workflow uses mounted enriched-tweets data",
+    "test:slow": "The full slow product suite completes",
+    "tool registry is structurally valid and serializable": "The tool registry stays stable for product actions",
+    "tool registry metadata exposes async run-start tools": "Async run-start tools are marked for progress tracking",
+    "unauthenticated local run request bypasses remote planning": "Local run status works without sign-in",
+    "wait for run completion can time out deterministically": "Waiting on a run reports still-running state clearly",
+  };
+  return titles[title] ?? title;
+}
+
 function paragraphHtml(text: string) {
   return text.split(/\n\n+/u)
     .map((paragraph) => `<p>${inlineMarkdown(paragraph.replace(/\n/gu, " "))}</p>`)
@@ -61,8 +96,12 @@ function briefingCard(briefing: Briefing, index: number) {
     <span>${String(index + 1).padStart(2, "0")} · ${escapeHtml(briefing.category)}</span>
     <a href="#${briefing.slug}">#</a>
   </div>
-  <h2>${escapeHtml(briefing.title)}</h2>
+  <h2>${escapeHtml(briefing.displayTitle)}</h2>
   <p class="test-name"><span>Test name</span><code>${escapeHtml(briefing.title)}</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    ${paragraphHtml(briefing.whyThisTest)}
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -202,8 +241,10 @@ for (const file of files) {
   briefings.push({
     slug: basename(file, ".md"),
     title,
+    displayTitle: displayTitleFor(title),
     category: categoryFor(title),
     productUse: section(raw, "Product Use"),
+    whyThisTest: section(raw, "Why This Test"),
     actionsTaken: section(raw, "Actions Taken"),
     assertionsMade: assertions,
   });

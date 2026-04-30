@@ -4,6 +4,10 @@
 
 A user asks what kinds of tweets go viral and approves the proposed experiment.
 
+## Why This Test
+
+This protects the end-to-end viral tweets workflow and specifically prevents the earlier failure mode where the product inspected the right dataset but used external sample data.
+
 ## Actions Taken
 
 The product finds and uses `enriched-tweets`, reads mounted dataset files, defines viral tweets as the top `0.1%` by `quote_tweet_count`, samples `100` random viral tweets, labels sampled tweets with strict JSON fields, creates charts and representative examples, waits for completion, and retrieves artifacts.

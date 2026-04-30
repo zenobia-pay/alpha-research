@@ -4,6 +4,10 @@
 
 The product needs to know which tools start asynchronous work so the assistant can return run-tracking information instead of pretending results are immediate.
 
+## Why This Test
+
+This ensures the product can distinguish work that starts a run from work that returns immediate results, which is critical for progress reporting.
+
 ## Actions Taken
 
 The registry metadata is inspected for async run-start flags.

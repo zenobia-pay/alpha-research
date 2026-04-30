@@ -4,6 +4,10 @@
 
 A user asks for an economics dataset with all necessary data for a housing-cycle hypothesis.
 
+## Why This Test
+
+This captures the acceptance behavior for turning a broad dataset request into a concrete economics research environment plan with sources, validation, and artifacts.
+
 ## Actions Taken
 
 The product checks existing datasets and creates a research environment with a concrete acquisition and validation plan for a county-month housing-cycle dataset.

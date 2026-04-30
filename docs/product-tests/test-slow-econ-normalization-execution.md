@@ -4,6 +4,10 @@
 
 An engineer validates the economics acquisition, normalization execution, and QA workflow.
 
+## Why This Test
+
+This proves planned economics sources can become normalized tables with QA evidence, and that placeholder metadata cannot count as data success.
+
 ## Actions Taken
 
 The product fetches active/fetchable raw data, writes raw inventory, executes normalization, and produces normalized data plus QA artifacts.

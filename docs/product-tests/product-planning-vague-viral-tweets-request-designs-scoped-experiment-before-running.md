@@ -4,6 +4,10 @@
 
 A user asks, "what's up with tweets? Can you run an experiment for me on what types of tweets go viral?"
 
+## Why This Test
+
+This prevents expensive work from starting from an underspecified research question. The product should convert ambiguity into a concrete experiment design and ask for confirmation.
+
 ## Actions Taken
 
 The product inspects `enriched-tweets` and turns the vague request into a concrete experiment design. It stops for confirmation instead of launching expensive work immediately.

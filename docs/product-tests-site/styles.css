@@ -183,6 +183,15 @@ td:last-child { color: var(--text); text-align: right; white-space: nowrap; }
   background: var(--blue-2);
   border-color: #d7def4;
 }
+.why-block {
+  margin: 0 0 1.25rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+.why-block p {
+  max-width: 54rem;
+}
 .section-head {
   display: flex;
   align-items: baseline;

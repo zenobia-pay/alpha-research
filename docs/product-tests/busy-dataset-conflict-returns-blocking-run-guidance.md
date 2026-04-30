@@ -4,6 +4,10 @@
 
 A user starts analysis on a dataset that is already locked by another active run.
 
+## Why This Test
+
+This prevents confusing duplicate work when a dataset is already locked. The user needs a clear blocking run and a path to inspect it, not a vague failure or a second competing run.
+
 ## Actions Taken
 
 The product reports the conflict and tells the user which run is blocking the dataset. It points the user to the dashboard page for that blocking run instead of hiding the conflict or starting duplicate work.

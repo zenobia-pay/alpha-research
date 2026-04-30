@@ -4,6 +4,10 @@
 
 A user asks the product to describe the `econ` dataset.
 
+## Why This Test
+
+This protects the dataset-description workflow as a documentation product. A describe request should produce inventory and profile artifacts, not drift into ad hoc analysis or suggestions.
+
 ## Actions Taken
 
 The product starts a dataset briefing run for `econ`. It asks for a human-readable `Dataset Briefing` artifact and a structured `Dataset Profile` artifact. The prompt is scoped to inventory and documentation, not analysis suggestions.

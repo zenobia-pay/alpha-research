@@ -4,6 +4,10 @@
 
 A user asks to see active runs while no signed-in product session is available.
 
+## Why This Test
+
+This keeps local status checks useful even without a signed-in session. The product should answer from local state when possible instead of blocking on authentication.
+
 ## Actions Taken
 
 The product treats this as a local status request. It reads the local tracked-run state and does not start a planning flow or ask the user to sign in before showing what can be known locally.

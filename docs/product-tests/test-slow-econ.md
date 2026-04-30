@@ -4,6 +4,10 @@
 
 An engineer validates the full economics product journey.
 
+## Why This Test
+
+This protects the staged economics journey as a suite, ensuring the individual stages work together from discovery through hypothesis analysis.
+
 ## Actions Taken
 
 The product runs discovery, normalization planning, normalization execution, environment orchestration, and hypothesis analysis in order.

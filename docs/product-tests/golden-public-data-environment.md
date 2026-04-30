@@ -4,6 +4,10 @@
 
 A user asks to create a public data environment from SEC filings for payment-company risk factors.
 
+## Why This Test
+
+This verifies that public-source setup starts a durable environment build with a run to track, instead of presenting unfinished acquisition as completed research.
+
 ## Actions Taken
 
 The product checks existing datasets, starts a public-data environment build, and gives the user the run id plus dashboard link.

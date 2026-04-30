@@ -4,6 +4,10 @@
 
 A user asks for an experiment on what types of tweets go viral.
 
+## Why This Test
+
+This captures the acceptance behavior for viral-tweets planning: the product should scope the experiment before spending compute or launching labeling work.
+
 ## Actions Taken
 
 The product finds `enriched-tweets` and proposes a scoped experiment design before launching work.

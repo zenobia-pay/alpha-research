@@ -4,6 +4,10 @@
 
 An engineer validates the economics normalization planning workflow.
 
+## Why This Test
+
+This proves the product can turn discovered sources into a concrete normalization plan before executing ETL.
+
 ## Actions Taken
 
 The product reads discovery outputs, plans the normalized table shape, and produces planning artifacts without executing ETL.

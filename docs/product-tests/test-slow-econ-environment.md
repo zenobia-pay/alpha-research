@@ -4,6 +4,10 @@
 
 An engineer validates the end-to-end economics environment build.
 
+## Why This Test
+
+This proves the full economics environment build can orchestrate discovery, acquisition, normalization, and QA into usable dataset artifacts.
+
 ## Actions Taken
 
 The product runs discovery, acquisition, normalization planning, normalization execution, and QA as one orchestrated environment build.

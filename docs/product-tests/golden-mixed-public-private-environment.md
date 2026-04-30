@@ -4,6 +4,10 @@
 
 A user asks to set up an economics research environment using FRED plus a private sales export.
 
+## Why This Test
+
+This protects the environment-creation path for blended source work. The product should treat public plus private data as a research environment build, not as a lightweight query.
+
 ## Actions Taken
 
 The product checks existing datasets, creates a mixed research environment, and gives the user the build run id and dashboard link.

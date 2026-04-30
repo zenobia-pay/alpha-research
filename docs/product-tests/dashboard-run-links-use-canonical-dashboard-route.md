@@ -4,6 +4,10 @@
 
 The product gives users dashboard links for runs.
 
+## Why This Test
+
+This keeps every run link copyable and reliable across product surfaces. If link shape drifts, users lose the fastest path from CLI output to the run page.
+
 ## Actions Taken
 
 The dashboard URL builder is called for a run id.

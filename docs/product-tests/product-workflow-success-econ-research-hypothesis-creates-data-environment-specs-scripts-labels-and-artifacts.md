@@ -4,6 +4,10 @@
 
 A user asks for an economics dataset with all necessary data for a housing-cycle hypothesis, then asks to see results and artifacts.
 
+## Why This Test
+
+This is the broad product orchestration contract. It proves the assistant can move from a user hypothesis through dataset creation, specs, transformations, labels, analysis, and artifacts.
+
 ## Actions Taken
 
 The product lists existing datasets, creates a research environment with an acquisition plan, waits for the environment build, creates a structured research spec, runs transformation, runs labeling, runs hypothesis analysis, waits at each stage, and retrieves final artifacts.

@@ -4,6 +4,10 @@
 
 An engineer validates the economics discovery workflow.
 
+## Why This Test
+
+This proves the economics workflow starts with source discovery and fetchability classification rather than pretending every catalog entry is immediately usable data.
+
 ## Actions Taken
 
 The product creates or reuses the canonical `econ` environment, inspects the required source catalog, classifies source fetchability, records canonical URLs and direct download/API endpoints, and produces discovery artifacts.

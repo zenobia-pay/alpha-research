@@ -70,7 +70,7 @@ async function assertProductTestDoc(name: string) {
   assert.ok(content, `Missing product test doc ${path} for "${name}"`);
   assert.ok(productTestBriefing.includes(path.replace(/^docs\//u, "")), `docs/PRODUCT_TEST_BRIEFING.md should link ${path}`);
   assert.ok(content.includes(`# ${name}`), `${path} should start with or include heading "# ${name}"`);
-  for (const section of ["## Product Use", "## Actions Taken", "## Assertions Made"]) {
+  for (const section of ["## Product Use", "## Why This Test", "## Actions Taken", "## Assertions Made"]) {
     assert.ok(content.includes(section), `${path} should include ${section}`);
   }
   assert.ok(content.trim().length > 250, `${path} should explain the product behavior in useful detail`);

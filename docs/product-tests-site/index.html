@@ -52,8 +52,12 @@
     <span>01 · CLI Product</span>
     <a href="#async-query-run-returns-immediately-with-canonical-dashboard-and-terminal-links">#</a>
   </div>
-  <h2>async query run returns immediately with canonical dashboard and terminal links</h2>
+  <h2>A tweet query starts a trackable run and returns usable links</h2>
   <p class="test-name"><span>Test name</span><code>async query run returns immediately with canonical dashboard and terminal links</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the product promise that quick dataset questions start trackable work without making the user wait, while still grounding the run in the intended dataset instead of silently substituting outside data.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -80,8 +84,12 @@
     <span>02 · CLI Product</span>
     <a href="#busy-dataset-conflict-returns-blocking-run-guidance">#</a>
   </div>
-  <h2>busy dataset conflict returns blocking run guidance</h2>
+  <h2>A busy dataset points the user to the blocking run</h2>
   <p class="test-name"><span>Test name</span><code>busy dataset conflict returns blocking run guidance</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This prevents confusing duplicate work when a dataset is already locked. The user needs a clear blocking run and a path to inspect it, not a vague failure or a second competing run.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -105,8 +113,12 @@
     <span>03 · Registry Contract</span>
     <a href="#dashboard-run-links-use-canonical-dashboard-route">#</a>
   </div>
-  <h2>dashboard run links use canonical dashboard route</h2>
+  <h2>Run links always open the right dashboard page</h2>
   <p class="test-name"><span>Test name</span><code>dashboard run links use canonical dashboard route</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This keeps every run link copyable and reliable across product surfaces. If link shape drifts, users lose the fastest path from CLI output to the run page.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -129,8 +141,12 @@
     <span>04 · CLI Product</span>
     <a href="#dataset-describe-request-starts-briefing-run-with-required-artifacts">#</a>
   </div>
-  <h2>dataset describe request starts briefing run with required artifacts</h2>
+  <h2>Describe dataset creates briefing and profile artifacts</h2>
   <p class="test-name"><span>Test name</span><code>dataset describe request starts briefing run with required artifacts</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the dataset-description workflow as a documentation product. A describe request should produce inventory and profile artifacts, not drift into ad hoc analysis or suggestions.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -158,8 +174,12 @@
     <span>05 · Golden Transcript</span>
     <a href="#golden-cancel-active-run">#</a>
   </div>
-  <h2>golden: cancel active run</h2>
+  <h2>Canceling a run gives a clear confirmation</h2>
   <p class="test-name"><span>Test name</span><code>golden: cancel active run</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This verifies a direct control action remains simple and explicit. When a user asks to cancel a run, the product should perform that action and confirm it clearly.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -181,8 +201,12 @@
     <span>06 · Golden Transcript</span>
     <a href="#golden-mixed-public-private-environment">#</a>
   </div>
-  <h2>golden: mixed public private environment</h2>
+  <h2>Mixed public and private sources start a research environment build</h2>
   <p class="test-name"><span>Test name</span><code>golden: mixed public private environment</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the environment-creation path for blended source work. The product should treat public plus private data as a research environment build, not as a lightweight query.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -207,8 +231,12 @@
     <span>07 · Golden Transcript</span>
     <a href="#golden-public-data-environment">#</a>
   </div>
-  <h2>golden: public data environment</h2>
+  <h2>Public SEC data setup starts an environment build</h2>
   <p class="test-name"><span>Test name</span><code>golden: public data environment</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This verifies that public-source setup starts a durable environment build with a run to track, instead of presenting unfinished acquisition as completed research.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -233,8 +261,12 @@
     <span>08 · Golden Transcript</span>
     <a href="#golden-retrieve-run-result">#</a>
   </div>
-  <h2>golden: retrieve run result</h2>
+  <h2>Completed run results are readable and artifact-aware</h2>
   <p class="test-name"><span>Test name</span><code>golden: retrieve run result</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This keeps completed run review useful for users. The product should show what was asked, what came back, and where artifacts live without forcing the user to read raw payloads.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -258,8 +290,12 @@
     <span>09 · Golden Transcript</span>
     <a href="#golden-show-remote-datasets">#</a>
   </div>
-  <h2>golden: show remote datasets</h2>
+  <h2>Dataset discovery shows what is available</h2>
   <p class="test-name"><span>Test name</span><code>golden: show remote datasets</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the simplest discovery action in the product. Users need a dependable way to see what datasets are available before starting work.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -281,8 +317,12 @@
     <span>10 · CLI Product</span>
     <a href="#product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running">#</a>
   </div>
-  <h2>product planning: vague viral tweets request designs scoped experiment before running</h2>
+  <h2>A vague viral-tweets question becomes a scoped experiment plan</h2>
   <p class="test-name"><span>Test name</span><code>product planning: vague viral tweets request designs scoped experiment before running</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This prevents expensive work from starting from an underspecified research question. The product should convert ambiguity into a concrete experiment design and ask for confirmation.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -312,8 +352,12 @@
     <span>11 · CLI Product</span>
     <a href="#product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts">#</a>
   </div>
-  <h2>product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts</h2>
+  <h2>An economics hypothesis runs through the full research workflow</h2>
   <p class="test-name"><span>Test name</span><code>product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This is the broad product orchestration contract. It proves the assistant can move from a user hypothesis through dataset creation, specs, transformations, labels, analysis, and artifacts.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -341,8 +385,12 @@
     <span>12 · CLI Product</span>
     <a href="#run-debug-bundle-redacts-session-token-and-includes-remote-evidence">#</a>
   </div>
-  <h2>run debug bundle redacts session token and includes remote evidence</h2>
+  <h2>Run debug bundles preserve evidence without leaking tokens</h2>
   <p class="test-name"><span>Test name</span><code>run debug bundle redacts session token and includes remote evidence</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This makes failures debuggable without leaking credentials. Engineers need enough run evidence to diagnose problems while preserving session-token safety.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -367,8 +415,12 @@
     <span>13 · CLI Product</span>
     <a href="#run-result-retrieval-includes-original-prompt-and-artifacts">#</a>
   </div>
-  <h2>run result retrieval includes original prompt and artifacts</h2>
+  <h2>Run results include the original request and saved artifacts</h2>
   <p class="test-name"><span>Test name</span><code>run result retrieval includes original prompt and artifacts</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the result-reading experience. Users should understand what a completed run did and what artifacts were produced without manually reconstructing context.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -393,8 +445,12 @@
     <span>14 · Symphony Case</span>
     <a href="#symphony-case-econ-housing-cycle-dataset-build">#</a>
   </div>
-  <h2>symphony case: econ housing cycle dataset build</h2>
+  <h2>Housing-cycle dataset requests become concrete environment plans</h2>
   <p class="test-name"><span>Test name</span><code>symphony case: econ housing cycle dataset build</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This captures the acceptance behavior for turning a broad dataset request into a concrete economics research environment plan with sources, validation, and artifacts.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -420,8 +476,12 @@
     <span>15 · Symphony Case</span>
     <a href="#symphony-case-viral-tweets-experiment-planning">#</a>
   </div>
-  <h2>symphony case: viral tweets experiment planning</h2>
+  <h2>Viral tweet experiments are planned before work starts</h2>
   <p class="test-name"><span>Test name</span><code>symphony case: viral tweets experiment planning</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This captures the acceptance behavior for viral-tweets planning: the product should scope the experiment before spending compute or launching labeling work.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -449,8 +509,12 @@
     <span>16 · Slow E2E</span>
     <a href="#test-slow-econ-discover">#</a>
   </div>
-  <h2>test:slow:econ:discover</h2>
+  <h2>Economics discovery classifies source fetchability</h2>
   <p class="test-name"><span>Test name</span><code>test:slow:econ:discover</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This proves the economics workflow starts with source discovery and fetchability classification rather than pretending every catalog entry is immediately usable data.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -476,8 +540,12 @@
     <span>17 · Slow E2E</span>
     <a href="#test-slow-econ-environment">#</a>
   </div>
-  <h2>test:slow:econ:environment</h2>
+  <h2>The economics environment builds end to end</h2>
   <p class="test-name"><span>Test name</span><code>test:slow:econ:environment</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This proves the full economics environment build can orchestrate discovery, acquisition, normalization, and QA into usable dataset artifacts.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -501,8 +569,12 @@
     <span>18 · Slow E2E</span>
     <a href="#test-slow-econ-hypothesis">#</a>
   </div>
-  <h2>test:slow:econ:hypothesis</h2>
+  <h2>The economics dataset supports hypothesis analysis</h2>
   <p class="test-name"><span>Test name</span><code>test:slow:econ:hypothesis</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This proves the economics environment can support an actual hypothesis workflow, not just dataset construction.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -525,8 +597,12 @@
     <span>19 · Slow E2E</span>
     <a href="#test-slow-econ-normalization-execution">#</a>
   </div>
-  <h2>test:slow:econ:normalization-execution</h2>
+  <h2>Economics normalization produces validated tables</h2>
   <p class="test-name"><span>Test name</span><code>test:slow:econ:normalization-execution</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This proves planned economics sources can become normalized tables with QA evidence, and that placeholder metadata cannot count as data success.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -552,8 +628,12 @@
     <span>20 · Slow E2E</span>
     <a href="#test-slow-econ-normalization-plan">#</a>
   </div>
-  <h2>test:slow:econ:normalization-plan</h2>
+  <h2>Economics discovery becomes an executable normalization plan</h2>
   <p class="test-name"><span>Test name</span><code>test:slow:econ:normalization-plan</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This proves the product can turn discovered sources into a concrete normalization plan before executing ETL.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -579,8 +659,12 @@
     <span>21 · Slow E2E</span>
     <a href="#test-slow-econ">#</a>
   </div>
-  <h2>test:slow:econ</h2>
+  <h2>The staged economics journey works as a suite</h2>
   <p class="test-name"><span>Test name</span><code>test:slow:econ</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the staged economics journey as a suite, ensuring the individual stages work together from discovery through hypothesis analysis.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -603,8 +687,12 @@
     <span>22 · Slow E2E</span>
     <a href="#test-slow-tweets">#</a>
   </div>
-  <h2>test:slow:tweets</h2>
+  <h2>The viral tweets workflow uses mounted enriched-tweets data</h2>
   <p class="test-name"><span>Test name</span><code>test:slow:tweets</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the end-to-end viral tweets workflow and specifically prevents the earlier failure mode where the product inspected the right dataset but used external sample data.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -635,8 +723,12 @@
     <span>23 · Slow E2E</span>
     <a href="#test-slow">#</a>
   </div>
-  <h2>test:slow</h2>
+  <h2>The full slow product suite completes</h2>
   <p class="test-name"><span>Test name</span><code>test:slow</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the full slow product suite as a release confidence signal for both economics and tweets workflows.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -659,8 +751,12 @@
     <span>24 · Registry Contract</span>
     <a href="#tool-registry-is-structurally-valid-and-serializable">#</a>
   </div>
-  <h2>tool registry is structurally valid and serializable</h2>
+  <h2>The tool registry stays stable for product actions</h2>
   <p class="test-name"><span>Test name</span><code>tool registry is structurally valid and serializable</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the assistant action surface. Tool metadata must remain stable and serializable so product behavior can be tested and prompted reliably.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -684,8 +780,12 @@
     <span>25 · Registry Contract</span>
     <a href="#tool-registry-metadata-exposes-async-run-start-tools">#</a>
   </div>
-  <h2>tool registry metadata exposes async run-start tools</h2>
+  <h2>Async run-start tools are marked for progress tracking</h2>
   <p class="test-name"><span>Test name</span><code>tool registry metadata exposes async run-start tools</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This ensures the product can distinguish work that starts a run from work that returns immediate results, which is critical for progress reporting.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -707,8 +807,12 @@
     <span>26 · CLI Product</span>
     <a href="#unauthenticated-local-run-request-bypasses-remote-planning">#</a>
   </div>
-  <h2>unauthenticated local run request bypasses remote planning</h2>
+  <h2>Local run status works without sign-in</h2>
   <p class="test-name"><span>Test name</span><code>unauthenticated local run request bypasses remote planning</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This keeps local status checks useful even without a signed-in session. The product should answer from local state when possible instead of blocking on authentication.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
@@ -731,8 +835,12 @@
     <span>27 · CLI Product</span>
     <a href="#wait-for-run-completion-can-time-out-deterministically">#</a>
   </div>
-  <h2>wait for run completion can time out deterministically</h2>
+  <h2>Waiting on a run reports still-running state clearly</h2>
   <p class="test-name"><span>Test name</span><code>wait for run completion can time out deterministically</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects long-running work UX. If a run is not done, the product should say so clearly rather than inventing completion or hiding uncertainty.</p>
+  </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
