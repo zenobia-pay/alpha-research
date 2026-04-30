@@ -6,7 +6,7 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@alpha-datasets/storage": [
+      "@zenobia-pay/alpha-storage": [
         "../../packages/storage/src/index.ts"
       ]
     }

@@ -1,15 +1,23 @@
 {
-  "name": "@alpha-datasets/implementations",
+  "name": "@zenobia-pay/alpha-implementations",
   "version": "0.1.0",
   "type": "module",
+  "description": "Dataset implementation configuration for Alpha Research.",
+  "license": "UNLICENSED",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@alpha-datasets/core": "0.1.0"
+    "@zenobia-pay/alpha-core": "0.1.0"
   }
 }
-

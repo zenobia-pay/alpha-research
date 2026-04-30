@@ -2,7 +2,7 @@ import { access, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
-import { getInstanceBootstrap, listInstanceBundles } from "@alpha-datasets/storage";
+import { getInstanceBootstrap, listInstanceBundles } from "@zenobia-pay/alpha-storage";
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";

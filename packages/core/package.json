@@ -1,9 +1,18 @@
 {
-  "name": "@alpha-datasets/core",
+  "name": "@zenobia-pay/alpha-core",
   "version": "0.1.0",
   "type": "module",
+  "description": "Core dataset contracts for Alpha Research.",
+  "license": "UNLICENSED",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false",

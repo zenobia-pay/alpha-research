@@ -9,7 +9,7 @@ import {
   getInstanceRecordById,
   listInstanceBundles,
   queryInstance,
-} from "@alpha-datasets/storage";
+} from "@zenobia-pay/alpha-storage";
 
 const app = new Hono();
 const port = Number(process.env.PORT ?? "8787");

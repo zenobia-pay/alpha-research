@@ -6,10 +6,10 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@alpha-datasets/core": [
+      "@zenobia-pay/alpha-core": [
         "../core/src/index.ts"
       ],
-      "@alpha-datasets/implementations": [
+      "@zenobia-pay/alpha-implementations": [
         "../implementations/src/index.ts"
       ]
     }

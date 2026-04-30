@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { buildBundleFromAdapter, getInstanceBootstrap, queryInstance, writeShardedInstanceBundle } from "../src/index.js";
-import { getFixtureAdapter } from "@alpha-datasets/fixture";
+import { getFixtureAdapter } from "@zenobia-pay/alpha-fixture";
 
 test("writeShardedInstanceBundle writes manifest-backed instances that can be queried lazily", async () => {
   const root = await mkdtemp(join(tmpdir(), "alpha-research-storage-"));

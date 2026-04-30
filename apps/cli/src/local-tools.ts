@@ -9,15 +9,15 @@ import {
   describeDataset,
   queryDataset,
   type DatasetFilter,
-} from "@alpha-datasets/core";
-import { getFixtureAdapter } from "@alpha-datasets/fixture";
+} from "@zenobia-pay/alpha-core";
+import { getFixtureAdapter } from "@zenobia-pay/alpha-fixture";
 import {
   aggregateInstance,
   buildTextCompatibleDocumentsForInstance,
   getInstanceBootstrap,
   listInstanceBundles,
   queryInstance,
-} from "@alpha-datasets/storage";
+} from "@zenobia-pay/alpha-storage";
 
 import { DEFAULT_INSTANCE_ROOT, INGEST_SCRIPT, type SessionRecord } from "./config.js";
 import { parseFilter } from "./flags.js";
@@ -217,7 +217,7 @@ export function inferDatasetIngestFlags(inputPath: string) {
   return null;
 }
 
-export function buildInstallPrompt(flags: Record<string, string>, installUrl: string) {
+export function buildInstallPrompt(flags: Record<string, string>, installCommand: string) {
   const dataset = flags.dataset ?? "<ABSOLUTE_DATASET_PATH>";
   const mode = flags.mode ?? "auto";
   const name = flags.name ?? "My Dataset";
@@ -228,7 +228,8 @@ export function buildInstallPrompt(flags: Record<string, string>, installUrl: st
     "",
     "Install the RESEARCH CLI, sign in, create a research dataset, and deploy it.",
     "",
-    `Run: curl -fsSL ${installUrl} | bash`,
+    "Run:",
+    installCommand,
     "",
     "Then run:",
     "research",

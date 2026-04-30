@@ -10,7 +10,7 @@ COPY THIS PROMPT AND DESCRIBE YOUR DATASET AT THE BOTTOM:
 Install the RESEARCH CLI, sign in, create a research dataset from my file, and deploy it.
 
 Run:
-curl -fsSL https://raw.githubusercontent.com/zenobia-pay/alpha-research/codex/initial-substrate/scripts/install_alpha_research.sh | bash
+npm install -g @zenobia-pay/research
 
 Then run:
 research
@@ -23,7 +23,7 @@ Dataset description:
 You can also generate a customized version of that prompt:
 
 ```bash
-npm run build -w @alpha-datasets/cli
+npm run build -w @zenobia-pay/research
 npm run cli -- install-prompt --dataset ~/Downloads/Enriched\ Tweets.parquet --mode tabular --id enriched-tweets --name "Enriched Tweets"
 ```
 

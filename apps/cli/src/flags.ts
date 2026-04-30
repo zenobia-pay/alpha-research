@@ -1,4 +1,4 @@
-import type { DatasetFilter } from "@alpha-datasets/core";
+import type { DatasetFilter } from "@zenobia-pay/alpha-core";
 
 export function parseFlags(args: string[]): Record<string, string> {
   const flags: Record<string, string> = {};

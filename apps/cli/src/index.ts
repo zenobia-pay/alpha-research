@@ -2,7 +2,7 @@
 import React from "react";
 import { render } from "ink";
 
-import { DEFAULT_INSTALL_URL, type SessionRecord } from "./config.js";
+import { DEFAULT_INSTALL_COMMAND, type SessionRecord } from "./config.js";
 import { type AgentMessage, runAgentTurn } from "./agent.js";
 import { runDebugCommand } from "./debug.js";
 import { parseCliArgs, parseFlags } from "./flags.js";
@@ -75,7 +75,7 @@ async function main() {
   }
 
   if (command === "install-prompt") {
-    console.log(buildInstallPrompt(flags, DEFAULT_INSTALL_URL));
+    console.log(buildInstallPrompt(flags, DEFAULT_INSTALL_COMMAND));
     return;
   }
 

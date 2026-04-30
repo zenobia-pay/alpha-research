@@ -1,10 +1,10 @@
 {
-  "name": "@alpha-datasets/ingest",
+  "name": "@zenobia-pay/alpha-ingest",
   "version": "0.1.0",
   "type": "module",
   "private": true,
   "dependencies": {
-    "@alpha-datasets/storage": "0.1.0"
+    "@zenobia-pay/alpha-storage": "0.1.0"
   },
   "scripts": {
     "build": "tsc -b",

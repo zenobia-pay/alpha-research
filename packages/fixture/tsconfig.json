@@ -6,7 +6,7 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@alpha-datasets/core": [
+      "@zenobia-pay/alpha-core": [
         "../core/src/index.ts"
       ]
     }

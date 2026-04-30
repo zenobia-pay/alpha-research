@@ -1,16 +1,25 @@
 {
-  "name": "@alpha-datasets/storage",
+  "name": "@zenobia-pay/alpha-storage",
   "version": "0.1.0",
   "type": "module",
+  "description": "Local dataset storage for Alpha Research.",
+  "license": "UNLICENSED",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false",
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@alpha-datasets/core": "0.1.0",
-    "@alpha-datasets/implementations": "0.1.0"
+    "@zenobia-pay/alpha-core": "0.1.0",
+    "@zenobia-pay/alpha-implementations": "0.1.0"
   }
 }

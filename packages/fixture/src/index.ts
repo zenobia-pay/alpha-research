@@ -2,7 +2,7 @@ import type {
   DatasetAdapter,
   DatasetRecord,
   DatasetTextProjection,
-} from "@alpha-datasets/core";
+} from "@zenobia-pay/alpha-core";
 
 export const tweetThreadRecords: DatasetRecord[] = [
   {
