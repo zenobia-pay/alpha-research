@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product Test Briefings</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <p class="nav"><a href="../PRODUCT_TEST_BRIEFING.md">Markdown index</a></p>
+      <h1>Product Test Briefings</h1>
+      <p class="eyebrow">Alpha Research · generated from docs/product-tests · 2026-04-30</p>
+      <p class="lede">Readable product explanations for every test contract. Each entry describes how the product is used, what actions are taken, and what assertions are made.</p>
+    </header>
+
+    <section class="stat-grid"><div><span>Briefings</span><strong>27</strong></div><div><span>Assertions</span><strong>137</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
+
+    <section class="panel controls">
+      <div>
+        <h2>Browse The Tests</h2>
+        <p class="lede"><span id="visible-count">27</span> briefings visible. Search by feature, assertion, dataset, run type, or artifact.</p>
+      </div>
+      <label>
+        <span>Search</span>
+        <input id="search" type="search" placeholder="Try enriched-tweets, mounted, dashboard, econ">
+      </label>
+      <div class="filter-row"><button class="active" data-filter="All">All</button><button class="" data-filter="CLI Product">CLI Product</button><button class="" data-filter="Golden Transcript">Golden Transcript</button><button class="" data-filter="Registry Contract">Registry Contract</button><button class="" data-filter="Slow E2E">Slow E2E</button><button class="" data-filter="Symphony Case">Symphony Case</button></div>
+    </section>
+
+    <section class="panel two-col">
+      <div>
+        <h2>Coverage Mix</h2>
+        <table class="hypothesis-table">
+          <tbody><tr><td>CLI Product</td><td>9</td></tr><tr><td>Golden Transcript</td><td>5</td></tr><tr><td>Registry Contract</td><td>3</td></tr><tr><td>Slow E2E</td><td>8</td></tr><tr><td>Symphony Case</td><td>2</td></tr></tbody>
+        </table>
+      </div>
+      <div>
+        <h2>How To Read This</h2>
+        <ul>
+          <li><b>Product Use</b> states the user-facing scenario.</li>
+          <li><b>Actions Taken</b> states what the product does.</li>
+          <li><b>Assertions Made</b> states what the test proves.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel briefing-stack">
+      <article class="briefing-card" id="async-query-run-returns-immediately-with-canonical-dashboard-and-terminal-links" data-title="async query run returns immediately with canonical dashboard and terminal links" data-category="CLI Product">
+  <div class="section-head">
+    <span>01 · CLI Product</span>
+    <a href="#async-query-run-returns-immediately-with-canonical-dashboard-and-terminal-links">#</a>
+  </div>
+  <h2>async query run returns immediately with canonical dashboard and terminal links</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks for viral tweets from <code>enriched-tweets</code>.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product starts a query run against <code>enriched-tweets</code>, returns immediately, and gives the user both the dashboard run link and terminal-session link so they can follow progress.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>A query run is started.</li>
+<li>The response includes the canonical dashboard run URL.</li>
+<li>The response includes the canonical terminal-session URL.</li>
+<li>The run prompt requires mounted dataset grounding.</li>
+<li>The run config requires mounted dataset grounding for <code>enriched-tweets</code>.</li>
+<li>The workflow must fail loudly if mounted data cannot be read.</li>
+<li>The workflow must not use public sample data, GitHub CSVs, or external fallback data.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="busy-dataset-conflict-returns-blocking-run-guidance" data-title="busy dataset conflict returns blocking run guidance" data-category="CLI Product">
+  <div class="section-head">
+    <span>02 · CLI Product</span>
+    <a href="#busy-dataset-conflict-returns-blocking-run-guidance">#</a>
+  </div>
+  <h2>busy dataset conflict returns blocking run guidance</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user starts analysis on a dataset that is already locked by another active run.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product reports the conflict and tells the user which run is blocking the dataset. It points the user to the dashboard page for that blocking run instead of hiding the conflict or starting duplicate work.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The busy dataset condition is detected.</li>
+<li>The blocking run id is shown.</li>
+<li>A dashboard link for the blocking run is shown.</li>
+<li>No replacement run is presented as if it succeeded.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dashboard-run-links-use-canonical-dashboard-route" data-title="dashboard run links use canonical dashboard route" data-category="Registry Contract">
+  <div class="section-head">
+    <span>03 · Registry Contract</span>
+    <a href="#dashboard-run-links-use-canonical-dashboard-route">#</a>
+  </div>
+  <h2>dashboard run links use canonical dashboard route</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>The product gives users dashboard links for runs.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The dashboard URL builder is called for a run id.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The generated link uses the canonical dashboard route.</li>
+<li>The link includes the run id query parameter.</li>
+<li>The link includes the run id fragment.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dataset-describe-request-starts-briefing-run-with-required-artifacts" data-title="dataset describe request starts briefing run with required artifacts" data-category="CLI Product">
+  <div class="section-head">
+    <span>04 · CLI Product</span>
+    <a href="#dataset-describe-request-starts-briefing-run-with-required-artifacts">#</a>
+  </div>
+  <h2>dataset describe request starts briefing run with required artifacts</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks the product to describe the <code>econ</code> dataset.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product starts a dataset briefing run for <code>econ</code>. It asks for a human-readable <code>Dataset Briefing</code> artifact and a structured <code>Dataset Profile</code> artifact. The prompt is scoped to inventory and documentation, not analysis suggestions.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The run starts on dataset <code>econ</code>.</li>
+<li>The run type is <code>describe</code>.</li>
+<li>Requested artifacts are <code>Dataset Briefing</code> and <code>Dataset Profile</code>.</li>
+<li>The config marks the run as a dataset-description task.</li>
+<li>Mounted dataset grounding is required.</li>
+<li>The prompt includes the required briefing sections.</li>
+<li>The prompt excludes query instructions and suggested follow-ups.</li>
+<li>The response includes the briefing run id and terminal-session link.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="golden-cancel-active-run" data-title="golden: cancel active run" data-category="Golden Transcript">
+  <div class="section-head">
+    <span>05 · Golden Transcript</span>
+    <a href="#golden-cancel-active-run">#</a>
+  </div>
+  <h2>golden: cancel active run</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks to cancel <code>run-cancel-1</code>.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product cancels the named run and confirms the cancellation in the response.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The product calls <code>cancel_remote_run</code>.</li>
+<li>The response includes <code>Cancelled remote run run-cancel-1</code>.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="golden-mixed-public-private-environment" data-title="golden: mixed public private environment" data-category="Golden Transcript">
+  <div class="section-head">
+    <span>06 · Golden Transcript</span>
+    <a href="#golden-mixed-public-private-environment">#</a>
+  </div>
+  <h2>golden: mixed public private environment</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks to set up an economics research environment using FRED plus a private sales export.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product checks existing datasets, creates a mixed research environment, and gives the user the build run id and dashboard link.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>Existing datasets are listed first.</li>
+<li>A research environment build is started.</li>
+<li>Public and private source planning is represented.</li>
+<li>The response includes <code>run-env-1</code>.</li>
+<li>The response includes the canonical dashboard link.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="golden-public-data-environment" data-title="golden: public data environment" data-category="Golden Transcript">
+  <div class="section-head">
+    <span>07 · Golden Transcript</span>
+    <a href="#golden-public-data-environment">#</a>
+  </div>
+  <h2>golden: public data environment</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks to create a public data environment from SEC filings for payment-company risk factors.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product checks existing datasets, starts a public-data environment build, and gives the user the run id plus dashboard link.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>Existing datasets are listed first.</li>
+<li>A public-data environment build is started.</li>
+<li>The response includes <code>run-public-env-1</code>.</li>
+<li>The response includes the canonical dashboard link.</li>
+<li>The build is represented as in progress, not as completed analysis.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="golden-retrieve-run-result" data-title="golden: retrieve run result" data-category="Golden Transcript">
+  <div class="section-head">
+    <span>08 · Golden Transcript</span>
+    <a href="#golden-retrieve-run-result">#</a>
+  </div>
+  <h2>golden: retrieve run result</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks to show <code>run-results-1</code>.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product retrieves the run result and turns it into a readable summary with original request, row counts, and artifact context.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The product calls <code>get_run_results</code>.</li>
+<li>The original request is shown.</li>
+<li>The response includes <code>Rows: 100</code>.</li>
+<li>Artifacts are explained as saved outputs.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="golden-show-remote-datasets" data-title="golden: show remote datasets" data-category="Golden Transcript">
+  <div class="section-head">
+    <span>09 · Golden Transcript</span>
+    <a href="#golden-show-remote-datasets">#</a>
+  </div>
+  <h2>golden: show remote datasets</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks to show remote datasets.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product lists available datasets and reports the count.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The product calls <code>list_remote_datasets</code>.</li>
+<li>The response says one remote dataset was found.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running" data-title="product planning: vague viral tweets request designs scoped experiment before running" data-category="CLI Product">
+  <div class="section-head">
+    <span>10 · CLI Product</span>
+    <a href="#product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running">#</a>
+  </div>
+  <h2>product planning: vague viral tweets request designs scoped experiment before running</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks, &quot;what's up with tweets? Can you run an experiment for me on what types of tweets go viral?&quot;</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product inspects <code>enriched-tweets</code> and turns the vague request into a concrete experiment design. It stops for confirmation instead of launching expensive work immediately.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li><code>enriched-tweets</code> is inspected.</li>
+<li>No run is started before confirmation.</li>
+<li>The plan says the request needs an operational definition.</li>
+<li>Viral tweets are defined as the top <code>0.1%</code> by <code>quote_tweet_count</code>.</li>
+<li>The plan samples <code>100</code> random viral tweets.</li>
+<li>The plan includes strict JSON labeling.</li>
+<li>Required fields include <code>hook_type</code> and <code>controversy_level</code>.</li>
+<li>Visual outputs include a bar chart and representative examples.</li>
+<li>The product asks whether the design looks good.</li>
+<li>Alternatives such as retweets/likes and a control group are offered.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts" data-title="product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts" data-category="CLI Product">
+  <div class="section-head">
+    <span>11 · CLI Product</span>
+    <a href="#product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts">#</a>
+  </div>
+  <h2>product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks for an economics dataset with all necessary data for a housing-cycle hypothesis, then asks to see results and artifacts.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product lists existing datasets, creates a research environment with an acquisition plan, waits for the environment build, creates a structured research spec, runs transformation, runs labeling, runs hypothesis analysis, waits at each stage, and retrieves final artifacts.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>Existing datasets are checked first.</li>
+<li>A research environment is created for housing-cycle economics.</li>
+<li>The required public source catalog is represented.</li>
+<li>The acquisition prompt includes source URLs, row counts, missingness, join keys, and reproducible validation.</li>
+<li>The research spec includes subset, shaping, labeling, and artifact requirements.</li>
+<li>Transformation, labeling, and hypothesis runs are started.</li>
+<li>Each async stage is waited on.</li>
+<li>Final results include table, chart, and markdown artifacts.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="run-debug-bundle-redacts-session-token-and-includes-remote-evidence" data-title="run debug bundle redacts session token and includes remote evidence" data-category="CLI Product">
+  <div class="section-head">
+    <span>12 · CLI Product</span>
+    <a href="#run-debug-bundle-redacts-session-token-and-includes-remote-evidence">#</a>
+  </div>
+  <h2>run debug bundle redacts session token and includes remote evidence</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>An engineer asks for a debug bundle for a run.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product builds one bundle containing version information, redacted session metadata, dashboard links, tracked-run state, run payloads, events, results, and artifacts.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The generated timestamp is stable in the test.</li>
+<li>The session token is redacted.</li>
+<li>The full token is not present anywhere in the bundle.</li>
+<li>The dashboard URL points at the requested run.</li>
+<li>Events and run evidence are included.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="run-result-retrieval-includes-original-prompt-and-artifacts" data-title="run result retrieval includes original prompt and artifacts" data-category="CLI Product">
+  <div class="section-head">
+    <span>13 · CLI Product</span>
+    <a href="#run-result-retrieval-includes-original-prompt-and-artifacts">#</a>
+  </div>
+  <h2>run result retrieval includes original prompt and artifacts</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks to see the result of a previous run.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product retrieves the run result bundle and turns it into a readable report. It includes the original request, summarizes structured result fields, explains saved artifacts, and suggests grounded next steps.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The original run prompt is shown.</li>
+<li>Structured row-count evidence is summarized.</li>
+<li>Artifacts are described as saved run outputs.</li>
+<li>Suggested follow-ups are included.</li>
+<li>The user is not shown an undigested raw JSON dump.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="symphony-case-econ-housing-cycle-dataset-build" data-title="symphony case: econ housing cycle dataset build" data-category="Symphony Case">
+  <div class="section-head">
+    <span>14 · Symphony Case</span>
+    <a href="#symphony-case-econ-housing-cycle-dataset-build">#</a>
+  </div>
+  <h2>symphony case: econ housing cycle dataset build</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks for an economics dataset with all necessary data for a housing-cycle hypothesis.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product checks existing datasets and creates a research environment with a concrete acquisition and validation plan for a county-month housing-cycle dataset.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>Existing datasets are listed first.</li>
+<li>A research environment is created.</li>
+<li>The environment prompt includes FRED, Census, Zillow, BLS, FHFA, and NBER.</li>
+<li>The prompt requires row counts, missingness checks, join-key validation, source URLs, temporal coverage, a data dictionary, and a manifest.</li>
+<li>Required source URLs are included.</li>
+<li>The response includes the environment build run id and dataset id.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="symphony-case-viral-tweets-experiment-planning" data-title="symphony case: viral tweets experiment planning" data-category="Symphony Case">
+  <div class="section-head">
+    <span>15 · Symphony Case</span>
+    <a href="#symphony-case-viral-tweets-experiment-planning">#</a>
+  </div>
+  <h2>symphony case: viral tweets experiment planning</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks for an experiment on what types of tweets go viral.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product finds <code>enriched-tweets</code> and proposes a scoped experiment design before launching work.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>Existing datasets are listed.</li>
+<li>The response names <code>enriched-tweets</code>.</li>
+<li>Viral tweets are defined as the top <code>0.1%</code> by <code>quote_tweet_count</code>.</li>
+<li>The plan samples <code>100</code> random viral tweets.</li>
+<li>The plan uses strict JSON labeling.</li>
+<li>Visualizations and control-group alternatives are mentioned.</li>
+<li>The product asks whether to proceed.</li>
+<li>Query, run-start, labeling, and agent-run tools are not called.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="test-slow-econ-discover" data-title="test:slow:econ:discover" data-category="Slow E2E">
+  <div class="section-head">
+    <span>16 · Slow E2E</span>
+    <a href="#test-slow-econ-discover">#</a>
+  </div>
+  <h2>test:slow:econ:discover</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>An engineer validates the economics discovery workflow.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product creates or reuses the canonical <code>econ</code> environment, inspects the required source catalog, classifies source fetchability, records canonical URLs and direct download/API endpoints, and produces discovery artifacts.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li><code>source_registry.plan.json</code> is produced.</li>
+<li>Discovery evidence is present.</li>
+<li>Canonical URLs and direct download URLs are recorded.</li>
+<li>Fetchability is classified.</li>
+<li>Active, metadata-only, and gated source states are represented.</li>
+<li>Artifacts are available.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="test-slow-econ-environment" data-title="test:slow:econ:environment" data-category="Slow E2E">
+  <div class="section-head">
+    <span>17 · Slow E2E</span>
+    <a href="#test-slow-econ-environment">#</a>
+  </div>
+  <h2>test:slow:econ:environment</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>An engineer validates the end-to-end economics environment build.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product runs discovery, acquisition, normalization planning, normalization execution, and QA as one orchestrated environment build.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>Discovery evidence is present.</li>
+<li>Normalization planning evidence is present.</li>
+<li>Normalization execution evidence is present.</li>
+<li>Raw inventory, normalized outputs, manifest, source registry, table catalog, DuckDB catalog, row counts, missingness, joins, source URLs, and artifacts are represented.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="test-slow-econ-hypothesis" data-title="test:slow:econ:hypothesis" data-category="Slow E2E">
+  <div class="section-head">
+    <span>18 · Slow E2E</span>
+    <a href="#test-slow-econ-hypothesis">#</a>
+  </div>
+  <h2>test:slow:econ:hypothesis</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>An engineer validates the economics hypothesis analysis workflow.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product uses the canonical <code>econ</code> environment, checks whether required data exists, creates the analysis subset, runs transformation and labeling as needed, chooses visualization artifacts, tests the housing-cycle hypothesis, waits for completion, and shows results.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The workflow reaches terminal success.</li>
+<li>Produced artifacts exist.</li>
+<li>Row-count, missingness, join, source URL, county, month, labeling, chart, and hypothesis evidence are present.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="test-slow-econ-normalization-execution" data-title="test:slow:econ:normalization-execution" data-category="Slow E2E">
+  <div class="section-head">
+    <span>19 · Slow E2E</span>
+    <a href="#test-slow-econ-normalization-execution">#</a>
+  </div>
+  <h2>test:slow:econ:normalization-execution</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>An engineer validates the economics acquisition, normalization execution, and QA workflow.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product fetches active/fetchable raw data, writes raw inventory, executes normalization, and produces normalized data plus QA artifacts.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li><code>manifest.json</code> is produced.</li>
+<li><code>source_registry.csv</code> is produced.</li>
+<li><code>table_catalog.json</code> is produced.</li>
+<li><code>qa_report</code> evidence is present.</li>
+<li>Row counts, missingness, joins, source URLs, county fields, and month fields are validated.</li>
+<li>Placeholder metadata cannot count as data success for fetchable sources.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="test-slow-econ-normalization-plan" data-title="test:slow:econ:normalization-plan" data-category="Slow E2E">
+  <div class="section-head">
+    <span>20 · Slow E2E</span>
+    <a href="#test-slow-econ-normalization-plan">#</a>
+  </div>
+  <h2>test:slow:econ:normalization-plan</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>An engineer validates the economics normalization planning workflow.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product reads discovery outputs, plans the normalized table shape, and produces planning artifacts without executing ETL.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li><code>normalization_plan.json</code> is produced.</li>
+<li>Raw inventory status is represented.</li>
+<li>Target tables are defined.</li>
+<li>Raw-to-normalized mappings are defined.</li>
+<li>Primary keys and join keys are defined.</li>
+<li>QA checks are defined.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="test-slow-econ" data-title="test:slow:econ" data-category="Slow E2E">
+  <div class="section-head">
+    <span>21 · Slow E2E</span>
+    <a href="#test-slow-econ">#</a>
+  </div>
+  <h2>test:slow:econ</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>An engineer validates the full economics product journey.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product runs discovery, normalization planning, normalization execution, environment orchestration, and hypothesis analysis in order.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>Every economics stage reaches its expected success criteria.</li>
+<li>The journey moves from source discovery to usable hypothesis artifacts.</li>
+<li>A failure in any stage fails the economics suite.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="test-slow-tweets" data-title="test:slow:tweets" data-category="Slow E2E">
+  <div class="section-head">
+    <span>22 · Slow E2E</span>
+    <a href="#test-slow-tweets">#</a>
+  </div>
+  <h2>test:slow:tweets</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks what kinds of tweets go viral and approves the proposed experiment.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product finds and uses <code>enriched-tweets</code>, reads mounted dataset files, defines viral tweets as the top <code>0.1%</code> by <code>quote_tweet_count</code>, samples <code>100</code> random viral tweets, labels sampled tweets with strict JSON fields, creates charts and representative examples, waits for completion, and retrieves artifacts.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The workflow uses <code>enriched-tweets</code>.</li>
+<li>Mounted dataset grounding is mandatory.</li>
+<li>If mounted data cannot be read, the workflow must fail loudly.</li>
+<li>Runtime evidence must not contain GitHub/raw CSV/sample fallback usage.</li>
+<li>Viral is defined as top <code>0.1%</code> by <code>quote_tweet_count</code>.</li>
+<li><code>100</code> random viral tweets are sampled.</li>
+<li>Strict JSON labeling is used.</li>
+<li>Label fields include <code>hook_type</code>, <code>emotional_tone</code>, and <code>controversy_level</code>.</li>
+<li>Visualizations and representative examples are produced.</li>
+<li>At least one run reaches terminal success.</li>
+<li>Artifacts are produced.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="test-slow" data-title="test:slow" data-category="Slow E2E">
+  <div class="section-head">
+    <span>23 · Slow E2E</span>
+    <a href="#test-slow">#</a>
+  </div>
+  <h2>test:slow</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>An engineer validates the full slow product suite.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product runs all staged economics slow tests and the viral tweets slow test.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The economics product journey passes through its current stages.</li>
+<li>The tweets product journey completes and returns artifacts.</li>
+<li>Failures in either journey fail the suite.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="tool-registry-is-structurally-valid-and-serializable" data-title="tool registry is structurally valid and serializable" data-category="Registry Contract">
+  <div class="section-head">
+    <span>24 · Registry Contract</span>
+    <a href="#tool-registry-is-structurally-valid-and-serializable">#</a>
+  </div>
+  <h2>tool registry is structurally valid and serializable</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>The product exposes a tool registry that the assistant can use to take actions.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The registry metadata is loaded and checked for stable, serializable definitions.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>Every tool has a name.</li>
+<li>Every tool has a description.</li>
+<li>Every tool has a JSON schema.</li>
+<li>Registry metadata can be serialized.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="tool-registry-metadata-exposes-async-run-start-tools" data-title="tool registry metadata exposes async run-start tools" data-category="Registry Contract">
+  <div class="section-head">
+    <span>25 · Registry Contract</span>
+    <a href="#tool-registry-metadata-exposes-async-run-start-tools">#</a>
+  </div>
+  <h2>tool registry metadata exposes async run-start tools</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>The product needs to know which tools start asynchronous work so the assistant can return run-tracking information instead of pretending results are immediate.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The registry metadata is inspected for async run-start flags.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>Async run-starting tools are exposed as such.</li>
+<li>Non-run tools are not incorrectly treated as run starters.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="unauthenticated-local-run-request-bypasses-remote-planning" data-title="unauthenticated local run request bypasses remote planning" data-category="CLI Product">
+  <div class="section-head">
+    <span>26 · CLI Product</span>
+    <a href="#unauthenticated-local-run-request-bypasses-remote-planning">#</a>
+  </div>
+  <h2>unauthenticated local run request bypasses remote planning</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks to see active runs while no signed-in product session is available.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product treats this as a local status request. It reads the local tracked-run state and does not start a planning flow or ask the user to sign in before showing what can be known locally.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The first product action is <code>list_tracked_runs</code>.</li>
+<li>The final message is an assistant response.</li>
+<li>The request is handled without remote planning.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="wait-for-run-completion-can-time-out-deterministically" data-title="wait for run completion can time out deterministically" data-category="CLI Product">
+  <div class="section-head">
+    <span>27 · CLI Product</span>
+    <a href="#wait-for-run-completion-can-time-out-deterministically">#</a>
+  </div>
+  <h2>wait for run completion can time out deterministically</h2>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks the product to wait for a run to complete.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The product polls the run and streams available status. If the wait budget expires while the run is still active, it reports that the run is still running instead of pretending it finished.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The product checks run status.</li>
+<li>The timeout path is deterministic.</li>
+<li>A still-running run is reported as still running.</li>
+<li>The product does not fabricate terminal results.</li></ul>
+  </div>
+</article>
+    </section>
+  </main>
+  <script>
+const search = document.querySelector('#search');
+const filters = [...document.querySelectorAll('[data-filter]')];
+const cards = [...document.querySelectorAll('.briefing-card')];
+let activeCategory = 'All';
+
+function applyFilters() {
+  const query = search.value.trim().toLowerCase();
+  let visible = 0;
+  for (const card of cards) {
+    const matchesCategory = activeCategory === 'All' || card.dataset.category === activeCategory;
+    const matchesQuery = !query || card.innerText.toLowerCase().includes(query);
+    const show = matchesCategory && matchesQuery;
+    card.hidden = !show;
+    if (show) visible += 1;
+  }
+  document.querySelector('#visible-count').textContent = String(visible);
+}
+
+search.addEventListener('input', applyFilters);
+for (const button of filters) {
+  button.addEventListener('click', () => {
+    activeCategory = button.dataset.filter;
+    for (const other of filters) other.classList.toggle('active', other === button);
+    applyFilters();
+  });
+}
+</script>
+</body>
+</html>

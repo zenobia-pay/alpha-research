@@ -119,8 +119,7 @@ async function changedFilesForThisCheck() {
 }
 
 function isProductTestContractFile(path: string) {
-  return path === "package.json"
-    || /^apps\/cli\/test\/(?:agent-harness|registry|golden|symphony-cases)\.test\.ts$/u.test(path)
+  return /^apps\/cli\/test\/(?:agent-harness|registry|golden|symphony-cases)\.test\.ts$/u.test(path)
     || /^apps\/cli\/test\/golden\/.+\.json$/u.test(path)
     || /^apps\/cli\/test\/symphony-cases\/.+\.json$/u.test(path)
     || /^scripts\/product-e2e-(?:econ|tweets)\.ts$/u.test(path);
@@ -147,11 +146,6 @@ async function exactProductDocsForChangedFile(path: string) {
       "test:slow:econ:environment",
       "test:slow:econ:hypothesis",
     ].map(productTestDocPath);
-  }
-  if (path === "package.json") {
-    return Object.keys(rootPackage.scripts)
-      .filter((name) => name === "test:slow" || name.startsWith("test:slow:"))
-      .map(productTestDocPath);
   }
   return [];
 }

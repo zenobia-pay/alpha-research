@@ -8,6 +8,8 @@ Each product test has its own Markdown briefing under `docs/product-tests/`. Eve
 
 When a test contract changes, update the corresponding file in `docs/product-tests/`. When a per-test file is added, removed, or renamed, update this index in the same change. `npm run docs:check` enforces those rules.
 
+For a readable HTML version, run `npm run docs:product-tests:site` and open `docs/product-tests-site/index.html`.
+
 ## Deterministic CLI Product Tests
 
 - [unauthenticated local run request bypasses remote planning](product-tests/unauthenticated-local-run-request-bypasses-remote-planning.md)
