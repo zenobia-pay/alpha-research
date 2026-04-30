@@ -62,6 +62,7 @@ function briefingCard(briefing: Briefing, index: number) {
     <a href="#${briefing.slug}">#</a>
   </div>
   <h2>${escapeHtml(briefing.title)}</h2>
+  <p class="test-name"><span>Test name</span><code>${escapeHtml(briefing.title)}</code></p>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
