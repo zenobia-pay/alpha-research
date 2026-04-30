@@ -26,6 +26,14 @@ async function readJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8")) as T;
 }
 
+async function readTextIfExists(path: string) {
+  try {
+    return await readFile(path, "utf8");
+  } catch {
+    return null;
+  }
+}
+
 function extractBacktickPaths(markdown: string) {
   const paths = new Set<string>();
   const pattern = /`([^`\n]+\.(?:md|ts|tsx|json|py|sh|service|yml|yaml))`/gu;
@@ -44,6 +52,29 @@ function extractCommands(markdown: string) {
     commands.add(match[1]!);
   }
   return [...commands];
+}
+
+function productTestDocSlug(name: string) {
+  return name.toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-|-$/gu, "");
+}
+
+function productTestDocPath(name: string) {
+  return `docs/product-tests/${productTestDocSlug(name)}.md`;
+}
+
+async function assertProductTestDoc(name: string) {
+  const path = productTestDocPath(name);
+  const content = await readTextIfExists(path);
+  assert.ok(content, `Missing product test doc ${path} for "${name}"`);
+  assert.ok(productTestBriefing.includes(path.replace(/^docs\//u, "")), `docs/PRODUCT_TEST_BRIEFING.md should link ${path}`);
+  assert.ok(content.includes(`# ${name}`), `${path} should start with or include heading "# ${name}"`);
+  for (const section of ["## Product Use", "## Actions Taken", "## Assertions Made"]) {
+    assert.ok(content.includes(section), `${path} should include ${section}`);
+  }
+  assert.ok(content.trim().length > 250, `${path} should explain the product behavior in useful detail`);
+  return path;
 }
 
 function git(args: string[]) {
@@ -95,6 +126,36 @@ function isProductTestContractFile(path: string) {
     || /^scripts\/product-e2e-(?:econ|tweets)\.ts$/u.test(path);
 }
 
+async function exactProductDocsForChangedFile(path: string) {
+  if (/^apps\/cli\/test\/golden\/.+\.json$/u.test(path)) {
+    const fixture = await readJson<{ name: string }>(path);
+    return [productTestDocPath(`golden: ${fixture.name}`)];
+  }
+  if (/^apps\/cli\/test\/symphony-cases\/.+\.json$/u.test(path)) {
+    const fixture = await readJson<{ name: string }>(path);
+    return [productTestDocPath(`symphony case: ${fixture.name}`)];
+  }
+  if (path === "scripts/product-e2e-tweets.ts") {
+    return [productTestDocPath("test:slow:tweets")];
+  }
+  if (path === "scripts/product-e2e-econ.ts") {
+    return [
+      "test:slow:econ",
+      "test:slow:econ:discover",
+      "test:slow:econ:normalization-plan",
+      "test:slow:econ:normalization-execution",
+      "test:slow:econ:environment",
+      "test:slow:econ:hypothesis",
+    ].map(productTestDocPath);
+  }
+  if (path === "package.json") {
+    return Object.keys(rootPackage.scripts)
+      .filter((name) => name === "test:slow" || name.startsWith("test:slow:"))
+      .map(productTestDocPath);
+  }
+  return [];
+}
+
 const rootPackage = await readJson<{ scripts: Record<string, string> }>("package.json");
 const agentGuide = await readFile("AGENTS.md", "utf8");
 const productTestBriefing = await readFile("docs/PRODUCT_TEST_BRIEFING.md", "utf8");
@@ -117,40 +178,62 @@ for (const doc of ["docs/ARCHITECTURE.md", "docs/RUN_LIFECYCLE.md", "docs/HARNES
   assert.ok(agentGuide.includes(doc), `AGENTS.md should link ${doc}`);
 }
 
+const expectedProductTestDocPaths = new Set<string>();
+
 for (const scriptName of Object.keys(rootPackage.scripts).filter((name) => name === "test:slow" || name.startsWith("test:slow:"))) {
-  assert.ok(productTestBriefing.includes(scriptName), `docs/PRODUCT_TEST_BRIEFING.md should document npm script ${scriptName}`);
+  expectedProductTestDocPaths.add(await assertProductTestDoc(scriptName));
 }
 
 for (const testFile of ["apps/cli/test/agent-harness.test.ts", "apps/cli/test/registry.test.ts"]) {
   const source = await readFile(testFile, "utf8");
   for (const match of source.matchAll(/\btest\("([^"]+)"/gu)) {
     const testName = match[1]!;
-    assert.ok(productTestBriefing.includes(testName), `docs/PRODUCT_TEST_BRIEFING.md should document test "${testName}" from ${testFile}`);
+    expectedProductTestDocPaths.add(await assertProductTestDoc(testName));
   }
 }
 
 for (const filename of await readdir("apps/cli/test/golden")) {
   if (!filename.endsWith(".json")) continue;
   const fixture = await readJson<{ name: string }>(`apps/cli/test/golden/${filename}`);
-  assert.ok(productTestBriefing.includes(`golden: ${fixture.name}`), `docs/PRODUCT_TEST_BRIEFING.md should document golden fixture ${filename}`);
+  expectedProductTestDocPaths.add(await assertProductTestDoc(`golden: ${fixture.name}`));
 }
 
 for (const filename of await readdir("apps/cli/test/symphony-cases")) {
   if (!filename.endsWith(".json")) continue;
   const fixture = await readJson<{ name: string }>(`apps/cli/test/symphony-cases/${filename}`);
-  assert.ok(productTestBriefing.includes(`symphony case: ${fixture.name}`), `docs/PRODUCT_TEST_BRIEFING.md should document Symphony case ${filename}`);
+  expectedProductTestDocPaths.add(await assertProductTestDoc(`symphony case: ${fixture.name}`));
+}
+
+for (const filename of await readdir("docs/product-tests")) {
+  if (!filename.endsWith(".md")) continue;
+  const path = `docs/product-tests/${filename}`;
+  assert.ok(expectedProductTestDocPaths.has(path), `${path} does not correspond to a current product test`);
 }
 
 const changedFiles = await changedFilesForThisCheck();
 if (changedFiles) {
-  const productTestContractChanged = changedFiles.some(isProductTestContractFile);
-  const productBriefingChanged = changedFiles.includes("docs/PRODUCT_TEST_BRIEFING.md");
+  const changedProductDocs = changedFiles.filter((path) => path.startsWith("docs/product-tests/") && path.endsWith(".md"));
+  const exactRequiredDocs = (await Promise.all(changedFiles.map(exactProductDocsForChangedFile))).flat();
+  const missingExactDocs = exactRequiredDocs.filter((path) => !changedFiles.includes(path));
+  const broadProductTestContractChanged = changedFiles.some((path) =>
+    /^apps\/cli\/test\/(?:agent-harness|registry|golden|symphony-cases)\.test\.ts$/u.test(path),
+  );
   assert.ok(
-    !productTestContractChanged || productBriefingChanged,
+    missingExactDocs.length === 0,
     [
-      "docs/PRODUCT_TEST_BRIEFING.md must be updated when product test contracts change.",
+      "The corresponding per-test product docs must be updated when product test contracts change.",
       "Changed product test contract files:",
       ...changedFiles.filter(isProductTestContractFile).map((path) => `- ${path}`),
+      "Missing changed product docs:",
+      ...missingExactDocs.map((path) => `- ${path}`),
+    ].join("\n"),
+  );
+  assert.ok(
+    !broadProductTestContractChanged || changedProductDocs.length > 0,
+    [
+      "At least one per-test product doc must be updated when monolithic product test files change.",
+      "Changed product test files:",
+      ...changedFiles.filter((path) => /^apps\/cli\/test\/(?:agent-harness|registry|golden|symphony-cases)\.test\.ts$/u.test(path)).map((path) => `- ${path}`),
     ].join("\n"),
   );
 }

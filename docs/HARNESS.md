@@ -32,9 +32,9 @@ npm run deploy:check
 
 `docs:check` validates that agent-facing docs are present, linked paths exist, documented npm scripts exist, and run lifecycle statuses stay aligned with `apps/cli/src/runs.ts`.
 
-`docs/PRODUCT_TEST_BRIEFING.md` is the product-facing map of what every CLI, golden, Symphony, and slow E2E test proves. `docs:check` fails if a named test, golden fixture, Symphony case, or slow test script is not documented there, so test changes and product briefing changes must land together.
+`docs/PRODUCT_TEST_BRIEFING.md` is the index for product-facing per-test docs in `docs/product-tests/`. Each product test doc explains how the product is used, what actions are taken, and what assertions are made.
 
-`docs:check` also compares changed files against the current branch base when git history is available. If product test contract files change (`apps/cli/test/*`, golden fixtures, Symphony cases, slow E2E scripts, or slow-test npm scripts in `package.json`), `docs/PRODUCT_TEST_BRIEFING.md` must be in the same change. In CI, `.github/workflows/ci.yml` checks out full history so this guard can compare against the push or pull-request base.
+`docs:check` fails if a named test, golden fixture, Symphony case, or slow test script does not have a matching `docs/product-tests/<slug>.md` file. It also compares changed files against the current branch base when git history is available. If an exact product test contract file changes, the corresponding per-test doc must change too. If a monolithic product test file changes, at least one per-test doc must change. If per-test docs are added, removed, or renamed, `docs/PRODUCT_TEST_BRIEFING.md` must change too. In CI, `.github/workflows/ci.yml` checks out full history so this guard can compare against the push or pull-request base.
 
 `architecture:check` enforces workspace dependency boundaries and keeps `apps/cli/src/tool-registry.ts` metadata-only.
 
