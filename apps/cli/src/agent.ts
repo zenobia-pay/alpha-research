@@ -239,6 +239,15 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+type DatasetInventoryEntry = {
+  id: string;
+  name: string;
+  scope: "local" | "remote";
+  state: "ready" | "draft" | "building" | "deployable";
+  description: string | null;
+  hidden: boolean;
+};
+
 function formatStatusForHumans(status: string | undefined) {
   const normalized = (status ?? "").toLowerCase();
   if (normalized === "ready") return "completed successfully";
@@ -816,6 +825,199 @@ function maybeHandleOrientation(input: string) {
     "- Test whether retention changed after launch",
     "- Show results from my last run",
   ].join("\n");
+}
+
+function shouldHandleDatasetInventory(input: string) {
+  const lower = input.trim().toLowerCase();
+  if (!/\bdatasets?\b/.test(lower)) {
+    return false;
+  }
+  if (/\b(create|build|make|start|run|analy[sz]e|test|wait|show me results|artifacts?)\b/.test(lower)) {
+    return false;
+  }
+  return /\b(what|which|show|list)\b/.test(lower) || /\bdo i have\b/.test(lower) || /\binventory\b/.test(lower);
+}
+
+function wantsLocalDatasetsOnly(input: string) {
+  const lower = input.toLowerCase();
+  return /\blocal datasets?\b/.test(lower) && !/\bremote datasets?\b/.test(lower);
+}
+
+function wantsRemoteDatasetsOnly(input: string) {
+  const lower = input.toLowerCase();
+  return /\bremote datasets?\b/.test(lower) && !/\blocal datasets?\b/.test(lower);
+}
+
+function wantsAllDatasets(input: string) {
+  const lower = input.toLowerCase();
+  return /\b(all datasets|include tests|including tests|show hidden|debug datasets?)\b/.test(lower);
+}
+
+function looksLikeNoisyDataset(id: string, name: string) {
+  const text = `${id} ${name}`.toLowerCase();
+  if (/mixed-smoke|smoke test|fixture|sample fixture/.test(text)) return true;
+  if (/^upload-test[-\d]*$/u.test(id.toLowerCase()) || /^upload test\b/u.test(name.toLowerCase())) return true;
+  return false;
+}
+
+function normalizeRemoteDatasetState(dataset: RemoteDatasetSummary): DatasetInventoryEntry["state"] {
+  const status = (dataset.status ?? "").toLowerCase();
+  const deploymentStatus = (dataset.deploymentStatus ?? "").toLowerCase();
+  if (deploymentStatus === "deployed" || deploymentStatus === "ready" || status === "ready" || status === "deployed") {
+    return "ready";
+  }
+  if (deploymentStatus === "deploying" || status === "deploying" || status === "uploading" || status === "building") {
+    return "building";
+  }
+  if (deploymentStatus === "deployable" || status === "deployable" || status === "uploaded") {
+    return "deployable";
+  }
+  return "draft";
+}
+
+function localInventoryEntry(instance: Awaited<ReturnType<typeof listInstanceBundles>>[number]): DatasetInventoryEntry {
+  return {
+    id: instance.id,
+    name: instance.displayName || instance.productName || instance.id,
+    scope: "local",
+    state: "ready",
+    description: instance.description?.trim() || `${formatNumber(instance.recordCount)} records`,
+    hidden: looksLikeNoisyDataset(instance.id, instance.displayName || instance.productName || instance.id),
+  };
+}
+
+function remoteInventoryEntry(dataset: RemoteDatasetSummary): DatasetInventoryEntry {
+  const state = normalizeRemoteDatasetState(dataset);
+  return {
+    id: dataset.id,
+    name: dataset.name?.trim() || dataset.id,
+    scope: "remote",
+    state,
+    description: null,
+    hidden: looksLikeNoisyDataset(dataset.id, dataset.name ?? dataset.id),
+  };
+}
+
+function inventoryStateLabel(state: DatasetInventoryEntry["state"]) {
+  switch (state) {
+    case "ready":
+      return "ready";
+    case "building":
+      return "building";
+    case "deployable":
+      return "deployable";
+    case "draft":
+    default:
+      return "draft";
+  }
+}
+
+function padCell(value: string, width: number) {
+  if (value.length >= width) return value;
+  return value.padEnd(width, " ");
+}
+
+function trimCell(value: string, width: number) {
+  if (value.length <= width) return value;
+  if (width <= 3) return value.slice(0, width);
+  return `${value.slice(0, width - 3)}...`;
+}
+
+function renderInventoryTable(entries: DatasetInventoryEntry[]) {
+  const headers = ["name", "id", "scope", "state", "description"] as const;
+  const rows = entries.map((entry) => [
+    entry.name,
+    entry.id,
+    entry.scope,
+    inventoryStateLabel(entry.state),
+    entry.description ?? "—",
+  ]);
+  const widths = headers.map((header, index) => {
+    const cellWidths = rows.map((row) => row[index]?.length ?? 0);
+    return Math.min(Math.max(header.length, ...cellWidths), index === 4 ? 44 : 28);
+  });
+  const renderRow = (cells: string[]) => cells.map((cell, index) => padCell(trimCell(cell, widths[index] ?? cell.length), widths[index] ?? cell.length)).join("  ");
+  return [
+    renderRow([...headers]),
+    renderRow(widths.map((width) => "-".repeat(width))),
+    ...rows.map(renderRow),
+  ].join("\n");
+}
+
+function nextDatasetStep(entries: DatasetInventoryEntry[]) {
+  const preferred = entries.find((entry) => entry.state === "ready" && entry.scope === "remote")
+    ?? entries.find((entry) => entry.state === "ready");
+  if (!preferred) {
+    return "Choose a ready or deployable dataset to inspect next.";
+  }
+  return preferred.scope === "remote"
+    ? `Try \`describe ${preferred.id}\` to inspect what is inside ${preferred.name}.`
+    : `Try \`describe ${preferred.id}\` or ask what is inside ${preferred.name}.`;
+}
+
+async function maybeHandleDatasetInventory(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!shouldHandleDatasetInventory(input)) {
+    return null;
+  }
+
+  const localOnly = wantsLocalDatasetsOnly(input);
+  const remoteOnly = wantsRemoteDatasetsOnly(input);
+  const includeHidden = wantsAllDatasets(input);
+
+  const entries: DatasetInventoryEntry[] = [];
+  let hiddenCount = 0;
+
+  if (!remoteOnly) {
+    emit({ role: "tool", content: "Checking local datasets..." });
+    const instances = await listInstanceBundles(DEFAULT_INSTANCE_ROOT);
+    const localEntries = instances.map(localInventoryEntry);
+    hiddenCount += localEntries.filter((entry) => entry.hidden).length;
+    entries.push(...(includeHidden ? localEntries : localEntries.filter((entry) => !entry.hidden)));
+    emit({ role: "tool", content: instances.length > 0 ? `Found ${instances.length} local datasets.` : "No local datasets found." });
+  }
+
+  if (!localOnly && initialSession) {
+    emit({ role: "tool", content: "Checking remote datasets. This can take a few seconds..." });
+    const client = deps.createRemoteClient(initialSession);
+    const datasets = await client.listDatasets();
+    const remoteEntries = datasets.datasets.map(remoteInventoryEntry);
+    hiddenCount += remoteEntries.filter((entry) => entry.hidden).length;
+    entries.push(...(includeHidden ? remoteEntries : remoteEntries.filter((entry) => !entry.hidden)));
+    emit({ role: "tool", content: datasets.datasets.length > 0 ? `Found ${datasets.datasets.length} remote datasets.` : "No remote datasets found." });
+  }
+
+  if (!localOnly && !initialSession && remoteOnly) {
+    return "Sign in first with `/login`, then ask me to show remote datasets.";
+  }
+
+  const sorted = entries.sort((left, right) =>
+    Number(right.state === "ready") - Number(left.state === "ready")
+    || Number(left.scope === "local") - Number(right.scope === "local")
+    || left.name.localeCompare(right.name));
+
+  if (sorted.length === 0) {
+    return localOnly
+      ? "I do not see any local datasets yet."
+      : remoteOnly
+        ? "I do not see any remote datasets yet."
+        : "I do not see any datasets yet.";
+  }
+
+  const lines = [
+    "Available datasets",
+    "",
+    renderInventoryTable(sorted),
+  ];
+  if (hiddenCount > 0 && !includeHidden) {
+    lines.push("", `Hidden ${hiddenCount} likely test or system datasets. Ask \`show all datasets\` to include them.`);
+  }
+  lines.push("", `Next: ${nextDatasetStep(sorted)}`);
+  return lines.join("\n");
 }
 
 function maybeHandleCsvImportHowTo(input: string) {
@@ -2265,6 +2467,15 @@ export async function runAgentTurn(
   conversationState?: AgentConversationState,
   deps: AgentRuntimeDeps = createDefaultAgentRuntimeDeps(),
 ): Promise<AgentConversationState> {
+  const datasetInventoryResponse = await maybeHandleDatasetInventory(input, initialSession, emit, deps);
+  if (datasetInventoryResponse) {
+    emit({ role: "assistant", content: datasetInventoryResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
   const directResponse = maybeHandleOrientation(input)
     ?? maybeHandleCsvImportHowTo(input)
     ?? maybeHandleVagueMarketQuestion(input)
