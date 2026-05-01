@@ -22,6 +22,26 @@ type InteractiveAppProps = {
   altScreen?: boolean;
 };
 
+export const EMPTY_STATE_EXAMPLE_PROMPTS = [
+  "Show the datasets I can use for research",
+  "Help me turn a CSV into a dataset I can inspect here",
+  "Summarize the latest run and point me to its artifacts",
+];
+
+export function emptyStatePromptExamples() {
+  return EMPTY_STATE_EXAMPLE_PROMPTS.map((prompt) => `• ${prompt}`);
+}
+
+export function runPanelSummary(runs: TrackedRunRecord[]) {
+  const activeRuns = runs
+    .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  if (activeRuns.length === 0) {
+    return ["No active runs."];
+  }
+  return activeRuns.map((run) => summarizeRunLine(run));
+}
+
 function shortId(value: string, size = 8) {
   return value.length > size ? value.slice(0, size) : value;
 }
@@ -213,16 +233,39 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
     [runs],
   );
-
-  if (activeRuns.length === 0) return null;
+  const lines = useMemo(() => (activeRuns.length === 0 ? ["No active runs."] : activeRuns.map((run) => summarizeRunLine(run))), [activeRuns]);
 
   return (
     <Box flexDirection="column">
-      {activeRuns.map((run) => (
-        <Text key={run.id} color={runStatusColor(run.status)}>
-          {`· ${summarizeRunLine(run)}`}
-        </Text>
-      ))}
+      <Text bold color="yellow">Runs</Text>
+      {lines.map((line, index) => {
+        const run = activeRuns[index];
+        const color = run ? runStatusColor(run.status) : "gray";
+        return (
+          <Text key={`${line}-${index}`} color={color}>
+            {`· ${line}`}
+          </Text>
+        );
+      })}
+    </Box>
+  );
+}
+
+function EmptyState() {
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Text bold color="green">research</Text>
+      <Text color="gray">Dataset-backed research agent for choosing data, starting work, checking run state, and recovering blocked runs.</Text>
+      <Box marginTop={1} flexDirection="column">
+        <Text color="yellow">Ready for a prompt.</Text>
+        <Text color="gray">Ask about datasets, runs, debugging, or how to build the right dataset for a question.</Text>
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text bold color="yellow">Try asking</Text>
+        {emptyStatePromptExamples().map((line) => (
+          <Text key={line} color="gray">{line}</Text>
+        ))}
+      </Box>
     </Box>
   );
 }
@@ -236,10 +279,7 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
   return (
     <ThreadPrimitive.Root>
       <ThreadPrimitive.Empty>
-        <Box flexDirection="column">
-          <Text bold color="green">research</Text>
-          <Text>ready.</Text>
-        </Box>
+        <EmptyState />
       </ThreadPrimitive.Empty>
 
       <ThreadPrimitive.Messages>
@@ -255,9 +295,12 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
       <ActivityIndicator />
       <RunStatusPanel runs={trackedRuns} />
 
-      <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
-        <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
+      <Box marginTop={1} flexDirection="column">
+        <Text color="gray">Prompt</Text>
+        <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
+          <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
         <ComposerPrimitive.Input submitOnEnter placeholder="ask RESEARCH" autoFocus />
+        </Box>
       </Box>
     </ThreadPrimitive.Root>
   );
