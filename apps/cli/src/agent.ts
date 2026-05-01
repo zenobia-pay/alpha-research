@@ -1782,6 +1782,19 @@ function maybeHandleUnauthenticatedLocalRequest(input: string) {
   return null;
 }
 
+function maybeHandleSignedOutRemoteDatasetRequest(input: string) {
+  const lower = input.toLowerCase();
+  if (!/\bremote datasets?\b/.test(lower) && !/\bmy datasets?\b/.test(lower) && !/\bshow datasets?\b/.test(lower)) {
+    return null;
+  }
+  return [
+    "Sign in to view your remote datasets.",
+    "",
+    "Next step: run `/login` in this chat or `research login` in another terminal.",
+    `After you sign in, ask me again and I’ll pick up: "${input.trim()}".`,
+  ].join("\n");
+}
+
 function maybeHandleOrientation(input: string) {
   const lower = input.trim().toLowerCase();
   if (!(
@@ -4075,6 +4088,20 @@ export async function runAgentTurn(
     };
   }
 
+  if (!context.session) {
+    const signedOutRemoteDatasetRequest = maybeHandleSignedOutRemoteDatasetRequest(input);
+    if (signedOutRemoteDatasetRequest) {
+      emit({
+        role: "assistant",
+        content: signedOutRemoteDatasetRequest,
+      });
+      return {
+        sessionId: context.sessionId,
+        previousResponseId: conversationState?.previousResponseId ?? null,
+      };
+    }
+  }
+
   if (!context.session && maybeAutoLoginRequest(input)) {
     const loginTool = toolsByName.get("login");
     if (!loginTool) {
@@ -4088,7 +4115,7 @@ export async function runAgentTurn(
   if (!context.session) {
     emit({
       role: "assistant",
-      content: "Sign in first with `/login`, then ask me to create datasets, deploy them, or manage runs.",
+      content: "Sign in first with `/login` so I can access your remote datasets, runs, and deployment work.",
     });
     return {
       sessionId: context.sessionId,

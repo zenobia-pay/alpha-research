@@ -13,6 +13,7 @@ import {
 } from "../src/agent.js";
 import { RUNS_PATH, type SessionRecord } from "../src/config.js";
 import { buildRunDebugBundle } from "../src/debug.js";
+import { composerPlaceholder } from "../src/interactive.js";
 import { RemoteRequestError } from "../src/remote.js";
 import { writeTrackedRuns } from "../src/runs.js";
 
@@ -37,6 +38,23 @@ test("unauthenticated local run request bypasses remote planning", async () => {
   await runAgentTurn("show active runs", null, emit);
   assert.equal(messages[0]?.content, "Running list_tracked_runs");
   assert.equal(messages.at(-1)?.role, "assistant");
+});
+
+test("signed-out remote dataset request explains auth recovery and preserves intent", async () => {
+  const { messages, emit } = collect();
+  await runAgentTurn("Show my remote datasets.", null, emit);
+
+  assert.equal(messages.length, 1);
+  const final = messages[0]?.content ?? "";
+  assert.match(final, /Sign in to view your remote datasets\./);
+  assert.match(final, /run `\/login` in this chat or `research login` in another terminal/i);
+  assert.match(final, /After you sign in, ask me again and I’ll pick up: "Show my remote datasets\."/);
+  assert.doesNotMatch(final, /session\.json|token|working|Checking remote datasets|Found \d+ remote datasets/i);
+});
+
+test("signed-out composer placeholder is contextual", () => {
+  assert.equal(composerPlaceholder(null), "Ask about datasets, runs, or sign-in");
+  assert.equal(composerPlaceholder(session), "Ask about datasets, runs, or artifacts");
 });
 
 test("product orientation presents command center identities without tools", async () => {
