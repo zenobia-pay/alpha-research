@@ -230,6 +230,9 @@ const AGENT_INSTRUCTIONS = [
   "For local file import how-to questions without an exact path, ask for the absolute path and a one-line description before listing or importing datasets.",
   "For vague research prompts such as housing-market risk or what makes tweets viral, propose a scoped plan and ask for confirmation before starting a remote run.",
   "When recommending a dataset, anchor the answer to actual datasets found in RESEARCH before suggesting external sources.",
+  "For dataset-choice questions such as which dataset should I use, call list_remote_datasets with the user's topic, show a ranked shortlist of 2-3 real datasets when available, and say explicitly why the top choice beat the alternatives.",
+  "For dataset-choice answers, separate recommendation state from future build work. Use concise sections in this order: Recommendation ready or Need clarifications to finalize, Best existing dataset, Why it wins, What's missing, Questions needed.",
+  "If an existing dataset is a usable base but still needs extension, say that explicitly as best current match. Do not lead with a source-acquisition plan before the user answers the remaining clarifying questions.",
   "When resolving an ambiguous dataset name, state which dataset you selected and why.",
   "For field-definition questions, answer the concept question before proposing any work.",
   "For field-definition questions, include a compact schema-evidence line and clearly distinguish stored fields from derived metrics.",
@@ -553,6 +556,67 @@ function datasetReuseScore(requestedText: string, dataset: RemoteDatasetSummary)
   const overlap = candidate.filter((token) => requested.has(token));
   const readinessBonus = dataset.status?.toLowerCase() === "ready" ? 1 : 0;
   return overlap.length + readinessBonus;
+}
+
+function topicRecommendationTokens(value: string) {
+  const synonyms = new Map<string, string>([
+    ["home", "housing"],
+    ["homes", "housing"],
+    ["rent", "rental"],
+    ["rents", "rental"],
+    ["renters", "rental"],
+    ["affordable", "affordability"],
+    ["prices", "price"],
+    ["counties", "county"],
+  ]);
+  return [...new Set(value.toLowerCase().split(/[^a-z0-9]+/u)
+    .map((token) => synonyms.get(token) ?? token)
+    .filter((token) => token.length >= 3 && !/^\d+$/u.test(token)))];
+}
+
+function recommendationMatchScore(topic: string, dataset: RemoteDatasetSummary) {
+  const requested = new Set(topicRecommendationTokens(topic));
+  if (requested.size === 0) return 0;
+  const candidate = topicRecommendationTokens([dataset.id, dataset.name].join(" "));
+  const overlap = candidate.filter((token) => requested.has(token));
+  const readyBonus = ["ready", "deployed"].includes((dataset.status ?? dataset.deploymentStatus ?? "").toLowerCase()) ? 2 : 0;
+  return overlap.length * 3 + readyBonus;
+}
+
+function recommendationReason(topic: string, dataset: RemoteDatasetSummary) {
+  const requested = new Set(topicRecommendationTokens(topic));
+  const candidate = topicRecommendationTokens([dataset.id, dataset.name].join(" "));
+  const overlap = candidate.filter((token) => requested.has(token));
+  if (overlap.length > 0) {
+    return `name overlap: ${overlap.slice(0, 3).join(", ")}`;
+  }
+  if (["ready", "deployed"].includes((dataset.status ?? dataset.deploymentStatus ?? "").toLowerCase())) {
+    return "ready existing environment";
+  }
+  return "available but weak topical signal";
+}
+
+function rankDatasetsForRecommendation(topic: string, datasets: RemoteDatasetSummary[], limit = 3) {
+  return datasets
+    .map((dataset) => ({
+      dataset,
+      score: recommendationMatchScore(topic, dataset),
+      reason: recommendationReason(topic, dataset),
+    }))
+    .sort((left, right) =>
+      right.score - left.score
+      || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? ""))
+      || left.dataset.id.localeCompare(right.dataset.id))
+    .slice(0, Math.max(1, limit));
+}
+
+function formatDatasetShortlist(topic: string, datasets: RemoteDatasetSummary[], limit = 3) {
+  const ranked = rankDatasetsForRecommendation(topic, datasets, limit);
+  if (ranked.length === 0) return null;
+  return ranked.map(({ dataset, score, reason }, index) => {
+    const status = dataset.status ?? dataset.deploymentStatus ?? "unknown";
+    return `${index + 1}. ${dataset.id} (${status}, score ${score}) - ${reason}`;
+  }).join("\n");
 }
 
 function selectReusableEnvironmentDatasetId(
@@ -2349,16 +2413,31 @@ export function createToolRegistry(): ToolDefinition[] {
       inputSchema: {
         type: "object",
         additionalProperties: false,
-        properties: {},
+        properties: {
+          topic: { type: "string" },
+          limit: { type: "integer" },
+        },
       },
-      async execute(context) {
+      async execute(context, input) {
         const client = createRemoteClient(context);
         const datasets = await client.listDatasets();
+        const topic = typeof input.topic === "string" ? input.topic.trim() : "";
+        const limit = typeof input.limit === "number" ? input.limit : 3;
+        const shortlist = topic ? formatDatasetShortlist(topic, datasets.datasets, limit) : null;
         return {
           summary: datasets.datasets.length > 0
-            ? `Found ${datasets.datasets.length} remote dataset${datasets.datasets.length === 1 ? "" : "s"}; checking for a reusable match.`
-            : "No remote datasets found; a new build will be needed if the plan proceeds.",
-          data: datasets,
+            ? [
+                `Found ${datasets.datasets.length} remote dataset${datasets.datasets.length === 1 ? "" : "s"}.`,
+                shortlist ? `Top matches for "${topic}":\n${shortlist}` : null,
+              ].filter(Boolean).join("\n")
+            : "No remote datasets found.",
+          data: topic
+            ? {
+                ...datasets,
+                recommendationTopic: topic,
+                shortlist: rankDatasetsForRecommendation(topic, datasets.datasets, limit),
+              }
+            : datasets,
         };
       },
     },

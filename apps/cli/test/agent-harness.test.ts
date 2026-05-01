@@ -366,6 +366,70 @@ test("remote planning emits immediate progress before waiting on backend respons
   assert.match(messages.at(-1)?.content ?? "", /Use dataset `econ`\./);
 });
 
+test("dataset recommendation inventory includes ranked shortlist for the topic", async () => {
+  const { messages, emit } = collect();
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "dataset-shortlist-session",
+          payload: {
+            id: "dataset-shortlist-final",
+            output_text: "Recommendation ready",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Recommendation ready" }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "dataset-shortlist-session",
+        payload: {
+          id: "dataset-shortlist-plan",
+          output: [{
+            type: "function_call",
+            call_id: "call-datasets",
+            name: "list_remote_datasets",
+            arguments: JSON.stringify({
+              topic: "housing affordability county-month affordability metrics",
+              limit: 3,
+            }),
+          }],
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-1" };
+    },
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "econ-housing", name: "Housing Economics", status: "ready", createdAt: "2026-04-22T00:00:00.000Z" },
+          { id: "econ", name: "Macro Economics", status: "ready", createdAt: "2026-04-21T00:00:00.000Z" },
+          { id: "tweets", name: "Tweets", status: "ready", createdAt: "2026-04-20T00:00:00.000Z" },
+        ],
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+
+  await runAgentTurn(
+    "I want to research housing affordability. Which dataset should I use, or do I need to build a new one?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Found 3 remote datasets\./);
+  assert.match(joined, /Top matches for "housing affordability county-month affordability metrics":/);
+  assert.match(joined, /1\. econ-housing \(ready, score \d+\) - name overlap: housing/);
+  assert.match(joined, /2\. econ \(ready, score \d+\) - ready existing environment/);
+});
+
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {
   const calls: string[] = [];
   let startedPrompt = "";
