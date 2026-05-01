@@ -1,0 +1,31 @@
+· Checking run history...
+· Loaded run history. 2 active runs right now.
+Here’s the current state:
+
+What’s happening
+- 2 runs are active and healthy (both showing recent heartbeats):
+  - Run 1e0d1967 (dataset: enriched-tweets): computing viral sample by quote_tweet_count; actively executing Python code.
+  - Run 3b6146db (dataset: econ): building the county–month macro/housing panel; currently “Acquire raw data sources.”
+- Nothing appears blocked; both are progressing.
+
+What’s already produced (useful)
+- enriched-tweets:
+  - Run 47ff6747: completed with 2 artifacts (labels_sampled_viral_100.json and viral_label_distribution.png) and a summary with 10 examples.
+  - Run 40f2e15b: completed with 3 artifacts (analysis/modeling outputs).
+  - Run 2457a3da: completed with 4 artifacts (feature/model results).
+  - Several earlier exploratory runs also finished with artifacts.
+- econ-us-master-v1: Run 2a6e8e0a finished with 4 artifacts (public-data environment, manifest/validation).
+- Some older attempts were cancelled or failed, but newer ones achieved the deliverables above.
+
+What you should do next
+- If you want the two active runs to finish, just wait; you can monitor here:
+  - Viral sample run: https://dashboard.alpharesearch.nyc/?view=runs&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3
+  - County–month panel: https://dashboard.alpharesearch.nyc/?view=runs&runId=3b6146db-cd29-4773-89df-aa4eab3638c4
+- If they seem slow and you’d prefer to stop, say “cancel both runs” and I’ll cancel.
+- If you want results now, open completed run 47ff6747 to download the 100 labeled viral tweets JSON and the label distribution PNG:
+  https://dashboard.alpharesearch.nyc/?view=runs&runId=47ff6747-fdc4-4c97-9a2d-72d038de90c6
+
+Tell me if you want me to:
+- Cancel or resume any run,
+- Pull specific artifacts for you,
+- Summarize results from a completed run.

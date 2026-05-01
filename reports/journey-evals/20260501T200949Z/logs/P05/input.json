@@ -1,0 +1,12 @@
+{
+  "journeyId": "P05",
+  "prompt": "Before I use the econ dataset, help me understand what's inside it, where it came from, and whether I can trust it.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Before I use the econ dataset, help me understand what's inside it, where it came from, and whether I can trust it."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

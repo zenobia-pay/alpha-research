@@ -1,0 +1,562 @@
+Reading additional input from stdin...
+2026-05-01T20:02:27.588057Z ERROR codex_core::session: failed to load skill /Users/ryanprendergast/.codex/skills/gstack/SKILL.md: invalid description: exceeds maximum length of 1024 characters
+OpenAI Codex v0.128.0-alpha.1 (research preview)
+--------
+workdir: /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+model: gpt-5.4-mini
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: none
+reasoning summaries: none
+session id: 019de522-aa84-7ba0-9fcc-eb8112a274e3
+--------
+user
+You are judging the UX of the `research` Ink CLI for one canonical user journey.
+
+Workspace: /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+Run directory: /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z
+
+Read:
+- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/journey.md
+- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/terminal.log
+- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/events.jsonl
+- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/metadata.json
+- text snapshots under /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots
+- screenshot files under /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots
+
+Your job:
+1. Reconstruct what the user experienced from the screenshots/snapshots first, then use logs to verify exact text.
+2. Decide whether `research` chose the right behavior: clarify, plan, start work, retrieve, wait, report block, or debug.
+3. Identify every confusing moment visible to a normal user. Be concrete and reference snapshot filenames or log evidence.
+4. Separate product confusion from dataset confusion, auth confusion, run lifecycle confusion, and terminal/UI readability problems.
+5. Judge whether the displayed information was too sparse, right-sized, or too dense for this journey.
+6. Return a Markdown briefing with:
+   - Verdict: Pass, Partial, or Fail.
+   - User input burden.
+   - Correct behavior assessment.
+   - Confusing moments ordered by severity.
+   - Missing information that would have helped.
+   - Information that should be removed or de-emphasized.
+   - Suggested UI/output changes.
+   - Evidence references to screenshots/snapshots/log timestamps.
+
+Do not modify files. Return only the Markdown briefing. Focus on what a user would understand from the CLI.
+2026-05-01T20:02:27.732205Z  WARN codex_analytics::client: events failed with status 403 Forbidden: <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style global>body{font-family:Arial,Helvetica,sans-serif}.container{align-items:center;display:flex;flex-direction:column;gap:2rem;height:100%;justify-content:center;width:100%}@keyframes enlarge-appear{0%{opacity:0;transform:scale(75%) rotate(-90deg)}to{opacity:1;transform:scale(100%) rotate(0deg)}}.logo{color:#8e8ea0}.scale-appear{animation:enlarge-appear .4s ease-out}@media (min-width:768px){.scale-appear{height:48px;width:48px}}.data:empty{display:none}.data{border-radius:5px;color:#8e8ea0;text-align:center}@media (prefers-color-scheme:dark){body{background-color:#343541}.logo{color:#acacbe}}</style>
+  <meta http-equiv="refresh" content="360"></head>
+  <body>
+    <div class="container">
+      <div class="logo">
+        <svg
+          width="41"
+          height="41"
+          viewBox="0 0 41 41"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          strokeWidth="2"
+          class="scale-appear"
+        >
+          <path
+            d="M37.5324 16.8707C37.9808 15.5241 38.1363 14.0974 37.9886 12.6859C37.8409 11.2744 37.3934 9.91076 36.676 8.68622C35.6126 6.83404 33.9882 5.3676 32.0373 4.4985C30.0864 3.62941 27.9098 3.40259 25.8215 3.85078C24.8796 2.7893 23.7219 1.94125 22.4257 1.36341C21.1295 0.785575 19.7249 0.491269 18.3058 0.500197C16.1708 0.495044 14.0893 1.16803 12.3614 2.42214C10.6335 3.67624 9.34853 5.44666 8.6917 7.47815C7.30085 7.76286 5.98686 8.3414 4.8377 9.17505C3.68854 10.0087 2.73073 11.0782 2.02839 12.312C0.956464 14.1591 0.498905 16.2988 0.721698 18.4228C0.944492 20.5467 1.83612 22.5449 3.268 24.1293C2.81966 25.4759 2.66413 26.9026 2.81182 28.3141C2.95951 29.7256 3.40701 31.0892 4.12437 32.3138C5.18791 34.1659 6.8123 35.6322 8.76321 36.5013C10.7141 37.3704 12.8907 37.5973 14.9789 37.1492C15.9208 38.2107 17.0786 39.0587 18.3747 39.6366C19.6709 40.2144 21.0755 40.5087 22.4946 40.4998C24.6307 40.5054 26.7133 39.8321 28.4418 38.5772C30.1704 37.3223 31.4556 35.5506 32.1119 33.5179C33.5027 33.2332 34.8167 32.6547 35.9659 31.821C37.115 30.9874 38.0728 29.9178 38.7752 28.684C39.8458 26.8371 40.3023 24.6979 40.0789 22.5748C39.8556 20.4517 38.9639 18.4544 37.5324 16.8707ZM22.4978 37.8849C20.7443 37.8874 19.0459 37.2733 17.6994 36.1501C17.7601 36.117 17.8666 36.0586 17.936 36.0161L25.9004 31.4156C26.1003 31.3019 26.2663 31.137 26.3813 30.9378C26.4964 30.7386 26.5563 30.5124 26.5549 30.2825V19.0542L29.9213 20.998C29.9389 21.0068 29.9541 21.0198 29.9656 21.0359C29.977 21.052 29.9842 21.0707 29.9867 21.0902V30.3889C29.9842 32.375 29.1946 34.2791 27.7909 35.6841C26.3872 37.0892 24.4838 37.8806 22.4978 37.8849ZM6.39227 31.0064C5.51397 29.4888 5.19742 27.7107 5.49804 25.9832C5.55718 26.0187 5.66048 26.0818 5.73461 26.1244L13.699 30.7248C13.8975 30.8408 14.1233 30.902 14.3532 30.902C14.583 30.902 14.8088 30.8408 15.0073 30.7248L24.731 25.1103V28.9979C24.7321 29.0177 24.7283 29.0376 24.7199 29.0556C24.7115 29.0736 24.6988 29.0893 24.6829 29.1012L16.6317 33.7497C14.9096 34.7416 12.8643 35.0097 10.9447 34.4954C9.02506 33.9811 7.38785 32.7263 6.39227 31.0064ZM4.29707 13.6194C5.17156 12.0998 6.55279 10.9364 8.19885 10.3327C8.19885 10.4013 8.19491 10.5228 8.19491 10.6071V19.808C8.19351 20.0378 8.25334 20.2638 8.36823 20.4629C8.48312 20.6619 8.64893 20.8267 8.84863 20.9404L18.5723 26.5542L15.206 28.4979C15.1894 28.5089 15.1703 28.5155 15.1505 28.5173C15.1307 28.5191 15.1107 28.516 15.0924 28.5082L7.04046 23.8557C5.32135 22.8601 4.06716 21.2235 3.55289 19.3046C3.03862 17.3858 3.30624 15.3413 4.29707 13.6194ZM31.955 20.0556L22.2312 14.4411L25.5976 12.4981C25.6142 12.4872 25.6333 12.4805 25.6531 12.4787C25.6729 12.4769 25.6928 12.4801 25.7111 12.4879L33.7631 17.1364C34.9967 17.849 36.0017 18.8982 36.6606 20.1613C37.3194 21.4244 37.6047 22.849 37.4832 24.2684C37.3617 25.6878 36.8382 27.0432 35.9743 28.1759C35.1103 29.3086 33.9415 30.1717 32.6047 30.6641C32.6047 30.5947 32.6047 30.4733 32.6047 30.3889V21.188C32.6066 20.9586 32.5474 20.7328 32.4332 20.5338C32.319 20.3348 32.154 20.1698 31.955 20.0556ZM35.3055 15.0128C35.2464 14.9765 35.1431 14.9142 35.069 14.8717L27.1045 10.2712C26.906 10.1554 26.6803 10.0943 26.4504 10.0943C26.2206 10.0943 25.9948 10.1554 25.7963 10.2712L16.0726 15.8858V11.9982C16.0715 11.9783 16.0753 11.9585 16.0837 11.9405C16.0921 11.9225 16.1048 11.9068 16.1207 11.8949L24.1719 7.25025C25.4053 6.53903 26.8158 6.19376 28.2383 6.25482C29.6608 6.31589 31.0364 6.78077 32.2044 7.59508C33.3723 8.40939 34.2842 9.53945 34.8334 10.8531C35.3826 12.1667 35.5464 13.6095 35.3055 15.0128ZM14.2424 21.9419L10.8752 19.9981C10.8576 19.9893 10.8423 19.9763 10.8309 19.9602C10.8195 19.9441 10.8122 19.9254 10.8098 19.9058V10.6071C10.8107 9.18295 11.2173 7.78848 11.9819 6.58696C12.7466 5.38544 13.8377 4.42659 15.1275 3.82264C16.4173 3.21869 17.8524 2.99464 19.2649 3.1767C20.6775 3.35876 22.0089 3.93941 23.1034 4.85067C23.0427 4.88379 22.937 4.94215 22.8668 4.98473L14.9024 9.58517C14.7025 9.69878 14.5366 9.86356 14.4215 10.0626C14.3065 10.2616 14.2466 10.4877 14.2479 10.7175L14.2424 21.9419ZM16.071 17.9991L20.4018 15.4978L24.7325 17.9975V22.9985L20.4018 25.4983L16.071 22.9985V17.9991Z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+      <div class="data"><div class="main-wrapper" role="main"><div class="main-content"><noscript><div class="h2"><span id="challenge-error-text">Enable JavaScript and cookies to continue</span></div></noscript></div></div><script>(function(){window._cf_chl_opt = {cFPWv: 'g',cH: '2skUPWjsmX.EhObKzQjEQWjgw1rgr235RVYRC12gARw-1777665748-1.2.1.1-9zXPCTf7RBrFAh.71HUV5Xtd45SEb2zCsggGd4jm5h2pIIUSmsX0DNfK3l6V2H1Q',cITimeS: '1777665748',cRay: '9f51624cffc21bcd',cTplB: '0',cTplC:1,cTplO:0,cTplV:5,cType: 'managed',cUPMDTk:"/backend-api/codex/analytics-events/events?__cf_chl_tk=wwZIR3iS6V2PxPrH7bA8CZ6TvJevs4udzleEQ63Vd7E-1777665748-1.0.1.1-DvK17PD3KtO.ZddaLNanojr6iqFRad28LgumIH5Xa9U",cvId: '3',cZone: 'chatgpt.com',fa:"/backend-api/codex/analytics-events/events?__cf_chl_f_tk=wwZIR3iS6V2PxPrH7bA8CZ6TvJevs4udzleEQ63Vd7E-1777665748-1.0.1.1-DvK17PD3KtO.ZddaLNanojr6iqFRad28LgumIH5Xa9U",md: 'R2k_jNvym_SyzrT5ppGEirY0bN94UBp9rUEVah985rg-1777665748-1.2.1.1-1jAXmFTlO.gk8wLkdB4WTT8binC_YXVzLO73jt_M0CJdhbtGswLMOPBpbqAl4pbUnZK0847dJ_7yvAPQeCNQoNJg.TvREsYAxVSBro7G9879m63Q.v4UK15JY9ka_Y6NpcXtoTyU2k5zxQrhqMP137FADYw2.8yr491_Qe3E6QZblfYhTHa0JxdbhHJnvL.yZ7smzHH.MXPgdWmenCf_G.qCaqK.2mAdtasq0BcoZ9ZXwx_DscNZBsAROoLZaBIkZwyOg0iGBx1.vUbvR3s1l_kaceAT6gD5MmSY66a0gVG5W7wovc.P_Jlm2vln8Oo6vEQHfMd8UW4aK2d_PLdPYaUp33WqN9VcbE5y8xEUfAvw6Cb9J4ALft7s2i60wJh5_MNuDkrYX3gzuSVWy5tN9hK.LekmgtZ6mpuP_6BxQJ92Qv4ma0vR0Y.e_ZrPvqr7KfGMmpxBKppQI9nn_W9Br3ysyYywNKfpocrsjNvfK3AUsuYwwgsZk_y6dWv6dQmh0uhZkkW8hjfLhRiI0IO4cCTMwGCYCIdO.a9aRgsmzrTMUQ0sG30oTeeqPikqeUVEZYQNO44AZFgIK8WGHi3rmqTIWICVGz3a6tGDiw_XTrhe.JjvANZM.bq9s1Vg_yVony4t2h9kokaz9rdDezZGCGeQ7gZ3PjB7k1U5lmlJ3xbLR55C4f7BTFPJ3xea8Z_kL1S1LMCMK8jIQgHR3tdEmYRdsaifddfxrTOsqG9aYlmMBHa2R59nUr1.vBsTHLmu42qULK26aR6WIbFQ1t2lAKuJ4b4FLDHQgTW7pb4qCvtqqcLbR8NLhyTYj_JzCL9xWxxZZeKUJnvFRQDEVNdTJqVw1Hr.ot1btKABcyM4MPplirIxqDJjyPS61mMKlGaJwmUla0Zp0pesaFX6sV7duqHTANjWZwvoUxjAI3yHceV1.C5wlQZu7WyqMTqhMnqLEQF0Pu8.2pt92XG6Hai7yNAsym7ozfrZeWKRumz57hlAdAhfQNI9mBX8XB03zM14fhRNr2AAfVH44vy_i1WH7hhoz1nhfZcf0N5fwvt6mM.n8jM568BK..hpUthN97F1diMNWdeOl0Ics68Gp8EGfQ',mdrd: 'ozVzVQCvDmsI8VJXIeJH2MkC9y2Q1LMCJ9Y2QQNNbP8-1777665748-1.2.1.1-Am2QAfxzeMyVVDJJJOxG5frKhnuiIIW9FwezNdaAWF90SkDv27Xbrn5AihnCR8P6JIfWO51OSxtG.uwLITVlKwOtPmGk6D.yDPfYfCX5b066MEKZTCgCKxoeMKWA4wwgDOnSW0WaLUmWqHi8jBfq8GXtVbVZgNtoo1M9.hgp_nhiy_OixqeKtv31iAxDUfRBQfRDy6F8Pqgc2ZbzsTqQ5idHFlcUR16WOdilOwi7H6v5Aek034d7xZDBP56HPJgx73i_ZOIJFMY6yPCAuM8AMgVhQM.1iOL08RPX0o.el8WWa3noPd495y_HB5lRFMTfcXA5kIfx5S73aEelnFO36GvzesoCPdUo9kbSn_5AMu0.2uk_pIUgib_Ko_FDfqocze8TGdNJZpS8lRIgs9qyku.UNBCSJodN_RrDpr_eLmj6aWC1LGRkwWMSjIphsLyDHwtsmYOG7_KeHWWwvBnY.7zmFSaRBZOVrgpsJ5Z.JY83pjjcK5tHvuBHthxGJzTw0jEq5XMD.tTZqGcw09ZWZDJ6HZEIIJrmllc1HseNUC5oLo8kP2a11w2sWlqjmmSjcH.8.1ZlxtTeBaLQc87kTwSz9fV5Xk2HZN1PH7LIxeL.xZDN4FPtL46eIrS1JtOPhVbPJPoWB2K_yaTL5fwoIcoxDT5dliabMWw5mtpq1ah8jcOqf93Alt0uuGIltHWjqdxspvoqPWpQDWgmIx0i.6iobAs_Yu72KT4uCJhKuLhmXONN7pG_fdNCrVefgWODys8QMiZ7vCavmiZdlrUzJ5l1LEzbYvfeT2cucEEd754v6ViKvulFKZ5L.kOll8rBZwjkXS1H9Ry3YXjt3ZrSprjE9MrtkaSJGIjPWOS2dGOwuCWgmT6cKv8Qx6lLPiFaSL37TNHE.RPI18FKfN2RDwSCp1VBN_FX4BkGR8kTAj_YZ6UNfjAXpsC.hd5kTk4CLpblJdLQWS4l3wpmXrYgkiUobX0KKxI.VZJK6x4MREZtJ7tPW2nYfbaDRFtzdYUE9K5au9jghbGoqwMXU7A4FNFU6W0O7DAwZe4z1VMfa_rSiHX3eBCawqrgqHMQ5m0ql.8UIJSYsn60ED6HacDZg15LhQF2yn2TxcWWRG8T_qwpr9SFXQ7tsxSYmycVwgejJByJoIiV13jvWOZxBVVPgLn_is.vLG5dU3L.U3EZC4Qj8MR7Mr27q9VokqAKa1METfVUxout2w43ybwOYvQJuXRlCXobKPeRKouTakbmJrMRtOfMMvlaNhwdNKrCjyrWv692zFFuEBDQMCbg.ztmu4Sp76kNCW3sJkeiZeuBre2o_zTvpdAjEnMqC8Lz2u1T_TRWJmRow7P_g_gOIESw1uoc1.UhTimUhEEkDxw0JO5n31E91zx4Xd2YYlzEH4nzG2i6zaQYT4cx5kqFy664CSJJhZ4dJjyMzanwiE6RZtdpd6uvICmZ09We5CEXUDRhamMsZ7pOE1lTlGxLZibM.zSmitRqiaWDxtF.2pkEVFYH9qhfdJ5qGbOh3LSUOCKg3HJ3RRjRVM9Vv4Q2Ec9suOrs7VOgxk_lP1TPOAdpk7NFKPFSQD9xsPXLx.xqK6xLF7v0KVQ2GR8fW7vzZVygoz.j73ZFa9Ur8_2iPrWIv7pWaBgYdteVaMtjWbiUs.gF6q7msSsB_iJwMGKMUBt8Djl_KvY2HpnqN70dhUCun7eSMzAaPgsAEwvELqcxX.zEOR4KqbFDMdDTddxdIwg09h5yGEl20tHnTH..TJ4b7YwKeg33b8b6ZE4Ho6QjvVr8T_p50f8XWIPq2Was4F0XqODX340K67ukHUHgKlzlgBiC5z3KPjr9_LSJ1MmOIEbtBIKcJef0Ee84U_JBgRSM1guRXG57BNMb1b1W87r.Rkj5mrBvUnPZMumUqfV.F1zA0yI7UYlSpTgVlPdBaHmza.nJ3QZ9fDanZhVByGAX75n364kFY64TjzLdW71n8WQwjNgVQ9.FQfUHqANvYL2zxchNKX6oiijqE3YzcdBMH1GHZ6XfbMWV423sX619RDDZXEE2sibkkdtPADb9zWRsZHUHBH6KnvbRXigZ0s7OcLQkjTm505tUDrNro5nhlYsuca56RyCX0wJIpeQsf1kx9U59t6mgXYhCuQzx93cSMmE5cd.bki2dMNLRJ4nVbfRgd.i2OZHxSvwp0pQQtw3cd3QJudHx8mzcQYPkk6ATnh6isrmXZveBKDnJ1ZhOR7xLWvI0DgY7QY4nWWR_U39ECkxGAM9WNlD.fhefLib_JdWDr0QttR2tjgRbo7RoF194XRKdHdBzHcbA1hPV.QftLJhmTLOFfv8djHjtnmnZ1UaGgVhJNkTCL24ZO.7Ye9SYLsaVdY3ffv3FmWZuFK0IHj421.lIiUerGUxUiHs_9lU489eWbIYe3kcK5uPqG5bCInbzdVZ4AgI2kBnEvB9WjDXAxN7TT5OLb8pTJy5vHhdg_777Zj3UTIXXbr8Q.1Rh0cQr2h2Gv.jbhAj0DGkUF2Vo3PpbSQqPvUaQrKhWRWLEc1Oq2yPUm5KfGrSQKS0Rr3g8aGTvsuTJvnhBoA49PdGVjSjr1u3_yaSeZxEl0hST30diWfYEid2Yo3kiIO8VDHChIDV7NoPS8E34.eGKTdvUtSHy5UH61JrxjU0o1hzfF.MUqxrej432kS0F_OnE84qQsnFkHg7jqVinAMwgdfvbi8HKkGE3LfySTaanI2bklILu_kFpHskIDXt0DqQmcItlF6sgugxC7LQ1t6z6QoY.cWhAWAS3dKkSe2NXp3._MDHqvSn2V7A07f6V2ptcVdAKlGOoqyerQt6xFB92yA',};var a = document.createElement('script');a.src = '/cdn-cgi/challenge-platform/h/g/orchestrate/chl_page/v1?ray=9f51624cffc21bcd';window._cf_chl_opt.cOgUHash = location.hash === '' && location.href.indexOf('#') !== -1 ? '#' : location.hash;window._cf_chl_opt.cOgUQuery = location.search === '' && location.href.slice(0, location.href.length - window._cf_chl_opt.cOgUHash.length).indexOf('?') !== -1 ? '?' : location.search;if (window.history && window.history.replaceState) {var ogU = location.pathname + window._cf_chl_opt.cOgUQuery + window._cf_chl_opt.cOgUHash;history.replaceState(null, null,"/backend-api/codex/analytics-events/events?__cf_chl_rt_tk=wwZIR3iS6V2PxPrH7bA8CZ6TvJevs4udzleEQ63Vd7E-1777665748-1.0.1.1-DvK17PD3KtO.ZddaLNanojr6iqFRad28LgumIH5Xa9U"+ window._cf_chl_opt.cOgUHash);a.onload = function() {history.replaceState(null, null, ogU);}}document.getElementsByTagName('head')[0].appendChild(a);}());</script></div>
+    </div>
+  </body>
+</html>
+
+2026-05-01T20:02:28.109125Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T20:02:28.110252Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T20:02:28.628496Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T20:02:28.628875Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T20:02:28.654376Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:28.654386Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:28.655005Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:28.655010Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:28.655616Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:28.655619Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:28.656193Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:28.656197Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:28.656882Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:28.656885Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:28.658321Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:28.658324Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:29.414335Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T20:02:29.414508Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T20:02:29.424380Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:29.424387Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:29.424797Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:29.424802Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:29.425077Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:29.425080Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:29.425360Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:29.425364Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:29.425627Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:29.425629Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:29.426223Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:29.426227Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+I’m reconstructing the journey from the visual artifacts first, then I’ll verify the exact terminal and event text so the UX judgment is grounded in what a normal user saw.
+exec
+/bin/zsh -lc "sed -n '1,220p' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/journey.md'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+exec
+/bin/zsh -lc "sed -n '1,260p' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/metadata.json'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+# P03: Choose From Existing Data
+
+## Prompt
+
+```text
+What data do I already have that is ready to use?
+```
+
+## Intention
+
+The user wants to choose a starting dataset from the inventory.
+
+## Correct Outcome
+
+`research` lists available datasets with human names, readiness, local/remote distinction, descriptions or inferred purpose, and a recommended next action. Draft/test/noisy datasets should be de-emphasized or clearly labeled.
+
+## Judge For
+
+Could a normal user choose a dataset from the output, were readiness labels plain, were ids secondary, and was the next step obvious?
+
+ succeeded in 0ms:
+{
+  "journeyId": "P03",
+  "title": "Choose From Existing Data",
+  "startedAt": "2026-05-01T19:45:26.780Z",
+  "elapsedMs": 12223,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}
+exec
+/bin/zsh -lc "pwd && rg --files '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z' | sed 's#"'^#/##'"' | head -n 200" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+sed: 1: "s#^#/##
+": bad flag in substitute command: '#'
+
+2026-05-01T20:02:33.124995Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T20:02:33.125232Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T20:02:33.137069Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:33.137074Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:33.137373Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:33.137377Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:33.137706Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:33.137709Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:33.138019Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:33.138021Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:33.138331Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:33.138334Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:33.138989Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:33.138992Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+I have the task framing now. Next I’m pulling the artifact inventory and the first-pass visual snapshots so I can infer the actual UX before reading the full terminal transcript.
+exec
+/bin/zsh -lc "find '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z' -maxdepth 2 -type f | sort" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/events.jsonl
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/input.json
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/journey.md
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/metadata.json
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0000-start.svg
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0001-5s.svg
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0002-10s.svg
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0003-final.svg
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0000-start.txt
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0001-5s.txt
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0002-10s.txt
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/terminal.log
+
+exec
+/bin/zsh -lc "sed -n '1,260p' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/terminal.log'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+· Checking local datasets...
+· Found 2 local datasets.
+· Checking remote datasets...
+· Found 7 remote datasets.
+Here’s what’s ready right now:
+
+Local (immediately usable in your workspace)
+- county-economics — County Economics (4 rows)
+- tweets — Tweet Archive (3 rows)
+
+Remote (deployed and queryable)
+- enriched-tweets — Enriched Tweets (tabular, deployed)
+- mixed-smoke-1776979192 — Mixed Smoke Test (tabular, deployed)
+
+In progress/not yet ready
+- econ — Unemployment vs Home Values 2019–2024 (provisioning)
+- mixed-smoke-1776989749 — Mixed Smoke Test 3 (provisioning)
+- mixed-smoke-1776989612 — Mixed Smoke Test 2 (provisioning)
+- upload-test-93961 — Upload Test (uploaded; not deployed)
+- dataset — enriched_tweets_parquet_dataset (draft)
+
+exec
+/bin/zsh -lc "sed -n '1,260p' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/events.jsonl'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+{"atMs":0,"type":"snapshot","label":"start","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0000-start.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0000-start.svg"}
+{"atMs":2974,"type":"stdout","bytes":30}
+{"atMs":3291,"type":"stdout","bytes":27}
+{"atMs":5004,"type":"snapshot","label":"5s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0001-5s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0001-5s.svg"}
+{"atMs":6283,"type":"stdout","bytes":31}
+{"atMs":6611,"type":"stdout","bytes":28}
+{"atMs":10006,"type":"snapshot","label":"10s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0002-10s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0002-10s.svg"}
+{"atMs":12053,"type":"stdout","bytes":35}
+{"atMs":12053,"type":"stdout","bytes":95}
+{"atMs":12053,"type":"stdout","bytes":36}
+{"atMs":12053,"type":"stdout","bytes":33}
+{"atMs":12053,"type":"stdout","bytes":58}
+{"atMs":12054,"type":"stdout","bytes":66}
+{"atMs":12054,"type":"stdout","bytes":27}
+{"atMs":12054,"type":"stdout","bytes":66}
+{"atMs":12054,"type":"stdout","bytes":126}
+{"atMs":12054,"type":"stdout","bytes":115}
+{"atMs":12222,"type":"snapshot","label":"final","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0003-final.svg"}
+
+2026-05-01T20:02:35.995179Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T20:02:35.995410Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T20:02:36.007354Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:36.007365Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:36.007819Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:36.007836Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:36.008180Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:36.008187Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:36.008488Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:36.008492Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:36.008800Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:36.008804Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:36.009878Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:36.009888Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+I’ve got the high-level output. Now I’m checking the time-sequenced snapshots to see how the interface evolved and whether the user had to decode anything that should have been explicit.
+exec
+/bin/zsh -lc "sed -n '1,220p' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0000-start.txt'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+exec
+/bin/zsh -lc "sed -n '1,220p' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0001-5s.txt'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+· Checking local datasets...                                                                                            
+· Found 2 local datasets.                                                                                               
+                                                                                                                        
+exec
+/bin/zsh -lc "sed -n '1,260p' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0002-10s.txt'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+· Checking local datasets...                                                                                            
+· Found 2 local datasets.                                                                                               
+· Checking remote datasets...                                                                                           
+· Found 7 remote datasets.                                                                                              
+                                                                                                                        
+exec
+/bin/zsh -lc "sed -n '1,260p' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+· Checking local datasets...                                                                                            
+· Found 2 local datasets.                                                                                               
+· Checking remote datasets...                                                                                           
+· Found 7 remote datasets.                                                                                              
+Here’s what’s ready right now:                                                                                          
+                                                                                                                        
+Local (immediately usable in your workspace)                                                                            
+- county-economics — County Economics (4 rows)                                                                          
+- tweets — Tweet Archive (3 rows)                                                                                       
+                                                                                                                        
+Remote (deployed and queryable)                                                                                         
+- enriched-tweets — Enriched Tweets (tabular, deployed)                                                                 
+- mixed-smoke-1776979192 — Mixed Smoke Test (tabular, deployed)                                                         
+                                                                                                                        
+In progress/not yet ready                                                                                               
+- econ — Unemployment vs Home Values 2019–2024 (provisioning)                                                           
+- mixed-smoke-1776989749 — Mixed Smoke Test 3 (provisioning)                                                            
+- mixed-smoke-1776989612 — Mixed Smoke Test 2 (provisioning)                                                            
+- upload-test-93961 — Upload Test (uploaded; not deployed)                                                              
+- dataset — enriched_tweets_parquet_dataset (draft)                                                                     
+                                                                                                                        
+2026-05-01T20:02:40.881154Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T20:02:40.881406Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T20:02:40.891621Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:40.891626Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:40.891908Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:40.891912Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:40.892187Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:40.892190Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:40.892539Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:40.892543Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:40.892852Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:40.892861Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:40.893478Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:40.893480Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+The text snapshots are already showing the core story. I’m now checking whether the run ever asked the user to disambiguate anything, and whether the later output changed enough to create confusion or overload.
+exec
+/bin/zsh -lc "sed -n '1,220p' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/input.json'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+{
+  "journeyId": "P03",
+  "prompt": "What data do I already have that is ready to use?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "What data do I already have that is ready to use?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}
+exec
+/bin/zsh -lc "jq -r '. | @json' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/events.jsonl' | sed -n '1,120p'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+{"atMs":0,"type":"snapshot","label":"start","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0000-start.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0000-start.svg"}
+{"atMs":2974,"type":"stdout","bytes":30}
+{"atMs":3291,"type":"stdout","bytes":27}
+{"atMs":5004,"type":"snapshot","label":"5s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0001-5s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0001-5s.svg"}
+{"atMs":6283,"type":"stdout","bytes":31}
+{"atMs":6611,"type":"stdout","bytes":28}
+{"atMs":10006,"type":"snapshot","label":"10s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0002-10s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0002-10s.svg"}
+{"atMs":12053,"type":"stdout","bytes":35}
+{"atMs":12053,"type":"stdout","bytes":95}
+{"atMs":12053,"type":"stdout","bytes":36}
+{"atMs":12053,"type":"stdout","bytes":33}
+{"atMs":12053,"type":"stdout","bytes":58}
+{"atMs":12054,"type":"stdout","bytes":66}
+{"atMs":12054,"type":"stdout","bytes":27}
+{"atMs":12054,"type":"stdout","bytes":66}
+{"atMs":12054,"type":"stdout","bytes":126}
+{"atMs":12054,"type":"stdout","bytes":115}
+{"atMs":12222,"type":"snapshot","label":"final","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0003-final.svg"}
+
+exec
+/bin/zsh -lc "for f in '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0000-start.svg' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0001-5s.svg' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0002-10s.svg' '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0003-final.svg'; do echo '---' \""'$f"; sed -n '"'1,80p' \""'$f"; done' in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+--- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0000-start.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">                                                                                                                        </text>
+</g>
+</svg>--- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0001-5s.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking local datasets...                                                                                            </text>
+<text x="16" y="48">· Found 2 local datasets.                                                                                               </text>
+<text x="16" y="66">                                                                                                                        </text>
+</g>
+</svg>--- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0002-10s.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking local datasets...                                                                                            </text>
+<text x="16" y="48">· Found 2 local datasets.                                                                                               </text>
+<text x="16" y="66">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="84">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="102">                                                                                                                        </text>
+</g>
+</svg>--- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0003-final.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking local datasets...                                                                                            </text>
+<text x="16" y="48">· Found 2 local datasets.                                                                                               </text>
+<text x="16" y="66">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="84">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="102">Here’s what’s ready right now:                                                                                          </text>
+<text x="16" y="120">                                                                                                                        </text>
+<text x="16" y="138">Local (immediately usable in your workspace)                                                                            </text>
+<text x="16" y="156">- county-economics — County Economics (4 rows)                                                                          </text>
+<text x="16" y="174">- tweets — Tweet Archive (3 rows)                                                                                       </text>
+<text x="16" y="192">                                                                                                                        </text>
+<text x="16" y="210">Remote (deployed and queryable)                                                                                         </text>
+<text x="16" y="228">- enriched-tweets — Enriched Tweets (tabular, deployed)                                                                 </text>
+<text x="16" y="246">- mixed-smoke-1776979192 — Mixed Smoke Test (tabular, deployed)                                                         </text>
+<text x="16" y="264">                                                                                                                        </text>
+<text x="16" y="282">In progress/not yet ready                                                                                               </text>
+<text x="16" y="300">- econ — Unemployment vs Home Values 2019–2024 (provisioning)                                                           </text>
+<text x="16" y="318">- mixed-smoke-1776989749 — Mixed Smoke Test 3 (provisioning)                                                            </text>
+<text x="16" y="336">- mixed-smoke-1776989612 — Mixed Smoke Test 2 (provisioning)                                                            </text>
+<text x="16" y="354">- upload-test-93961 — Upload Test (uploaded; not deployed)                                                              </text>
+<text x="16" y="372">- dataset — enriched_tweets_parquet_dataset (draft)                                                                     </text>
+<text x="16" y="390">                                                                                                                        </text>
+</g>
+</svg>
+2026-05-01T20:02:47.488095Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T20:02:47.488516Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T20:02:47.503055Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:47.503066Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:47.503453Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:47.503458Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:47.503877Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:47.503880Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:47.504228Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:47.504231Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:47.504585Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:47.504588Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:47.505320Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:47.505323Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+I have enough to judge the flow, but I’m grabbing line-numbered evidence so the final briefing can point to exact spots in the output instead of paraphrasing loosely.
+exec
+/bin/zsh -lc "nl -ba '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt' | sed -n '1,80p'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+     1	· Checking local datasets...                                                                                            
+     2	· Found 2 local datasets.                                                                                               
+     3	· Checking remote datasets...                                                                                           
+     4	· Found 7 remote datasets.                                                                                              
+     5	Here’s what’s ready right now:                                                                                          
+     6	                                                                                                                        
+     7	Local (immediately usable in your workspace)                                                                            
+     8	- county-economics — County Economics (4 rows)                                                                          
+     9	- tweets — Tweet Archive (3 rows)                                                                                       
+    10	                                                                                                                        
+    11	Remote (deployed and queryable)                                                                                         
+    12	- enriched-tweets — Enriched Tweets (tabular, deployed)                                                                 
+    13	- mixed-smoke-1776979192 — Mixed Smoke Test (tabular, deployed)                                                         
+    14	                                                                                                                        
+    15	In progress/not yet ready                                                                                               
+    16	- econ — Unemployment vs Home Values 2019–2024 (provisioning)                                                           
+    17	- mixed-smoke-1776989749 — Mixed Smoke Test 3 (provisioning)                                                            
+    18	- mixed-smoke-1776989612 — Mixed Smoke Test 2 (provisioning)                                                            
+    19	- upload-test-93961 — Upload Test (uploaded; not deployed)                                                              
+    20	- dataset — enriched_tweets_parquet_dataset (draft)                                                                     
+    21	                                                                                                                        
+exec
+/bin/zsh -lc "nl -ba '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/terminal.log' | sed -n '1,80p'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+     1	· Checking local datasets...
+     2	· Found 2 local datasets.
+     3	· Checking remote datasets...
+     4	· Found 7 remote datasets.
+     5	Here’s what’s ready right now:
+     6	
+     7	Local (immediately usable in your workspace)
+     8	- county-economics — County Economics (4 rows)
+     9	- tweets — Tweet Archive (3 rows)
+    10	
+    11	Remote (deployed and queryable)
+    12	- enriched-tweets — Enriched Tweets (tabular, deployed)
+    13	- mixed-smoke-1776979192 — Mixed Smoke Test (tabular, deployed)
+    14	
+    15	In progress/not yet ready
+    16	- econ — Unemployment vs Home Values 2019–2024 (provisioning)
+    17	- mixed-smoke-1776989749 — Mixed Smoke Test 3 (provisioning)
+    18	- mixed-smoke-1776989612 — Mixed Smoke Test 2 (provisioning)
+    19	- upload-test-93961 — Upload Test (uploaded; not deployed)
+    20	- dataset — enriched_tweets_parquet_dataset (draft)
+
+exec
+/bin/zsh -lc "nl -ba '/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/events.jsonl' | sed -n '1,80p'" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+     1	{"atMs":0,"type":"snapshot","label":"start","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0000-start.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0000-start.svg"}
+     2	{"atMs":2974,"type":"stdout","bytes":30}
+     3	{"atMs":3291,"type":"stdout","bytes":27}
+     4	{"atMs":5004,"type":"snapshot","label":"5s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0001-5s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0001-5s.svg"}
+     5	{"atMs":6283,"type":"stdout","bytes":31}
+     6	{"atMs":6611,"type":"stdout","bytes":28}
+     7	{"atMs":10006,"type":"snapshot","label":"10s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0002-10s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0002-10s.svg"}
+     8	{"atMs":12053,"type":"stdout","bytes":35}
+     9	{"atMs":12053,"type":"stdout","bytes":95}
+    10	{"atMs":12053,"type":"stdout","bytes":36}
+    11	{"atMs":12053,"type":"stdout","bytes":33}
+    12	{"atMs":12053,"type":"stdout","bytes":58}
+    13	{"atMs":12054,"type":"stdout","bytes":66}
+    14	{"atMs":12054,"type":"stdout","bytes":27}
+    15	{"atMs":12054,"type":"stdout","bytes":66}
+    16	{"atMs":12054,"type":"stdout","bytes":126}
+    17	{"atMs":12054,"type":"stdout","bytes":115}
+    18	{"atMs":12222,"type":"snapshot","label":"final","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0003-final.svg"}
+
+2026-05-01T20:02:58.424451Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T20:02:58.424678Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T20:02:58.436844Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:58.436850Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:58.437216Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:58.437219Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:58.437573Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:58.437577Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:58.437890Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:58.437893Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:58.438198Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:58.438200Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T20:02:58.438856Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T20:02:58.438858Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+**Verdict: Partial**
+
+- User input burden: none beyond the initial prompt. The CLI did not ask follow-up questions or require disambiguation.
+- Correct behavior assessment: `research` chose the right behavior for this journey. It retrieved and presented the dataset inventory instead of clarifying, starting work, or debugging. The local/remote split is aligned with the prompt, and the non-ready items were labeled rather than silently mixed in. Evidence: [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/events.jsonl#L4-L18), [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L5-L20)
+
+- Confusing moments, ordered by severity:
+  1. No explicit recommendation or next step. The screen ends with a list, but it never says which dataset a normal user should pick first or what to do next. For a “what do I already have that is ready to use?” prompt, that leaves the decision burden on the user. Evidence: [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L7-L20)
+  2. Internal ids lead the rows. Users see `county-economics`, `enriched-tweets`, and `mixed-smoke-...` first, then the human names. That makes the list feel technical and forces extra parsing before the user can tell what the dataset actually is. Evidence: [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L8-L13)
+  3. The not-ready section is too visually prominent for a “ready to use” query. It is clearly labeled, but five in-progress/test/draft items take up a lot of screen space and compete with the ready items. That is more noise than a first-pass chooser needs. Evidence: [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L15-L20)
+  4. Lifecycle labels are only partly plain-language. `provisioning`, `uploaded; not deployed`, and `draft` communicate status, but they still read like operator jargon rather than user-facing guidance. Evidence: [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L15-L20)
+
+- Missing information that would have helped:
+  - A top-line recommendation, such as the best local dataset and the best remote dataset.
+  - A short action hint per item, such as `use locally`, `query remotely`, or `not ready yet`.
+  - Consistent metadata across ready items, especially if row counts or inferred purpose are available for remote datasets too.
+  - A one-sentence explanation of why an item is in the ready list versus the not-ready list.
+
+- Information that should be removed or de-emphasized:
+  - Internal ids should be muted or moved after the human-readable name.
+  - Test/draft/noisy datasets should be tucked lower or behind an “other datasets” grouping.
+  - The repeated status probe lines are fine while loading, but they do not add much once the final inventory is shown.
+
+- Suggested UI/output changes:
+  - Lead with the human name, then show the dataset id in dim text.
+  - Add a recommended default pick at the top.
+  - Add a compact action label per row, so the next step is obvious without inference.
+  - Keep the ready list first, then place non-ready datasets in a clearly de-emphasized section.
+  - Translate lifecycle terms into plain language, for example `still being prepared` instead of `provisioning`.
+
+- Evidence references:
+  - Visual progression: [0001-5s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0001-5s.txt), [0002-10s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0002-10s.txt), [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L1-L20)
+  - Rendered final state: [0003-final.svg](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0003-final.svg)
+  - Timing/log confirmation: [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/events.jsonl#L1-L18)
+tokens used
+17,518
+**Verdict: Partial**
+
+- User input burden: none beyond the initial prompt. The CLI did not ask follow-up questions or require disambiguation.
+- Correct behavior assessment: `research` chose the right behavior for this journey. It retrieved and presented the dataset inventory instead of clarifying, starting work, or debugging. The local/remote split is aligned with the prompt, and the non-ready items were labeled rather than silently mixed in. Evidence: [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/events.jsonl#L4-L18), [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L5-L20)
+
+- Confusing moments, ordered by severity:
+  1. No explicit recommendation or next step. The screen ends with a list, but it never says which dataset a normal user should pick first or what to do next. For a “what do I already have that is ready to use?” prompt, that leaves the decision burden on the user. Evidence: [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L7-L20)
+  2. Internal ids lead the rows. Users see `county-economics`, `enriched-tweets`, and `mixed-smoke-...` first, then the human names. That makes the list feel technical and forces extra parsing before the user can tell what the dataset actually is. Evidence: [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L8-L13)
+  3. The not-ready section is too visually prominent for a “ready to use” query. It is clearly labeled, but five in-progress/test/draft items take up a lot of screen space and compete with the ready items. That is more noise than a first-pass chooser needs. Evidence: [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L15-L20)
+  4. Lifecycle labels are only partly plain-language. `provisioning`, `uploaded; not deployed`, and `draft` communicate status, but they still read like operator jargon rather than user-facing guidance. Evidence: [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L15-L20)
+
+- Missing information that would have helped:
+  - A top-line recommendation, such as the best local dataset and the best remote dataset.
+  - A short action hint per item, such as `use locally`, `query remotely`, or `not ready yet`.
+  - Consistent metadata across ready items, especially if row counts or inferred purpose are available for remote datasets too.
+  - A one-sentence explanation of why an item is in the ready list versus the not-ready list.
+
+- Information that should be removed or de-emphasized:
+  - Internal ids should be muted or moved after the human-readable name.
+  - Test/draft/noisy datasets should be tucked lower or behind an “other datasets” grouping.
+  - The repeated status probe lines are fine while loading, but they do not add much once the final inventory is shown.
+
+- Suggested UI/output changes:
+  - Lead with the human name, then show the dataset id in dim text.
+  - Add a recommended default pick at the top.
+  - Add a compact action label per row, so the next step is obvious without inference.
+  - Keep the ready list first, then place non-ready datasets in a clearly de-emphasized section.
+  - Translate lifecycle terms into plain language, for example `still being prepared` instead of `provisioning`.
+
+- Evidence references:
+  - Visual progression: [0001-5s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0001-5s.txt), [0002-10s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0002-10s.txt), [0003-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/snapshots/0003-final.txt#L1-L20)
+  - Rendered final state: [0003-final.svg](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/screenshots/0003-final.svg)
+  - Timing/log confirmation: [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/P03/20260501T194526Z/events.jsonl#L1-L18)

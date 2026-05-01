@@ -1,0 +1,12 @@
+{
+  "journeyId": "J16",
+  "prompt": "Run a new analysis on enriched-tweets.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Run a new analysis on enriched-tweets."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

@@ -1,0 +1,12 @@
+{
+  "journeyId": "P03",
+  "prompt": "What data do I already have that is ready to use?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "What data do I already have that is ready to use?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

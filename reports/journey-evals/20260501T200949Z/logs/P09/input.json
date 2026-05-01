@@ -1,0 +1,12 @@
+{
+  "journeyId": "P09",
+  "prompt": "Something seems blocked or failed. Tell me what is happening, whether anything useful was produced, and what I should do next.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Something seems blocked or failed. Tell me what is happening, whether anything useful was produced, and what I should do next."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

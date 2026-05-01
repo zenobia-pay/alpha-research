@@ -1,0 +1,12 @@
+{
+  "journeyId": "J08",
+  "prompt": "What’s up with tweets? Can you run an experiment for me on what types of tweets go viral?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "What’s up with tweets? Can you run an experiment for me on what types of tweets go viral?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

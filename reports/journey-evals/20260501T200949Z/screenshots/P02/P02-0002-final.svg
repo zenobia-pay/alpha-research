@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">RESEARCH turns your data into a dataset you can analyze and get results and saved artifacts (charts, tables, docs). Once</text>
+<text x="16" y="48"> your tickets CSV is a dataset, you can run queries, tests, and produce summaries.                                      </text>
+<text x="16" y="66">                                                                                                                        </text>
+<text x="16" y="84">To import your CSV, I need:                                                                                             </text>
+<text x="16" y="102">1) The absolute file path to the CSV                                                                                    </text>
+<text x="16" y="120">2) A one‑line description of what’s inside (e.g., “Zendesk tickets 2023–2025 with id, created_at, subject, body, status,</text>
+<text x="16" y="138"> assignee, tags”)                                                                                                       </text>
+<text x="16" y="156">                                                                                                                        </text>
+<text x="16" y="174">Optional but helpful: note which column is the ticket ID and the main text field.                                       </text>
+<text x="16" y="192">                                                                                                                        </text>
+<text x="16" y="210">Once you give me the path and description, I will:                                                                      </text>
+<text x="16" y="228">- Inspect the file to infer schema and sample rows                                                                      </text>
+<text x="16" y="246">- Register a dataset and upload the file                                                                                </text>
+<text x="16" y="264">- Deploy it so it’s ready for queries and analyses                                                                      </text>
+<text x="16" y="282">                                                                                                                        </text>
+<text x="16" y="300">Please share:                                                                                                           </text>
+<text x="16" y="318">- CSV absolute path:                                                                                                    </text>
+<text x="16" y="336">- One‑line description:                                                                                                 </text>
+<text x="16" y="354">                                                                                                                        </text>
+</g>
+</svg>

@@ -1,0 +1,17 @@
+Great topic. For affordability, start with these core datasets (all available in RESEARCH):
+
+- Census ACS 5‑year housing/economic tables (tract/county): median gross rent, median household income, owner costs, cost-burdened shares.
+- HUD Fair Market Rents and Income Limits (county/metro): program-standard rents and AMI tiers.
+- Zillow ZORI/ZHVI (ZIP/county/metro, monthly): current rent/home value trends to complement slower ACS.
+- BLS CPI (Shelter index): to deflate rents/incomes to real terms.
+
+Recommendation:
+- Base: ACS 5‑year to compute affordability (e.g., rent-to-income ratios; share paying >30% income).
+- Add: Zillow ZORI for recent monthly movement.
+- Optional: HUD Income Limits to express results vs 60%/80%/100% AMI.
+
+Tell me:
+- Geography (nationwide, state, metro, county, tract?) and time span.
+- Whether you prefer renter focus, owner focus, or both.
+
+I’ll then check your existing research environments, reuse one if it matches, or create one that fetches ACS (latest 2 vintages) + ZORI, and set up ready-to-query tables for affordability metrics.

@@ -1,0 +1,13 @@
+{
+  "journeyId": "J11",
+  "title": "Specific Housing Dataset Build",
+  "startedAt": "2026-05-01T19:43:13.130Z",
+  "elapsedMs": 35622,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

@@ -1,0 +1,15 @@
+Short answer
+- quote_tweet_count = how many other tweets quoted this tweet.
+- Use it as one signal of virality, but don’t rely on it alone.
+
+Field definition
+- Stored field (when present): tweets.quote_tweet_count (int) = precomputed count of quotes for the tweet.
+- If not stored, derive: quote_count_for_tweet = count(rows where row.quoted_tweet_id == target.tweet_id).
+- Schema evidence (typical): tweets.tweet_id (id), tweets.quoted_tweet_id (id, nullable), tweets.quote_tweet_count (int, optional), tweets.retweet_count, tweets.reply_count, tweets.like_count.
+
+Using it for “virality”
+- Good for measuring deliberate amplification with commentary, but it undercounts silent spread.
+- Prefer a composite metric and normalize by audience/age, for example:
+  virality_score = 3*quote_tweet_count + 2*retweet_count + like_count + 0.5*reply_count, then divide by max(1, follower_count) or impressions; also age-normalize (per hour/day).
+
+Want me to check which of these fields actually exist in your tweets dataset and compute a top-N?

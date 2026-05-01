@@ -1,0 +1,13 @@
+{
+  "journeyId": "J09",
+  "title": "Specific Viral Tweets Experiment",
+  "startedAt": "2026-05-01T19:42:40.557Z",
+  "elapsedMs": 32363,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

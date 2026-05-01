@@ -1,0 +1,13 @@
+{
+  "journeyId": "J01",
+  "title": "Product Orientation",
+  "startedAt": "2026-05-01T19:38:55.161Z",
+  "elapsedMs": 211,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

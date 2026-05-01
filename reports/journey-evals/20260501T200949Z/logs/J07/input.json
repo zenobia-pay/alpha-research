@@ -1,0 +1,12 @@
+{
+  "journeyId": "J07",
+  "prompt": "Create a dataset from /Users/me/Downloads/enriched_tweets.parquet. It contains tweets, authors, timestamps, text, and engagement counts. Name it Enriched Tweets and deploy it.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Create a dataset from /Users/me/Downloads/enriched_tweets.parquet. It contains tweets, authors, timestamps, text, and engagement counts. Name it Enriched Tweets and deploy it."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

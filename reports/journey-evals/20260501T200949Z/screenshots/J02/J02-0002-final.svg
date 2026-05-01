@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking local datasets...                                                                                            </text>
+<text x="16" y="48">· Found 2 local datasets.                                                                                               </text>
+<text x="16" y="66">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="84">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="102">Here’s what I found.                                                                                                    </text>
+<text x="16" y="120">                                                                                                                        </text>
+<text x="16" y="138">Local datasets:                                                                                                         </text>
+<text x="16" y="156">- county-economics — County Economics (4 records)                                                                       </text>
+<text x="16" y="174">- tweets — Tweet Archive (3 records)                                                                                    </text>
+<text x="16" y="192">                                                                                                                        </text>
+<text x="16" y="210">Remote datasets:                                                                                                        </text>
+<text x="16" y="228">- econ — Econ housing-cycle core sources v1 (ready)                                                                     </text>
+<text x="16" y="246">- enriched-tweets — Enriched Tweets (uploading; deployed)                                                               </text>
+<text x="16" y="264">- mixed-smoke-1776989749 — Mixed Smoke Test 3 (deploying)                                                               </text>
+<text x="16" y="282">- mixed-smoke-1776989612 — Mixed Smoke Test 2 (deploying)                                                               </text>
+<text x="16" y="300">- mixed-smoke-1776979192 — Mixed Smoke Test (ready)                                                                     </text>
+<text x="16" y="318">- upload-test-93961 — Upload Test (uploaded; deployable)                                                                </text>
+<text x="16" y="336">- dataset — enriched_tweets_parquet_dataset (draft)                                                                     </text>
+<text x="16" y="354">                                                                                                                        </text>
+</g>
+</svg>

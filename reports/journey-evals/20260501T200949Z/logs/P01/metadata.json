@@ -1,0 +1,13 @@
+{
+  "journeyId": "P01",
+  "title": "Cold Start Product Orientation",
+  "startedAt": "2026-05-01T19:45:05.149Z",
+  "elapsedMs": 12020,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

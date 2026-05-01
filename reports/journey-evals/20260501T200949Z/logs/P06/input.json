@@ -1,0 +1,12 @@
+{
+  "journeyId": "P06",
+  "prompt": "I think certain kinds of tweets go viral, but I don't know how to test that. Can you help me turn it into a real experiment?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "I think certain kinds of tweets go viral, but I don't know how to test that. Can you help me turn it into a real experiment?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

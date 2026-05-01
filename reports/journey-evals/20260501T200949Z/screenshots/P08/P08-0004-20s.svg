@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking run history...                                                                                               </text>
+<text x="16" y="48">· Loaded run history. 2 active runs right now.                                                                          </text>
+<text x="16" y="66">· Running list_run_artifacts...                                                                                         </text>
+<text x="16" y="84">· Found 2 artifacts for run 47ff6747-fdc4-4c97-9a2d-72d038de90c6.                                                       </text>
+<text x="16" y="102">· Artifacts are the saved outputs from the run. Open them on the run page:                                              </text>
+<text x="16" y="120">· - Remote Agent Summary — short written summary from the remote run                                                    </text>
+<text x="16" y="138">· - Remote Agent Transcript — full remote execution log                                                                 </text>
+<text x="16" y="156">· Running list_run_artifacts...                                                                                         </text>
+<text x="16" y="174">· Found 3 artifacts for run 40f2e15b-4eef-47ff-8bbc-55178caa77e4.                                                       </text>
+<text x="16" y="192">· Artifacts are the saved outputs from the run. Open them on the run page:                                              </text>
+<text x="16" y="210">· - Remote Agent Summary — short written summary from the remote run                                                    </text>
+<text x="16" y="228">· - Remote Agent Transcript — full remote execution log                                                                 </text>
+<text x="16" y="246">· - enriched_tweets.duckdb                                                                                              </text>
+<text x="16" y="264">· Running list_run_artifacts...                                                                                         </text>
+<text x="16" y="282">· Found 4 artifacts for run 2457a3da-4ffc-4f1a-8b7d-a79450412571.                                                       </text>
+<text x="16" y="300">· Artifacts are the saved outputs from the run. Open them on the run page:                                              </text>
+<text x="16" y="318">· - Remote Agent Summary — short written summary from the remote run                                                    </text>
+<text x="16" y="336">· - Remote Agent Transcript — full remote execution log                                                                 </text>
+<text x="16" y="354">· - result.json — structured result data                                                                                </text>
+<text x="16" y="372">· - summary.md — markdown summary/report                                                                                </text>
+<text x="16" y="390">· Running list_run_artifacts...                                                                                         </text>
+<text x="16" y="408">· Found 8 artifacts for run 8658a9bb-e63d-4c4a-b6bc-72e58c80dc37.                                                       </text>
+<text x="16" y="426">· Artifacts are the saved outputs from the run. Open them on the run page:                                              </text>
+<text x="16" y="444">· - Remote Agent Summary — short written summary from the remote run                                                    </text>
+<text x="16" y="462">· - Remote Agent Transcript — full remote execution log                                                                 </text>
+<text x="16" y="480">· - result.json — structured result data                                                                                </text>
+<text x="16" y="498">· - selected_viral_bases.csv                                                                                            </text>
+<text x="16" y="516">· - selected_viral_bases.parquet                                                                                        </text>
+<text x="16" y="534">· - summary.md — markdown summary/report                                                                                </text>
+<text x="16" y="552">· - top_quotes_per_base.csv                                                                                             </text>
+<text x="16" y="570">· - top_quotes_per_base.parquet                                                                                         </text>
+<text x="16" y="588">                                                                                                                        </text>
+</g>
+</svg>

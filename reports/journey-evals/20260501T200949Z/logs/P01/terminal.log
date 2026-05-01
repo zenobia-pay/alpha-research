@@ -1,0 +1,28 @@
+RESEARCH is a dataset-backed research CLI. You use it to:
+- Get datasets in, inspect their schema, run analyses, and save results and artifacts (tables, charts, docs).
+- Drive work with hypotheses, producing clear outputs you can revisit.
+
+Start here:
+1) Sign in
+- research login
+
+2) See what you already have
+- research datasets ls            # remote datasets you can use
+- research local ls               # local files RESEARCH can import
+
+3) If you have a local file to use next
+- research import "/absolute/path/to/file.csv" --name my_dataset --mode auto
+Then:
+- research describe my_dataset
+- research query my_dataset "Show 10 example rows and basic field stats."
+
+4) If you want to explore an existing dataset
+- research describe <dataset_name>
+- research query <dataset_name> "Top 20 records by <metric> with fields <a,b,c>."
+
+5) If you have a hypothesis to test
+- research plan <dataset_name> "Hypothesis: …"
+- research run <dataset_name> --prompt "Test the hypothesis; subset=<…>; metrics=<…>; charts=<type, x, y>."
+
+When you need data that isn’t in any dataset yet, create a research environment and pull in public sources and your files:
+- research env create --dataset my_project --name "Baseline" --prompt "Acquire sources A,B; normalize to tables X,Y; validate Z; produce a dataset brief."

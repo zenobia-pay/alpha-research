@@ -1,0 +1,12 @@
+{
+  "journeyId": "P07",
+  "prompt": "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label hook_type, emotional_tone, and controversy_level with strict JSON, then produce a bar chart and 10 representative examples.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label hook_type, emotional_tone, and controversy_level with strict JSON, then produce a bar chart and 10 representative examples."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

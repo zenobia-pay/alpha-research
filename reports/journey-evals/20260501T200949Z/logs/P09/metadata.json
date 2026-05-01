@@ -1,0 +1,13 @@
+{
+  "journeyId": "P09",
+  "title": "Blocked Or Failed Work Recovery",
+  "startedAt": "2026-05-01T19:47:05.097Z",
+  "elapsedMs": 17709,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

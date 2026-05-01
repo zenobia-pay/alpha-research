@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">RESEARCH is a dataset-backed research CLI. You use it to:                                                               </text>
+<text x="16" y="48">- Get datasets in, inspect their schema, run analyses, and save results and artifacts (tables, charts, docs).           </text>
+<text x="16" y="66">- Drive work with hypotheses, producing clear outputs you can revisit.                                                  </text>
+<text x="16" y="84">                                                                                                                        </text>
+<text x="16" y="102">Start here:                                                                                                             </text>
+<text x="16" y="120">1) Sign in                                                                                                              </text>
+<text x="16" y="138">- research login                                                                                                        </text>
+<text x="16" y="156">                                                                                                                        </text>
+<text x="16" y="174">2) See what you already have                                                                                            </text>
+<text x="16" y="192">- research datasets ls            # remote datasets you can use                                                         </text>
+<text x="16" y="210">- research local ls               # local files RESEARCH can import                                                     </text>
+<text x="16" y="228">                                                                                                                        </text>
+<text x="16" y="246">3) If you have a local file to use next                                                                                 </text>
+<text x="16" y="264">- research import "/absolute/path/to/file.csv" --name my_dataset --mode auto                                            </text>
+<text x="16" y="282">Then:                                                                                                                   </text>
+<text x="16" y="300">- research describe my_dataset                                                                                          </text>
+<text x="16" y="318">- research query my_dataset "Show 10 example rows and basic field stats."                                               </text>
+<text x="16" y="336">                                                                                                                        </text>
+<text x="16" y="354">4) If you want to explore an existing dataset                                                                           </text>
+<text x="16" y="372">- research describe &lt;dataset_name&gt;                                                                                      </text>
+<text x="16" y="390">- research query &lt;dataset_name&gt; "Top 20 records by &lt;metric&gt; with fields &lt;a,b,c&gt;."                                       </text>
+<text x="16" y="408">                                                                                                                        </text>
+<text x="16" y="426">5) If you have a hypothesis to test                                                                                     </text>
+<text x="16" y="444">- research plan &lt;dataset_name&gt; "Hypothesis: …"                                                                          </text>
+<text x="16" y="462">- research run &lt;dataset_name&gt; --prompt "Test the hypothesis; subset=&lt;…&gt;; metrics=&lt;…&gt;; charts=&lt;type, x, y&gt;."             </text>
+<text x="16" y="480">                                                                                                                        </text>
+<text x="16" y="498">When you need data that isn’t in any dataset yet, create a research environment and pull in public sources and your file</text>
+<text x="16" y="516">s:                                                                                                                      </text>
+<text x="16" y="534">- research env create --dataset my_project --name "Baseline" --prompt "Acquire sources A,B; normalize to tables X,Y; val</text>
+<text x="16" y="552">idate Z; produce a dataset brief."                                                                                      </text>
+<text x="16" y="570">                                                                                                                        </text>
+</g>
+</svg>

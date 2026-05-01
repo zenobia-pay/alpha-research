@@ -1,0 +1,12 @@
+{
+  "journeyId": "J14",
+  "prompt": "Show me the results from my last run.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Show me the results from my last run."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

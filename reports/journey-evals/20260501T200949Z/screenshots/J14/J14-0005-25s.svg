@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking run history...                                                                                               </text>
+<text x="16" y="48">· Loaded run history. 2 active runs right now.                                                                          </text>
+<text x="16" y="66">· Running list_run_artifacts...                                                                                         </text>
+<text x="16" y="84">· Found 2 artifacts for run 47ff6747-fdc4-4c97-9a2d-72d038de90c6.                                                       </text>
+<text x="16" y="102">· Artifacts are the saved outputs from the run. Open them on the run page:                                              </text>
+<text x="16" y="120">· - Remote Agent Summary — short written summary from the remote run                                                    </text>
+<text x="16" y="138">· - Remote Agent Transcript — full remote execution log                                                                 </text>
+<text x="16" y="156">                                                                                                                        </text>
+</g>
+</svg>

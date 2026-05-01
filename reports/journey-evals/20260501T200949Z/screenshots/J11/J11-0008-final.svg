@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Starting dataset build...                                                                                             </text>
+<text x="16" y="84">· Started research environment build 3b6146db-cd29-4773-89df-aa4eab3638c4 for econ. Dashboard: https://dashboard.alphare</text>
+<text x="16" y="102">search.nyc/?view=runs&amp;runId=3b6146db-cd29-4773-89df-aa4eab3638c4#run-3b6146db-cd29-4773-89df-aa4eab3638c4               </text>
+<text x="16" y="120">Started research environment build 3b6146db-cd29-4773-89df-aa4eab3638c4 for econ. Dashboard: https://dashboard.alpharese</text>
+<text x="16" y="138">arch.nyc/?view=runs&amp;runId=3b6146db-cd29-4773-89df-aa4eab3638c4#run-3b6146db-cd29-4773-89df-aa4eab3638c4                 </text>
+<text x="16" y="156">Terminal session: https://dashboard.alpharesearch.nyc/?view=terminal-sessions&amp;sessionId=f48d00b1-c0d2-44f3-9f9a-ad09ee19</text>
+<text x="16" y="174">6716&amp;runId=3b6146db-cd29-4773-89df-aa4eab3638c4#run-3b6146db-cd29-4773-89df-aa4eab3638c4                                </text>
+<text x="16" y="192">                                                                                                                        </text>
+</g>
+</svg>

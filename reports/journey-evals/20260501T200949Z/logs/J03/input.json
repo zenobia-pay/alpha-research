@@ -1,0 +1,12 @@
+{
+  "journeyId": "J03",
+  "prompt": "I want to study housing affordability. Which dataset should I use?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "I want to study housing affordability. Which dataset should I use?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

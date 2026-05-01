@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking run history...                                                                                               </text>
+<text x="16" y="48">· Loaded run history. 2 active runs right now.                                                                          </text>
+<text x="16" y="66">· Running list_run_artifacts...                                                                                         </text>
+<text x="16" y="84">· Found 2 artifacts for run 47ff6747-fdc4-4c97-9a2d-72d038de90c6.                                                       </text>
+<text x="16" y="102">· Artifacts are the saved outputs from the run. Open them on the run page:                                              </text>
+<text x="16" y="120">· - Remote Agent Summary — short written summary from the remote run                                                    </text>
+<text x="16" y="138">· - Remote Agent Transcript — full remote execution log                                                                 </text>
+<text x="16" y="156">Here’s what I found:                                                                                                    </text>
+<text x="16" y="174">                                                                                                                        </text>
+<text x="16" y="192">- Latest active runs (in progress):                                                                                     </text>
+<text x="16" y="210">  - econ — status: booting — dashboard: https://dashboard.alpharesearch.nyc/?view=runs&amp;runId=3b6146db-cd29-4773-89df-aa4</text>
+<text x="16" y="228">eab3638c4#run-3b6146db-cd29-4773-89df-aa4eab3638c4                                                                      </text>
+<text x="16" y="246">  - enriched-tweets — status: booting — dashboard: https://dashboard.alpharesearch.nyc/?view=runs&amp;runId=1e0d1967-36ea-43</text>
+<text x="16" y="264">06-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3                                                           </text>
+<text x="16" y="282">                                                                                                                        </text>
+<text x="16" y="300">- Last completed run:                                                                                                   </text>
+<text x="16" y="318">  - enriched-tweets — dashboard: https://dashboard.alpharesearch.nyc/?view=runs&amp;runId=47ff6747-fdc4-4c97-9a2d-72d038de90</text>
+<text x="16" y="336">c6#run-47ff6747-fdc4-4c97-9a2d-72d038de90c6                                                                             </text>
+<text x="16" y="354">    - Artifacts:                                                                                                        </text>
+<text x="16" y="372">      - Remote Agent Summary: “Quick check so far: confirmed dataset directories exist. Next I’ll peek into a sample rec</text>
+<text x="16" y="390">ord to verify schema.”                                                                                                  </text>
+<text x="16" y="408">      - Remote Agent Transcript (full execution log)                                                                    </text>
+<text x="16" y="426">                                                                                                                        </text>
+<text x="16" y="444">Want me to open or pull down any artifact contents?                                                                     </text>
+<text x="16" y="462">                                                                                                                        </text>
+</g>
+</svg>

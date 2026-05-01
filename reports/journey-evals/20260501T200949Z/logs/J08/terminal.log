@@ -1,0 +1,6 @@
+Before I start a remote run, here is the experiment I would use.
+
+Dataset: `enriched-tweets`, if available, because it should contain tweet text, timestamps, authors, and engagement fields.
+Plan: define virality from available engagement counts, label `hook_type`, `emotional_tone`, and `controversy_level`, compare media or topic fields if present, and return a short summary with visualizations and representative examples.
+
+Confirm the scope: should I define viral tweets as the top 0.1% by quote/retweet/like engagement and sample 100 tweets for labeling?

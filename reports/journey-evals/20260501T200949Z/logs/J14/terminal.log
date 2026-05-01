@@ -1,0 +1,20 @@
+· Checking run history...
+· Loaded run history. 2 active runs right now.
+· Running list_run_artifacts...
+· Found 2 artifacts for run 47ff6747-fdc4-4c97-9a2d-72d038de90c6.
+· Artifacts are the saved outputs from the run. Open them on the run page:
+· - Remote Agent Summary — short written summary from the remote run
+· - Remote Agent Transcript — full remote execution log
+Here’s what I found:
+
+- Latest active runs (in progress):
+  - econ — status: booting — dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=3b6146db-cd29-4773-89df-aa4eab3638c4#run-3b6146db-cd29-4773-89df-aa4eab3638c4
+  - enriched-tweets — status: booting — dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3
+
+- Last completed run:
+  - enriched-tweets — dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=47ff6747-fdc4-4c97-9a2d-72d038de90c6#run-47ff6747-fdc4-4c97-9a2d-72d038de90c6
+    - Artifacts:
+      - Remote Agent Summary: “Quick check so far: confirmed dataset directories exist. Next I’ll peek into a sample record to verify schema.”
+      - Remote Agent Transcript (full execution log)
+
+Want me to open or pull down any artifact contents?

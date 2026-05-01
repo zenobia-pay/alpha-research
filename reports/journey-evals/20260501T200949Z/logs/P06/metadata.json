@@ -1,0 +1,13 @@
+{
+  "journeyId": "P06",
+  "title": "Vague Idea To Research Design",
+  "startedAt": "2026-05-01T19:46:04.315Z",
+  "elapsedMs": 174,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

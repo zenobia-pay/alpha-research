@@ -1,0 +1,13 @@
+{
+  "journeyId": "J13",
+  "title": "Specific Analysis On Known Dataset",
+  "startedAt": "2026-05-01T19:44:03.961Z",
+  "elapsedMs": 22281,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

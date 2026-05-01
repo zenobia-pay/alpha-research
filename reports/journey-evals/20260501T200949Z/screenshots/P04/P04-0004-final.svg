@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Inspecting dataset econ...                                                                                            </text>
+<text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
+<text x="16" y="102">Short answer: start with the existing “econ” dataset and extend it.                                                     </text>
+<text x="16" y="120">                                                                                                                        </text>
+<text x="16" y="138">Why: It already has county-month coverage with mortgage rates, permits, and income growth—good backbone for affordabilit</text>
+<text x="16" y="156">y metrics. To measure affordability you’ll want to add:                                                                 </text>
+<text x="16" y="174">- ACS: median household income (by county)                                                                              </text>
+<text x="16" y="192">- HUD FMR: rents (by county/metro)                                                                                      </text>
+<text x="16" y="210">- Zillow ZHVI/ZORI: home values and asking rents                                                                        </text>
+<text x="16" y="228">- Freddie Mac PMMS: mortgage rates (already present)                                                                    </text>
+<text x="16" y="246">Optional: property taxes (ACS), insurance proxies, CPI utilities.                                                       </text>
+<text x="16" y="264">                                                                                                                        </text>
+<text x="16" y="282">Quick next step: Tell me                                                                                                </text>
+<text x="16" y="300">- geography (nationwide counties, metros, specific states?)                                                             </text>
+<text x="16" y="318">- tenure focus (rent, buy, or both?)                                                                                    </text>
+<text x="16" y="336">- time span (e.g., 2015–2026?)                                                                                          </text>
+<text x="16" y="354">I can then extend the “econ” environment to pull ACS, HUD, and Zillow and compute:                                      </text>
+<text x="16" y="372">- Rent burden (gross rent / income)                                                                                     </text>
+<text x="16" y="390">- Price-to-income and an HAI-style PITI share (with rate, tax, insurance assumptions)                                   </text>
+<text x="16" y="408">                                                                                                                        </text>
+<text x="16" y="426">Want me to proceed with that extension?                                                                                 </text>
+<text x="16" y="444">                                                                                                                        </text>
+</g>
+</svg>

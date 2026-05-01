@@ -1,0 +1,16 @@
+RESEARCH turns your data into a dataset you can analyze and get results and saved artifacts (charts, tables, docs). Once your tickets CSV is a dataset, you can run queries, tests, and produce summaries.
+
+To import your CSV, I need:
+1) The absolute file path to the CSV
+2) A one‑line description of what’s inside (e.g., “Zendesk tickets 2023–2025 with id, created_at, subject, body, status, assignee, tags”)
+
+Optional but helpful: note which column is the ticket ID and the main text field.
+
+Once you give me the path and description, I will:
+- Inspect the file to infer schema and sample rows
+- Register a dataset and upload the file
+- Deploy it so it’s ready for queries and analyses
+
+Please share:
+- CSV absolute path:
+- One‑line description:

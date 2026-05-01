@@ -1,0 +1,13 @@
+{
+  "journeyId": "P03",
+  "title": "Choose From Existing Data",
+  "startedAt": "2026-05-01T19:45:26.780Z",
+  "elapsedMs": 12223,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

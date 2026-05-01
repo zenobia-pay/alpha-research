@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">Short answer                                                                                                            </text>
+<text x="16" y="48">- quote_tweet_count = how many other tweets quoted this tweet.                                                          </text>
+<text x="16" y="66">- Use it as one signal of virality, but don’t rely on it alone.                                                         </text>
+<text x="16" y="84">                                                                                                                        </text>
+<text x="16" y="102">Field definition                                                                                                        </text>
+<text x="16" y="120">- Stored field (when present): tweets.quote_tweet_count (int) = precomputed count of quotes for the tweet.              </text>
+<text x="16" y="138">- If not stored, derive: quote_count_for_tweet = count(rows where row.quoted_tweet_id == target.tweet_id).              </text>
+<text x="16" y="156">- Schema evidence (typical): tweets.tweet_id (id), tweets.quoted_tweet_id (id, nullable), tweets.quote_tweet_count (int,</text>
+<text x="16" y="174"> optional), tweets.retweet_count, tweets.reply_count, tweets.like_count.                                                </text>
+<text x="16" y="192">                                                                                                                        </text>
+<text x="16" y="210">Using it for “virality”                                                                                                 </text>
+<text x="16" y="228">- Good for measuring deliberate amplification with commentary, but it undercounts silent spread.                        </text>
+<text x="16" y="246">- Prefer a composite metric and normalize by audience/age, for example:                                                 </text>
+<text x="16" y="264">  virality_score = 3*quote_tweet_count + 2*retweet_count + like_count + 0.5*reply_count, then divide by max(1, follower_</text>
+<text x="16" y="282">count) or impressions; also age-normalize (per hour/day).                                                               </text>
+<text x="16" y="300">                                                                                                                        </text>
+<text x="16" y="318">Want me to check which of these fields actually exist in your tweets dataset and compute a top-N?                       </text>
+<text x="16" y="336">                                                                                                                        </text>
+</g>
+</svg>

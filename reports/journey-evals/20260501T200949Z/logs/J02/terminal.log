@@ -1,0 +1,18 @@
+· Checking local datasets...
+· Found 2 local datasets.
+· Checking remote datasets...
+· Found 7 remote datasets.
+Here’s what I found.
+
+Local datasets:
+- county-economics — County Economics (4 records)
+- tweets — Tweet Archive (3 records)
+
+Remote datasets:
+- econ — Econ housing-cycle core sources v1 (ready)
+- enriched-tweets — Enriched Tweets (uploading; deployed)
+- mixed-smoke-1776989749 — Mixed Smoke Test 3 (deploying)
+- mixed-smoke-1776989612 — Mixed Smoke Test 2 (deploying)
+- mixed-smoke-1776979192 — Mixed Smoke Test (ready)
+- upload-test-93961 — Upload Test (uploaded; deployable)
+- dataset — enriched_tweets_parquet_dataset (draft)

@@ -1,0 +1,528 @@
+Reading additional input from stdin...
+2026-05-01T19:57:06.650060Z ERROR codex_core::session: failed to load skill /Users/ryanprendergast/.codex/skills/gstack/SKILL.md: invalid description: exceeds maximum length of 1024 characters
+OpenAI Codex v0.128.0-alpha.1 (research preview)
+--------
+workdir: /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+model: gpt-5.4-mini
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: none
+reasoning summaries: none
+session id: 019de51d-c4db-7180-a70f-a8de7b0e6586
+--------
+user
+You are judging the UX of the `research` Ink CLI for one canonical user journey.
+
+Workspace: /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+Run directory: /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z
+
+Read:
+- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/journey.md
+- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/terminal.log
+- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/events.jsonl
+- /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/metadata.json
+- text snapshots under /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots
+- screenshot files under /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots
+
+Your job:
+1. Reconstruct what the user experienced from the screenshots/snapshots first, then use logs to verify exact text.
+2. Decide whether `research` chose the right behavior: clarify, plan, start work, retrieve, wait, report block, or debug.
+3. Identify every confusing moment visible to a normal user. Be concrete and reference snapshot filenames or log evidence.
+4. Separate product confusion from dataset confusion, auth confusion, run lifecycle confusion, and terminal/UI readability problems.
+5. Judge whether the displayed information was too sparse, right-sized, or too dense for this journey.
+6. Return a Markdown briefing with:
+   - Verdict: Pass, Partial, or Fail.
+   - User input burden.
+   - Correct behavior assessment.
+   - Confusing moments ordered by severity.
+   - Missing information that would have helped.
+   - Information that should be removed or de-emphasized.
+   - Suggested UI/output changes.
+   - Evidence references to screenshots/snapshots/log timestamps.
+
+Do not modify files. Return only the Markdown briefing. Focus on what a user would understand from the CLI.
+2026-05-01T19:57:07.232181Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T19:57:07.233222Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T19:57:07.410232Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T19:57:07.410421Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T19:57:07.437809Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:07.437823Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:07.438836Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:07.438843Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:07.440248Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:07.440254Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:07.441254Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:07.441274Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:07.443206Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:07.443230Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:07.445697Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:07.445713Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:08.513076Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T19:57:08.513321Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T19:57:08.525257Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:08.525266Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:08.525554Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:08.525558Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:08.525867Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:08.525869Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:08.526174Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:08.526177Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:08.526477Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:08.526480Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:08.527199Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:08.527203Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+I’m reconstructing the journey from the screenshots and text snapshots first, then I’ll verify the exact wording in the logs so the UX judgment is grounded in what a normal user actually saw.
+exec
+/bin/zsh -lc "sed -n '1,220p' \"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/journey.md\"" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+# J13: Specific Analysis On Known Dataset
+
+## Prompt
+
+```text
+Using the econ dataset, compare county-level unemployment changes against home value growth from 2019 through 2024. Group by county and year, create a correlation table, a scatter plot, and a short markdown summary with caveats.
+```
+
+## Intention
+
+The user supplies dataset, variables, time window, grouping, outputs, and interpretation format.
+
+## Correct Outcome
+
+`research` starts the analysis run, or first verifies field names if necessary. It returns run id/status and expected table, chart, and summary artifacts.
+
+## Judge For
+
+Did it ask only field-resolution questions if needed, start the run when enough information existed, keep the user oriented during async work, and make expected artifacts clear?
+
+exec
+/bin/zsh -lc "pwd && find \"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z\" -maxdepth 2 -type f | sed 's#"'^/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/##'"' | sort" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+events.jsonl
+input.json
+journey.md
+metadata.json
+screenshots/0000-start.svg
+screenshots/0001-5s.svg
+screenshots/0002-10s.svg
+screenshots/0003-15s.svg
+screenshots/0004-20s.svg
+screenshots/0005-final.svg
+snapshots/0000-start.txt
+snapshots/0001-5s.txt
+snapshots/0002-10s.txt
+snapshots/0003-15s.txt
+snapshots/0004-20s.txt
+snapshots/0005-final.txt
+terminal.log
+
+exec
+/bin/zsh -lc "sed -n '1,260p' \"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/metadata.json\"" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+{
+  "journeyId": "J13",
+  "title": "Specific Analysis On Known Dataset",
+  "startedAt": "2026-05-01T19:44:03.961Z",
+  "elapsedMs": 22281,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}
+2026-05-01T19:57:12.523303Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T19:57:12.523564Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T19:57:12.539741Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:12.539752Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:12.540129Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:12.540133Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:12.540480Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:12.540483Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:12.541013Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:12.541017Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:12.541706Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:12.541716Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:12.543094Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:12.543111Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+I’ve got the scenario and the run metadata. Next I’m reading the snapshots in sequence so I can reconstruct the visible experience before I compare it against the event log and terminal output.
+exec
+/bin/zsh -lc "sed -n '1,260p' \"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/events.jsonl\"" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+{"atMs":1,"type":"snapshot","label":"start","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0000-start.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0000-start.svg"}
+{"atMs":3659,"type":"stdout","bytes":31}
+{"atMs":3975,"type":"stdout","bytes":28}
+{"atMs":5005,"type":"snapshot","label":"5s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0001-5s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0001-5s.svg"}
+{"atMs":7343,"type":"stdout","bytes":30}
+{"atMs":7605,"type":"stdout","bytes":34}
+{"atMs":10006,"type":"snapshot","label":"10s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0002-10s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0002-10s.svg"}
+{"atMs":15006,"type":"snapshot","label":"15s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0003-15s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0003-15s.svg"}
+{"atMs":20006,"type":"snapshot","label":"20s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0004-20s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0004-20s.svg"}
+{"atMs":21484,"type":"stdout","bytes":29}
+{"atMs":22145,"type":"stdout","bytes":34}
+{"atMs":22145,"type":"stdout","bytes":65}
+{"atMs":22145,"type":"stdout","bytes":1}
+{"atMs":22145,"type":"stdout","bytes":24}
+{"atMs":22145,"type":"stdout","bytes":208}
+{"atMs":22281,"type":"snapshot","label":"final","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0005-final.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0005-final.svg"}
+
+exec
+/bin/zsh -lc "sed -n '1,260p' \"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/terminal.log\"" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+· Checking remote datasets...
+· Found 7 remote datasets.
+· Inspecting dataset econ...
+· Inspected remote dataset econ.
+· Starting dataset build...
+Blocked: dataset is already busy.
+Active run: 3b6146db-cd29-4773-89df-aa4eab3638c4
+Status: booting
+
+No new run was started.
+Check it: research debug run 3b6146db-cd29-4773-89df-aa4eab3638c4
+Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=3b6146db-cd29-4773-89df-aa4eab3638c4#run-3b6146db-cd29-4773-89df-aa4eab3638c4
+
+exec
+/bin/zsh -lc 'for f in "/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots"/*.txt; do echo "===== $(basename "$f")"; sed -n '"'1,220p' \""'$f"; echo; done' in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+===== 0000-start.txt
+                                                                                                                        
+===== 0001-5s.txt
+· Checking remote datasets...                                                                                           
+· Found 7 remote datasets.                                                                                              
+                                                                                                                        
+===== 0002-10s.txt
+· Checking remote datasets...                                                                                           
+· Found 7 remote datasets.                                                                                              
+· Inspecting dataset econ...                                                                                            
+· Inspected remote dataset econ.                                                                                        
+                                                                                                                        
+===== 0003-15s.txt
+· Checking remote datasets...                                                                                           
+· Found 7 remote datasets.                                                                                              
+· Inspecting dataset econ...                                                                                            
+· Inspected remote dataset econ.                                                                                        
+                                                                                                                        
+===== 0004-20s.txt
+· Checking remote datasets...                                                                                           
+· Found 7 remote datasets.                                                                                              
+· Inspecting dataset econ...                                                                                            
+· Inspected remote dataset econ.                                                                                        
+                                                                                                                        
+===== 0005-final.txt
+· Checking remote datasets...                                                                                           
+· Found 7 remote datasets.                                                                                              
+· Inspecting dataset econ...                                                                                            
+· Inspected remote dataset econ.                                                                                        
+· Starting dataset build...                                                                                             
+Blocked: dataset is already busy.                                                                                       
+Active run: 3b6146db-cd29-4773-89df-aa4eab3638c4                                                                        
+Status: booting                                                                                                         
+                                                                                                                        
+No new run was started.                                                                                                 
+Check it: research debug run 3b6146db-cd29-4773-89df-aa4eab3638c4                                                       
+Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=3b6146db-cd29-4773-89df-aa4eab3638c4#run-3b6146db-cd29-4
+773-89df-aa4eab3638c4                                                                                                   
+                                                                                                                        
+
+2026-05-01T19:57:15.513696Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T19:57:15.514260Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T19:57:15.543769Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:15.543787Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:15.544527Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:15.544539Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:15.545134Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:15.545146Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:15.545795Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:15.545803Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:15.546497Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:15.546583Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:15.548493Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:15.548511Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+The text snapshots already show the core story: the CLI inspects the `econ` dataset, then hits a busy-run block instead of starting work. I’m checking the screenshot files and the raw input now to see whether the interface made that state legible or whether the user had to infer it.
+exec
+/bin/zsh -lc "sed -n '1,220p' \"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/input.json\"" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+{
+  "journeyId": "J13",
+  "prompt": "Using the econ dataset, compare county-level unemployment changes against home value growth from 2019 through 2024. Group by county and year, create a correlation table, a scatter plot, and a short markdown summary with caveats.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Using the econ dataset, compare county-level unemployment changes against home value growth from 2019 through 2024. Group by county and year, create a correlation table, a scatter plot, and a short markdown summary with caveats."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}
+exec
+/bin/zsh -lc "sed -n '1,260p' \"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0005-final.svg\"" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Inspecting dataset econ...                                                                                            </text>
+<text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
+<text x="16" y="102">· Starting dataset build...                                                                                             </text>
+<text x="16" y="120">Blocked: dataset is already busy.                                                                                       </text>
+<text x="16" y="138">Active run: 3b6146db-cd29-4773-89df-aa4eab3638c4                                                                        </text>
+<text x="16" y="156">Status: booting                                                                                                         </text>
+<text x="16" y="174">                                                                                                                        </text>
+<text x="16" y="192">No new run was started.                                                                                                 </text>
+<text x="16" y="210">Check it: research debug run 3b6146db-cd29-4773-89df-aa4eab3638c4                                                       </text>
+<text x="16" y="228">Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&amp;runId=3b6146db-cd29-4773-89df-aa4eab3638c4#run-3b6146db-cd29-4</text>
+<text x="16" y="246">773-89df-aa4eab3638c4                                                                                                   </text>
+<text x="16" y="264">                                                                                                                        </text>
+</g>
+</svg>
+exec
+/bin/zsh -lc "sed -n '1,220p' \"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0000-start.svg\"" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">                                                                                                                        </text>
+</g>
+</svg>
+2026-05-01T19:57:20.627647Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T19:57:20.627912Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T19:57:20.640541Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:20.640552Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:20.640867Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:20.640871Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:20.641162Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:20.641165Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:20.641462Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:20.641464Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:20.641758Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:20.641763Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:20.642415Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:20.642418Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+exec
+/bin/zsh -lc 'for f in "/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots"/0001-5s.svg "/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots"/0002-10s.svg "/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots"/0003-15s.svg "/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots"/0004-20s.svg; do echo "===== $(basename "$f")"; sed -n '"'1,200p' \""'$f"; echo; done' in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+===== 0001-5s.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">                                                                                                                        </text>
+</g>
+</svg>
+===== 0002-10s.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Inspecting dataset econ...                                                                                            </text>
+<text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
+<text x="16" y="102">                                                                                                                        </text>
+</g>
+</svg>
+===== 0003-15s.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Inspecting dataset econ...                                                                                            </text>
+<text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
+<text x="16" y="102">                                                                                                                        </text>
+</g>
+</svg>
+===== 0004-20s.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Inspecting dataset econ...                                                                                            </text>
+<text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
+<text x="16" y="102">                                                                                                                        </text>
+</g>
+</svg>
+
+exec
+/bin/zsh -lc "python - <<'PY'
+import json, pathlib
+p=pathlib.Path('/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/events.jsonl')
+for line in p.read_text().splitlines():
+    if not line.strip():
+        continue
+    obj=json.loads(line)
+    if obj['type']=='stdout':
+        print(obj)
+PY" in /Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets
+ succeeded in 0ms:
+{'atMs': 3659, 'type': 'stdout', 'bytes': 31}
+{'atMs': 3975, 'type': 'stdout', 'bytes': 28}
+{'atMs': 7343, 'type': 'stdout', 'bytes': 30}
+{'atMs': 7605, 'type': 'stdout', 'bytes': 34}
+{'atMs': 21484, 'type': 'stdout', 'bytes': 29}
+{'atMs': 22145, 'type': 'stdout', 'bytes': 34}
+{'atMs': 22145, 'type': 'stdout', 'bytes': 65}
+{'atMs': 22145, 'type': 'stdout', 'bytes': 1}
+{'atMs': 22145, 'type': 'stdout', 'bytes': 24}
+{'atMs': 22145, 'type': 'stdout', 'bytes': 208}
+
+2026-05-01T19:57:24.118167Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: prompt must be at most 128 characters path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/build-ios-apps/.codex-plugin/plugin.json
+2026-05-01T19:57:24.118451Z  WARN codex_core_plugins::manifest: ignoring interface.defaultPrompt: maximum of 3 prompts is supported path=/Users/ryanprendergast/.codex/.tmp/plugins/plugins/plugin-eval/.codex-plugin/plugin.json
+2026-05-01T19:57:24.132213Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:24.132236Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:24.132569Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:24.132572Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:24.132915Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:24.132919Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:24.133239Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:24.133241Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:24.133525Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:24.133527Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+2026-05-01T19:57:24.134305Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'
+2026-05-01T19:57:24.134309Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'
+codex
+**Verdict:** Partial
+
+**User Input Burden**
+- Low for the main journey: the CLI did not ask for clarification and correctly accepted the prompt as-is.
+- Medium for recovery: once it hit the busy-dataset block, the user is pushed into a separate debug flow instead of getting an immediate next action.
+
+**Correct Behavior Assessment**
+- The CLI chose the right early behavior: it discovered datasets, selected `econ`, and verified it existed.
+- It then chose the right safety behavior at the end: it did not start a duplicate run when the dataset was busy.
+- It did not complete the requested analysis, and it did not surface any of the expected artifacts, so the journey is not successful end-to-end.
+
+**Confusing Moments, Ordered by Severity**
+- The biggest issue is the terminal block in the final state: the user sees `Blocked: dataset is already busy.` and `No new run was started.` but is not told whether this is a queue, a temporary lock, or a hard failure. The only next step is a debug command, which feels like a troubleshooting detour rather than a normal user path. Evidence: [0005-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0005-final.txt), [0005-final.svg](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0005-final.svg), and events at `21484ms` to `22281ms` in [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/events.jsonl).
+- The run appears stagnant for a long stretch after inspection completes. From `10s` through `20s`, the visible output does not change at all, so the user cannot tell whether analysis is happening, waiting on I/O, or stuck. Evidence: [0002-10s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0002-10s.txt), [0003-15s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0003-15s.txt), [0004-20s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0004-20s.txt), and snapshot timing in [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/events.jsonl).
+- The dataset inspection step is opaque. The user sees `Inspecting dataset econ...` and `Inspected remote dataset econ.` but never sees what was checked or whether the requested fields were found. For a query that depends on county-level unemployment and home value fields, that leaves the user guessing whether the dataset is suitable. Evidence: [0002-10s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0002-10s.txt).
+- The final screen is operationally dense in a way that does not help the user act. The raw run ID, status, debug command, and full dashboard URL are all shown together, and the URL wraps awkwardly across lines. Evidence: [0005-final.svg](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0005-final.svg).
+
+**Product Confusion**
+- The CLI never makes clear that the user’s requested output should be a correlation table, scatter plot, and markdown summary until success; that expectation is only in the journey spec, not in the user-visible flow.
+- The “Checking remote datasets…” / “Found 7 remote datasets.” sequence is understandable, but it does not tell the user whether the tool is discovering the right dataset or just browsing options.
+- The hard stop does not explain ownership of the busy run, so the user cannot tell if this is their prior run, another user’s work, or a shared resource lock.
+
+**Dataset Confusion**
+- The tool identified `econ`, but it did not expose any schema or field-resolution result, so the user cannot tell whether the dataset actually contains the unemployment and home value fields needed for the analysis.
+- There was no visible confirmation that county and year groupings were valid or that the requested time window could be supported.
+
+**Auth Confusion**
+- None visible in this journey.
+- No login prompt, token failure, or permission denial appeared.
+
+**Run Lifecycle Confusion**
+- This is the main failure mode. The CLI reaches a state where it refuses to start a new run, but it does not translate that into a normal lifecycle explanation: queued, blocked, already running, or needs manual inspection.
+- The suggested recovery path is a debug command, which is appropriate for operators but not a friendly default for a normal analysis user.
+
+**Terminal/UI Readability Problems**
+- The progress display is too static during the wait period; repeated identical lines make the interface feel frozen.
+- The final block is slightly too dense: the run ID, status, command, and dashboard URL compete for attention.
+- The dashboard URL wrapping across lines reduces scanability.
+- The interface is otherwise readable, but it is visually sparse enough that any lack of progress becomes very noticeable.
+
+**Missing Information That Would Have Helped**
+- Whether `econ` has the fields needed for unemployment changes and home value growth.
+- Whether the existing active run is related to this prompt or an unrelated in-flight job.
+- Whether the correct next action is to wait, retry later, or inspect the existing run.
+- A clear statement of expected artifacts once work begins.
+
+**Information That Should Be Removed or De-emphasized**
+- The full dashboard URL in the main terminal output should be shortened or tucked behind a lighter-weight “open dashboard” action.
+- The raw run UUID can be shown, but it should not dominate the failure message.
+- Repeating the same progress lines without state changes should be reduced.
+
+**Suggested UI/Output Changes**
+- After dataset inspection, show a one-line schema/result summary, for example: “`econ` has county, year, unemployment, and home value fields; starting analysis.”
+- During async work, keep the status live with changing substatus text or ETA so the screen does not look frozen.
+- When blocked by an existing run, explain the lifecycle in plain language: “An analysis is already running on this dataset. I will not start a duplicate run.”
+- Offer a direct choice in the UI: wait for the active run, open the existing run, or run debug.
+- Surface the expected deliverables before the run starts: correlation table, scatter plot, and markdown summary.
+- Replace the long raw dashboard URL with a compact action label and optional copyable link.
+
+**Evidence References**
+- Initial blank screen: [0000-start.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0000-start.txt)
+- First visible progress at 5s: [0001-5s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0001-5s.txt)
+- Inspection appears by 10s: [0002-10s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0002-10s.txt)
+- No visible change at 15s and 20s: [0003-15s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0003-15s.txt), [0004-20s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0004-20s.txt)
+- Final blocked state: [0005-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0005-final.txt), [0005-final.svg](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0005-final.svg)
+- Timing and output transitions: [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/events.jsonl)
+
+tokens used
+14,252
+**Verdict:** Partial
+
+**User Input Burden**
+- Low for the main journey: the CLI did not ask for clarification and correctly accepted the prompt as-is.
+- Medium for recovery: once it hit the busy-dataset block, the user is pushed into a separate debug flow instead of getting an immediate next action.
+
+**Correct Behavior Assessment**
+- The CLI chose the right early behavior: it discovered datasets, selected `econ`, and verified it existed.
+- It then chose the right safety behavior at the end: it did not start a duplicate run when the dataset was busy.
+- It did not complete the requested analysis, and it did not surface any of the expected artifacts, so the journey is not successful end-to-end.
+
+**Confusing Moments, Ordered by Severity**
+- The biggest issue is the terminal block in the final state: the user sees `Blocked: dataset is already busy.` and `No new run was started.` but is not told whether this is a queue, a temporary lock, or a hard failure. The only next step is a debug command, which feels like a troubleshooting detour rather than a normal user path. Evidence: [0005-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0005-final.txt), [0005-final.svg](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0005-final.svg), and events at `21484ms` to `22281ms` in [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/events.jsonl).
+- The run appears stagnant for a long stretch after inspection completes. From `10s` through `20s`, the visible output does not change at all, so the user cannot tell whether analysis is happening, waiting on I/O, or stuck. Evidence: [0002-10s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0002-10s.txt), [0003-15s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0003-15s.txt), [0004-20s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0004-20s.txt), and snapshot timing in [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/events.jsonl).
+- The dataset inspection step is opaque. The user sees `Inspecting dataset econ...` and `Inspected remote dataset econ.` but never sees what was checked or whether the requested fields were found. For a query that depends on county-level unemployment and home value fields, that leaves the user guessing whether the dataset is suitable. Evidence: [0002-10s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0002-10s.txt).
+- The final screen is operationally dense in a way that does not help the user act. The raw run ID, status, debug command, and full dashboard URL are all shown together, and the URL wraps awkwardly across lines. Evidence: [0005-final.svg](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0005-final.svg).
+
+**Product Confusion**
+- The CLI never makes clear that the user’s requested output should be a correlation table, scatter plot, and markdown summary until success; that expectation is only in the journey spec, not in the user-visible flow.
+- The “Checking remote datasets…” / “Found 7 remote datasets.” sequence is understandable, but it does not tell the user whether the tool is discovering the right dataset or just browsing options.
+- The hard stop does not explain ownership of the busy run, so the user cannot tell if this is their prior run, another user’s work, or a shared resource lock.
+
+**Dataset Confusion**
+- The tool identified `econ`, but it did not expose any schema or field-resolution result, so the user cannot tell whether the dataset actually contains the unemployment and home value fields needed for the analysis.
+- There was no visible confirmation that county and year groupings were valid or that the requested time window could be supported.
+
+**Auth Confusion**
+- None visible in this journey.
+- No login prompt, token failure, or permission denial appeared.
+
+**Run Lifecycle Confusion**
+- This is the main failure mode. The CLI reaches a state where it refuses to start a new run, but it does not translate that into a normal lifecycle explanation: queued, blocked, already running, or needs manual inspection.
+- The suggested recovery path is a debug command, which is appropriate for operators but not a friendly default for a normal analysis user.
+
+**Terminal/UI Readability Problems**
+- The progress display is too static during the wait period; repeated identical lines make the interface feel frozen.
+- The final block is slightly too dense: the run ID, status, command, and dashboard URL compete for attention.
+- The dashboard URL wrapping across lines reduces scanability.
+- The interface is otherwise readable, but it is visually sparse enough that any lack of progress becomes very noticeable.
+
+**Missing Information That Would Have Helped**
+- Whether `econ` has the fields needed for unemployment changes and home value growth.
+- Whether the existing active run is related to this prompt or an unrelated in-flight job.
+- Whether the correct next action is to wait, retry later, or inspect the existing run.
+- A clear statement of expected artifacts once work begins.
+
+**Information That Should Be Removed or De-emphasized**
+- The full dashboard URL in the main terminal output should be shortened or tucked behind a lighter-weight “open dashboard” action.
+- The raw run UUID can be shown, but it should not dominate the failure message.
+- Repeating the same progress lines without state changes should be reduced.
+
+**Suggested UI/Output Changes**
+- After dataset inspection, show a one-line schema/result summary, for example: “`econ` has county, year, unemployment, and home value fields; starting analysis.”
+- During async work, keep the status live with changing substatus text or ETA so the screen does not look frozen.
+- When blocked by an existing run, explain the lifecycle in plain language: “An analysis is already running on this dataset. I will not start a duplicate run.”
+- Offer a direct choice in the UI: wait for the active run, open the existing run, or run debug.
+- Surface the expected deliverables before the run starts: correlation table, scatter plot, and markdown summary.
+- Replace the long raw dashboard URL with a compact action label and optional copyable link.
+
+**Evidence References**
+- Initial blank screen: [0000-start.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0000-start.txt)
+- First visible progress at 5s: [0001-5s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0001-5s.txt)
+- Inspection appears by 10s: [0002-10s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0002-10s.txt)
+- No visible change at 15s and 20s: [0003-15s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0003-15s.txt), [0004-20s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0004-20s.txt)
+- Final blocked state: [0005-final.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/snapshots/0005-final.txt), [0005-final.svg](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/screenshots/0005-final.svg)
+- Timing and output transitions: [events.jsonl](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J13/20260501T194403Z/events.jsonl)
+

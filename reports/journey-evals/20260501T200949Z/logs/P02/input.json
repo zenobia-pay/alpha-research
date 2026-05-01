@@ -1,0 +1,12 @@
+{
+  "journeyId": "P02",
+  "prompt": "I have a CSV export of customer support tickets. I want to turn it into a dataset I can research here, but I don't know what you need from me.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "I have a CSV export of customer support tickets. I want to turn it into a dataset I can research here, but I don't know what you need from me."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

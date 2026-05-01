@@ -1,0 +1,20 @@
+· Checking local datasets...
+· Found 2 local datasets.
+· Checking remote datasets...
+· Found 7 remote datasets.
+Here’s what’s ready right now:
+
+Local (immediately usable in your workspace)
+- county-economics — County Economics (4 rows)
+- tweets — Tweet Archive (3 rows)
+
+Remote (deployed and queryable)
+- enriched-tweets — Enriched Tweets (tabular, deployed)
+- mixed-smoke-1776979192 — Mixed Smoke Test (tabular, deployed)
+
+In progress/not yet ready
+- econ — Unemployment vs Home Values 2019–2024 (provisioning)
+- mixed-smoke-1776989749 — Mixed Smoke Test 3 (provisioning)
+- mixed-smoke-1776989612 — Mixed Smoke Test 2 (provisioning)
+- upload-test-93961 — Upload Test (uploaded; not deployed)
+- dataset — enriched_tweets_parquet_dataset (draft)

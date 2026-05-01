@@ -1,0 +1,12 @@
+{
+  "journeyId": "P08",
+  "prompt": "I came back later. What happened with my research work, and what results or artifacts can I see?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "I came back later. What happened with my research work, and what results or artifacts can I see?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

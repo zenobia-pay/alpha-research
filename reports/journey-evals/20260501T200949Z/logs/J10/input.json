@@ -1,0 +1,12 @@
+{
+  "journeyId": "J10",
+  "prompt": "Can you look into whether the housing market is in trouble?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Can you look into whether the housing market is in trouble?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

@@ -1,0 +1,65 @@
+· Checking run history...
+· Loaded run history. 2 active runs right now.
+· Running list_run_artifacts...
+· Found 2 artifacts for run 47ff6747-fdc4-4c97-9a2d-72d038de90c6.
+· Artifacts are the saved outputs from the run. Open them on the run page:
+· - Remote Agent Summary — short written summary from the remote run
+· - Remote Agent Transcript — full remote execution log
+· Running list_run_artifacts...
+· Found 3 artifacts for run 40f2e15b-4eef-47ff-8bbc-55178caa77e4.
+· Artifacts are the saved outputs from the run. Open them on the run page:
+· - Remote Agent Summary — short written summary from the remote run
+· - Remote Agent Transcript — full remote execution log
+· - enriched_tweets.duckdb
+· Running list_run_artifacts...
+· Found 4 artifacts for run 2457a3da-4ffc-4f1a-8b7d-a79450412571.
+· Artifacts are the saved outputs from the run. Open them on the run page:
+· - Remote Agent Summary — short written summary from the remote run
+· - Remote Agent Transcript — full remote execution log
+· - result.json — structured result data
+· - summary.md — markdown summary/report
+· Running list_run_artifacts...
+· Found 8 artifacts for run 8658a9bb-e63d-4c4a-b6bc-72e58c80dc37.
+· Artifacts are the saved outputs from the run. Open them on the run page:
+· - Remote Agent Summary — short written summary from the remote run
+· - Remote Agent Transcript — full remote execution log
+· - result.json — structured result data
+· - selected_viral_bases.csv
+· - selected_viral_bases.parquet
+· - summary.md — markdown summary/report
+· - top_quotes_per_base.csv
+· - top_quotes_per_base.parquet
+· Running list_run_artifacts...
+· No produced artifacts found for run 2a6e8e0a-2682-41bb-8bf0-3aa912ba2e8f yet.
+· Running list_run_artifacts...
+· Found 4 artifacts for run 649bb84f-e293-45cc-a007-f13e9383e856.
+· Artifacts are the saved outputs from the run. Open them on the run page:
+· - Remote Agent Summary — short written summary from the remote run
+· - Remote Agent Transcript — full remote execution log
+· - result.json — structured result data
+· - summary.md — markdown summary/report
+Here’s the current status and what you can view:
+
+Active now
+- enriched-tweets (run 1e0d…64b3): Building “sampled_viral_100” table. Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3
+- econ (run 3b61…638c4): County–month US macro/housing panel is acquiring sources. Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=3b6146db-cd29-4773-89df-aa4eab3638c4
+
+Recently finished runs and artifacts
+- enriched-tweets (run 8658…dc37): Responses to viral tweets
+  - selected_viral_bases.(csv|parquet)
+  - top_quotes_per_base.(csv|parquet)
+  - summary.md, result.json
+  - Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=8658a9bb-e63d-4c4a-b6bc-72e58c80dc37
+- enriched-tweets (run 649b…e856): Sanity summary
+  - result.json, summary.md
+  - Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=649bb84f-e293-45cc-a007-f13e9383e856
+- enriched-tweets (run 2457…2571): Author‑normalized viral modeling attempt (aborted for performance)
+  - summary.md, result.json
+  - Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=2457a3da-4ffc-4f1a-8b7d-a79450412571
+- enriched-tweets (run 40f2…77e4): Modeling scaffold; no analysis artifacts
+  - enriched_tweets.duckdb, agent logs
+  - Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4
+- enriched-tweets (run 47ff…90c6): Labeling plan; only agent summary/transcript
+  - Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=47ff6747-fdc4-4c97-9a2d-72d038de90c6
+
+Want me to resume labeling for the 100 viral samples or proceed with the econ panel once source fetch completes?

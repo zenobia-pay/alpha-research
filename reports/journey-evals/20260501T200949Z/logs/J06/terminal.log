@@ -1,0 +1,6 @@
+I need the absolute path to the CSV and a one-line description of what it contains.
+
+Example:
+`/Users/ryanprendergast/Desktop/support_tickets.csv` — customer support tickets with timestamps, categories, priorities, and resolution status.
+
+Once you provide that, I can infer the schema, register the dataset, upload it, and deploy it for research. If you only know a hint, I can help narrow it down, but I still need the exact path before import.

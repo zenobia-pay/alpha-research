@@ -1,0 +1,12 @@
+{
+  "journeyId": "P01",
+  "prompt": "I just opened research. What is this, and what should I type first?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "I just opened research. What is this, and what should I type first?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

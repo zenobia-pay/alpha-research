@@ -1,0 +1,12 @@
+{
+  "journeyId": "J04",
+  "prompt": "Describe the econ dataset for me.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Describe the econ dataset for me."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

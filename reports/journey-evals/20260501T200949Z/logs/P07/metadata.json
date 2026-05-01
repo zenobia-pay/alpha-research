@@ -1,0 +1,13 @@
+{
+  "journeyId": "P07",
+  "title": "Specific Research Request To Run",
+  "startedAt": "2026-05-01T19:46:04.490Z",
+  "elapsedMs": 12372,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

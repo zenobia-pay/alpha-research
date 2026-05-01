@@ -1,0 +1,12 @@
+{
+  "journeyId": "J15",
+  "prompt": "My last run seems stuck. What’s happening?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "My last run seems stuck. What’s happening?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}
