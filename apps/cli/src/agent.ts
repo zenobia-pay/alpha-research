@@ -1864,17 +1864,27 @@ function maybeHandleVagueTweetsExperiment(input: string) {
     return null;
   }
   return [
-    "Before I start a remote run, here is the experiment I propose.",
+    "Before I start a remote run, here is the experiment I recommend.",
     "",
-    "Proposed dataset: `enriched-tweets`, assuming it has tweet text, timestamps, and engagement fields.",
-    "Default design: use the top 0.1% by `quote_tweet_count`, sample 100 tweets from that viral set, label `hook_type`, `emotional_tone`, and `controversy_level`, then return a bar chart plus representative examples.",
+    "Dataset",
+    "Use `enriched-tweets`.",
+    "Fallback: if it is not in your workspace, I can help you choose or build a tweets dataset with text, timestamps, authors, and engagement fields.",
+    "",
+    "Definition",
+    "Outcome: treat viral tweets as the top 0.1% by `quote_tweet_count`.",
+    "Sample: label 100 tweets from the viral set.",
+    "Labels: `hook_type`, `emotional_tone`, `controversy_level`.",
+    "Outputs: a short summary, visualizations, and representative examples.",
     "",
     "Choose one virality definition:",
     "1. Top 0.1% by `quote_tweet_count`.",
     "2. Top 0.1% by `retweet_count`.",
     "3. Top 0.1% by `favorite_count`.",
     "",
-    "If you are good with the default sample size and outputs, reply with 1, 2, or 3 and I will use that plan. If not, tell me what to change.",
+    "Approval",
+    "Proceed with this default design? Reply with 1, 2, or 3 and I will use that virality definition.",
+    "Optional changes: choose a different virality metric or sample size before I start.",
+    "Next: once you confirm, I will start the run with that scope.",
   ].join("\n");
 }
 

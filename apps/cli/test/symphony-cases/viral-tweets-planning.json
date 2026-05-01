@@ -21,7 +21,7 @@
       ]
     },
     {
-      "assistant": "I found `enriched-tweets`. Before launching a run, here is the experiment design: define viral tweets as the top 0.1% by `quote_tweet_count`, sample 100 random viral tweets, label each with strict JSON fields for topic, hook style, emotional valence, audience, and media format, then compare visualizations and synthesis against alternative metrics such as retweets/likes or a matched control group. Should I proceed with this design?"
+      "assistant": "Before I start a remote run, here is the experiment I recommend.\n\nDataset\nUse `enriched-tweets`.\nFallback: if it is not in your workspace, I can help you choose or build a tweets dataset with text, timestamps, authors, and engagement fields.\n\nDefinition\nOutcome: treat viral tweets as the top 0.1% by `quote_tweet_count`.\nSample: label 100 tweets from the viral set.\nLabels: `hook_type`, `emotional_tone`, `controversy_level`.\nOutputs: a short summary, visualizations, and representative examples.\n\nApproval\nProceed with this default design?\nOptional changes: choose a different virality metric or sample size before I start.\nNext: once you confirm, I will start the run with that scope."
     }
   ],
   "expected": {
@@ -39,7 +39,10 @@
       "favorite_count",
       "bar chart",
       "representative examples",
-      "reply with 1, 2, or 3"
+      "reply with 1, 2, or 3",
+      "Approval",
+      "Fallback",
+      "Proceed with this default design"
     ],
     "forbiddenToolCalls": [
       "query_remote_dataset",
