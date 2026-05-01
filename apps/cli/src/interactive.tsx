@@ -6,7 +6,6 @@ import {
   ThreadPrimitive,
   useAuiState,
   useLocalRuntime,
-  type AssistantRuntime,
   type ChatModelAdapter,
   type ThreadMessage,
 } from "@assistant-ui/react-ink";
@@ -14,6 +13,16 @@ import { MarkdownText } from "@assistant-ui/react-ink-markdown";
 
 import { type AgentConversationState, type AgentMessage, runAgentTurn } from "./agent.js";
 import { RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
+import {
+  applyAgentMessageToTaskState,
+  beginInteractiveTask,
+  buildLiveSummary,
+  cleanUiLine,
+  createIdleTaskState,
+  splitTrackedRuns,
+  wrapText,
+  type InteractiveTaskState,
+} from "./interactive-state.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
 import { clearSession, login, readSession } from "./session.js";
@@ -26,12 +35,6 @@ function shortId(value: string, size = 8) {
   return value.length > size ? value.slice(0, size) : value;
 }
 
-function fillBar(text: string, width: number) {
-  const safeWidth = Math.max(8, width);
-  const trimmed = text.length > safeWidth - 4 ? `${text.slice(0, safeWidth - 7)}...` : text;
-  return `› ${trimmed}`.padEnd(safeWidth, " ");
-}
-
 function textFromThreadMessage(message: ThreadMessage | undefined) {
   return message?.content
     .filter((part) => part.type === "text")
@@ -42,29 +45,6 @@ function textFromThreadMessage(message: ThreadMessage | undefined) {
 
 function assistantContent(text: string) {
   return [{ type: "text" as const, text }];
-}
-
-function appendAssistant(runtime: AssistantRuntime, text: string) {
-  runtime.thread.append({
-    role: "assistant",
-    content: assistantContent(text),
-  });
-}
-
-function formatAgentEmission(message: AgentMessage) {
-  if (message.role === "tool") {
-    return message.content
-      .split("\n")
-      .map((line) => `· ${line}`)
-      .join("\n");
-  }
-  if (message.role === "system") {
-    return message.content
-      .split("\n")
-      .map((line) => `system · ${line}`)
-      .join("\n");
-  }
-  return message.content;
 }
 
 function runStatusColor(status: string) {
@@ -159,9 +139,9 @@ function UserMessage({ width }: { width: number }) {
 
   return (
     <Box flexDirection="column">
-      {text.split("\n").map((line, index) => (
+      {wrapText(text, Math.max(12, width - 4)).map((line, index) => (
         <Text key={index} backgroundColor="black" color="white">
-          {fillBar(line.length > 0 ? line : " ", width)}
+          {`› ${line}`.padEnd(Math.max(12, width - 1), " ")}
         </Text>
       ))}
     </Box>
@@ -205,29 +185,77 @@ function ActivityIndicator() {
   );
 }
 
-function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
-  const activeRuns = useMemo(
-    () =>
-      runs
-        .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
-    [runs],
-  );
-
-  if (activeRuns.length === 0) return null;
+function TaskSummary({ taskState, width }: { taskState: InteractiveTaskState; width: number }) {
+  const composerText = useAuiState((state) => state.composer.text);
+  const preview = composerText.trim().length > 0 ? composerText : taskState.goal;
 
   return (
-    <Box flexDirection="column">
-      {activeRuns.map((run) => (
-        <Text key={run.id} color={runStatusColor(run.status)}>
-          {`· ${summarizeRunLine(run)}`}
-        </Text>
-      ))}
+    <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
+      <Text bold color="green">research</Text>
+      <Text>{`Status: ${taskState.status}`}</Text>
+      {preview ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text bold>Goal</Text>
+          {wrapText(preview, Math.max(24, width - 6)).map((line, index) => (
+            <Text key={index}>{line}</Text>
+          ))}
+        </Box>
+      ) : null}
+      {taskState.currentStep ? <Text>{`Current step: ${taskState.currentStep}`}</Text> : null}
+      {taskState.lastResult ? <Text>{`Last result: ${taskState.lastResult}`}</Text> : null}
+      {taskState.nextExpectedOutput ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
+      {taskState.planSteps.length > 0 ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text bold>Plan</Text>
+          {taskState.planSteps.map((step, index) => (
+            <Text key={step}>{`${index + 1}. ${step}`}</Text>
+          ))}
+        </Box>
+      ) : null}
     </Box>
   );
 }
 
-function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
+function RunStatusPanel({
+  runs,
+  focusRunId,
+}: {
+  runs: TrackedRunRecord[];
+  focusRunId: string | null;
+}) {
+  const { focused, background } = useMemo(() => splitTrackedRuns(runs, focusRunId), [focusRunId, runs]);
+  if (!focused && background.length === 0) return null;
+
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
+      {focused ? (
+        <>
+          <Text bold>Current run</Text>
+          <Text color={runStatusColor(focused.status)}>{summarizeRunLine(focused)}</Text>
+        </>
+      ) : null}
+      {background.length > 0 ? (
+        <>
+          <Text bold>{focused ? "Background runs" : "Other active runs"}</Text>
+          <Text color="gray">These are from earlier work unless a new run is started for this request.</Text>
+          {background.slice(0, 2).map((run) => (
+            <Text key={run.id} color={runStatusColor(run.status)}>
+              {summarizeRunLine(run)}
+            </Text>
+          ))}
+        </>
+      ) : null}
+    </Box>
+  );
+}
+
+function ResearchThread({
+  trackedRuns,
+  taskState,
+}: {
+  trackedRuns: TrackedRunRecord[];
+  taskState: InteractiveTaskState;
+}) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
   const borderColor = isRunning ? "yellow" : "gray";
@@ -237,10 +265,11 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
     <ThreadPrimitive.Root>
       <ThreadPrimitive.Empty>
         <Box flexDirection="column">
-          <Text bold color="green">research</Text>
-          <Text>ready.</Text>
+          <TaskSummary taskState={taskState} width={columns} />
         </Box>
       </ThreadPrimitive.Empty>
+
+      <TaskSummary taskState={taskState} width={columns} />
 
       <ThreadPrimitive.Messages>
         {({ message }) =>
@@ -253,7 +282,15 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
       </ThreadPrimitive.Messages>
 
       <ActivityIndicator />
-      <RunStatusPanel runs={trackedRuns} />
+      {taskState.activity.length > 0 ? (
+        <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
+          <Text bold>Recent progress</Text>
+          {taskState.activity.map((item) => (
+            <Text key={item}>{`· ${item}`}</Text>
+          ))}
+        </Box>
+      ) : null}
+      <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} />
 
       <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
         <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
@@ -264,11 +301,9 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
 }
 
 function RunPoller({
-  runtime,
   session,
   setTrackedRuns,
 }: {
-  runtime: AssistantRuntime;
   session: SessionRecord | null;
   setTrackedRuns: (runs: TrackedRunRecord[]) => void;
 }) {
@@ -278,11 +313,7 @@ function RunPoller({
     }
 
     let cancelled = false;
-    const emit = (message: AgentMessage) => {
-      if (!cancelled) {
-        appendAssistant(runtime, formatAgentEmission(message));
-      }
-    };
+    const emit = (_message: AgentMessage) => {};
 
     const tick = async () => {
       try {
@@ -304,7 +335,7 @@ function RunPoller({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [runtime, session, setTrackedRuns]);
+  }, [session, setTrackedRuns]);
 
   return null;
 }
@@ -316,6 +347,7 @@ function createResearchAdapter({
   conversationStateRef,
   setConversationState,
   setTrackedRuns,
+  setTaskState,
 }: {
   exit: () => void;
   sessionRef: React.MutableRefObject<SessionRecord | null>;
@@ -323,10 +355,12 @@ function createResearchAdapter({
   conversationStateRef: React.MutableRefObject<AgentConversationState>;
   setConversationState: (state: AgentConversationState) => void;
   setTrackedRuns: (runs: TrackedRunRecord[]) => void;
+  setTaskState: (state: InteractiveTaskState | ((current: InteractiveTaskState) => InteractiveTaskState)) => void;
 }): ChatModelAdapter {
   return {
     async *run({ messages, abortSignal }) {
       const prompt = textFromThreadMessage(messages.filter((message) => message.role === "user").at(-1));
+      let liveTaskState = createIdleTaskState();
       let visibleText = "";
       let changed = false;
       let wake: (() => void) | null = null;
@@ -339,8 +373,13 @@ function createResearchAdapter({
         wake = resolve;
       });
       const emit = (message: AgentMessage) => {
-        const formatted = formatAgentEmission(message);
-        visibleText = visibleText ? `${visibleText}\n${formatted}` : formatted;
+        liveTaskState = applyAgentMessageToTaskState(liveTaskState, message);
+        setTaskState(liveTaskState);
+        if (message.role === "assistant") {
+          visibleText = cleanUiLine(message.content);
+        } else {
+          visibleText = buildLiveSummary(liveTaskState);
+        }
         markChanged();
       };
       const flush = function* () {
@@ -368,12 +407,17 @@ function createResearchAdapter({
       }
 
       if (!prompt) {
+        setTaskState(createIdleTaskState());
         visibleText = "What would you like to do?";
         yield* flush();
         return;
       }
 
+      liveTaskState = beginInteractiveTask(prompt);
+      setTaskState(liveTaskState);
+
       if (prompt === "/quit" || prompt === "/exit") {
+        setTaskState(createIdleTaskState());
         visibleText = "exiting.";
         yield* flush();
         setTimeout(exit, 0);
@@ -407,6 +451,7 @@ function createResearchAdapter({
         const resetState = { sessionId: null, previousResponseId: null };
         conversationStateRef.current = resetState;
         setConversationState(resetState);
+        setTaskState(createIdleTaskState());
         visibleText = "signed out locally";
         yield* flush();
         return;
@@ -431,6 +476,11 @@ function createResearchAdapter({
           const targetRunId = explicitRunId ?? activeRuns[0]?.id;
 
           if (!targetRunId) {
+            setTaskState((current) => ({
+              ...current,
+              status: "blocked",
+              lastResult: "No active tracked run to cancel.",
+            }));
             visibleText = "No active tracked run to cancel.";
             yield* flush();
             return;
@@ -449,6 +499,12 @@ function createResearchAdapter({
             };
           });
           setTrackedRuns(await readTrackedRuns());
+          setTaskState((current) => ({
+            ...current,
+            status: "done",
+            lastResult: `Cancelled run ${targetRunId}.`,
+            focusRunId: targetRunId,
+          }));
           visibleText = `Cancelled run ${targetRunId}.`;
           yield* flush();
         } catch (error) {
@@ -481,7 +537,7 @@ function createResearchAdapter({
           setConversationState(nextConversationState);
           setTrackedRuns(await readTrackedRuns());
           if (!visibleText) {
-            visibleText = "done.";
+            visibleText = liveTaskState.lastResult ?? "done.";
             markChanged();
           }
         });
@@ -497,6 +553,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const { exit } = useApp();
   const [session, setSessionState] = useState<SessionRecord | null>(null);
   const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
+  const [taskState, setTaskState] = useState<InteractiveTaskState>(createIdleTaskState());
   const [conversationState, setConversationStateState] = useState<AgentConversationState>({
     sessionId: null,
     previousResponseId: null,
@@ -543,23 +600,17 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
         conversationStateRef,
         setConversationState,
         setTrackedRuns,
+        setTaskState,
       }),
     [exit],
   );
   const runtime = useLocalRuntime(adapter);
 
-  useEffect(() => {
-    const active = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
-    if (active.length > 0 && runtime.thread.getState().messages.length === 0) {
-      appendAssistant(runtime, `tracking ${active.length} existing run${active.length === 1 ? "" : "s"}.`);
-    }
-  }, [runtime, trackedRuns]);
-
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <Box flexDirection="column">
-        <ResearchThread trackedRuns={trackedRuns} />
-        <RunPoller runtime={runtime} session={session} setTrackedRuns={setTrackedRuns} />
+        <ResearchThread trackedRuns={trackedRuns} taskState={taskState} />
+        <RunPoller session={session} setTrackedRuns={setTrackedRuns} />
       </Box>
     </AssistantRuntimeProvider>
   );
