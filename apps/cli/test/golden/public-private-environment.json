@@ -23,7 +23,10 @@
     "create_research_environment"
   ],
   "expectedSummaryIncludes": [
-    "Started research environment build run-env-1",
+    "Started research environment build for Economics Research.",
+    "Dataset: econ-research",
+    "Run: run-env-1",
+    "Monitor: research debug run run-env-1",
     "https://dashboard.alpharesearch.nyc/?view=runs&runId=run-env-1#run-run-env-1"
   ]
 }

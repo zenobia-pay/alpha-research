@@ -23,7 +23,10 @@
     "create_public_data_environment"
   ],
   "expectedSummaryIncludes": [
-    "Started public-data environment build run-public-env-1",
+    "Started public-data environment build for SEC Risk Factors.",
+    "Dataset: sec-risk-factors",
+    "Run: run-public-env-1",
+    "Monitor: research debug run run-public-env-1",
     "https://dashboard.alpharesearch.nyc/?view=runs&runId=run-public-env-1#run-run-public-env-1"
   ]
 }
