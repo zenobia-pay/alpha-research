@@ -13,7 +13,7 @@ import {
 import { MarkdownText } from "@assistant-ui/react-ink-markdown";
 
 import { type AgentConversationState, type AgentMessage, runAgentTurn } from "./agent.js";
-import { PROGRESS_HEARTBEAT_MS, RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
+import { RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
 import { clearSession, login, readSession } from "./session.js";
@@ -21,28 +21,6 @@ import { clearSession, login, readSession } from "./session.js";
 type InteractiveAppProps = {
   altScreen?: boolean;
 };
-
-const MIN_PENDING_VISIBLE_MS = 1000;
-
-export const EMPTY_STATE_EXAMPLE_PROMPTS = [
-  "Show the datasets I can use for research",
-  "Help me turn a CSV into a dataset I can inspect here",
-  "Summarize the latest run and point me to its artifacts",
-];
-
-export function emptyStatePromptExamples() {
-  return EMPTY_STATE_EXAMPLE_PROMPTS.map((prompt) => `• ${prompt}`);
-}
-
-export function runPanelSummary(runs: TrackedRunRecord[]) {
-  const activeRuns = runs
-    .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-  if (activeRuns.length === 0) {
-    return ["No active runs."];
-  }
-  return activeRuns.map((run) => summarizeRunLine(run));
-}
 
 function shortId(value: string, size = 8) {
   return value.length > size ? value.slice(0, size) : value;
@@ -54,8 +32,12 @@ function fillBar(text: string, width: number) {
   return `› ${trimmed}`.padEnd(safeWidth, " ");
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function clampText(text: string, maxLength: number) {
+  const normalized = text.replace(/\s+/gu, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
 }
 
 function textFromThreadMessage(message: ThreadMessage | undefined) {
@@ -98,16 +80,62 @@ function runStatusColor(status: string) {
   if (normalized === "ready" || normalized === "completed" || normalized === "succeeded") return "green";
   if (normalized === "failed" || normalized === "error") return "red";
   if (normalized === "cancelled" || normalized === "canceled") return "gray";
-  if (normalized === "booting") return "yellow";
+  if (normalized === "booting" || normalized === "starting") return "cyan";
   if (normalized === "running") return "blue";
   if (normalized === "queued") return "magenta";
   return "yellow";
 }
 
-function summarizeRunLine(run: TrackedRunRecord) {
-  const latest = run.lastEventMessage?.trim();
-  const suffix = latest ? ` · ${latest}` : run.prompt ? ` · ${run.prompt}` : "";
-  return `${shortId(run.id)}  ${run.datasetId}  ${run.status}${suffix}`;
+export function summarizePrompt(text: string | undefined, maxLength = 160) {
+  if (!text) return "No task summary available yet.";
+  return clampText(text, maxLength);
+}
+
+export function describeRunPhase(status: string | undefined) {
+  const normalized = status?.toLowerCase() ?? "unknown";
+  switch (normalized) {
+    case "queued":
+      return { label: "Queued", detail: "Accepted and waiting for the remote worker to pick it up." };
+    case "booting":
+    case "starting":
+      return { label: "Starting", detail: "Accepted and provisioning the remote worker for this run." };
+    case "running":
+      return { label: "Running", detail: "Worker is active and still processing the request." };
+    case "ready":
+    case "completed":
+    case "succeeded":
+      return { label: "Done", detail: "Run finished. Results and artifacts should be available." };
+    case "failed":
+    case "error":
+      return { label: "Error", detail: "Run failed. Inspect the latest event or debug the run." };
+    case "cancelled":
+    case "canceled":
+      return { label: "Cancelled", detail: "Run was stopped before completion." };
+    case "unknown":
+    case "worker_unreachable":
+      return { label: "Blocked", detail: "Remote state is unclear. Inspect the run or retry later." };
+    default:
+      return { label: "Working", detail: "Run state updated recently. Waiting for the next remote milestone." };
+  }
+}
+
+export function describeRunExpectation(run: TrackedRunRecord) {
+  const prompt = `${run.prompt ?? ""}`.toLowerCase();
+  const expectations: string[] = [];
+  if (prompt.includes("json")) expectations.push("structured JSON");
+  if (prompt.includes("chart")) expectations.push("chart");
+  if (prompt.includes("example")) expectations.push("examples");
+  if (prompt.includes("label")) expectations.push("labels");
+  if (expectations.length === 0) {
+    expectations.push("result artifacts");
+  }
+  return `Expected outputs: ${expectations.join(", ")}.`;
+}
+
+export function formatRunLastUpdate(run: TrackedRunRecord) {
+  return run.lastEventMessage?.trim()
+    ? clampText(run.lastEventMessage, 120)
+    : "No remote milestone yet. You can leave this open while the worker continues.";
 }
 
 async function pollTrackedRuns(
@@ -184,10 +212,9 @@ function UserMessage({ width }: { width: number }) {
   );
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="cyan">You</Text>
+    <Box flexDirection="column">
       {text.split("\n").map((line, index) => (
-        <Text key={index} color="white">
+        <Text key={index} backgroundColor="black" color="white">
           {fillBar(line.length > 0 ? line : " ", width)}
         </Text>
       ))}
@@ -204,8 +231,8 @@ function AssistantMessage() {
   );
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="green">Research</Text>
+    <Box flexDirection="column">
+      <Text bold color="green">research</Text>
       <MarkdownText text={text} />
     </Box>
   );
@@ -213,43 +240,12 @@ function AssistantMessage() {
 
 function ActivityIndicator() {
   const isRunning = useAuiState((state) => state.thread.isRunning);
-  const messages = useAuiState((state) => state.thread.messages);
-  const [dots, setDots] = useState(".");
-
-  useEffect(() => {
-    if (!isRunning) return undefined;
-    const timer = setInterval(() => {
-      setDots((current) => (current.length >= 3 ? "." : `${current}.`));
-    }, 650);
-    return () => clearInterval(timer);
-  }, [isRunning]);
 
   if (!isRunning) return null;
 
-  const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
-  const prompt = textFromThreadMessage(lastUserMessage);
-
   return (
-    <Box borderStyle="round" borderColor="yellow" paddingX={1} marginBottom={1}>
-      <Text color="yellow">
-        {prompt ? `Thinking${dots} ${prompt}` : `Thinking${dots}`}
-      </Text>
-    </Box>
-  );
-}
-
-function ReadyIndicator() {
-  const messages = useAuiState((state) => state.thread.messages);
-  if (messages.length === 0) {
-    return (
-      <Box borderStyle="round" borderColor="green" paddingX={1} marginBottom={1}>
-        <Text color="green">Ask about datasets, runs, results, or how to start.</Text>
-      </Box>
-    );
-  }
-  return (
-    <Box borderStyle="round" borderColor="green" paddingX={1} marginBottom={1}>
-      <Text color="green">Ready for the next prompt.</Text>
+    <Box>
+      <Text color="yellow">· request accepted · checking datasets and coordinating any active remote runs</Text>
     </Box>
   );
 }
@@ -262,39 +258,29 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
     [runs],
   );
-  const lines = useMemo(() => (activeRuns.length === 0 ? ["No active runs."] : activeRuns.map((run) => summarizeRunLine(run))), [activeRuns]);
+
+  if (activeRuns.length === 0) return null;
 
   return (
-    <Box flexDirection="column">
-      <Text bold color="yellow">Runs</Text>
-      {lines.map((line, index) => {
-        const run = activeRuns[index];
-        const color = run ? runStatusColor(run.status) : "gray";
-        return (
-          <Text key={`${line}-${index}`} color={color}>
-            {`· ${line}`}
-          </Text>
-        );
-      })}
-    </Box>
-  );
-}
-
-function EmptyState() {
-  return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="green">research</Text>
-      <Text color="gray">Dataset-backed research agent for choosing data, starting work, checking run state, and recovering blocked runs.</Text>
-      <Box marginTop={1} flexDirection="column">
-        <Text color="yellow">Ready for a prompt.</Text>
-        <Text color="gray">Ask about datasets, runs, debugging, or how to build the right dataset for a question.</Text>
-      </Box>
-      <Box marginTop={1} flexDirection="column">
-        <Text bold color="yellow">Try asking</Text>
-        {emptyStatePromptExamples().map((line) => (
-          <Text key={line} color="gray">{line}</Text>
-        ))}
-      </Box>
+    <Box flexDirection="column" marginTop={1}>
+      <Text color="gray">{`active run${activeRuns.length === 1 ? "" : "s"}`}</Text>
+      {activeRuns.map((run) => (
+        <Box key={run.id} flexDirection="column" marginBottom={1}>
+          <Box>
+            <Text color={runStatusColor(run.status)}>{describeRunPhase(run.status).label}</Text>
+            <Text>{`  ${shortId(run.id)}  ${run.datasetId}`}</Text>
+          </Box>
+          <Text color="gray">{describeRunPhase(run.status).detail}</Text>
+          <Text>{summarizePrompt(run.prompt, 180)}</Text>
+          <Text color="gray">{formatRunLastUpdate(run)}</Text>
+          <Text color="gray">{describeRunExpectation(run)}</Text>
+          {run.dashboardUrl ? (
+            <Text color="gray">{`Next: wait here, or open dashboard ${run.dashboardUrl}`}</Text>
+          ) : (
+            <Text color="gray">Next: wait here for the next remote milestone.</Text>
+          )}
+        </Box>
+      ))}
     </Box>
   );
 }
@@ -302,14 +288,23 @@ function EmptyState() {
 function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
-  const hasMessages = useAuiState((state) => state.thread.messages.length > 0);
-  const borderColor = isRunning ? "yellow" : "green";
+  const borderColor = isRunning ? "yellow" : "gray";
   const inputWidth = Math.max(20, columns - 4);
+  const composerKey = isRunning ? "busy-composer" : "idle-composer";
+  const activeRuns = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
+  const composerPlaceholder = isRunning
+    ? "research is working; you can wait, inspect results later, or /cancel"
+    : activeRuns.length > 0
+    ? "ask RESEARCH or /cancel the latest active run"
+    : "ask RESEARCH";
 
   return (
     <ThreadPrimitive.Root>
       <ThreadPrimitive.Empty>
-        <EmptyState />
+        <Box flexDirection="column">
+          <Text bold color="green">research</Text>
+          <Text>ready.</Text>
+        </Box>
       </ThreadPrimitive.Empty>
 
       <ThreadPrimitive.Messages>
@@ -322,19 +317,17 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
         }
       </ThreadPrimitive.Messages>
 
-      {isRunning ? <ActivityIndicator /> : hasMessages ? <ReadyIndicator /> : null}
+      <ActivityIndicator />
       <RunStatusPanel runs={trackedRuns} />
 
-      <Box marginTop={1} flexDirection="column">
-        <Text color="gray">Prompt</Text>
-        <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
-          <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
-          <ComposerPrimitive.Input
-            submitOnEnter
-            placeholder={isRunning ? "research is thinking" : "ask RESEARCH"}
-            autoFocus
-          />
-        </Box>
+      <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
+        <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
+        <ComposerPrimitive.Input
+          key={composerKey}
+          submitOnEnter
+          placeholder={composerPlaceholder}
+          autoFocus={!isRunning}
+        />
       </Box>
     </ThreadPrimitive.Root>
   );
@@ -424,16 +417,7 @@ function createResearchAdapter({
         yield { content: assistantContent(visibleText || " ") };
       };
       async function* runWithProgress(operation: () => Promise<void>) {
-        const startedAt = Date.now();
         const task = operation();
-        let heartbeatTimer: NodeJS.Timeout | null = setInterval(() => {
-          if (!changed) {
-            emit({
-              role: "tool",
-              content: "Still working. Preparing the next step for this research run...",
-            });
-          }
-        }, PROGRESS_HEARTBEAT_MS);
         while (true) {
           const result = await Promise.race([
             task.then(() => "done" as const),
@@ -450,18 +434,7 @@ function createResearchAdapter({
             break;
           }
         }
-        try {
-          await task;
-          const remainingMs = MIN_PENDING_VISIBLE_MS - (Date.now() - startedAt);
-          if (remainingMs > 0) {
-            await sleep(remainingMs);
-          }
-        } finally {
-          if (heartbeatTimer) {
-            clearInterval(heartbeatTimer);
-            heartbeatTimer = null;
-          }
-        }
+        await task;
       }
 
       if (!prompt) {
