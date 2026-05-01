@@ -800,21 +800,22 @@ function maybeHandleOrientation(input: string) {
     return null;
   }
   return [
-    "I am a local command center for turning messy data and vague research intent into durable research work: datasets, remote runs, analysis artifacts, and follow-up decisions.",
+    "I help you turn files and datasets into research you can inspect, run, and review.",
+    "",
+    "Start here:",
+    "- Show my datasets",
     "",
     "I can help you:",
-    "- Intake data from local files, public sources, APIs, exports, or mixed-source environments.",
-    "- Navigate datasets you already have: readiness, fields, sources, coverage, quality, and limitations.",
-    "- Turn fuzzy questions into concrete study designs before spending time on remote work.",
-    "- Run analyses, queries, labeling jobs, and experiments with durable artifacts.",
-    "- Recover prior work: run status, dashboard links, results, failures, and next decisions.",
-    "",
-    "Examples to type:",
-    "- Show my datasets",
     "- Create a dataset from /absolute/path/customers.csv",
+    "- List datasets and inspect what each one contains",
+    "- Brief a dataset before you trust or analyze it",
+    "- Plan or run an analysis for a specific question",
+    "- Show the latest results or saved files from earlier work",
+    "",
+    "Other useful prompts:",
     "- Brief the sales dataset",
     "- Test whether retention changed after launch",
-    "- Show results from my last run",
+    "- Show my latest analysis results",
   ].join("\n");
 }
 

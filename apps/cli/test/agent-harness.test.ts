@@ -51,15 +51,16 @@ test("product orientation presents command center identities without tools", asy
 
   assert.equal(messages.length, 1);
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /local command center/i);
-  assert.match(final, /messy data/i);
-  assert.match(final, /vague research intent/i);
-  assert.match(final, /durable research work/i);
-  assert.match(final, /Intake data/i);
-  assert.match(final, /Navigate datasets/i);
-  assert.match(final, /study designs before spending time/i);
-  assert.match(final, /Recover prior work/i);
-  assert.doesNotMatch(final, /manifest-backed|mounted dataset|worker_unreachable|lifecycle/i);
+  assert.match(final, /turn files and datasets into research/i);
+  assert.match(final, /Start here:/i);
+  assert.match(final, /Show my datasets/i);
+  assert.match(final, /Create a dataset from \/absolute\/path\/customers\.csv/i);
+  assert.match(final, /inspect what each one contains/i);
+  assert.match(final, /Brief a dataset before you trust or analyze it/i);
+  assert.match(final, /Plan or run an analysis for a specific question/i);
+  assert.match(final, /latest results or saved files from earlier work/i);
+  assert.match(final, /Show my latest analysis results/i);
+  assert.doesNotMatch(final, /dataset-backed|artifacts|labeling jobs|experiments|last run|remote run|manifest-backed|mounted dataset|worker_unreachable|lifecycle/i);
 });
 
 test("file import how-to asks for path before ingesting", async () => {
