@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
+<text x="16" y="48">· Found 8 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Calling inspect_remote_dataset                                                                                        </text>
+<text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
+<text x="16" y="102">· Calling start_remote_run                                                                                              </text>
+<text x="16" y="120">· Dataset is already busy with run 486be6ce-969a-4d2b-b353-acc6c80f1cb4 (running). Open https://dashboard.alpharesearch.</text>
+<text x="16" y="138">nyc/?view=runs&amp;runId=486be6ce-969a-4d2b-b353-acc6c80f1cb4#run-486be6ce-969a-4d2b-b353-acc6c80f1cb4 or ask me to check th</text>
+<text x="16" y="156">at run instead of starting another one.                                                                                 </text>
+<text x="16" y="174">Dataset is already busy with run 486be6ce-969a-4d2b-b353-acc6c80f1cb4 (running). Open https://dashboard.alpharesearch.ny</text>
+<text x="16" y="192">c/?view=runs&amp;runId=486be6ce-969a-4d2b-b353-acc6c80f1cb4#run-486be6ce-969a-4d2b-b353-acc6c80f1cb4 or ask me to check that</text>
+<text x="16" y="210"> run instead of starting another one.                                                                                   </text>
+<text x="16" y="228">Terminal session: https://dashboard.alpharesearch.nyc/?view=terminal-sessions&amp;sessionId=a00eb879-fc7c-4160-82cc-e1e0e45c</text>
+<text x="16" y="246">3dd6                                                                                                                    </text>
+<text x="16" y="264">                                                                                                                        </text>
+</g>
+</svg>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Mounted dataset grounding is mandatory for dataset `enriched-tweets`.                                                 </text>
+<text x="16" y="48">· Before doing analysis, read and validate the mounted dataset from the attached dataset volume, preferring these paths </text>
+<text x="16" y="66">in order:                                                                                                               </text>
+<text x="16" y="84">· 1. /mnt/alpha-research/data/instances/enriched-tweets                                                                 </text>
+<text x="16" y="102">· 2. /mnt/alpha-research/datasets/enriched-tweets                                                                       </text>
+<text x="16" y="120">· 3. ./dataset only if it is a mount/symlink/copy of the attached dataset volume.                                       </text>
+<text x="16" y="138">· If the mounted dataset cannot be found, opened, or parsed, fail the run loudly with the exact paths checked and the re</text>
+<text x="16" y="156">ad error.                                                                                                               </text>
+<text x="16" y="174">· Do not download public sample data, GitHub CSVs, web search results, synthetic replacements, or any other external fal</text>
+<text x="16" y="192">lback to complete this dataset-grounded task.                                                                           </text>
+<text x="16" y="210">·                                                                                                                       </text>
+<text x="16" y="228">· Experiment plan: 1) Define outcome and cohorts. - Outcome: viral = top 1% of engagement_rate within same calendar mont</text>
+<text x="16" y="246">h. engagement_rate = (retweet_count + favorite_count). Also compute normalized_engagement = engagement_rate / author_med</text>
+<text x="16" y="264">ian_engagement where author_median_engagement is median engagement_rate per account_id over the dataset; fallback to glo</text>
+<text x="16" y="282">bal median if &lt;5 tweets per author. - Stratify by follower proxy (if follower count is unavailable, stratify by author o</text>
+<text x="16" y="300">verall median engagement tertiles). 2) Engineer features from full_text: - char_len, word_len - has_question (contains '</text>
+<text x="16" y="318">?') - has_exclaim ('!') - n_hashtags (#\w+) - n_mentions (@\w+) - has_link (http|https) - has_media proxy: presence of a</text>
+<text x="16" y="336">vatar_media_url is not media; so derive has_quote = quoted_tweet_id not null; has_reply = reply_to_tweet_id not null; ha</text>
+<text x="16" y="354">s_conversation_id not equal tweet_id; if media URLs/entities absent, skip. - starts_with_verb (simple regex against comm</text>
+<text x="16" y="372">on verbs) - sentiment_vader (if sentiment tool available; else skip) 3) Controls: created_at hour of day, weekday vs wee</text>
+<text x="16" y="390">kend, month fixed effects. 4) Analyses: - Descriptive: compare feature prevalence between viral and non-viral. - Logisti</text>
+<text x="16" y="408">c regression predicting viral ~ features + controls within month strata. - Partial dependence or marginal effects for ke</text>
+<text x="16" y="426">y features. - Robustness: Use normalized_engagement top 1% as alternate label; and top 5% as sensitivity. - Output: summ</text>
+<text x="16" y="444">ary table of ORs with CIs, calibrated AUC, confusion matrix at 1% threshold, and feature importance from regularized mod</text>
+<text x="16" y="462">el. 5) Artifacts: - CSVs: feature matrix sample (100k rows), coefficients, odds ratios; - Markdown brief with key findin</text>
+<text x="16" y="480">gs and guidance for crafting tweets. Implementation notes: Use efficient scanning over parquet; downsample negatives to </text>
+<text x="16" y="498">balance 1:10 for model training; evaluate on holdout months (last 2 months).                                            </text>
+<text x="16" y="516">·                                                                                                                       </text>
+<text x="16" y="534">· Dashboard                                                                                                             </text>
+<text x="16" y="552">· https://dashboard.alpharesearch.nyc/?view=runs&amp;runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4#run-40f2e15b-4eef-47ff-8bbc-</text>
+<text x="16" y="570">55178caa77e4                                                                                                            </text>
+<text x="16" y="588">·                                                                                                                       </text>
+<text x="16" y="606">· Suggested follow-ups                                                                                                  </text>
+<text x="16" y="624">· - Open the run page for enriched-tweets and inspect the produced artifacts.                                           </text>
+<text x="16" y="642">· - Ask for a narrower follow-up analysis on enriched-tweets.                                                           </text>
+<text x="16" y="660">                                                                                                                        </text>
+</g>
+</svg>

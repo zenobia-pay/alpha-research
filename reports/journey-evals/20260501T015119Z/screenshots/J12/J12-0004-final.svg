@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
+<text x="16" y="48">· Found 8 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Calling inspect_remote_dataset                                                                                        </text>
+<text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
+<text x="16" y="102">I see a remote dataset named “econ” (Econ Orchestrator Environment), but it’s still provisioning, so I can’t query it ye</text>
+<text x="16" y="120">t.                                                                                                                      </text>
+<text x="16" y="138">                                                                                                                        </text>
+<text x="16" y="156">Want me to:                                                                                                             </text>
+<text x="16" y="174">- Kick off a Describe run to generate a briefing/profile as soon as it’s ready, and                                     </text>
+<text x="16" y="192">- Run a first-pass analysis to surface notable trends/drivers?                                                          </text>
+<text x="16" y="210">                                                                                                                        </text>
+<text x="16" y="228">Say “yes” and I’ll start both and report back when complete.                                                            </text>
+<text x="16" y="246">                                                                                                                        </text>
+</g>
+</svg>

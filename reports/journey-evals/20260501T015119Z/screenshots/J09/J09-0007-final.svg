@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Calling start_remote_agent_run                                                                                        </text>
+<text x="16" y="84">· Dataset is already busy with run 40f2e15b-4eef-47ff-8bbc-55178caa77e4 (booting). Open https://dashboard.alpharesearch.</text>
+<text x="16" y="102">nyc/?view=runs&amp;runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4#run-40f2e15b-4eef-47ff-8bbc-55178caa77e4 or ask me to check th</text>
+<text x="16" y="120">at run instead of starting another one.                                                                                 </text>
+<text x="16" y="138">Dataset is already busy with run 40f2e15b-4eef-47ff-8bbc-55178caa77e4 (booting). Open https://dashboard.alpharesearch.ny</text>
+<text x="16" y="156">c/?view=runs&amp;runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4#run-40f2e15b-4eef-47ff-8bbc-55178caa77e4 or ask me to check that</text>
+<text x="16" y="174"> run instead of starting another one.                                                                                   </text>
+<text x="16" y="192">Terminal session: https://dashboard.alpharesearch.nyc/?view=terminal-sessions&amp;sessionId=36c5fd67-1ae3-405a-9a44-291ca8fa</text>
+<text x="16" y="210">4021                                                                                                                    </text>
+<text x="16" y="228">                                                                                                                        </text>
+</g>
+</svg>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">ad error.                                                                                                               </text>
+<text x="16" y="48">· Do not download public sample data, GitHub CSVs, web search results, synthetic replacements, or any other external fal</text>
+<text x="16" y="66">lback to complete this dataset-grounded task.                                                                           </text>
+<text x="16" y="84">·                                                                                                                       </text>
+<text x="16" y="102">· Experiment plan: 1) Define outcome and cohorts. - Outcome: viral = top 1% of engagement_rate within same calendar mont</text>
+<text x="16" y="120">h. engagement_rate = (retweet_count + favorite_count). Also compute normalized_engagement = engagement_rate / author_med</text>
+<text x="16" y="138">ian_engagement where author_median_engagement is median engagement_rate per account_id over the dataset; fallback to glo</text>
+<text x="16" y="156">bal median if &lt;5 tweets per author. - Stratify by follower proxy (if follower count is unavailable, stratify by author o</text>
+<text x="16" y="174">verall median engagement tertiles). 2) Engineer features from full_text: - char_len, word_len - has_question (contains '</text>
+<text x="16" y="192">?') - has_exclaim ('!') - n_hashtags (#\w+) - n_mentions (@\w+) - has_link (http|https) - has_media proxy: presence of a</text>
+<text x="16" y="210">vatar_media_url is not media; so derive has_quote = quoted_tweet_id not null; has_reply = reply_to_tweet_id not null; ha</text>
+<text x="16" y="228">s_conversation_id not equal tweet_id; if media URLs/entities absent, skip. - starts_with_verb (simple regex against comm</text>
+<text x="16" y="246">on verbs) - sentiment_vader (if sentiment tool available; else skip) 3) Controls: created_at hour of day, weekday vs wee</text>
+<text x="16" y="264">kend, month fixed effects. 4) Analyses: - Descriptive: compare feature prevalence between viral and non-viral. - Logisti</text>
+<text x="16" y="282">c regression predicting viral ~ features + controls within month strata. - Partial dependence or marginal effects for ke</text>
+<text x="16" y="300">y features. - Robustness: Use normalized_engagement top 1% as alternate label; and top 5% as sensitivity. - Output: summ</text>
+<text x="16" y="318">ary table of ORs with CIs, calibrated AUC, confusion matrix at 1% threshold, and feature importance from regularized mod</text>
+<text x="16" y="336">el. 5) Artifacts: - CSVs: feature matrix sample (100k rows), coefficients, odds ratios; - Markdown brief with key findin</text>
+<text x="16" y="354">gs and guidance for crafting tweets. Implementation notes: Use efficient scanning over parquet; downsample negatives to </text>
+<text x="16" y="372">balance 1:10 for model training; evaluate on holdout months (last 2 months).                                            </text>
+<text x="16" y="390">·                                                                                                                       </text>
+<text x="16" y="408">· Dashboard                                                                                                             </text>
+<text x="16" y="426">· https://dashboard.alpharesearch.nyc/?view=runs&amp;runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4#run-40f2e15b-4eef-47ff-8bbc-</text>
+<text x="16" y="444">55178caa77e4                                                                                                            </text>
+<text x="16" y="462">·                                                                                                                       </text>
+<text x="16" y="480">· Suggested follow-ups                                                                                                  </text>
+<text x="16" y="498">· - Open the run page for enriched-tweets and inspect the produced artifacts.                                           </text>
+<text x="16" y="516">· - Ask for a narrower follow-up analysis on enriched-tweets.                                                           </text>
+<text x="16" y="534">· Calling list_run_artifacts                                                                                            </text>
+<text x="16" y="552">· Found 4 artifacts for run 2457a3da-4ffc-4f1a-8b7d-a79450412571.                                                       </text>
+<text x="16" y="570">· Artifacts are the saved outputs from the run. Open them on the run page:                                              </text>
+<text x="16" y="588">· - Remote Agent Summary — short written summary from the remote run                                                    </text>
+<text x="16" y="606">· - Remote Agent Transcript — full remote execution log                                                                 </text>
+<text x="16" y="624">· - result.json — structured result data                                                                                </text>
+<text x="16" y="642">· - summary.md — markdown summary/report                                                                                </text>
+<text x="16" y="660">                                                                                                                        </text>
+</g>
+</svg>

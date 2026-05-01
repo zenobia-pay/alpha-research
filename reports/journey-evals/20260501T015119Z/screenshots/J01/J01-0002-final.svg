@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">I help you create and run data research environments fast.                                                              </text>
+<text x="16" y="48">                                                                                                                        </text>
+<text x="16" y="66">What I can do:                                                                                                          </text>
+<text x="16" y="84">- Stand up a cloud research environment and get the data in (local files, public web/APIs, mixed sources).              </text>
+<text x="16" y="102">- Upload and normalize your local datasets, or fetch and ingest public data.                                            </text>
+<text x="16" y="120">- Document datasets (generate a Dataset Briefing and structured profile).                                               </text>
+<text x="16" y="138">- Plan and run hypothesis-driven analyses, queries, aggregations, transforms, and labeling jobs.                        </text>
+<text x="16" y="156">- Manage runs end-to-end and link you to dashboards and artifacts.                                                      </text>
+<text x="16" y="174">- Reuse/extend existing environments to avoid duplicates.                                                               </text>
+<text x="16" y="192">                                                                                                                        </text>
+<text x="16" y="210">Want to start by:                                                                                                       </text>
+<text x="16" y="228">- Setting up an environment for a dataset you have?                                                                     </text>
+<text x="16" y="246">- Or testing a specific hypothesis/question?                                                                            </text>
+<text x="16" y="264">                                                                                                                        </text>
+</g>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling resolve_local_dataset                                                                                         </text>
+<text x="16" y="48">· Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   </text>
+<text x="16" y="66">· Calling register_remote_dataset                                                                                       </text>
+<text x="16" y="84">· Registered remote dataset enriched-tweets.                                                                            </text>
+<text x="16" y="102">· Calling request_dataset_source_upload                                                                                 </text>
+<text x="16" y="120">· Requested upload target for Enriched Tweets.parquet.                                                                  </text>
+<text x="16" y="138">                                                                                                                        </text>
+</g>
+</svg>

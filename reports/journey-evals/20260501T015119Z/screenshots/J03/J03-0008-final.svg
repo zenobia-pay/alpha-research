@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">A good dataset depends on what you want to measure and at what geography/time scale. Quick picks:                       </text>
+<text x="16" y="84">                                                                                                                        </text>
+<text x="16" y="102">- City/county tracking (prices, rents, incomes)                                                                         </text>
+<text x="16" y="120">  - Zillow ZORI/ZHVI (rents/home values, monthly, ZIP–metro–state)                                                      </text>
+<text x="16" y="138">  - Redfin Data Center (median sale price, inventory, new listings, metro/county)                                       </text>
+<text x="16" y="156">  - Census ACS (median household income, gross rent, owner costs; 1‑yr and 5‑yr; tract–state)                           </text>
+<text x="16" y="174">- Affordability burden metrics                                                                                          </text>
+<text x="16" y="192">  - HUD CHAS (rent/owner cost burden shares, ≤30/50/80% AMI; tract–state)                                               </text>
+<text x="16" y="210">  - HUD Fair Market Rents + Income Limits (program benchmarks, county/metro)                                            </text>
+<text x="16" y="228">  - NLIHC Out of Reach (wage needed for 2BR FMR; state/county/metro)                                                    </text>
+<text x="16" y="246">- Indexes and controls                                                                                                  </text>
+<text x="16" y="264">  - FHFA House Price Index (repeat‑sales index; county/metro/state)                                                     </text>
+<text x="16" y="282">  - Freddie Mac PMMS (mortgage rates)                                                                                   </text>
+<text x="16" y="300">  - BLS CPI (Shelter/OER for real adjustments)                                                                          </text>
+<text x="16" y="318">                                                                                                                        </text>
+<text x="16" y="336">If you want microdata (household‑level rent burden, residual income): ACS PUMS via IPUMS.                               </text>
+<text x="16" y="354">                                                                                                                        </text>
+<text x="16" y="372">Clarify:                                                                                                                </text>
+<text x="16" y="390">1) Geography (tract, ZIP, county, metro, state, national)?                                                              </text>
+<text x="16" y="408">2) Metric (price‑to‑income, rent‑to‑income, residual income, burden thresholds, ownership vs rental)?                   </text>
+<text x="16" y="426">3) Period/frequency (last 5–10 years monthly/quarterly vs decennial view)?                                              </text>
+<text x="16" y="444">                                                                                                                        </text>
+<text x="16" y="462">I can spin up a “Housing Affordability Core” environment pulling ACS + HUD CHAS/FMR + Zillow/Redfin + FHFA + CPI/PMMS an</text>
+<text x="16" y="480">d document joins. Prefer that, or start with one source (e.g., ACS + ZORI) first?                                       </text>
+<text x="16" y="498">                                                                                                                        </text>
+</g>
+</svg>

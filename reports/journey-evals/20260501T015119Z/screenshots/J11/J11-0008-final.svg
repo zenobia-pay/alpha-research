@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Calling create_public_data_environment                                                                                </text>
+<text x="16" y="84">RemoteRequestError: Remote request failed (500) for /api/cli/datasets/county-month-housing-2015-2025/public-environment.</text>
+<text x="16" y="102"> {"error":"DigitalOcean API request failed (429) /volumes/574d8d5d-44ef-11f1-986a-0a58ac123bc6/actions {\"message\":\"er</text>
+<text x="16" y="120">ror resizing volume: volume/snapshot capacity limit exceeded\",\"id\":\"too_many_requests\",\"request_id\":\"74ff514c-f5</text>
+<text x="16" y="138">c2-4056-a3cf-a26ebfc0178c\"}\n","runId":"e0c1f523-ed15-4fb0-8c53-30ee153dd446"}                                         </text>
+<text x="16" y="156">    at RemoteApiClient.request (file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/apps/cli/dist/remot</text>
+<text x="16" y="174">e.js:31:19)                                                                                                             </text>
+<text x="16" y="192">    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)                                      </text>
+<text x="16" y="210">    at async Object.execute (file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/apps/cli/dist/agent.js</text>
+<text x="16" y="228">:1059:32)                                                                                                               </text>
+<text x="16" y="246">    at async withAuthRetry (file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/apps/cli/dist/agent.js:</text>
+<text x="16" y="264">395:16)                                                                                                                 </text>
+<text x="16" y="282">    at async runAgentTurn (file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/apps/cli/dist/agent.js:2</text>
+<text x="16" y="300">014:28)                                                                                                                 </text>
+<text x="16" y="318">    at async runPromptMode (file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/apps/cli/dist/index.js:</text>
+<text x="16" y="336">25:31)                                                                                                                  </text>
+<text x="16" y="354">    at async main (file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/apps/cli/dist/index.js:34:9) {  </text>
+<text x="16" y="372">  status: 500,                                                                                                          </text>
+<text x="16" y="390">  path: '/api/cli/datasets/county-month-housing-2015-2025/public-environment'                                           </text>
+<text x="16" y="408">}                                                                                                                       </text>
+<text x="16" y="426">                                                                                                                        </text>
+</g>
+</svg>

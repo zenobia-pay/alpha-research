@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling list_local_datasets                                                                                           </text>
+<text x="16" y="48">· Found 2 local datasets.                                                                                               </text>
+<text x="16" y="66">Great—let’s import it and spin up a researchable dataset.                                                               </text>
+<text x="16" y="84">                                                                                                                        </text>
+<text x="16" y="102">Please tell me:                                                                                                         </text>
+<text x="16" y="120">- The CSV filename (e.g., Desktop/support_tickets.csv)                                                                  </text>
+<text x="16" y="138">- A short dataset name (e.g., support-tickets)                                                                          </text>
+<text x="16" y="156">- One‑line description                                                                                                  </text>
+<text x="16" y="174">                                                                                                                        </text>
+<text x="16" y="192">Then I’ll:                                                                                                              </text>
+<text x="16" y="210">1) Locate the file                                                                                                      </text>
+<text x="16" y="228">2) Profile the schema                                                                                                   </text>
+<text x="16" y="246">3) Register the dataset remotely                                                                                        </text>
+<text x="16" y="264">4) Upload and deploy it                                                                                                 </text>
+<text x="16" y="282">5) Generate a dataset brief for exploration                                                                             </text>
+<text x="16" y="300">                                                                                                                        </text>
+<text x="16" y="318">If you’re not sure of the exact path, just paste any hint like “desktop tickets csv” and I’ll find it.                  </text>
+<text x="16" y="336">                                                                                                                        </text>
+</g>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
+<text x="16" y="48">· Found 8 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Calling list_research_specs                                                                                           </text>
+<text x="16" y="84">· Found 7 research specs.                                                                                               </text>
+<text x="16" y="102">Which analysis should I run on enriched-tweets?                                                                         </text>
+<text x="16" y="120">- A: “Heavily quoted” traits (approved) — label top 0.1% by quote_tweet_count and chart hooks/tones/topics.             </text>
+<text x="16" y="138">- B: Viral hooks/topics/tones (approved).                                                                               </text>
+<text x="16" y="156">- C: Mocking vs supportive among top quote tweets (planned).                                                            </text>
+<text x="16" y="174">- D: Quick EDA (volumes, engagement distributions, top authors, time trends).                                           </text>
+<text x="16" y="192">                                                                                                                        </text>
+<text x="16" y="210">Reply with A, B, C, or D (or paste a custom prompt).                                                                    </text>
+<text x="16" y="228">                                                                                                                        </text>
+</g>
+</svg>

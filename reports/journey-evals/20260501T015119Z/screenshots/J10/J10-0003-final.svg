@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Calling inspect_remote_dataset                                                                                        </text>
+<text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
+<text x="16" y="102">Do you mean the U.S. housing market right now? If yes, I can spin up a quick research run to pull the latest indicators </text>
+<text x="16" y="120">(prices, sales, inventory, rates, starts/permits, delinquencies, builder sentiment, affordability) and give you a concis</text>
+<text x="16" y="138">e read.                                                                                                                 </text>
+<text x="16" y="156">                                                                                                                        </text>
+</g>
+</svg>

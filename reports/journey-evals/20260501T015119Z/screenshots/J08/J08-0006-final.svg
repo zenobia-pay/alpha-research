@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Calling inspect_remote_dataset                                                                                        </text>
+<text x="16" y="84">· Inspected remote dataset enriched-tweets.                                                                             </text>
+<text x="16" y="102">· Calling create_research_spec                                                                                          </text>
+<text x="16" y="120">· Created research spec b4cfe420-9bfd-4000-b13f-b1b91162e803.                                                           </text>
+<text x="16" y="138">· Calling start_remote_run                                                                                              </text>
+<text x="16" y="156">· Started run 40f2e15b-4eef-47ff-8bbc-55178caa77e4 on enriched-tweets. Dashboard: https://dashboard.alpharesearch.nyc/?v</text>
+<text x="16" y="174">iew=runs&amp;runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4#run-40f2e15b-4eef-47ff-8bbc-55178caa77e4                            </text>
+<text x="16" y="192">Started run 40f2e15b-4eef-47ff-8bbc-55178caa77e4 on enriched-tweets. Dashboard: https://dashboard.alpharesearch.nyc/?vie</text>
+<text x="16" y="210">w=runs&amp;runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4#run-40f2e15b-4eef-47ff-8bbc-55178caa77e4                              </text>
+<text x="16" y="228">Terminal session: https://dashboard.alpharesearch.nyc/?view=terminal-sessions&amp;sessionId=d4894a28-4af1-4d9e-b5cd-efd4eb51</text>
+<text x="16" y="246">2cb5&amp;runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4#run-40f2e15b-4eef-47ff-8bbc-55178caa77e4                                </text>
+<text x="16" y="264">                                                                                                                        </text>
+</g>
+</svg>
