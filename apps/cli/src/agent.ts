@@ -303,20 +303,23 @@ function selectReusableEnvironmentDatasetId(
   return scored[0]?.dataset.id ?? requestedDatasetId;
 }
 
-async function resolveRunnableEnvironmentDatasetId(
+async function resolveRunnableEnvironmentDataset(
   context: ToolExecutionContext,
   client: RemoteApiClientType,
   requestedDatasetId: string,
   request: Record<string, unknown>,
-) {
+) : Promise<ResolvedDatasetTarget> {
   const existingDatasets = typeof client.listDatasets === "function"
     ? await client.listDatasets().catch(() => ({ datasets: [] }))
     : { datasets: [] };
   const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, request, existingDatasets.datasets);
-  if (datasetId !== requestedDatasetId) {
-    context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of unavailable duplicate ${requestedDatasetId}.` });
-  }
-  return datasetId;
+  const matchedDataset = existingDatasets.datasets.find((dataset) => dataset.id === datasetId);
+  return {
+    requestedDatasetId,
+    datasetId,
+    datasetName: matchedDataset?.name,
+    reusedExisting: datasetId !== requestedDatasetId,
+  };
 }
 
 function isProducedArtifact(artifact: { type?: string }) {
@@ -490,7 +493,29 @@ function parseRemoteErrorJson(error: RemoteRequestError) {
   }
 }
 
-function summarizeBusyDatasetConflict(error: RemoteRequestError) {
+type ResolvedDatasetTarget = {
+  requestedDatasetId: string;
+  datasetId: string;
+  datasetName?: string;
+  reusedExisting: boolean;
+};
+
+function summarizeResolvedDataset(target: ResolvedDatasetTarget, purpose: string) {
+  const label = target.datasetName ? `${target.datasetName} (${target.datasetId})` : target.datasetId;
+  if (target.reusedExisting && target.datasetId !== target.requestedDatasetId) {
+    return `Using existing dataset ${label} for ${purpose} instead of unavailable duplicate ${target.requestedDatasetId}.`;
+  }
+  return `Using dataset ${label} for ${purpose}.`;
+}
+
+function summarizeBusyDatasetConflict(
+  error: RemoteRequestError,
+  options?: {
+    target?: ResolvedDatasetTarget;
+    purpose?: string;
+    expectedArtifacts?: string[];
+  },
+) {
   if (error.status !== 409) {
     return null;
   }
@@ -505,15 +530,21 @@ function summarizeBusyDatasetConflict(error: RemoteRequestError) {
   }
   const runId = typeof first.id === "string" ? first.id : "unknown";
   const status = typeof first.status === "string" ? first.status : "running";
+  const purpose = options?.purpose ?? "this request";
   return [
-    "Blocked: dataset is already busy.",
+    `Blocked: ${purpose} is waiting on an active dataset run.`,
+    options?.target ? summarizeResolvedDataset(options.target, purpose) : null,
     `Active run: ${runId}`,
-    `Status: ${status}`,
+    `State: ${status}`,
     "",
-    "No new run was started.",
-    `Check it: research debug run ${runId}`,
+    "Research does not start a duplicate run while one run still holds the dataset volume.",
+    options?.expectedArtifacts?.length
+      ? `Expected artifacts once the run finishes: ${options.expectedArtifacts.join(", ")}.`
+      : null,
     `Dashboard: ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)}`,
-  ].join("\n");
+    `When it finishes, ask: show results from ${runId}`,
+    `If it seems stuck, debug: research debug run ${runId}`,
+  ].filter(Boolean).join("\n");
 }
 
 function summarizeRemoteFailure(error: RemoteRequestError) {
@@ -1628,7 +1659,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         const prompt = String(input.prompt);
         let result;
         try {
@@ -1639,7 +1671,7 @@ export function createToolRegistry(): ToolDefinition[] {
           });
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this run" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -1678,7 +1710,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         const prompt = String(input.prompt);
         let started;
         try {
@@ -1689,7 +1722,7 @@ export function createToolRegistry(): ToolDefinition[] {
           }));
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this query" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -1728,7 +1761,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         const prompt = String(input.prompt);
         let started;
         try {
@@ -1739,7 +1773,7 @@ export function createToolRegistry(): ToolDefinition[] {
           }));
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this aggregation" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -1780,7 +1814,8 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const sourceDescription = String(input.sourceDescription);
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         let result;
         try {
           result = await client.startRun(datasetId, typeof input.prompt === "string" ? input.prompt : `Fetch public data: ${sourceDescription}`, {
@@ -1858,7 +1893,9 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
+        context.emit({ role: "tool", content: summarizeResolvedDataset(target, "this briefing") });
         let result;
         try {
           result = await withAuthRetry(context, () => client.startRun(
@@ -1872,7 +1909,11 @@ export function createToolRegistry(): ToolDefinition[] {
           ));
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, {
+              target,
+              purpose: "this dataset briefing",
+              expectedArtifacts: DATASET_BRIEFING_ARTIFACTS.map((artifact) => artifact.title),
+            });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -1892,7 +1933,7 @@ export function createToolRegistry(): ToolDefinition[] {
           spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Started dataset briefing run ${result.run.id} for ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          summary: `Started dataset briefing run ${result.run.id} for ${datasetId}. Expected artifacts: Dataset Briefing, Dataset Profile. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
           data: result,
         };
       },
@@ -1915,7 +1956,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         let result;
         try {
           result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
@@ -1925,7 +1967,7 @@ export function createToolRegistry(): ToolDefinition[] {
           });
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this remote agent run" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -2033,7 +2075,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         let result;
         try {
           result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
@@ -2044,7 +2087,7 @@ export function createToolRegistry(): ToolDefinition[] {
           });
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this transformation" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -2085,7 +2128,8 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const labelingPrompt = String(input.labelingPrompt);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         let result;
         try {
           result = await client.startRun(
