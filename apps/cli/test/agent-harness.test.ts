@@ -615,21 +615,6 @@ test("run debug bundle classifies worker-unreachable state as lifecycle-uncertai
 
 test("product planning: vague viral tweets request designs scoped experiment before running", async () => {
   const calls: string[] = [];
-  const finalPlan = [
-    "This is not precise enough to run yet: `viral` needs an operational definition and the experiment needs a fixed sample, labels, and output artifact.",
-    "",
-    "Here is the experiment I would run:",
-    "- Dataset: enriched-tweets.",
-    "- Virality definition: tweets in the top 0.1% by quote_tweet_count.",
-    "- Sample: pick 100 random viral tweets from that top 0.1%, stratified by month if the timestamps support it.",
-    "- Labeling: run an LLM labeling job on each tweet using the tweet text and available metadata.",
-    "- Structured fields to extract: hook_type, topic, emotional_tone, controversy_level, novelty, specificity, media_or_link_presence, named_entities, audience_target, call_to_action, quote_tweet_reason, and concise_rationale.",
-    "- Labeling prompt: classify why this tweet was quote-tweeted; return strict JSON with the structured fields and a one-sentence rationale grounded only in the tweet text/metadata.",
-    "- Visualization: show a bar chart of hook_type frequency, stacked bars for emotional_tone by controversy_level, and a table of representative examples with labels and quote counts.",
-    "- Synthesis prompt: summarize which tweet traits are overrepresented among the viral sample and which hypotheses should be tested on a larger matched control set.",
-    "",
-    "Does this design look good, or do you want an alternative definition like retweets/likes, a control group of non-viral tweets, or a different labeling schema?",
-  ].join("\n");
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
       if (Array.isArray(body.input)) {
@@ -637,8 +622,8 @@ test("product planning: vague viral tweets request designs scoped experiment bef
           sessionId: "planning-session",
           payload: {
             id: "planning-final",
-            output_text: finalPlan,
-            output: [{ type: "message", content: [{ type: "output_text", text: finalPlan }] }],
+            output_text: "",
+            output: [],
           },
         };
       }
@@ -715,11 +700,19 @@ test("product planning: vague viral tweets request designs scoped experiment bef
   const joinedMessages = messages.map((message) => message.content).join("\n");
   assert.doesNotMatch(joinedMessages, /Starting remote run/i);
   assert.match(joinedMessages, /Before I start a remote run/i);
-  assert.match(joinedMessages, /top 0\.1% by quote\/retweet\/like engagement/i);
-  assert.match(joinedMessages, /sample 100 tweets/i);
+  assert.match(joinedMessages, /^Dataset$/m);
+  assert.match(joinedMessages, /Use `enriched-tweets`\./i);
+  assert.match(joinedMessages, /Fallback: if it is not in your workspace/i);
+  assert.match(joinedMessages, /^Definition$/m);
+  assert.match(joinedMessages, /top 0\.1% by `quote_tweet_count`/i);
+  assert.match(joinedMessages, /Sample: label 100 tweets from the viral set\./i);
   assert.match(joinedMessages, /hook_type/i);
   assert.match(joinedMessages, /emotional_tone/i);
   assert.match(joinedMessages, /controversy_level/i);
+  assert.match(joinedMessages, /^Approval$/m);
+  assert.match(joinedMessages, /Proceed with this default design\?/i);
+  assert.match(joinedMessages, /Optional changes: choose a different virality metric or sample size/i);
+  assert.match(joinedMessages, /Next: once you confirm, I will start the run with that scope\./i);
 });
 
 test("product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts", async () => {
