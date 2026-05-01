@@ -1,0 +1,13 @@
+{
+  "journeyId": "J06",
+  "title": "File-To-Dataset Confusion",
+  "startedAt": "2026-05-01T18:48:38.149Z",
+  "elapsedMs": 162,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

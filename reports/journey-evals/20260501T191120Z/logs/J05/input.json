@@ -1,0 +1,12 @@
+{
+  "journeyId": "J05",
+  "prompt": "In the tweets dataset, what does quote_tweet_count mean and can I use it to define virality?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "In the tweets dataset, what does quote_tweet_count mean and can I use it to define virality?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

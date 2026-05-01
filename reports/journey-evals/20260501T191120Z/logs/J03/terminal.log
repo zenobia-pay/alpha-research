@@ -1,0 +1,25 @@
+· Checking remote datasets...
+· Found 7 remote datasets.
+· Inspecting dataset econ...
+· Inspected remote dataset econ.
+Short answer: use ACS + market price/rent series.
+
+Best baseline
+- US Census ACS 5-year: household income, gross rent, tenure, bedrooms (for cost-burden and HAI-style metrics). Use PUMS for micro or summary tables for tract/county.
+- HUD CHAS: precomputed cost-burden distributions by income bins at tract/city/county.
+- HUD FMR + Income Limits: anchors voucher affordability and policy thresholds.
+
+Market dynamics (pair with income)
+- Zillow: ZORI (rent), ZHVI (home values), inventory; metro/county/ZIP monthly.
+- Redfin Data Center: median sale price, price per sqft, inventory, days-on-market; weekly/monthly, metro/county/ZIP.
+- Freddie Mac PMMS: mortgage rates (for ownership affordability).
+- BLS CPI shelter: context for real vs nominal.
+
+If outside the US
+- OECD Housing Affordability, Eurostat SILC (income + housing costs).
+
+Quick next step
+- Tell me your geography (e.g., US nationwide, specific metros), time span, and whether you want renter, owner, or both. I can provision a research environment that pulls ACS + HUD + Zillow/Redfin and compute:
+- Rent burden: rent-to-income, 30/50% thresholds.
+- Ownership HAI: income vs P&I at given rates, taxes, insurance.
+- Supply-side: inventory, months of supply, vacancy proxies.

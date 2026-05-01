@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">I am a dataset-backed research agent for creating, inspecting, analyzing, and summarizing datasets.                     </text>
+<text x="16" y="48">                                                                                                                        </text>
+<text x="16" y="66">I can help you:                                                                                                         </text>
+<text x="16" y="84">- Create a dataset from a local file or public source.                                                                  </text>
+<text x="16" y="102">- List and inspect datasets you already have.                                                                           </text>
+<text x="16" y="120">- Generate a dataset briefing or profile.                                                                               </text>
+<text x="16" y="138">- Run analyses, queries, labeling jobs, and experiments.                                                                </text>
+<text x="16" y="156">- Retrieve results, dashboards, and artifacts from prior work.                                                          </text>
+<text x="16" y="174">                                                                                                                        </text>
+<text x="16" y="192">Examples to type:                                                                                                       </text>
+<text x="16" y="210">- Show my datasets                                                                                                      </text>
+<text x="16" y="228">- Create a dataset from /absolute/path/customers.csv                                                                    </text>
+<text x="16" y="246">- Brief the sales dataset                                                                                               </text>
+<text x="16" y="264">- Test whether retention changed after launch                                                                           </text>
+<text x="16" y="282">- Show results from my last run                                                                                         </text>
+<text x="16" y="300">                                                                                                                        </text>
+</g>
+</svg>

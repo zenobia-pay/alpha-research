@@ -1,0 +1,15 @@
+I am a dataset-backed research agent for creating, inspecting, analyzing, and summarizing datasets.
+
+I can help you:
+- Create a dataset from a local file or public source.
+- List and inspect datasets you already have.
+- Generate a dataset briefing or profile.
+- Run analyses, queries, labeling jobs, and experiments.
+- Retrieve results, dashboards, and artifacts from prior work.
+
+Examples to type:
+- Show my datasets
+- Create a dataset from /absolute/path/customers.csv
+- Brief the sales dataset
+- Test whether retention changed after launch
+- Show results from my last run

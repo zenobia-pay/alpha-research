@@ -1,0 +1,22 @@
+· Checking run history...
+· Loaded run history. 1 active run right now.
+· Running list_run_artifacts...
+· Found 3 artifacts for run 40f2e15b-4eef-47ff-8bbc-55178caa77e4.
+· Artifacts are the saved outputs from the run. Open them on the run page:
+· - Remote Agent Summary — short written summary from the remote run
+· - Remote Agent Transcript — full remote execution log
+· - enriched_tweets.duckdb
+· Running list_run_artifacts...
+· Found 4 artifacts for run 2457a3da-4ffc-4f1a-8b7d-a79450412571.
+· Artifacts are the saved outputs from the run. Open them on the run page:
+· - Remote Agent Summary — short written summary from the remote run
+· - Remote Agent Transcript — full remote execution log
+· - result.json — structured result data
+· - summary.md — markdown summary/report
+Your latest run is still starting.
+
+- Run: 47ff6747-fdc4-4c97-9a2d-72d038de90c6 (dataset: enriched-tweets)
+- Status: booting
+- Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=47ff6747-fdc4-4c97-9a2d-72d038de90c6#run-47ff6747-fdc4-4c97-9a2d-72d038de90c6
+
+Want me to notify you when results are ready?

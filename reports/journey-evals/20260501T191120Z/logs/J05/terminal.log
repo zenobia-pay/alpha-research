@@ -1,0 +1,16 @@
+· Checking remote datasets...
+· Found 7 remote datasets.
+· Inspecting dataset enriched-tweets...
+· Inspected remote dataset enriched-tweets.
+Short answer
+- Meaning: quote_tweet_count is the number of tweets that quoted a given tweet (i.e., quote tweets received).
+- In your dataset: it isn’t a stored field. Derive it by counting rows where quoted_tweet_id == target.tweet_id.
+
+Schema evidence
+- enriched-tweets schema includes tweet_id, quoted_tweet_id, retweet_count, favorite_count (no quote_tweet_count field).
+
+How to compute
+- quote_count_for_tweet = count(rows where row.quoted_tweet_id == target.tweet_id).
+
+Using it for “virality”
+- It’s a strong signal but shouldn’t stand alone. Combine with retweet_count (and replies if available), and time-normalize. Example: virality_score = (retweet_count + quote_count) / hours_since_posted; optionally normalize by audience (e.g., per 1k followers) if you have that.

@@ -1,0 +1,13 @@
+{
+  "journeyId": "J07",
+  "title": "Create Dataset From File",
+  "startedAt": "2026-05-01T18:48:38.312Z",
+  "elapsedMs": 180000,
+  "exit": {
+    "code": null,
+    "signal": "SIGTERM",
+    "timedOut": true
+  },
+  "width": 120,
+  "height": 36
+}

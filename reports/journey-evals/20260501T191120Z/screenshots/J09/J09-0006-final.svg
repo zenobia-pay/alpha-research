@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Inspecting dataset enriched-tweets...                                                                                 </text>
+<text x="16" y="84">· Inspected remote dataset enriched-tweets.                                                                             </text>
+<text x="16" y="102">· Starting remote run for enriched-tweets...                                                                            </text>
+<text x="16" y="120">· Started run 47ff6747-fdc4-4c97-9a2d-72d038de90c6 on enriched-tweets. Dashboard: https://dashboard.alpharesearch.nyc/?v</text>
+<text x="16" y="138">iew=runs&amp;runId=47ff6747-fdc4-4c97-9a2d-72d038de90c6#run-47ff6747-fdc4-4c97-9a2d-72d038de90c6                            </text>
+<text x="16" y="156">Started run 47ff6747-fdc4-4c97-9a2d-72d038de90c6 on enriched-tweets. Dashboard: https://dashboard.alpharesearch.nyc/?vie</text>
+<text x="16" y="174">w=runs&amp;runId=47ff6747-fdc4-4c97-9a2d-72d038de90c6#run-47ff6747-fdc4-4c97-9a2d-72d038de90c6                              </text>
+<text x="16" y="192">Terminal session: https://dashboard.alpharesearch.nyc/?view=terminal-sessions&amp;sessionId=1e950eab-9cdb-497b-85bf-cad1b778</text>
+<text x="16" y="210">4a06&amp;runId=47ff6747-fdc4-4c97-9a2d-72d038de90c6#run-47ff6747-fdc4-4c97-9a2d-72d038de90c6                                </text>
+<text x="16" y="228">                                                                                                                        </text>
+</g>
+</svg>

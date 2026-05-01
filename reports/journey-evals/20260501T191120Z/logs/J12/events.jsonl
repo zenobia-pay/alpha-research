@@ -1,0 +1,11 @@
+{"atMs":1,"type":"snapshot","label":"start","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J12/20260501T185244Z/snapshots/0000-start.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J12/20260501T185244Z/screenshots/0000-start.svg"}
+{"atMs":2827,"type":"stdout","bytes":31}
+{"atMs":3246,"type":"stdout","bytes":28}
+{"atMs":5004,"type":"snapshot","label":"5s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J12/20260501T185244Z/snapshots/0001-5s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J12/20260501T185244Z/screenshots/0001-5s.svg"}
+{"atMs":5648,"type":"stdout","bytes":30}
+{"atMs":5914,"type":"stdout","bytes":34}
+{"atMs":10005,"type":"snapshot","label":"10s","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J12/20260501T185244Z/snapshots/0002-10s.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J12/20260501T185244Z/screenshots/0002-10s.svg"}
+{"atMs":13358,"type":"stdout","bytes":137}
+{"atMs":13358,"type":"stdout","bytes":295}
+{"atMs":13358,"type":"stdout","bytes":38}
+{"atMs":13515,"type":"snapshot","label":"final","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J12/20260501T185244Z/snapshots/0003-final.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J12/20260501T185244Z/screenshots/0003-final.svg"}

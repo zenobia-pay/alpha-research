@@ -1,0 +1,9 @@
+Your run is still active, but its last update was under 1 minute ago.
+
+Run: 47ff6747-fdc4-4c97-9a2d-72d038de90c6
+Dataset: enriched-tweets
+State: booting
+Current work: Mounted dataset grounding is mandatory for dataset `enriched-tweets`.
+
+Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for your workload.
+Debug: research debug run 47ff6747-fdc4-4c97-9a2d-72d038de90c6

@@ -1,0 +1,13 @@
+{
+  "journeyId": "J14",
+  "title": "Return To Last Run",
+  "startedAt": "2026-05-01T18:53:18.570Z",
+  "elapsedMs": 26727,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

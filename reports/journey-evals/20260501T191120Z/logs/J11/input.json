@@ -1,0 +1,12 @@
+{
+  "journeyId": "J11",
+  "prompt": "Make me a county-month economics dataset for testing a housing-cycle hypothesis from 2015 to 2025. Include FRED rates, Census population/income, Zillow home values and rents, BLS employment/unemployment/CPI, FHFA HPI, and NBER recession indicators. Validate source URLs, row counts, missingness, join keys, temporal coverage, and produce a data dictionary and manifest.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Make me a county-month economics dataset for testing a housing-cycle hypothesis from 2015 to 2025. Include FRED rates, Census population/income, Zillow home values and rents, BLS employment/unemployment/CPI, FHFA HPI, and NBER recession indicators. Validate source URLs, row counts, missingness, join keys, temporal coverage, and produce a data dictionary and manifest."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

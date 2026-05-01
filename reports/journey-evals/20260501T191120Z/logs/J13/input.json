@@ -1,0 +1,12 @@
+{
+  "journeyId": "J13",
+  "prompt": "Using the econ dataset, compare county-level unemployment changes against home value growth from 2019 through 2024. Group by county and year, create a correlation table, a scatter plot, and a short markdown summary with caveats.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Using the econ dataset, compare county-level unemployment changes against home value growth from 2019 through 2024. Group by county and year, create a correlation table, a scatter plot, and a short markdown summary with caveats."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

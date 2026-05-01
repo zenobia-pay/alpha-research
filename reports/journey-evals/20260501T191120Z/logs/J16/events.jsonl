@@ -1,0 +1,9 @@
+{"atMs":0,"type":"snapshot","label":"start","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J16/20260501T185345Z/snapshots/0000-start.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J16/20260501T185345Z/screenshots/0000-start.svg"}
+{"atMs":156,"type":"stdout","bytes":42}
+{"atMs":156,"type":"stdout","bytes":49}
+{"atMs":156,"type":"stdout","bytes":16}
+{"atMs":156,"type":"stdout","bytes":1}
+{"atMs":156,"type":"stdout","bytes":79}
+{"atMs":156,"type":"stdout","bytes":66}
+{"atMs":156,"type":"stdout","bytes":86}
+{"atMs":161,"type":"snapshot","label":"final","textPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J16/20260501T185345Z/snapshots/0001-final.txt","screenshotPath":"/Users/ryanprendergast/Documents/Zenobia Pay/alpha-datasets/.tmp/journey-runs-postfix/J16/20260501T185345Z/screenshots/0001-final.svg"}

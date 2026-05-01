@@ -1,0 +1,13 @@
+{
+  "journeyId": "J04",
+  "title": "Dataset Briefing",
+  "startedAt": "2026-05-01T18:48:16.653Z",
+  "elapsedMs": 5511,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

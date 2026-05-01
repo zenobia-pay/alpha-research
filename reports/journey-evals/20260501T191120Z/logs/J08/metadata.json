@@ -1,0 +1,13 @@
+{
+  "journeyId": "J08",
+  "title": "Vague Viral Tweets Experiment",
+  "startedAt": "2026-05-01T18:51:38.313Z",
+  "elapsedMs": 196,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

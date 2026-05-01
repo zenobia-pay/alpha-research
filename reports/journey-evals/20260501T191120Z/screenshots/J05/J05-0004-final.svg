@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Inspecting dataset enriched-tweets...                                                                                 </text>
+<text x="16" y="84">· Inspected remote dataset enriched-tweets.                                                                             </text>
+<text x="16" y="102">Short answer                                                                                                            </text>
+<text x="16" y="120">- Meaning: quote_tweet_count is the number of tweets that quoted a given tweet (i.e., quote tweets received).           </text>
+<text x="16" y="138">- In your dataset: it isn’t a stored field. Derive it by counting rows where quoted_tweet_id == target.tweet_id.        </text>
+<text x="16" y="156">                                                                                                                        </text>
+<text x="16" y="174">Schema evidence                                                                                                         </text>
+<text x="16" y="192">- enriched-tweets schema includes tweet_id, quoted_tweet_id, retweet_count, favorite_count (no quote_tweet_count field).</text>
+<text x="16" y="210">                                                                                                                        </text>
+<text x="16" y="228">How to compute                                                                                                          </text>
+<text x="16" y="246">- quote_count_for_tweet = count(rows where row.quoted_tweet_id == target.tweet_id).                                     </text>
+<text x="16" y="264">                                                                                                                        </text>
+<text x="16" y="282">Using it for “virality”                                                                                                 </text>
+<text x="16" y="300">- It’s a strong signal but shouldn’t stand alone. Combine with retweet_count (and replies if available), and time-normal</text>
+<text x="16" y="318">ize. Example: virality_score = (retweet_count + quote_count) / hours_since_posted; optionally normalize by audience (e.g</text>
+<text x="16" y="336">., per 1k followers) if you have that.                                                                                  </text>
+<text x="16" y="354">                                                                                                                        </text>
+</g>
+</svg>

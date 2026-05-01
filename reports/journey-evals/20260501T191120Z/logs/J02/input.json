@@ -1,0 +1,12 @@
+{
+  "journeyId": "J02",
+  "prompt": "What datasets do I have?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "What datasets do I have?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

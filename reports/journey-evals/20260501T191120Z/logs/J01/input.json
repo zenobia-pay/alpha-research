@@ -1,0 +1,12 @@
+{
+  "journeyId": "J01",
+  "prompt": "What can you help me do?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "What can you help me do?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

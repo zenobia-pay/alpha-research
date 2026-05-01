@@ -1,0 +1,13 @@
+{
+  "journeyId": "J02",
+  "title": "Dataset Inventory",
+  "startedAt": "2026-05-01T18:47:49.758Z",
+  "elapsedMs": 9957,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

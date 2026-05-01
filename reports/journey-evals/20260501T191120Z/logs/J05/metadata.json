@@ -1,0 +1,13 @@
+{
+  "journeyId": "J05",
+  "title": "Field Meaning And Research Fit",
+  "startedAt": "2026-05-01T18:48:22.165Z",
+  "elapsedMs": 15983,
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "timedOut": false
+  },
+  "width": 120,
+  "height": 36
+}

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">· Checking remote datasets...                                                                                           </text>
+<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
+<text x="16" y="66">· Inspecting dataset econ...                                                                                            </text>
+<text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
+<text x="16" y="102">Short answer: use ACS + market price/rent series.                                                                       </text>
+<text x="16" y="120">                                                                                                                        </text>
+<text x="16" y="138">Best baseline                                                                                                           </text>
+<text x="16" y="156">- US Census ACS 5-year: household income, gross rent, tenure, bedrooms (for cost-burden and HAI-style metrics). Use PUMS</text>
+<text x="16" y="174"> for micro or summary tables for tract/county.                                                                          </text>
+<text x="16" y="192">- HUD CHAS: precomputed cost-burden distributions by income bins at tract/city/county.                                  </text>
+<text x="16" y="210">- HUD FMR + Income Limits: anchors voucher affordability and policy thresholds.                                         </text>
+<text x="16" y="228">                                                                                                                        </text>
+<text x="16" y="246">Market dynamics (pair with income)                                                                                      </text>
+<text x="16" y="264">- Zillow: ZORI (rent), ZHVI (home values), inventory; metro/county/ZIP monthly.                                         </text>
+<text x="16" y="282">- Redfin Data Center: median sale price, price per sqft, inventory, days-on-market; weekly/monthly, metro/county/ZIP.   </text>
+<text x="16" y="300">- Freddie Mac PMMS: mortgage rates (for ownership affordability).                                                       </text>
+<text x="16" y="318">- BLS CPI shelter: context for real vs nominal.                                                                         </text>
+<text x="16" y="336">                                                                                                                        </text>
+<text x="16" y="354">If outside the US                                                                                                       </text>
+<text x="16" y="372">- OECD Housing Affordability, Eurostat SILC (income + housing costs).                                                   </text>
+<text x="16" y="390">                                                                                                                        </text>
+<text x="16" y="408">Quick next step                                                                                                         </text>
+<text x="16" y="426">- Tell me your geography (e.g., US nationwide, specific metros), time span, and whether you want renter, owner, or both.</text>
+<text x="16" y="444"> I can provision a research environment that pulls ACS + HUD + Zillow/Redfin and compute:                               </text>
+<text x="16" y="462">- Rent burden: rent-to-income, 30/50% thresholds.                                                                       </text>
+<text x="16" y="480">- Ownership HAI: income vs P&amp;I at given rates, taxes, insurance.                                                        </text>
+<text x="16" y="498">- Supply-side: inventory, months of supply, vacancy proxies.                                                            </text>
+<text x="16" y="516">                                                                                                                        </text>
+</g>
+</svg>

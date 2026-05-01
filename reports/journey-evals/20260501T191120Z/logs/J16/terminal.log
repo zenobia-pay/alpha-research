@@ -1,0 +1,7 @@
+Blocked: enriched-tweets is already busy.
+Active run: 47ff6747-fdc4-4c97-9a2d-72d038de90c6
+Status: booting
+
+Starting a duplicate analysis is not allowed while that run holds the dataset.
+Check it: research debug run 47ff6747-fdc4-4c97-9a2d-72d038de90c6
+Next: wait for it to finish, inspect it, or cancel it before starting a new analysis.

@@ -1,0 +1,12 @@
+{
+  "journeyId": "J06",
+  "prompt": "I have a CSV of customer support tickets on my desktop. How do I turn it into something I can research here?",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "I have a CSV of customer support tickets on my desktop. How do I turn it into something I can research here?"
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

@@ -1,0 +1,12 @@
+{
+  "journeyId": "J12",
+  "prompt": "Analyze the econ dataset and tell me what’s interesting.",
+  "command": [
+    "node",
+    "apps/cli/dist/index.js",
+    "--prompt",
+    "Analyze the econ dataset and tell me what’s interesting."
+  ],
+  "timeoutMs": 180000,
+  "snapshotMs": 5000
+}

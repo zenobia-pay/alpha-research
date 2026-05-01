@@ -1,0 +1,18 @@
+· Checking local datasets...
+· Found 2 local datasets.
+· Checking remote datasets...
+· Found 7 remote datasets.
+Here’s what you have.
+
+Local (2):
+- County Economics (id: demo-econ, datasetId: county-economics) — 4 records
+- Tweet Archive (id: demo-tweets, datasetId: tweets) — 3 records
+
+Remote (7):
+- Econ Research Environment (id: econ) — ready
+- Enriched Tweets (id: enriched-tweets) — uploading, deployment ready
+- Mixed Smoke Test (id: mixed-smoke-1776979192) — ready
+- Mixed Smoke Test 2 (id: mixed-smoke-1776989612) — deploying
+- Mixed Smoke Test 3 (id: mixed-smoke-1776989749) — deploying
+- Upload Test (id: upload-test-93961) — uploaded, deployable
+- enriched_tweets_parquet_dataset (id: dataset) — created (draft)

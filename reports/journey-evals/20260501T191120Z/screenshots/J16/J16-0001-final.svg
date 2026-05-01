@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
+<rect width="100%" height="100%" fill="#101317"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
+<text x="16" y="30">Blocked: enriched-tweets is already busy.                                                                               </text>
+<text x="16" y="48">Active run: 47ff6747-fdc4-4c97-9a2d-72d038de90c6                                                                        </text>
+<text x="16" y="66">Status: booting                                                                                                         </text>
+<text x="16" y="84">                                                                                                                        </text>
+<text x="16" y="102">Starting a duplicate analysis is not allowed while that run holds the dataset.                                          </text>
+<text x="16" y="120">Check it: research debug run 47ff6747-fdc4-4c97-9a2d-72d038de90c6                                                       </text>
+<text x="16" y="138">Next: wait for it to finish, inspect it, or cancel it before starting a new analysis.                                   </text>
+<text x="16" y="156">                                                                                                                        </text>
+</g>
+</svg>
