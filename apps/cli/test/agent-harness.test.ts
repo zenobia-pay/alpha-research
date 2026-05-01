@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { rm } from "node:fs/promises";
+
+import { getFixtureAdapter } from "@rprend/alpha-fixture";
+import { buildBundleFromAdapter, writeShardedInstanceBundle } from "@rprend/alpha-storage";
 
 import {
   createDefaultAgentRuntimeDeps,
@@ -7,7 +11,7 @@ import {
   type AgentMessage,
   type AgentRuntimeDeps,
 } from "../src/agent.js";
-import type { SessionRecord } from "../src/config.js";
+import { DEFAULT_INSTANCE_ROOT, type SessionRecord } from "../src/config.js";
 import { buildRunDebugBundle } from "../src/debug.js";
 import { RemoteRequestError } from "../src/remote.js";
 
@@ -172,7 +176,8 @@ test("async query run returns immediately with canonical dashboard and terminal 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Started query run run-123/);
   assert.match(final, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-123#run-run-123/);
-  assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-1&runId=run-123#run-run-123/);
+  assert.match(final, /Active run details are available in the status panel/);
+  assert.doesNotMatch(final, /Terminal session:/);
   assert.equal(calls.includes("startRun"), true);
   assert.match(startedPrompt, /Mounted dataset grounding is mandatory for dataset `enriched-tweets`/);
   assert.match(startedPrompt, /Do not download public sample data, GitHub CSVs/);
@@ -268,7 +273,88 @@ test("dataset describe request starts briefing run with required artifacts", asy
 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Started dataset briefing run run-describe for econ/);
-  assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-describe&runId=run-describe#run-run-describe/);
+  assert.match(final, /Active run details are available in the status panel/);
+  assert.doesNotMatch(final, /Terminal session:/);
+});
+
+test("follow-up dataset describe reuses the exact local dataset from the prior inventory", async () => {
+  const adapter = getFixtureAdapter("tweets");
+  assert.ok(adapter);
+  const records = await adapter.listRecords();
+  await rm(`${DEFAULT_INSTANCE_ROOT}/tweets`, { recursive: true, force: true });
+  await writeShardedInstanceBundle(
+    DEFAULT_INSTANCE_ROOT,
+    buildBundleFromAdapter({
+      id: "tweets",
+      productName: "Fixture Tweets",
+      siteName: "fixture tweets",
+      siteDescription: "Fixture tweet archive",
+      datasetId: "tweets",
+      datasetLabelSingular: "thread",
+      datasetLabelPlural: "threads",
+      heroTitle: "Fixture Tweets",
+      heroSubtitle: "Fixture tweet archive",
+      searchPlaceholder: "Search threads...",
+      theme: {
+        accent: "#000000",
+        accentStrong: "#111111",
+        surface: "#ffffff",
+        surfaceAlt: "#f5f5f5",
+        text: "#111111",
+        textMuted: "#555555",
+        line: "#dddddd",
+      },
+    }, adapter, records),
+    { shardRecordLimit: 1 },
+  );
+  try {
+    let respondCalls = 0;
+    const fakeClient = {
+      async respond(body: Record<string, unknown>) {
+        respondCalls += 1;
+        if (respondCalls > 1) {
+          throw new Error("The follow-up local dataset describe should resolve from prior inventory without a second remote planning call.");
+        }
+        return {
+          sessionId: "terminal-session-inventory",
+          payload: {
+            id: "response-inventory",
+            output: [
+              { type: "message", content: [{ type: "output_text", text: "unexpected planning call" }] },
+            ],
+          },
+        };
+      },
+      async appendSessionEntry() {
+        return { id: "entry-inventory" };
+      },
+    };
+    const deps: AgentRuntimeDeps = {
+      ...createDefaultAgentRuntimeDeps(),
+      createRemoteClient: () => fakeClient as never,
+      readSession: async () => session,
+    };
+    const second = collect();
+    const priorState = {
+      sessionId: "terminal-session-inventory",
+      previousResponseId: "response-inventory",
+      lastListedDatasets: [
+        { id: "tweets", displayName: "Tweet Archive", source: "local" as const, recordCount: 3 },
+        { id: "enriched-tweets", displayName: "Enriched Tweets", source: "remote" as const, status: "ready" },
+      ],
+    };
+
+    await runAgentTurn("Describe the tweets dataset.", session, second.emit, priorState, deps);
+
+    assert.equal(respondCalls, 0);
+    const final = second.messages.at(-1)?.content ?? "";
+    assert.match(final, /Using the local `tweets` dataset from your earlier list/);
+    assert.match(final, /Tweet Archive has 3 records/);
+    assert.match(final, /Fields: username, participants, post_count, created_at, conversation_id/);
+    assert.doesNotMatch(final, /enriched-tweets/);
+  } finally {
+    await rm(`${DEFAULT_INSTANCE_ROOT}/tweets`, { recursive: true, force: true });
+  }
 });
 
 test("run result retrieval includes original prompt and artifacts", async () => {

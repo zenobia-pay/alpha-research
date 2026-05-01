@@ -51,8 +51,23 @@ function appendAssistant(runtime: AssistantRuntime, text: string) {
   });
 }
 
+function rewriteAssistantTranscript(text: string) {
+  return text
+    .replace(/\n?Terminal session:\s*https?:\/\/\S+/giu, "")
+    .replace(/Dashboard:\s*https?:\/\/\S+/giu, "Dashboard available in the active run panel.")
+    .replace(/^run ([a-z0-9-]+): .+$/gimu, "")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
 function formatAgentEmission(message: AgentMessage) {
+  if (message.role === "assistant") {
+    return rewriteAssistantTranscript(message.content);
+  }
   if (message.role === "tool") {
+    if (message.content.startsWith("[run ")) {
+      return "";
+    }
     return message.content
       .split("\n")
       .map((line) => `· ${line}`)
@@ -78,10 +93,27 @@ function runStatusColor(status: string) {
   return "yellow";
 }
 
-function summarizeRunLine(run: TrackedRunRecord) {
+function compactStatusLabel(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized === "queued") return "starting";
+  if (normalized === "booting") return "booting";
+  if (normalized === "running") return "running";
+  if (normalized === "ready" || normalized === "completed" || normalized === "succeeded") return "completed";
+  if (normalized === "failed" || normalized === "error") return "failed";
+  if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
+  return normalized;
+}
+
+function compactRunMessage(run: TrackedRunRecord) {
   const latest = run.lastEventMessage?.trim();
-  const suffix = latest ? ` · ${latest}` : run.prompt ? ` · ${run.prompt}` : "";
-  return `${shortId(run.id)}  ${run.datasetId}  ${run.status}${suffix}`;
+  if (latest && !latest.startsWith("Mounted dataset grounding is mandatory")) {
+    return latest.length > 96 ? `${latest.slice(0, 93)}...` : latest;
+  }
+  if (run.prompt) {
+    const singleLine = run.prompt.split("\n")[0]?.trim() ?? "";
+    return singleLine.length > 96 ? `${singleLine.slice(0, 93)}...` : singleLine;
+  }
+  return "Remote work in progress.";
 }
 
 async function pollTrackedRuns(
@@ -186,21 +218,12 @@ function AssistantMessage() {
 
 function ActivityIndicator() {
   const isRunning = useAuiState((state) => state.thread.isRunning);
-  const [dots, setDots] = useState(".");
-
-  useEffect(() => {
-    if (!isRunning) return undefined;
-    const timer = setInterval(() => {
-      setDots((current) => (current.length >= 3 ? "." : `${current}.`));
-    }, 650);
-    return () => clearInterval(timer);
-  }, [isRunning]);
 
   if (!isRunning) return null;
 
   return (
     <Box>
-      <Text color="yellow">{`· working${dots}`}</Text>
+      <Text color="yellow">· selecting dataset and planning the next step</Text>
     </Box>
   );
 }
@@ -217,11 +240,15 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
   if (activeRuns.length === 0) return null;
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
+      <Text bold color="white">Active Run</Text>
       {activeRuns.map((run) => (
-        <Text key={run.id} color={runStatusColor(run.status)}>
-          {`· ${summarizeRunLine(run)}`}
-        </Text>
+        <Box key={run.id} flexDirection="column" marginTop={1}>
+          <Text color={runStatusColor(run.status)}>
+            {`${run.datasetId} · ${compactStatusLabel(run.status)} · ${shortId(run.id)}`}
+          </Text>
+          <Text color="gray">{compactRunMessage(run)}</Text>
+        </Box>
       ))}
     </Box>
   );
@@ -280,7 +307,10 @@ function RunPoller({
     let cancelled = false;
     const emit = (message: AgentMessage) => {
       if (!cancelled) {
-        appendAssistant(runtime, formatAgentEmission(message));
+        const formatted = formatAgentEmission(message);
+        if (formatted.trim().length > 0) {
+          appendAssistant(runtime, formatted);
+        }
       }
     };
 
@@ -340,8 +370,10 @@ function createResearchAdapter({
       });
       const emit = (message: AgentMessage) => {
         const formatted = formatAgentEmission(message);
-        visibleText = visibleText ? `${visibleText}\n${formatted}` : formatted;
-        markChanged();
+        if (formatted.trim().length > 0) {
+          visibleText = visibleText ? `${visibleText}\n${formatted}` : formatted;
+          markChanged();
+        }
       };
       const flush = function* () {
         yield { content: assistantContent(visibleText || " ") };
@@ -388,7 +420,7 @@ function createResearchAdapter({
             });
             setSession(nextSession);
             sessionRef.current = nextSession;
-            const resetState = { sessionId: null, previousResponseId: null };
+            const resetState = { sessionId: null, previousResponseId: null, lastListedDatasets: [] };
             conversationStateRef.current = resetState;
             setConversationState(resetState);
             emit({ role: "assistant", content: `signed in to ${nextSession.origin}` });
@@ -404,7 +436,7 @@ function createResearchAdapter({
         await clearSession();
         setSession(null);
         sessionRef.current = null;
-        const resetState = { sessionId: null, previousResponseId: null };
+        const resetState = { sessionId: null, previousResponseId: null, lastListedDatasets: [] };
         conversationStateRef.current = resetState;
         setConversationState(resetState);
         visibleText = "signed out locally";
@@ -500,6 +532,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const [conversationState, setConversationStateState] = useState<AgentConversationState>({
     sessionId: null,
     previousResponseId: null,
+    lastListedDatasets: [],
   });
   const sessionRef = useRef<SessionRecord | null>(null);
   const conversationStateRef = useRef<AgentConversationState>(conversationState);

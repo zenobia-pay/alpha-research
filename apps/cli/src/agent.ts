@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 
 import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage";
 
-import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
+import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
 import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
 import { readSession, login } from "./session.js";
@@ -32,6 +32,7 @@ export type ToolExecutionContext = {
 export type AgentConversationState = {
   sessionId: string | null;
   previousResponseId: string | null;
+  lastListedDatasets?: DatasetReference[];
 };
 
 export type ToolDefinition = {
@@ -53,6 +54,15 @@ export type AgentRuntimeDeps = {
   readSession: typeof readSession;
   login: typeof login;
   createToolRegistry: () => ToolDefinition[];
+};
+
+type DatasetReference = {
+  id: string;
+  displayName: string;
+  description?: string;
+  source: "local" | "remote";
+  recordCount?: number;
+  status?: string;
 };
 
 const STANDARD_ANALYSIS_RESOURCES = {
@@ -207,6 +217,7 @@ const AGENT_INSTRUCTIONS = [
   "For local file import how-to questions without an exact path, ask for the absolute path and a one-line description before listing or importing datasets.",
   "For vague research prompts such as housing-market risk or what makes tweets viral, propose a scoped plan and ask for confirmation before starting a remote run.",
   "When recommending a dataset, anchor the answer to actual datasets found in RESEARCH before suggesting external sources.",
+  "When a user refers to a dataset by an exact id or exact display name that appeared in the prior dataset list, keep that exact dataset selection. Do not silently swap to a semantically similar dataset.",
   "When resolving an ambiguous dataset name, state which dataset you selected and why.",
   "For field-definition questions, include a compact schema-evidence line and clearly distinguish stored fields from derived metrics.",
   "If deriving tweet quote counts, say: quote_count_for_tweet = count(rows where row.quoted_tweet_id == target.tweet_id). Never describe this as quoted_tweet_id == tweet_id on the same row.",
@@ -862,6 +873,106 @@ function maybeHandleVagueTweetsExperiment(input: string) {
 function extractDatasetIdFromNewAnalysis(input: string) {
   const match = input.match(/\b(?:on|using)\s+([a-z0-9][a-z0-9_-]*)(?:[.\s]|$)/iu);
   return match?.[1] ?? null;
+}
+
+function normalizeDatasetReference(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/gu, " ");
+}
+
+function extractDatasetReferenceFromDescribePrompt(input: string) {
+  const trimmed = input.trim();
+  const match = trimmed.match(/^(?:please\s+)?(?:describe|inspect|profile|brief)\s+(?:the\s+)?(.+?)\s+dataset[.?!]*$/iu);
+  if (!match?.[1]) {
+    return null;
+  }
+  return match[1].trim().replace(/^`|`$/gu, "");
+}
+
+function resolveDatasetFromConversation(reference: string, datasets: DatasetReference[]) {
+  const normalizedReference = normalizeDatasetReference(reference);
+  return datasets.find((dataset) =>
+    normalizeDatasetReference(dataset.id) === normalizedReference
+    || normalizeDatasetReference(dataset.displayName) === normalizedReference,
+  ) ?? null;
+}
+
+function summarizeCapabilities(capabilities: Record<string, unknown> | undefined) {
+  if (!capabilities) return "No special capabilities recorded.";
+  const enabled = Object.entries(capabilities)
+    .filter(([, value]) => value === true)
+    .map(([key]) => key.replace(/([A-Z])/gu, " $1").toLowerCase());
+  return enabled.length > 0
+    ? `Capabilities: ${enabled.join(", ")}.`
+    : "No special capabilities recorded.";
+}
+
+async function maybeHandleDescribeDatasetFromContext(input: string, conversationState?: AgentConversationState) {
+  const reference = extractDatasetReferenceFromDescribePrompt(input);
+  if (!reference || !conversationState?.lastListedDatasets?.length) {
+    return null;
+  }
+  const selected = resolveDatasetFromConversation(reference, conversationState.lastListedDatasets);
+  if (!selected || selected.source !== "local") {
+    return null;
+  }
+  const bootstrap = await getInstanceBootstrap(DEFAULT_INSTANCE_ROOT, selected.id).catch(() => null);
+  if (!bootstrap) {
+    return null;
+  }
+  const fields = bootstrap.descriptor.fields.map((field) => field.key);
+  const measures = bootstrap.descriptor.measures?.map((measure) => measure.key) ?? [];
+  const readiness = bootstrap.recordCount > 0 ? "ready for lightweight local inspection" : "present but empty";
+  return [
+    `Using the local \`${selected.id}\` dataset from your earlier list.`,
+    "",
+    `${bootstrap.descriptor.displayName} has ${formatNumber(bootstrap.recordCount)} record${bootstrap.recordCount === 1 ? "" : "s"} and is ${readiness}.`,
+    bootstrap.descriptor.description,
+    "",
+    `Entity types: ${bootstrap.descriptor.entityTypes.join(", ")}.`,
+    fields.length > 0 ? `Fields: ${fields.join(", ")}.` : "Fields: none recorded.",
+    measures.length > 0 ? `Measures: ${measures.join(", ")}.` : "Measures: none recorded.",
+    `Storage: ${bootstrap.layout}${bootstrap.shardCount > 0 ? ` with ${bootstrap.shardCount} shard${bootstrap.shardCount === 1 ? "" : "s"}` : ""}.`,
+    summarizeCapabilities(bootstrap.descriptor.capabilities as Record<string, unknown> | undefined),
+    bootstrap.sampleRecords.length > 0
+      ? `Sample records available: ${formatNumber(bootstrap.sampleRecords.length)}.`
+      : "Sample records were not included in the local bootstrap.",
+    "",
+    "Next useful step: ask me to inspect example records, search the text projections, or promote this dataset into a remote research environment if you want a durable briefing run.",
+  ].join("\n");
+}
+
+function collectDatasetsFromToolResult(toolName: string, data: unknown): DatasetReference[] {
+  if (!isRecord(data)) {
+    return [];
+  }
+  if (toolName === "list_local_datasets" && Array.isArray(data.instances)) {
+    return data.instances
+      .filter(isRecord)
+      .map((instance) => ({
+        id: String(instance.datasetId ?? instance.id ?? ""),
+        displayName: String(instance.displayName ?? instance.productName ?? instance.datasetId ?? instance.id ?? ""),
+        description: typeof instance.description === "string" ? instance.description : undefined,
+        source: "local" as const,
+        recordCount: typeof instance.recordCount === "number" ? instance.recordCount : undefined,
+      }))
+      .filter((dataset) => dataset.id.length > 0);
+  }
+  if (toolName === "list_remote_datasets" && Array.isArray(data.datasets)) {
+    return data.datasets
+      .filter(isRecord)
+      .map((dataset) => ({
+        id: String(dataset.id ?? ""),
+        displayName: String(dataset.name ?? dataset.id ?? ""),
+        source: "remote" as const,
+        status: typeof dataset.deploymentStatus === "string"
+          ? dataset.deploymentStatus
+          : typeof dataset.status === "string"
+            ? dataset.status
+            : undefined,
+      }))
+      .filter((dataset) => dataset.id.length > 0);
+  }
+  return [];
 }
 
 async function maybeHandleBusyDatasetBeforePlanning(input: string, initialSession: SessionRecord | null) {
@@ -2265,6 +2376,7 @@ export async function runAgentTurn(
   conversationState?: AgentConversationState,
   deps: AgentRuntimeDeps = createDefaultAgentRuntimeDeps(),
 ): Promise<AgentConversationState> {
+  const lastListedDatasets = conversationState?.lastListedDatasets ?? [];
   const directResponse = maybeHandleOrientation(input)
     ?? maybeHandleCsvImportHowTo(input)
     ?? maybeHandleVagueMarketQuestion(input)
@@ -2274,6 +2386,7 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      lastListedDatasets,
     };
   }
 
@@ -2284,6 +2397,17 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      lastListedDatasets,
+    };
+  }
+
+  const contextDescribeResponse = await maybeHandleDescribeDatasetFromContext(input, conversationState);
+  if (contextDescribeResponse) {
+    emit({ role: "assistant", content: contextDescribeResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+      lastListedDatasets,
     };
   }
 
@@ -2295,6 +2419,7 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      lastListedDatasets,
     };
   }
 
@@ -2329,6 +2454,7 @@ export async function runAgentTurn(
     return {
       sessionId: context.sessionId,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      lastListedDatasets,
     };
   }
 
@@ -2350,6 +2476,7 @@ export async function runAgentTurn(
     return {
       sessionId: context.sessionId,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      lastListedDatasets,
     };
   }
 
@@ -2375,6 +2502,7 @@ export async function runAgentTurn(
           typeof (replied.payload as { id?: unknown }).id === "string"
             ? String((replied.payload as { id?: unknown }).id)
             : conversationState?.previousResponseId ?? null,
+        lastListedDatasets: conversationState?.lastListedDatasets ?? lastListedDatasets,
       };
       return replied.payload as ResponsesApiPayload;
     });
@@ -2384,6 +2512,7 @@ export async function runAgentTurn(
       return {
         sessionId: context.sessionId,
         previousResponseId: conversationState?.previousResponseId ?? null,
+        lastListedDatasets: conversationState?.lastListedDatasets ?? lastListedDatasets,
       };
     }
     throw error;
@@ -2416,6 +2545,7 @@ export async function runAgentTurn(
       return {
         sessionId: context.sessionId,
         previousResponseId: conversationState?.previousResponseId ?? null,
+        lastListedDatasets: conversationState?.lastListedDatasets ?? lastListedDatasets,
       };
     }
 
@@ -2466,12 +2596,27 @@ export async function runAgentTurn(
         content: result.summary,
         metadata: { name: tool.name, data: result.data },
       });
+      const datasetsFromResult = collectDatasetsFromToolResult(tool.name, result.data);
+      if (datasetsFromResult.length > 0) {
+        const merged = new Map<string, DatasetReference>();
+        for (const dataset of conversationState?.lastListedDatasets ?? lastListedDatasets) {
+          merged.set(`${dataset.source}:${dataset.id}`, dataset);
+        }
+        for (const dataset of datasetsFromResult) {
+          merged.set(`${dataset.source}:${dataset.id}`, dataset);
+        }
+        conversationState = {
+          sessionId: context.sessionId,
+          previousResponseId: conversationState?.previousResponseId ?? null,
+          lastListedDatasets: [...merged.values()],
+        };
+      }
       if (ASYNC_RUN_START_TOOLS.has(tool.name) && !exposeWaitTool) {
         const resultData = isRecord(result.data) ? result.data : {};
         const startedRunId = isRecord(resultData.run) && typeof resultData.run.id === "string" ? resultData.run.id : null;
         const finalSummary =
           context.session && context.sessionId && startedRunId
-            ? `${result.summary}\nTerminal session: ${dashboardTerminalSessionUrl(context.session.origin, context.sessionId, startedRunId)}`
+            ? `${result.summary}\nActive run details are available in the status panel.`
             : result.summary;
         emit({ role: "assistant", content: finalSummary });
         await persistSessionEntry(context, {
@@ -2483,6 +2628,7 @@ export async function runAgentTurn(
         return {
           sessionId: context.sessionId,
           previousResponseId: conversationState?.previousResponseId ?? null,
+          lastListedDatasets: conversationState?.lastListedDatasets ?? lastListedDatasets,
         };
       }
       if (ASYNC_RUN_START_TOOLS.has(tool.name) && exposeWaitTool) {
@@ -2521,6 +2667,7 @@ export async function runAgentTurn(
       return {
         sessionId: context.sessionId,
         previousResponseId: conversationState?.previousResponseId ?? null,
+        lastListedDatasets: conversationState?.lastListedDatasets ?? lastListedDatasets,
       };
     }
 
@@ -2539,6 +2686,7 @@ export async function runAgentTurn(
           typeof (replied.payload as { id?: unknown }).id === "string"
             ? String((replied.payload as { id?: unknown }).id)
             : conversationState?.previousResponseId ?? null,
+        lastListedDatasets: conversationState?.lastListedDatasets ?? lastListedDatasets,
       };
       return replied.payload as ResponsesApiPayload;
     });
@@ -2551,6 +2699,7 @@ export async function runAgentTurn(
   return {
     sessionId: context.sessionId,
     previousResponseId: conversationState?.previousResponseId ?? null,
+    lastListedDatasets: conversationState?.lastListedDatasets ?? lastListedDatasets,
   };
 }
 
