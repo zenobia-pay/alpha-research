@@ -1267,14 +1267,21 @@ function maybeHandleUnauthenticatedLocalRequest(input: string) {
 
 function maybeHandleOrientation(input: string) {
   const lower = input.trim().toLowerCase();
-  if (!/^(what can you help me do\??|help|what do you do\??)$/u.test(lower)) {
+  if (!(
+    /^(what can you help me do\??|help|what do you do\??)$/u.test(lower)
+    || (
+      /\b(just opened|what is this|what should i type first|where should i start|how do i start)\b/u.test(lower)
+      && /\bresearch\b/u.test(lower)
+    )
+  )) {
     return null;
   }
   return [
-    "I help you turn files and datasets into research you can inspect, run, and review.",
+    "RESEARCH helps you turn files and datasets into research you can inspect, run, and review.",
     "",
     "Start here:",
-    "- Show my datasets",
+    "- `research login` so I can see your datasets and start research runs for you",
+    "- `Show my datasets`",
     "",
     "I can help you:",
     "- Create a dataset from /absolute/path/customers.csv",
@@ -1284,7 +1291,9 @@ function maybeHandleOrientation(input: string) {
     "- Show the latest results or saved files from earlier work",
     "",
     "Other useful prompts:",
+    "- What data do I already have ready to use?",
     "- Brief the sales dataset",
+    "- Brief the econ dataset",
     "- Test whether retention changed after launch",
     "- Show my latest analysis results",
   ].join("\n");
