@@ -51,15 +51,43 @@ test("product orientation presents command center identities without tools", asy
 
   assert.equal(messages.length, 1);
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /local command center/i);
-  assert.match(final, /messy data/i);
-  assert.match(final, /vague research intent/i);
-  assert.match(final, /durable research work/i);
-  assert.match(final, /Intake data/i);
-  assert.match(final, /Navigate datasets/i);
-  assert.match(final, /study designs before spending time/i);
-  assert.match(final, /Recover prior work/i);
-  assert.doesNotMatch(final, /manifest-backed|mounted dataset|worker_unreachable|lifecycle/i);
+  assert.match(final, /helps you inspect datasets/i);
+  assert.match(final, /research login/i);
+  assert.match(final, /what data do i already have ready to use/i);
+  assert.match(final, /brief the econ dataset/i);
+  assert.match(final, /choose a dataset/i);
+  assert.match(final, /starting a focused research task/i);
+  assert.doesNotMatch(final, /remote environments?|run lifecycle|normalize|artifacts before/i);
+});
+
+test("cold-start orientation prompt stays local and recommends one first step", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Cold-start orientation should be answered locally.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "I just opened research. What is this, and what should I type first?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.equal(messages.length, 1);
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /^RESEARCH helps you inspect datasets/i);
+  assert.match(final, /Start with `research login`/i);
+  assert.match(final, /so I can see your datasets and start research runs for you/i);
+  assert.match(final, /Then try one of these:/i);
+  assert.doesNotMatch(final, /datasets ls|local ls|env create|normalize|remote datasets|artifacts/u);
 });
 
 test("file import how-to asks for path before ingesting", async () => {

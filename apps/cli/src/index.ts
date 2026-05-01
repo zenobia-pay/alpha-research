@@ -25,7 +25,13 @@ function printAgentMessage(message: AgentMessage) {
   }
 }
 
+function printPromptModeLoading() {
+  console.log("research");
+  console.log("· working...");
+}
+
 async function runPromptMode(prompt: string) {
+  printPromptModeLoading();
   const session = await readSession();
   const conversationState = await runAgentTurn(prompt, session, printAgentMessage);
   return conversationState;

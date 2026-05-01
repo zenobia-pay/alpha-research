@@ -796,25 +796,29 @@ function maybeHandleUnauthenticatedLocalRequest(input: string) {
 
 function maybeHandleOrientation(input: string) {
   const lower = input.trim().toLowerCase();
-  if (!/^(what can you help me do\??|help|what do you do\??)$/u.test(lower)) {
+  if (!(
+    /^(what can you help me do\??|help|what do you do\??)$/u.test(lower)
+    || (
+      /\b(just opened|what is this|what should i type first|where should i start|how do i start)\b/u.test(lower)
+      && /\bresearch\b/u.test(lower)
+    )
+  )) {
     return null;
   }
   return [
-    "I am a local command center for turning messy data and vague research intent into durable research work: datasets, remote runs, analysis artifacts, and follow-up decisions.",
+    "RESEARCH helps you inspect datasets, turn questions into scoped research, and get useful results back.",
     "",
-    "I can help you:",
-    "- Intake data from local files, public sources, APIs, exports, or mixed-source environments.",
-    "- Navigate datasets you already have: readiness, fields, sources, coverage, quality, and limitations.",
-    "- Turn fuzzy questions into concrete study designs before spending time on remote work.",
-    "- Run analyses, queries, labeling jobs, and experiments with durable artifacts.",
-    "- Recover prior work: run status, dashboard links, results, failures, and next decisions.",
+    "Start with `research login` so I can see your datasets and start research runs for you.",
     "",
-    "Examples to type:",
-    "- Show my datasets",
-    "- Create a dataset from /absolute/path/customers.csv",
-    "- Brief the sales dataset",
-    "- Test whether retention changed after launch",
-    "- Show results from my last run",
+    "Then try one of these:",
+    "- `What data do I already have ready to use?`",
+    "- `Brief the econ dataset.`",
+    "- `I have a CSV export of support tickets. How do I turn it into a dataset here?`",
+    "",
+    "I’m best at:",
+    "- helping you choose a dataset",
+    "- explaining what is in a dataset",
+    "- starting a focused research task and bringing back results",
   ].join("\n");
 }
 
