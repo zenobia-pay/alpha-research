@@ -15,11 +15,13 @@ type Args = {
   tuiRoot: string;
   outRoot: string;
   worktreeRoot: string;
+  branch: string | null;
   ids: string[] | null;
   suites: Set<"prompt" | "tui">;
   model: string;
   execute: boolean;
   detach: boolean;
+  isolated: boolean;
 };
 
 function parseArgs(): Args {
@@ -32,16 +34,19 @@ function parseArgs(): Args {
   if (suiteArg === "all" || suiteArg === "prompt") suites.add("prompt");
   if (suiteArg === "all" || suiteArg === "tui") suites.add("tui");
   if (suites.size === 0) throw new Error(`Unknown --suite=${suiteArg}`);
+  const outRoot = resolve(get("out", `.tmp/journey-repair-codex/${timestamp()}`));
   return {
     promptRoot: resolve(get("prompt-root", ".tmp/journey-runs-all")),
     tuiRoot: resolve(get("tui-root", ".tmp/tui-journey-runs")),
-    outRoot: resolve(get("out", `.tmp/journey-repair-codex/${timestamp()}`)),
+    outRoot,
     worktreeRoot: resolve(get("worktrees", `.tmp/journey-repair-worktrees/${timestamp()}`)),
+    branch: argv.find((arg) => arg.startsWith("--branch="))?.split("=").slice(1).join("=") ?? null,
     ids: idsArg ? idsArg.split(",").map((id) => id.trim()).filter(Boolean) : null,
     suites,
     model: get("model", "gpt-5.4"),
     execute: argv.includes("--execute"),
     detach: argv.includes("--detach"),
+    isolated: argv.includes("--isolated"),
   };
 }
 
@@ -117,7 +122,8 @@ Hard requirements:
 - Add or update focused tests where practical.
 - Run the relevant checks for the touched surface. At minimum, run typecheck or targeted CLI tests if the change touches CLI code.
 - If multiple issues are listed, prioritize changes that make this journey pass without making adjacent journeys worse.
-- Commit your changes on this journey repair branch when complete. Do not push.
+- Commit your changes on this shared journey repair branch when complete. Do not push.
+- Leave the working tree clean before exiting so the next journey repair can start from your completed commit.
 
 Important source files likely relevant:
 - apps/cli/src/index.ts
@@ -149,6 +155,10 @@ function safeBranchName(id: string, runName: string) {
   return `codex/journey-repair-${id.toLowerCase()}-${runName.toLowerCase()}`.replace(/[^a-z0-9/_-]/g, "-").slice(0, 120);
 }
 
+function safeSharedBranchName(runName: string) {
+  return `codex/journey-repair-sequential-${runName.toLowerCase()}`.replace(/[^a-z0-9/_-]/g, "-").slice(0, 120);
+}
+
 function runChecked(command: string, args: string[], cwd: string) {
   const result = spawnSync(command, args, { cwd, encoding: "utf8" });
   if (result.status !== 0) {
@@ -157,7 +167,27 @@ function runChecked(command: string, args: string[], cwd: string) {
   return result.stdout.trim();
 }
 
-async function launchJob(job: RepairJob, args: Args, runName: string) {
+function prepareSharedWorktree(args: Args, runName: string) {
+  const branch = args.branch ?? safeSharedBranchName(runName);
+  const worktreePath = join(args.worktreeRoot, "shared");
+  mkdirSync(args.worktreeRoot, { recursive: true });
+  if (!existsSync(worktreePath)) {
+    runChecked("git", ["worktree", "add", "-b", branch, worktreePath, "HEAD"], process.cwd());
+  }
+  return { branch, worktreePath };
+}
+
+function prepareIsolatedWorktree(job: RepairJob, args: Args, runName: string) {
+  const worktreePath = join(args.worktreeRoot, job.id);
+  const branch = safeBranchName(job.id, runName);
+  mkdirSync(args.worktreeRoot, { recursive: true });
+  if (!existsSync(worktreePath)) {
+    runChecked("git", ["worktree", "add", "-b", branch, worktreePath, "HEAD"], process.cwd());
+  }
+  return { branch, worktreePath };
+}
+
+async function launchJob(job: RepairJob, args: Args, runName: string, shared?: { branch: string; worktreePath: string }) {
   const jobOut = join(args.outRoot, job.id);
   mkdirSync(jobOut, { recursive: true });
   const prompt = buildPrompt(job);
@@ -167,12 +197,7 @@ async function launchJob(job: RepairJob, args: Args, runName: string) {
   const commandPath = join(jobOut, "command.json");
   writeFileSync(promptPath, prompt);
 
-  const worktreePath = join(args.worktreeRoot, job.id);
-  const branch = safeBranchName(job.id, runName);
-  mkdirSync(args.worktreeRoot, { recursive: true });
-  if (!existsSync(worktreePath)) {
-    runChecked("git", ["worktree", "add", "-b", branch, worktreePath, "HEAD"], process.cwd());
-  }
+  const { branch, worktreePath } = shared ?? prepareIsolatedWorktree(job, args, runName);
 
   const command = [
     "codex",
@@ -204,6 +229,10 @@ async function launchJob(job: RepairJob, args: Args, runName: string) {
     return;
   }
 
+  if (!args.isolated && args.detach) {
+    throw new Error("--detach cannot be used with the default sequential shared-branch mode. Use --isolated to start detached per-journey jobs.");
+  }
+
   const out = openSync(logPath, "a");
   const input = openSync(promptPath, "r");
   const child = spawn(command[0], command.slice(1), {
@@ -228,10 +257,24 @@ async function launchJob(job: RepairJob, args: Args, runName: string) {
       resolveProcess();
     });
   });
+  const exit = JSON.parse(readFileSync(join(jobOut, "exit.json"), "utf8")) as { code: number | null; signal: string | null };
+  if (exit.code !== 0) {
+    throw new Error(`Repair job ${job.id} failed with code=${exit.code} signal=${exit.signal ?? ""}. Stopping before the next journey.`);
+  }
+  if (!args.isolated) {
+    const status = runChecked("git", ["status", "--porcelain"], worktreePath);
+    writeFileSync(join(jobOut, "git-status.txt"), status ? `${status}\n` : "");
+    if (status.trim().length > 0) {
+      throw new Error(`Repair job ${job.id} left the shared worktree dirty. Stopping before the next journey.\n${status}`);
+    }
+  }
 }
 
 async function main() {
   const args = parseArgs();
+  if (!args.isolated && args.detach) {
+    throw new Error("--detach cannot be used with the default sequential shared-branch mode. Use --isolated to start detached per-journey jobs.");
+  }
   const runName = basename(args.outRoot);
   mkdirSync(args.outRoot, { recursive: true });
   const jobs = [
@@ -244,6 +287,8 @@ async function main() {
     promptRoot: args.promptRoot,
     tuiRoot: args.tuiRoot,
     worktreeRoot: args.worktreeRoot,
+    mode: args.isolated ? "isolated" : "sequential-shared-branch",
+    branch: args.isolated ? null : args.branch ?? safeSharedBranchName(runName),
     model: args.model,
     execute: args.execute,
     detach: args.detach,
@@ -254,11 +299,12 @@ async function main() {
       journeyPath: job.journeyPath,
       briefingPath: job.briefingPath,
       outDir: join(args.outRoot, job.id),
-      worktree: join(args.worktreeRoot, job.id),
+      worktree: args.isolated ? join(args.worktreeRoot, job.id) : join(args.worktreeRoot, "shared"),
     })),
   }, null, 2));
+  const shared = args.isolated ? undefined : prepareSharedWorktree(args, runName);
   for (const job of jobs) {
-    await launchJob(job, args, runName);
+    await launchJob(job, args, runName, shared);
   }
 }
 
