@@ -145,6 +145,83 @@ const JOURNEYS: Journey[] = [
   },
 ];
 
+const PRODUCT_JOURNEYS: Journey[] = [
+  {
+    id: "P01",
+    title: "Cold Start Product Orientation",
+    prompt: "I just opened research. What is this, and what should I type first?",
+    intention: "The user does not understand the product and needs a fast orientation before doing any work.",
+    correctOutcome: "`research` frames itself as a dataset-backed research agent, names concrete jobs it can do, and gives a few example prompts. It should avoid infrastructure terms, run lifecycle jargon, and raw command menus.",
+    judgeFor: "Did it explain the product in human terms, show clear first actions, keep the response short, and avoid making the user understand remote environments or artifacts before they need them?",
+  },
+  {
+    id: "P02",
+    title: "Raw File To Research Dataset",
+    prompt: "I have a CSV export of customer support tickets. I want to turn it into a dataset I can research here, but I don't know what you need from me.",
+    intention: "The user has data somewhere and wants help turning it into a usable research dataset, but has not provided a path or schema.",
+    correctOutcome: "`research` asks for the absolute file path and a short data description, explains the intake steps in user language, and does not pretend it can import without a path.",
+    judgeFor: "Did it ask for the minimum missing information, explain the path requirement, describe what will happen next, and avoid a long installation or ingestion tutorial?",
+  },
+  {
+    id: "P03",
+    title: "Choose From Existing Data",
+    prompt: "What data do I already have that is ready to use?",
+    intention: "The user wants to choose a starting dataset from the inventory.",
+    correctOutcome: "`research` lists available datasets with human names, readiness, local/remote distinction, descriptions or inferred purpose, and a recommended next action. Draft/test/noisy datasets should be de-emphasized or clearly labeled.",
+    judgeFor: "Could a normal user choose a dataset from the output, were readiness labels plain, were ids secondary, and was the next step obvious?",
+  },
+  {
+    id: "P04",
+    title: "Topic To Dataset Recommendation",
+    prompt: "I want to research housing affordability. Which dataset should I use, or do I need to build a new one?",
+    intention: "The user has a topic and needs help choosing whether existing data is sufficient.",
+    correctOutcome: "`research` checks actual available datasets, ranks relevant choices, explains fit and gaps, and only suggests new public sources or a new dataset build after anchoring to existing inventory.",
+    judgeFor: "Did it anchor recommendations to real datasets first, explain why one fits or does not fit, avoid generic public-source planning as the first answer, and ask only focused follow-up questions?",
+  },
+  {
+    id: "P05",
+    title: "Understand And Trust Dataset",
+    prompt: "Before I use the econ dataset, help me understand what's inside it, where it came from, and whether I can trust it.",
+    intention: "The user wants dataset understanding and trust, not analysis.",
+    correctOutcome: "`research` treats this as a dataset briefing/profile request: sources, schemas, coverage, row counts, quality checks, limitations, and artifacts. It should not drift into suggested analyses unless framed as optional follow-up.",
+    judgeFor: "Did it stay in understand/brief mode, surface trust signals, avoid analysis drift, and make briefing artifacts/status clear?",
+  },
+  {
+    id: "P06",
+    title: "Vague Idea To Research Design",
+    prompt: "I think certain kinds of tweets go viral, but I don't know how to test that. Can you help me turn it into a real experiment?",
+    intention: "The user has a fuzzy research idea and needs `research` to operationalize it before running.",
+    correctOutcome: "`research` proposes a concrete experiment with dataset, outcome definition, sample, labels, outputs, and approval question. It should not start expensive work yet.",
+    judgeFor: "Did it slow down, convert ambiguity into falsifiable choices, avoid starting a run, and ask for a clear approval or choice?",
+  },
+  {
+    id: "P07",
+    title: "Specific Research Request To Run",
+    prompt: "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label hook_type, emotional_tone, and controversy_level with strict JSON, then produce a bar chart and 10 representative examples.",
+    intention: "The user has supplied enough specifics and expects execution or a clear block.",
+    correctOutcome: "`research` preserves the exact design, starts the appropriate run if possible, or reports a concrete block. It should return run status and expected artifacts, not ask broad planning questions.",
+    judgeFor: "Did it start or block appropriately, preserve the requested metric/sample/labels/outputs, show expected artifacts, and avoid unnecessary clarification?",
+  },
+  {
+    id: "P08",
+    title: "Return Later For Continuity",
+    prompt: "I came back later. What happened with my research work, and what results or artifacts can I see?",
+    intention: "The user expects continuity without remembering run ids.",
+    correctOutcome: "`research` distinguishes active, completed, failed, and blocked recent work; summarizes the latest relevant run; and points to results/artifacts or clear next actions without dumping raw prompts or JSON.",
+    judgeFor: "Did it recover state without requiring ids, distinguish active versus completed work, summarize artifacts cleanly, and avoid overwhelming run internals?",
+  },
+  {
+    id: "P09",
+    title: "Blocked Or Failed Work Recovery",
+    prompt: "Something seems blocked or failed. Tell me what is happening, whether anything useful was produced, and what I should do next.",
+    intention: "The user is anxious about stuck or failed work and wants diagnosis plus recovery.",
+    correctOutcome: "`research` explains the observed state in plain language, separates known facts from uncertainty, identifies any blocking run or failure evidence, summarizes salvageable artifacts, and offers next actions such as wait, inspect, cancel, retry, or debug.",
+    judgeFor: "Did it prioritize user impact over logs, avoid lifecycle jargon, identify what did or did not start, surface useful artifacts, and recommend concrete recovery actions?",
+  },
+];
+
+const ALL_JOURNEYS = [...JOURNEYS, ...PRODUCT_JOURNEYS];
+
 const WIDTH = 120;
 const HEIGHT = 36;
 const SNAPSHOT_MS = Number(process.env.JOURNEY_SNAPSHOT_MS ?? 5000);
@@ -154,12 +231,18 @@ const JUDGE_TIMEOUT_MS = Number(process.env.JOURNEY_JUDGE_TIMEOUT_MS ?? 240000);
 function parseArgs() {
   const args = process.argv.slice(2);
   const idsArg = args.find((arg) => arg.startsWith("--journeys="))?.split("=")[1];
+  const suiteArg = args.find((arg) => arg.startsWith("--suite="))?.split("=")[1];
   const outArg = args.find((arg) => arg.startsWith("--out="))?.split("=")[1];
   const judgeOnly = args.includes("--judge-only");
   const noJudge = args.includes("--no-judge");
   const noRun = args.includes("--no-run");
+  const defaultIds = suiteArg === "product"
+    ? PRODUCT_JOURNEYS.map((j) => j.id)
+    : suiteArg === "all"
+      ? ALL_JOURNEYS.map((j) => j.id)
+      : JOURNEYS.map((j) => j.id);
   return {
-    ids: idsArg ? idsArg.split(",").map((id) => id.trim()).filter(Boolean) : JOURNEYS.map((j) => j.id),
+    ids: idsArg ? idsArg.split(",").map((id) => id.trim()).filter(Boolean) : defaultIds,
     outRoot: resolve(outArg ?? ".tmp/journey-runs"),
     judgeOnly,
     noJudge,
@@ -404,7 +487,7 @@ async function main() {
   await mkdir(outRoot, { recursive: true });
 
   const selected = ids.map((id) => {
-    const journey = JOURNEYS.find((candidate) => candidate.id === id);
+    const journey = ALL_JOURNEYS.find((candidate) => candidate.id === id);
     if (!journey) throw new Error(`Unknown journey id ${id}`);
     return journey;
   });

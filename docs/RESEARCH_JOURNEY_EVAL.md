@@ -113,6 +113,12 @@ research --prompt "<prompt>"
 
 They are useful for scripted behavior, but they do not show the interactive yellow/green Ink TUI. The `TUIxx` journeys below exercise the true interactive app, equivalent to launching `research` with no prompt and typing inside the TUI.
 
+The `Pxx` journeys are product-job journeys. They cover the holistic reasons somebody opens `research`: orient, ingest data, choose data, map topic to data, understand data, design research, run precise work, return later, and recover blocked work. They are runnable through the same prompt-mode journey runner:
+
+```bash
+npx tsx scripts/run-journey-evals.ts --suite=product --out=.tmp/journey-runs-product
+```
+
 ### J01: Product Orientation
 
 Prompt:
@@ -424,6 +430,163 @@ Correct outcome:
 
 Judge for:
 Did it prioritize artifacts and user impact over internal logs, redact sensitive information, separate known facts from uncertainty, and recommend a concrete next action?
+
+## Product-Job Journeys
+
+These are the product-level jobs-to-be-done for `research`. They are intentionally broader than the original J01-J18 diagnostic set and should be treated as the canonical product smoke suite.
+
+### P01: Cold Start Product Orientation
+
+Prompt:
+
+```text
+I just opened research. What is this, and what should I type first?
+```
+
+Intention:
+The user does not understand the product and needs a fast orientation before doing any work.
+
+Correct outcome:
+`research` frames itself as a dataset-backed research agent, names concrete jobs it can do, and gives a few example prompts. It should avoid infrastructure terms, run lifecycle jargon, and raw command menus.
+
+Judge for:
+Did it explain the product in human terms, show clear first actions, keep the response short, and avoid making the user understand remote environments or artifacts before they need them?
+
+### P02: Raw File To Research Dataset
+
+Prompt:
+
+```text
+I have a CSV export of customer support tickets. I want to turn it into a dataset I can research here, but I don't know what you need from me.
+```
+
+Intention:
+The user has data somewhere and wants help turning it into a usable research dataset, but has not provided a path or schema.
+
+Correct outcome:
+`research` asks for the absolute file path and a short data description, explains the intake steps in user language, and does not pretend it can import without a path.
+
+Judge for:
+Did it ask for the minimum missing information, explain the path requirement, describe what will happen next, and avoid a long installation or ingestion tutorial?
+
+### P03: Choose From Existing Data
+
+Prompt:
+
+```text
+What data do I already have that is ready to use?
+```
+
+Intention:
+The user wants to choose a starting dataset from the inventory.
+
+Correct outcome:
+`research` lists available datasets with human names, readiness, local/remote distinction, descriptions or inferred purpose, and a recommended next action. Draft/test/noisy datasets should be de-emphasized or clearly labeled.
+
+Judge for:
+Could a normal user choose a dataset from the output, were readiness labels plain, were ids secondary, and was the next step obvious?
+
+### P04: Topic To Dataset Recommendation
+
+Prompt:
+
+```text
+I want to research housing affordability. Which dataset should I use, or do I need to build a new one?
+```
+
+Intention:
+The user has a topic and needs help choosing whether existing data is sufficient.
+
+Correct outcome:
+`research` checks actual available datasets, ranks relevant choices, explains fit and gaps, and only suggests new public sources or a new dataset build after anchoring to existing inventory.
+
+Judge for:
+Did it anchor recommendations to real datasets first, explain why one fits or does not fit, avoid generic public-source planning as the first answer, and ask only focused follow-up questions?
+
+### P05: Understand And Trust Dataset
+
+Prompt:
+
+```text
+Before I use the econ dataset, help me understand what's inside it, where it came from, and whether I can trust it.
+```
+
+Intention:
+The user wants dataset understanding and trust, not analysis.
+
+Correct outcome:
+`research` treats this as a dataset briefing/profile request: sources, schemas, coverage, row counts, quality checks, limitations, and artifacts. It should not drift into suggested analyses unless framed as optional follow-up.
+
+Judge for:
+Did it stay in understand/brief mode, surface trust signals, avoid analysis drift, and make briefing artifacts/status clear?
+
+### P06: Vague Idea To Research Design
+
+Prompt:
+
+```text
+I think certain kinds of tweets go viral, but I don't know how to test that. Can you help me turn it into a real experiment?
+```
+
+Intention:
+The user has a fuzzy research idea and needs `research` to operationalize it before running.
+
+Correct outcome:
+`research` proposes a concrete experiment with dataset, outcome definition, sample, labels, outputs, and approval question. It should not start expensive work yet.
+
+Judge for:
+Did it slow down, convert ambiguity into falsifiable choices, avoid starting a run, and ask for a clear approval or choice?
+
+### P07: Specific Research Request To Run
+
+Prompt:
+
+```text
+Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label hook_type, emotional_tone, and controversy_level with strict JSON, then produce a bar chart and 10 representative examples.
+```
+
+Intention:
+The user has supplied enough specifics and expects execution or a clear block.
+
+Correct outcome:
+`research` preserves the exact design, starts the appropriate run if possible, or reports a concrete block. It should return run status and expected artifacts, not ask broad planning questions.
+
+Judge for:
+Did it start or block appropriately, preserve the requested metric/sample/labels/outputs, show expected artifacts, and avoid unnecessary clarification?
+
+### P08: Return Later For Continuity
+
+Prompt:
+
+```text
+I came back later. What happened with my research work, and what results or artifacts can I see?
+```
+
+Intention:
+The user expects continuity without remembering run ids.
+
+Correct outcome:
+`research` distinguishes active, completed, failed, and blocked recent work; summarizes the latest relevant run; and points to results/artifacts or clear next actions without dumping raw prompts or JSON.
+
+Judge for:
+Did it recover state without requiring ids, distinguish active versus completed work, summarize artifacts cleanly, and avoid overwhelming run internals?
+
+### P09: Blocked Or Failed Work Recovery
+
+Prompt:
+
+```text
+Something seems blocked or failed. Tell me what is happening, whether anything useful was produced, and what I should do next.
+```
+
+Intention:
+The user is anxious about stuck or failed work and wants diagnosis plus recovery.
+
+Correct outcome:
+`research` explains the observed state in plain language, separates known facts from uncertainty, identifies any blocking run or failure evidence, summarizes salvageable artifacts, and offers next actions such as wait, inspect, cancel, retry, or debug.
+
+Judge for:
+Did it prioritize user impact over logs, avoid lifecycle jargon, identify what did or did not start, surface useful artifacts, and recommend concrete recovery actions?
 
 ## Interactive TUI Journeys
 
