@@ -13,6 +13,9 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 ## Deterministic CLI Product Tests
 
 - [unauthenticated local run request bypasses remote planning](product-tests/unauthenticated-local-run-request-bypasses-remote-planning.md)
+- [product orientation presents command center identities without tools](product-tests/product-orientation-presents-command-center-identities-without-tools.md)
+- [file import how-to asks for path before ingesting](product-tests/file-import-how-to-asks-for-path-before-ingesting.md)
+- [vague housing risk request asks scope before costly work](product-tests/vague-housing-risk-request-asks-scope-before-costly-work.md)
 - [async query run returns immediately with canonical dashboard and terminal links](product-tests/async-query-run-returns-immediately-with-canonical-dashboard-and-terminal-links.md)
 - [dataset describe request starts briefing run with required artifacts](product-tests/dataset-describe-request-starts-briefing-run-with-required-artifacts.md)
 - [run result retrieval includes original prompt and artifacts](product-tests/run-result-retrieval-includes-original-prompt-and-artifacts.md)

@@ -218,6 +218,38 @@ const PRODUCT_JOURNEYS: Journey[] = [
     correctOutcome: "`research` explains the observed state in plain language, separates known facts from uncertainty, identifies any blocking run or failure evidence, summarizes salvageable artifacts, and offers next actions such as wait, inspect, cancel, retry, or debug.",
     judgeFor: "Did it prioritize user impact over logs, avoid lifecycle jargon, identify what did or did not start, surface useful artifacts, and recommend concrete recovery actions?",
   },
+  {
+    id: "P10",
+    title: "Mixed Source Intake Source Of Truth",
+    prompt: "I have a private CSV export of support tickets, a public product changelog, and some API docs. I want one research dataset that lets me study whether launches increase ticket volume and resolution time. What do you need before you build it?",
+    intention: "The user describes a mixed-source research environment but has not provided the private file path, public URLs, API access details, or approval to start a build.",
+    correctOutcome: "`research` should identify the missing sources of truth before building: absolute private-file path, changelog URL or file, API/docs URL and auth constraints, desired grain/time range, key fields, and approval to start. It should explain the intake lifecycle in product language and should not create a dataset yet.",
+    judgeFor: "Did it separate private file, public source, and API source requirements; ask only for source-of-truth inputs needed to proceed; avoid fake ingestion; and avoid starting remote work before the required sources and approval exist?",
+  },
+  {
+    id: "P11",
+    title: "Dataset Readiness Verdict Before Analysis",
+    prompt: "Can I trust the econ dataset enough to use it for a county-month housing affordability study, or do we need to fix it first?",
+    intention: "The user wants a readiness decision before spending effort on analysis.",
+    correctOutcome: "`research` treats this as a readiness/trust briefing, not an analysis run. It should inspect or request a dataset briefing/profile and answer in terms of source coverage, schemas, row counts, time/geography coverage, join keys, missingness, limitations, and a clear usable-now/fix-first verdict.",
+    judgeFor: "Did it produce or request evidence for the trust verdict; make readiness explicit; distinguish known facts from missing evidence; and avoid launching the county-month study before the dataset fitness question is answered?",
+  },
+  {
+    id: "P12",
+    title: "Ambiguous Costly Research Approval Gate",
+    prompt: "Run whatever analysis you think is best on all my data and tell me the biggest business opportunities.",
+    intention: "The user asks for broad, potentially expensive work without selecting datasets, outcomes, scope, cost, or artifacts.",
+    correctOutcome: "`research` should not start a broad remote run. It should first inventory candidate datasets or ask for the business objective, propose a scoped study with concrete datasets/outcomes/artifacts, and ask for approval before spending remote time.",
+    judgeFor: "Did it refuse to treat the vague request as sufficient execution scope; did it ask or inspect before running; did it propose a bounded study; and was approval clearly required before remote work?",
+  },
+  {
+    id: "P13",
+    title: "Completed Work To Next Decision",
+    prompt: "The last run finished. Explain what changed, what artifacts I have, whether the result is trustworthy, and what decision I should make next.",
+    intention: "The user wants the research-operator lifecycle to end in a decision, not just a run status.",
+    correctOutcome: "`research` retrieves the latest completed run or asks for disambiguation, summarizes the original request, status, key outputs, artifact names/links, quality caveats, and 2-3 grounded next decisions. It should not dump raw JSON or require the user to remember a run id.",
+    judgeFor: "Did it bridge from run completion to human decision; did it make artifacts and caveats visible; did it preserve continuity without hidden ids; and did it recommend next actions grounded in actual outputs?",
+  },
 ];
 
 const ALL_JOURNEYS = [...JOURNEYS, ...PRODUCT_JOURNEYS];

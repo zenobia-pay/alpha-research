@@ -34,6 +34,89 @@ test("unauthenticated local run request bypasses remote planning", async () => {
   assert.equal(messages.at(-1)?.role, "assistant");
 });
 
+test("product orientation presents command center identities without tools", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Orientation should be answered locally without remote planning.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("What can you help me do?", session, emit, undefined, deps);
+
+  assert.equal(messages.length, 1);
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /local command center/i);
+  assert.match(final, /messy data/i);
+  assert.match(final, /vague research intent/i);
+  assert.match(final, /durable research work/i);
+  assert.match(final, /Intake data/i);
+  assert.match(final, /Navigate datasets/i);
+  assert.match(final, /study designs before spending time/i);
+  assert.match(final, /Recover prior work/i);
+  assert.doesNotMatch(final, /manifest-backed|mounted dataset|worker_unreachable|lifecycle/i);
+});
+
+test("file import how-to asks for path before ingesting", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Import how-to should not call remote tools until a file path exists.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "I have a CSV of customer support tickets on my desktop. How do I turn it into something I can research here?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /absolute path/i);
+  assert.match(final, /one-line description/i);
+  assert.match(final, /infer the schema/i);
+  assert.match(final, /register the dataset/i);
+  assert.match(final, /upload it/i);
+  assert.match(final, /deploy it/i);
+  assert.doesNotMatch(final, /Started|run-[a-z0-9-]+|Dashboard:/i);
+});
+
+test("vague housing risk request asks scope before costly work", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Vague housing risk questions should not start remote planning before scope is chosen.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Can you look into whether the housing market is in trouble?", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /U\.S\. housing market/i);
+  assert.match(final, /quick current-state read/i);
+  assert.match(final, /deeper risk analysis/i);
+  assert.match(final, /affordability/i);
+  assert.match(final, /mortgage rates/i);
+  assert.doesNotMatch(final, /Started|Queued|Dashboard:/i);
+});
+
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {
   const calls: string[] = [];
   let startedPrompt = "";
@@ -176,7 +259,10 @@ test("dataset describe request starts briefing run with required artifacts", asy
   });
   assert.match(startedPrompt, /Dataset Briefing/);
   assert.match(startedPrompt, /Dataset Profile/);
-  assert.match(startedPrompt, /Overview; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps/);
+  assert.match(startedPrompt, /Overview; Readiness & Trust; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps; Usable Next Steps/);
+  assert.match(startedPrompt, /whether the dataset is usable right now/);
+  assert.match(startedPrompt, /what evidence supports that judgment/);
+  assert.match(startedPrompt, /what would make it unsafe or premature to use/);
   assert.match(startedPrompt, /Do not include query instructions, starter analyses, or suggestions/);
   assert.doesNotMatch(startedPrompt, /Suggested follow-ups/);
 

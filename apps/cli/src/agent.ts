@@ -122,10 +122,13 @@ function datasetBriefingPrompt(datasetId: string) {
     "- Native and normalized time scales, first/last observations, update cadences, geography levels, crosswalks, transformations, derived fields, QA checks, limitations, and known gaps.",
     "",
     "Create these artifacts:",
-    "1. Dataset Briefing — markdown document with these exact sections: Overview; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps.",
+    "1. Dataset Briefing — markdown document with these exact sections: Overview; Readiness & Trust; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps; Usable Next Steps.",
     "2. Dataset Profile — structured JSON backing data with summary, sources, tables, schemas/columns, timeCoverage, geographyCoverage, formats, transformations, quality, limitations, and generatedAt.",
     "",
-    "The briefing should be detailed enough that a reader can understand exactly what data exists, where it came from, what shape it is in, and what caveats apply without opening the raw files.",
+    "Readiness & Trust must explicitly state whether the dataset is usable right now, what evidence supports that judgment, and what would make it unsafe or premature to use.",
+    "Usable Next Steps must be limited to dataset-state actions such as inspect artifacts, fix missing sources, normalize a table, or run a clearly scoped analysis after approval; do not drift into generic research ideas.",
+    "",
+    "The briefing should be detailed enough that a reader can understand exactly what data exists, where it came from, what shape it is in, what caveats apply, and whether it is ready for research without opening the raw files.",
   ].join("\n");
 }
 
@@ -797,14 +800,14 @@ function maybeHandleOrientation(input: string) {
     return null;
   }
   return [
-    "I am a dataset-backed research agent for creating, inspecting, analyzing, and summarizing datasets.",
+    "I am a local command center for turning messy data and vague research intent into durable research work: datasets, remote runs, analysis artifacts, and follow-up decisions.",
     "",
     "I can help you:",
-    "- Create a dataset from a local file or public source.",
-    "- List and inspect datasets you already have.",
-    "- Generate a dataset briefing or profile.",
-    "- Run analyses, queries, labeling jobs, and experiments.",
-    "- Retrieve results, dashboards, and artifacts from prior work.",
+    "- Intake data from local files, public sources, APIs, exports, or mixed-source environments.",
+    "- Navigate datasets you already have: readiness, fields, sources, coverage, quality, and limitations.",
+    "- Turn fuzzy questions into concrete study designs before spending time on remote work.",
+    "- Run analyses, queries, labeling jobs, and experiments with durable artifacts.",
+    "- Recover prior work: run status, dashboard links, results, failures, and next decisions.",
     "",
     "Examples to type:",
     "- Show my datasets",
