@@ -9,15 +9,15 @@ import {
   describeDataset,
   queryDataset,
   type DatasetFilter,
-} from "@zenobia-pay/alpha-core";
-import { getFixtureAdapter } from "@zenobia-pay/alpha-fixture";
+} from "@rprend/alpha-core";
+import { getFixtureAdapter } from "@rprend/alpha-fixture";
 import {
   aggregateInstance,
   buildTextCompatibleDocumentsForInstance,
   getInstanceBootstrap,
   listInstanceBundles,
   queryInstance,
-} from "@zenobia-pay/alpha-storage";
+} from "@rprend/alpha-storage";
 
 import { DEFAULT_INSTANCE_ROOT, INGEST_SCRIPT, type SessionRecord } from "./config.js";
 import { parseFilter } from "./flags.js";
@@ -82,7 +82,9 @@ export async function runIngest(args: string[], logger: (message: string) => voi
 
 export async function uploadFileToPresignedUrl(filePath: string, uploadUrl: string, logger: (message: string) => void = console.log) {
   const metadata = await stat(filePath);
-  logger(`Uploading ${filePath} (${metadata.size.toLocaleString()} bytes)`);
+  const sizeMb = metadata.size / 1_000_000;
+  const humanSize = sizeMb >= 100 ? `${Math.round(sizeMb).toLocaleString()} MB` : `${sizeMb.toFixed(1)} MB`;
+  logger(`Uploading ${filePath} (${humanSize})`);
   const init = {
     method: "PUT",
     headers: {

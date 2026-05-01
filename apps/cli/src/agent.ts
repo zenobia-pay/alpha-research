@@ -2,7 +2,7 @@ import { access, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
-import { getInstanceBootstrap, listInstanceBundles } from "@zenobia-pay/alpha-storage";
+import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage";
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
@@ -176,8 +176,8 @@ const ASYNC_RUN_START_TOOLS = new Set([
 ]);
 
 const AGENT_INSTRUCTIONS = [
-  "You are RESEARCH, a CLI agent for helping knowledge workers work faster.",
-  "You help them by creating and managing remote research environments with large datasets, designing experiments, and getting the results.",
+  "You are RESEARCH, a dataset-backed research CLI for creating, inspecting, analyzing, and summarizing datasets.",
+  "Explain the product in terms of datasets, analyses, results, and artifacts before mentioning cloud environments or run lifecycle details.",
   "You manage the creation, operation, and prompting of other agents on remote cloud environments.",
   "",
   "Users will use you in two main ways.",
@@ -199,6 +199,16 @@ const AGENT_INSTRUCTIONS = [
   "6. How to view the results of the experiment. Be precise. If there are graphs, specify the chart type and exactly what the axes are.",
   "",
   "Use the provided tools.",
+  "Use user-facing language. Avoid raw tool names, internal lifecycle jargon, stack traces, or UUID-heavy output unless they are needed for an action.",
+  "For broad orientation questions, answer with concrete dataset actions and example prompts; do not call tools.",
+  "For local file import how-to questions without an exact path, ask for the absolute path and a one-line description before listing or importing datasets.",
+  "For vague research prompts such as housing-market risk or what makes tweets viral, propose a scoped plan and ask for confirmation before starting a remote run.",
+  "When recommending a dataset, anchor the answer to actual datasets found in RESEARCH before suggesting external sources.",
+  "When resolving an ambiguous dataset name, state which dataset you selected and why.",
+  "For field-definition questions, include a compact schema-evidence line and clearly distinguish stored fields from derived metrics.",
+  "If deriving tweet quote counts, say: quote_count_for_tweet = count(rows where row.quoted_tweet_id == target.tweet_id). Never describe this as quoted_tweet_id == tweet_id on the same row.",
+  "When a dataset is provisioning or busy, say what cannot happen yet, whether a new run was started, and give a concrete next command.",
+  "When the user asks for the last run, distinguish latest active run from last completed run instead of blending them.",
   "For new environments that involve public internet/API sources, private/local files, paid exports, or any mix of sources, prefer create_research_environment.",
   "Before creating a research environment, list remote datasets and reuse or extend an existing semantically matching research environment when one exists. Do not create duplicate environments for the same domain, source catalog, or hypothesis family.",
   "Use create_public_data_environment only for simple public-only environments. Do not use deploy_remote_dataset unless there is one uploaded/local source that only needs normalization.",
@@ -492,7 +502,36 @@ function summarizeBusyDatasetConflict(error: RemoteRequestError) {
   }
   const runId = typeof first.id === "string" ? first.id : "unknown";
   const status = typeof first.status === "string" ? first.status : "running";
-  return `Dataset is already busy with run ${runId} (${status}). Open ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)} or ask me to check that run instead of starting another one.`;
+  return [
+    "Blocked: dataset is already busy.",
+    `Active run: ${runId}`,
+    `Status: ${status}`,
+    "",
+    "No new run was started.",
+    `Check it: research debug run ${runId}`,
+    `Dashboard: ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)}`,
+  ].join("\n");
+}
+
+function summarizeRemoteFailure(error: RemoteRequestError) {
+  const payload = parseRemoteErrorJson(error);
+  const rawMessage = typeof payload?.error === "string" ? payload.error : error.message;
+  const isCapacity = error.status === 429 || /capacity|volume|limit|quota|too many/i.test(rawMessage);
+  const lines = [
+    "Blocked: remote request failed.",
+    `What failed: ${error.path}`,
+    `Status: ${error.status}`,
+    "",
+    isCapacity
+      ? "The backend appears to be blocked by an infrastructure capacity or rate limit. No completed result is available from this attempt."
+      : "The backend rejected the request before the CLI could finish the work.",
+  ];
+  if (isCapacity) {
+    lines.push("Next: retry later, or ask an operator to inspect backend capacity before retrying.");
+  } else {
+    lines.push("Next: retry once, or run with debug diagnostics if it fails again.");
+  }
+  return lines.join("\n");
 }
 
 async function withAuthRetry<T>(
@@ -750,6 +789,170 @@ function maybeHandleUnauthenticatedLocalRequest(input: string) {
     return "list_tracked_runs";
   }
   return null;
+}
+
+function maybeHandleOrientation(input: string) {
+  const lower = input.trim().toLowerCase();
+  if (!/^(what can you help me do\??|help|what do you do\??)$/u.test(lower)) {
+    return null;
+  }
+  return [
+    "I am a dataset-backed research agent for creating, inspecting, analyzing, and summarizing datasets.",
+    "",
+    "I can help you:",
+    "- Create a dataset from a local file or public source.",
+    "- List and inspect datasets you already have.",
+    "- Generate a dataset briefing or profile.",
+    "- Run analyses, queries, labeling jobs, and experiments.",
+    "- Retrieve results, dashboards, and artifacts from prior work.",
+    "",
+    "Examples to type:",
+    "- Show my datasets",
+    "- Create a dataset from /absolute/path/customers.csv",
+    "- Brief the sales dataset",
+    "- Test whether retention changed after launch",
+    "- Show results from my last run",
+  ].join("\n");
+}
+
+function maybeHandleCsvImportHowTo(input: string) {
+  const lower = input.toLowerCase();
+  if (!/\bcsv\b/.test(lower) || !/\b(desktop|downloads|local|my computer|file)\b/.test(lower) || !/\b(how|turn it|import|create|research here)\b/.test(lower)) {
+    return null;
+  }
+  return [
+    "I need the absolute path to the CSV and a one-line description of what it contains.",
+    "",
+    "Example:",
+    "`/Users/ryanprendergast/Desktop/support_tickets.csv` — customer support tickets with timestamps, categories, priorities, and resolution status.",
+    "",
+    "Once you provide that, I can infer the schema, register the dataset, upload it, and deploy it for research. If you only know a hint, I can help narrow it down, but I still need the exact path before import.",
+  ].join("\n");
+}
+
+function maybeHandleVagueMarketQuestion(input: string) {
+  const lower = input.toLowerCase();
+  if (!/\bhousing market\b/.test(lower) || !/\b(trouble|crash|bad|risk|look into)\b/.test(lower)) {
+    return null;
+  }
+  return "Do you mean the U.S. housing market, and do you want a quick current-state read or a deeper risk analysis? I would look at affordability, prices, inventory, mortgage rates, delinquencies, employment, and regional differences once you choose the scope.";
+}
+
+function maybeHandleVagueTweetsExperiment(input: string) {
+  const lower = input.toLowerCase();
+  if (!/\btweets?\b/.test(lower) || !/\bviral|virality\b/.test(lower) || !/\b(experiment|run|analy[sz]e|look into)\b/.test(lower)) {
+    return null;
+  }
+  if (/\btop\s*0\.1%|quote_tweet_count|sample\s+100|strict json\b/.test(lower)) {
+    return null;
+  }
+  return [
+    "Before I start a remote run, here is the experiment I would use.",
+    "",
+    "Dataset: `enriched-tweets`, if available, because it should contain tweet text, timestamps, authors, and engagement fields.",
+    "Plan: define virality from available engagement counts, label `hook_type`, `emotional_tone`, and `controversy_level`, compare media or topic fields if present, and return a short summary with visualizations and representative examples.",
+    "",
+    "Confirm the scope: should I define viral tweets as the top 0.1% by quote/retweet/like engagement and sample 100 tweets for labeling?",
+  ].join("\n");
+}
+
+function extractDatasetIdFromNewAnalysis(input: string) {
+  const match = input.match(/\b(?:on|using)\s+([a-z0-9][a-z0-9_-]*)(?:[.\s]|$)/iu);
+  return match?.[1] ?? null;
+}
+
+async function maybeHandleBusyDatasetBeforePlanning(input: string, initialSession: SessionRecord | null) {
+  const lower = input.toLowerCase();
+  if (!initialSession || !/\b(new analysis|run.*analysis|start.*analysis)\b/.test(lower)) {
+    return null;
+  }
+  const datasetId = extractDatasetIdFromNewAnalysis(input);
+  if (!datasetId) {
+    return null;
+  }
+  const runs = await readTrackedRuns().catch(() => []);
+  const active = runs.find((run) => run.datasetId === datasetId && !run.terminalAt && !isTerminalRunStatus(run.status));
+  if (!active) {
+    return null;
+  }
+  return [
+    `Blocked: ${datasetId} is already busy.`,
+    `Active run: ${active.id}`,
+    `Status: ${active.status}`,
+    "",
+    "Starting a duplicate analysis is not allowed while that run holds the dataset.",
+    `Check it: research debug run ${active.id}`,
+    "Next: wait for it to finish, inspect it, or cancel it before starting a new analysis.",
+  ].join("\n");
+}
+
+async function maybeHandleStuckRunQuestion(input: string, initialSession: SessionRecord | null) {
+  const lower = input.toLowerCase();
+  if (!initialSession || !/\blast run\b/.test(lower) || !/\b(stuck|happening|progress|status)\b/.test(lower)) {
+    return null;
+  }
+  const runs = await readTrackedRuns().catch(() => []);
+  const active = runs.find((run) => !run.terminalAt && !isTerminalRunStatus(run.status));
+  if (!active) {
+    return "I do not see an active tracked run right now. Ask `show results from my last run` to inspect the latest completed one.";
+  }
+  const updated = active.updatedAt ? new Date(active.updatedAt).getTime() : NaN;
+  const minutes = Number.isFinite(updated) ? Math.max(0, Math.round((Date.now() - updated) / 60000)) : null;
+  const heartbeat = minutes === null ? "unknown" : minutes <= 1 ? "under 1 minute ago" : `${minutes} minutes ago`;
+  return [
+    `Your run is still active, but its last update was ${heartbeat}.`,
+    "",
+    `Run: ${active.id}`,
+    `Dataset: ${active.datasetId}`,
+    `State: ${formatStatusForHumans(active.status)}`,
+    active.prompt ? `Current work: ${active.prompt.split("\n")[0]?.slice(0, 120)}` : "Current work: remote processing",
+    "",
+    "Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for your workload.",
+    `Debug: research debug run ${active.id}`,
+  ].join("\n");
+}
+
+function progressLabel(toolName: string, input: Record<string, unknown>) {
+  switch (toolName) {
+    case "list_local_datasets":
+      return "Checking local datasets...";
+    case "list_remote_datasets":
+      return "Checking remote datasets...";
+    case "inspect_remote_dataset":
+      return `Inspecting dataset ${String(input.datasetId ?? "").trim() || ""}...`.trim();
+    case "describe_remote_dataset":
+      return `Starting dataset briefing for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+    case "list_tracked_runs":
+      return "Checking run history...";
+    case "get_run_results":
+      return `Retrieving results for run ${String(input.runId ?? "").trim() || ""}...`.trim();
+    case "start_remote_run":
+    case "start_remote_agent_run":
+    case "query_remote_dataset":
+    case "aggregate_remote_dataset":
+      return `Starting remote run for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+    case "create_research_environment":
+    case "create_public_data_environment":
+      return "Starting dataset build...";
+    case "resolve_local_dataset":
+      return "Resolving local file...";
+    case "register_remote_dataset":
+      return "Creating dataset record...";
+    case "request_dataset_source_upload":
+      return "Preparing upload...";
+    case "upload_local_file":
+      return `Uploading ${basename(String(input.inputPath ?? "file"))}...`;
+    case "complete_dataset_source_upload":
+      return "Finalizing upload...";
+    case "deploy_remote_dataset":
+      return `Deploying ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+    default:
+      return `Running ${toolName}...`;
+  }
+}
+
+function shouldEchoToolResult(summary: string) {
+  return !summary.startsWith("Blocked:");
 }
 
 export function createToolRegistry(): ToolDefinition[] {
@@ -1138,16 +1341,27 @@ export function createToolRegistry(): ToolDefinition[] {
             description: `Uploaded from ${inputPath}`,
           });
         }
-        const result = await client.createResearchEnvironment(datasetId, {
-          name,
-          description: typeof input.description === "string" ? input.description : undefined,
-          sourceDescription: typeof input.sourceDescription === "string" ? input.sourceDescription : undefined,
-          publicSources,
-          privateSources,
-          prompt,
-          resources: STANDARD_ANALYSIS_RESOURCES,
-          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
-        });
+        let result;
+        try {
+          result = await client.createResearchEnvironment(datasetId, {
+            name,
+            description: typeof input.description === "string" ? input.description : undefined,
+            sourceDescription: typeof input.sourceDescription === "string" ? input.sourceDescription : undefined,
+            publicSources,
+            privateSources,
+            prompt,
+            resources: STANDARD_ANALYSIS_RESOURCES,
+            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+          });
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: result.run.id,
@@ -1194,14 +1408,25 @@ export function createToolRegistry(): ToolDefinition[] {
           context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of creating duplicate ${requestedDatasetId}.` });
         }
         const prompt = String(input.prompt);
-        const result = await client.createPublicDataEnvironment(datasetId, {
-          name: String(input.name),
-          description: typeof input.description === "string" ? input.description : undefined,
-          sourceDescription: String(input.sourceDescription),
-          prompt,
-          resources: STANDARD_ANALYSIS_RESOURCES,
-          artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
-        });
+        let result;
+        try {
+          result = await client.createPublicDataEnvironment(datasetId, {
+            name: String(input.name),
+            description: typeof input.description === "string" ? input.description : undefined,
+            sourceDescription: String(input.sourceDescription),
+            prompt,
+            resources: STANDARD_ANALYSIS_RESOURCES,
+            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+          });
+        } catch (error) {
+          if (error instanceof RemoteRequestError) {
+            const summary = summarizeBusyDatasetConflict(error);
+            if (summary) {
+              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            }
+          }
+          throw error;
+        }
         if (context.session) {
           await trackRemoteRun({
             id: result.run.id,
@@ -2037,6 +2262,28 @@ export async function runAgentTurn(
   conversationState?: AgentConversationState,
   deps: AgentRuntimeDeps = createDefaultAgentRuntimeDeps(),
 ): Promise<AgentConversationState> {
+  const directResponse = maybeHandleOrientation(input)
+    ?? maybeHandleCsvImportHowTo(input)
+    ?? maybeHandleVagueMarketQuestion(input)
+    ?? maybeHandleVagueTweetsExperiment(input);
+  if (directResponse) {
+    emit({ role: "assistant", content: directResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
+  const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession)
+    ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession);
+  if (localRunResponse) {
+    emit({ role: "assistant", content: localRunResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
   if (looksLikeIncompleteTask(input)) {
     emit({
       role: "assistant",
@@ -2107,25 +2354,37 @@ export async function runAgentTurn(
   const previousResponseId = shouldStartFreshConversation(input)
     ? undefined
     : conversationState?.previousResponseId ?? undefined;
-  let response = await withAuthRetry(context, async () => {
-    const activeClient = deps.createRemoteClient(requireSession(context));
-    const replied = await activeClient.respond({
-      instructions: AGENT_INSTRUCTIONS,
-      input,
-      previous_response_id: previousResponseId,
-      tools: toolSchemas,
-      parallel_tool_calls: false,
+  let response: ResponsesApiPayload;
+  try {
+    response = await withAuthRetry(context, async () => {
+      const activeClient = deps.createRemoteClient(requireSession(context));
+      const replied = await activeClient.respond({
+        instructions: AGENT_INSTRUCTIONS,
+        input,
+        previous_response_id: previousResponseId,
+        tools: toolSchemas,
+        parallel_tool_calls: false,
+      });
+      context.sessionId = replied.sessionId ?? context.sessionId;
+      conversationState = {
+        sessionId: context.sessionId,
+        previousResponseId:
+          typeof (replied.payload as { id?: unknown }).id === "string"
+            ? String((replied.payload as { id?: unknown }).id)
+            : conversationState?.previousResponseId ?? null,
+      };
+      return replied.payload as ResponsesApiPayload;
     });
-    context.sessionId = replied.sessionId ?? context.sessionId;
-    conversationState = {
-      sessionId: context.sessionId,
-      previousResponseId:
-        typeof (replied.payload as { id?: unknown }).id === "string"
-          ? String((replied.payload as { id?: unknown }).id)
-          : conversationState?.previousResponseId ?? null,
-    };
-    return replied.payload as ResponsesApiPayload;
-  });
+  } catch (error) {
+    if (error instanceof RemoteRequestError) {
+      emit({ role: "assistant", content: summarizeRemoteFailure(error) });
+      return {
+        sessionId: context.sessionId,
+        previousResponseId: conversationState?.previousResponseId ?? null,
+      };
+    }
+    throw error;
+  }
 
   await persistSessionEntry(context, {
     role: "user",
@@ -2165,17 +2424,38 @@ export async function runAgentTurn(
       if (!tool) {
         throw new Error(`Model requested unknown tool: ${toolName}`);
       }
-      emit({ role: "tool", content: `Calling ${tool.name}` });
       const parsedArguments = parseJsonArguments(call.arguments);
+      emit({ role: "tool", content: progressLabel(tool.name, parsedArguments) });
       await persistSessionEntry(context, {
         role: "tool",
         kind: "tool_call",
         title: tool.name,
-        content: `Calling ${tool.name}`,
+        content: progressLabel(tool.name, parsedArguments),
         metadata: { name: tool.name, arguments: parsedArguments },
       });
-      const result = await withAuthRetry(context, () => tool.execute(context, parsedArguments));
-      emit({ role: "tool", content: result.summary });
+      let result: AgentToolResult;
+      try {
+        result = await withAuthRetry(context, () => tool.execute(context, parsedArguments));
+      } catch (error) {
+        if (error instanceof RemoteRequestError) {
+          const summary = summarizeRemoteFailure(error);
+          emit({ role: "assistant", content: summary });
+          await persistSessionEntry(context, {
+            role: "assistant",
+            kind: "local_summary",
+            title: "CLI blocked",
+            content: summary,
+          });
+          return {
+            sessionId: context.sessionId,
+            previousResponseId: conversationState?.previousResponseId ?? null,
+          };
+        }
+        throw error;
+      }
+      if (shouldEchoToolResult(result.summary)) {
+        emit({ role: "tool", content: result.summary });
+      }
       await persistSessionEntry(context, {
         role: "tool",
         kind: "tool_result",
@@ -2184,9 +2464,11 @@ export async function runAgentTurn(
         metadata: { name: tool.name, data: result.data },
       });
       if (ASYNC_RUN_START_TOOLS.has(tool.name) && !exposeWaitTool) {
+        const resultData = isRecord(result.data) ? result.data : {};
+        const startedRunId = isRecord(resultData.run) && typeof resultData.run.id === "string" ? resultData.run.id : null;
         const finalSummary =
-          context.session && context.sessionId
-            ? `${result.summary}\nTerminal session: ${dashboardTerminalSessionUrl(context.session.origin, context.sessionId, (result.data as { run?: { id?: string } } | undefined)?.run?.id ? String((result.data as { run?: { id?: string } }).run?.id) : null)}`
+          context.session && context.sessionId && startedRunId
+            ? `${result.summary}\nTerminal session: ${dashboardTerminalSessionUrl(context.session.origin, context.sessionId, startedRunId)}`
             : result.summary;
         emit({ role: "assistant", content: finalSummary });
         await persistSessionEntry(context, {

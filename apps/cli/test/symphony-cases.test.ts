@@ -201,8 +201,14 @@ function createFakeClient(fixture: SymphonyCase, recorded: RecordedCall[]) {
 
 function emittedToolCalls(messages: AgentMessage[]) {
   return messages.flatMap((message) => {
-    const match = message.role === "tool" ? message.content.match(/^Calling ([a-z0-9_]+)$/u) : null;
-    return match ? [match[1]] : [];
+    if (message.role !== "tool") return [];
+    const calling = message.content.match(/^Calling ([a-z0-9_]+)$/u);
+    if (calling) return [calling[1]];
+    if (message.content.startsWith("Checking remote datasets")) return ["list_remote_datasets"];
+    if (message.content.startsWith("Starting dataset build")) return ["create_research_environment"];
+    if (message.content.startsWith("Inspecting dataset")) return ["inspect_remote_dataset"];
+    if (message.content.startsWith("Starting remote run")) return ["start_remote_run"];
+    return [];
   });
 }
 

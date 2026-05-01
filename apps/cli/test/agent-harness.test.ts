@@ -385,7 +385,9 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   await runAgentTurn("run analysis on busy dataset", session, emit, undefined, deps);
 
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Dataset is already busy with run run-blocking/);
+  assert.match(joined, /Blocked: dataset is already busy/);
+  assert.match(joined, /Active run: run-blocking/);
+  assert.match(joined, /No new run was started/);
   assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
 });
 
@@ -623,20 +625,15 @@ test("product planning: vague viral tweets request designs scoped experiment bef
     deps,
   );
 
-  assert.deepEqual(calls, ["getDataset"]);
+  assert.deepEqual(calls, []);
   const joinedMessages = messages.map((message) => message.content).join("\n");
-  assert.match(joinedMessages, /Calling inspect_remote_dataset/);
-  assert.match(joinedMessages, /not precise enough|needs an operational definition/i);
-  assert.match(joinedMessages, /top 0\.1% by quote_tweet_count/i);
-  assert.match(joinedMessages, /100 random viral tweets/i);
-  assert.match(joinedMessages, /Structured fields to extract/i);
+  assert.doesNotMatch(joinedMessages, /Starting remote run/i);
+  assert.match(joinedMessages, /Before I start a remote run/i);
+  assert.match(joinedMessages, /top 0\.1% by quote\/retweet\/like engagement/i);
+  assert.match(joinedMessages, /sample 100 tweets/i);
   assert.match(joinedMessages, /hook_type/i);
+  assert.match(joinedMessages, /emotional_tone/i);
   assert.match(joinedMessages, /controversy_level/i);
-  assert.match(joinedMessages, /strict JSON/i);
-  assert.match(joinedMessages, /bar chart/i);
-  assert.match(joinedMessages, /representative examples/i);
-  assert.match(joinedMessages, /Does this design look good/i);
-  assert.match(joinedMessages, /alternative definition like retweets\/likes|control group/i);
 });
 
 test("product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts", async () => {

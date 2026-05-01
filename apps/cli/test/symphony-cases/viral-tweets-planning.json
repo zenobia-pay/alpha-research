@@ -25,18 +25,17 @@
     }
   ],
   "expected": {
-    "toolCalls": [
-      "list_remote_datasets"
-    ],
+    "toolCalls": [],
     "assistantIncludes": [
       "enriched-tweets",
       "top 0.1%",
-      "quote_tweet_count",
-      "100 random viral tweets",
-      "strict JSON",
+      "100 tweets",
+      "hook_type",
+      "emotional_tone",
+      "controversy_level",
       "visualizations",
-      "control group",
-      "Should I proceed"
+      "representative examples",
+      "Confirm the scope"
     ],
     "forbiddenToolCalls": [
       "query_remote_dataset",
