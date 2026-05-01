@@ -13,7 +13,7 @@ import {
 import { MarkdownText } from "@assistant-ui/react-ink-markdown";
 
 import { type AgentConversationState, type AgentMessage, runAgentTurn } from "./agent.js";
-import { RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
+import { PROGRESS_HEARTBEAT_MS, RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
 import { clearSession, login, readSession } from "./session.js";
@@ -348,6 +348,14 @@ function createResearchAdapter({
       };
       async function* runWithProgress(operation: () => Promise<void>) {
         const task = operation();
+        let heartbeatTimer: NodeJS.Timeout | null = setInterval(() => {
+          if (!changed) {
+            emit({
+              role: "tool",
+              content: "Still working. Preparing the next step for this research run...",
+            });
+          }
+        }, PROGRESS_HEARTBEAT_MS);
         while (true) {
           const result = await Promise.race([
             task.then(() => "done" as const),
@@ -364,7 +372,14 @@ function createResearchAdapter({
             break;
           }
         }
-        await task;
+        try {
+          await task;
+        } finally {
+          if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+          }
+        }
       }
 
       if (!prompt) {
