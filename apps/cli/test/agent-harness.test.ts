@@ -159,6 +159,111 @@ test("dataset inventory renders a normalized, scannable list with noisy datasets
   assert.match(final, /Next: Try `describe econ`/);
 });
 
+test("dataset selection from topic uses dataset metadata and asks one focused follow-up", async () => {
+  let respondCalled = false;
+  const fakeClient = {
+    async respond() {
+      respondCalled = true;
+      throw new Error("Dataset-choice prompts should be handled from lightweight metadata lookup first.");
+    },
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "econ", name: "Economics", status: "ready", createdAt: "2026-04-20T00:00:00.000Z" },
+          { id: "tweets", name: "Tweets", status: "ready", createdAt: "2026-04-19T00:00:00.000Z" },
+          { id: "housing-policy", name: "Housing Policy", status: "ready", createdAt: "2026-04-18T00:00:00.000Z" },
+        ],
+      };
+    },
+    async getDataset(datasetId: string) {
+      if (datasetId === "econ") {
+        return {
+          dataset: {
+            id: "econ",
+            name: "Economics",
+            status: "ready",
+            profile: {
+              sources: ["ACS", "HUD", "Zillow"],
+              notes: "County and metro rent, income, and home-value coverage for affordability work.",
+            },
+          },
+        };
+      }
+      if (datasetId === "housing-policy") {
+        return {
+          dataset: {
+            id: "housing-policy",
+            name: "Housing Policy",
+            status: "ready",
+            profile: {
+              sources: ["HUD"],
+              notes: "Policy thresholds and local housing-program reference tables.",
+            },
+          },
+        };
+      }
+      return {
+        dataset: {
+          id: datasetId,
+          name: datasetId,
+          status: "ready",
+          profile: null,
+        },
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("I want to study housing affordability. Which dataset should I use?", session, emit, undefined, deps);
+
+  assert.equal(messages[0]?.role, "tool");
+  assert.match(messages[0]?.content ?? "", /Looking up candidate datasets/i);
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Primary dataset/i);
+  assert.match(final, /`econ`/i);
+  assert.match(final, /ACS\/Census coverage|HUD affordability benchmarks|housing market rent\/home value series/i);
+  assert.doesNotMatch(final, /Primary dataset[\s\S]*Primary dataset/i);
+  assert.match(final, /Need from you/i);
+  assert.match(final, /Which geography matters most/i);
+  assert.doesNotMatch(final, /reuse one|create one|provision/i);
+  assert.equal(respondCalled, false);
+});
+
+test("remote planning emits immediate progress before waiting on backend response", async () => {
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "terminal-session-progress",
+        payload: {
+          id: "response-progress",
+          output_text: "Use dataset `econ`.",
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-progress" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Show my remote datasets.", session, emit, undefined, deps);
+
+  assert.equal(messages[0]?.role, "tool");
+  assert.match(messages[0]?.content ?? "", /Checking datasets/i);
+  assert.equal(messages.at(-1)?.role, "assistant");
+  assert.match(messages.at(-1)?.content ?? "", /Use dataset `econ`\./);
+});
+
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {
   const calls: string[] = [];
   let startedPrompt = "";

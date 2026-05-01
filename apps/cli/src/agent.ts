@@ -6,7 +6,13 @@ import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
-import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
+import {
+  RemoteApiClient,
+  RemoteRequestError,
+  type RemoteApiClient as RemoteApiClientType,
+  type RemoteDatasetDetail,
+  type RemoteDatasetSummary,
+} from "./remote.js";
 import { readSession, login } from "./session.js";
 import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
@@ -1060,6 +1066,151 @@ function maybeHandleVagueTweetsExperiment(input: string) {
     "",
     "Confirm the scope: should I define viral tweets as the top 0.1% by quote/retweet/like engagement and sample 100 tweets for labeling?",
   ].join("\n");
+}
+
+function isDatasetSelectionFromTopicQuestion(input: string) {
+  const lower = input.toLowerCase();
+  return /\bwhich dataset should i use\b/.test(lower)
+    && !/\b(?:using|use|on)\s+[a-z0-9][a-z0-9_-]*\b/.test(lower);
+}
+
+function planningProgressLabel(input: string) {
+  const lower = input.toLowerCase();
+  if (isDatasetSelectionFromTopicQuestion(input)) {
+    return "Looking up candidate datasets...";
+  }
+  if (/\bdescribe\b.*\bdataset\b|\bdataset\b.*\bdescribe\b/.test(lower)) {
+    return "Planning dataset briefing...";
+  }
+  if (/\b(show|list)\b.*\bdatasets?\b/.test(lower)) {
+    return "Checking datasets...";
+  }
+  if (/\b(show|list)\b.*\bruns?\b|\bresults?\b|\bartifacts?\b/.test(lower)) {
+    return "Checking prior work...";
+  }
+  return "Analyzing request...";
+}
+
+function datasetSelectionTopicTokens(input: string) {
+  const lower = input.toLowerCase();
+  const tokens = reusableEnvironmentTokens(lower);
+  if (/\bhousing\b/.test(lower)) tokens.push("rent", "rents", "home", "homes", "mortgage", "zillow", "hud", "acs");
+  if (/\bafford/.test(lower)) tokens.push("income", "cost", "burden", "econom", "econ");
+  return [...new Set(tokens)];
+}
+
+function datasetMetadataText(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const profile = "profile" in dataset ? dataset.profile : null;
+  const sourceText = isRecord(profile)
+    ? JSON.stringify({
+        sources: profile.sources ?? null,
+        tables: profile.tables ?? null,
+        timeCoverage: profile.timeCoverage ?? null,
+        geographyCoverage: profile.geographyCoverage ?? null,
+        limitations: profile.limitations ?? null,
+        notes: profile.notes ?? null,
+        briefingMarkdown: profile.briefingMarkdown ?? null,
+      }).toLowerCase()
+    : "";
+  return [dataset.id, dataset.name, sourceText].filter(Boolean).join(" ").toLowerCase();
+}
+
+function scoreDatasetForTopic(dataset: RemoteDatasetSummary | RemoteDatasetDetail, topicTokens: string[]) {
+  const metadata = datasetMetadataText(dataset);
+  let score = 0;
+  for (const token of topicTokens) {
+    if (metadata.includes(token)) score += 2;
+  }
+  if (/\becon(?:omic)?s?\b/.test(metadata)) score += 2;
+  if (/\bhousing\b|\brent\b|\bincome\b|\bhome\b|\bmortgage\b/.test(metadata)) score += 3;
+  if ((dataset.status ?? "").toLowerCase() === "ready") score += 1;
+  if ((dataset.deploymentStatus ?? "").toLowerCase() === "ready") score += 1;
+  return score;
+}
+
+function summarizeDatasetEvidence(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const metadata = datasetMetadataText(dataset);
+  const evidence: string[] = [];
+  if (/\bacs\b|american community survey|census/.test(metadata)) evidence.push("ACS/Census coverage");
+  if (/\bhud\b|fair market rent|income limits|chas/.test(metadata)) evidence.push("HUD affordability benchmarks");
+  if (/\bzillow\b|zori\b|zhvi\b|rent\b|home value/.test(metadata)) evidence.push("housing market rent/home value series");
+  if (/\bincome\b/.test(metadata)) evidence.push("income measures");
+  if (/\bhousing\b|\bafford/.test(metadata)) evidence.push("housing affordability focus");
+  if (evidence.length === 0 && /\becon(?:omic)?s?\b/.test(metadata)) evidence.push("broader economics coverage");
+  return evidence.slice(0, 3);
+}
+
+async function maybeHandleDatasetSelectionFromTopic(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!initialSession || !isDatasetSelectionFromTopicQuestion(input)) {
+    return null;
+  }
+
+  emit({ role: "tool", content: "Looking up candidate datasets..." });
+  const client = deps.createRemoteClient(initialSession);
+  const listed = await client.listDatasets().catch(() => ({ datasets: [] }));
+  if (listed.datasets.length === 0) {
+    return [
+      "I do not see any remote datasets in RESEARCH yet for this topic.",
+      "",
+      "Need from you",
+      "- Which geography matters most: nationwide, state, metro, county, or tract?",
+      "- If you want, I can help design the right housing-affordability dataset after that.",
+    ].join("\n");
+  }
+
+  const topicTokens = datasetSelectionTopicTokens(input);
+  const rankedSummaries = [...listed.datasets]
+    .map((dataset) => ({ dataset, score: scoreDatasetForTopic(dataset, topicTokens) }))
+    .sort((left, right) => right.score - left.score || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? "")));
+  const inspectionPool = rankedSummaries.slice(0, Math.min(3, rankedSummaries.length));
+  const inspected = await Promise.all(inspectionPool.map(async ({ dataset, score }) => {
+    const detail = await client.getDataset(dataset.id).catch(() => null);
+    const enriched = detail?.dataset ?? dataset;
+    return { dataset: enriched, score: Math.max(score, scoreDatasetForTopic(enriched, topicTokens)) };
+  }));
+  const ranked = inspected
+    .sort((left, right) => right.score - left.score || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? "")));
+  const primary = ranked[0]?.dataset ?? rankedSummaries[0]?.dataset;
+  if (!primary) {
+    return null;
+  }
+  const supplements = ranked
+    .slice(1)
+    .filter((entry) => entry.score >= Math.max(2, (ranked[0]?.score ?? 0) - 2))
+    .slice(0, 2);
+  const evidence = summarizeDatasetEvidence(primary);
+  const primaryWhy = evidence.length > 0
+    ? `${primary.name || primary.id} is the strongest current match because its metadata points to ${evidence.join(", ")}.`
+    : `${primary.name || primary.id} is the closest current match by dataset metadata and availability in RESEARCH.`;
+
+  const lines = [
+    "Primary dataset",
+    `- Start with \`${primary.id}\`${primary.name && primary.name !== primary.id ? ` (${primary.name})` : ""}.`,
+    "",
+    "Why",
+    `- ${primaryWhy}`,
+    `- Status: ${(primary.status ?? primary.deploymentStatus ?? "unknown").toLowerCase() === "ready" ? "ready to inspect or analyze now" : primary.status ?? primary.deploymentStatus ?? "available"}.`,
+  ];
+  if (supplements.length > 0) {
+    lines.push("", "Optional supplements");
+    for (const entry of supplements) {
+      const supplementEvidence = summarizeDatasetEvidence(entry.dataset);
+      lines.push(
+        `- \`${entry.dataset.id}\`${entry.dataset.name && entry.dataset.name !== entry.dataset.id ? ` (${entry.dataset.name})` : ""}: ${supplementEvidence[0] ?? "another plausible supporting dataset if you need a different angle"}.`,
+      );
+    }
+  }
+  lines.push(
+    "",
+    "Need from you",
+    "- Which geography matters most: nationwide, state, metro, county, or tract?",
+  );
+  return lines.join("\n");
 }
 
 function extractDatasetIdFromNewAnalysis(input: string) {
@@ -2490,6 +2641,7 @@ export async function runAgentTurn(
   }
 
   const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession)
+    ?? await maybeHandleDatasetSelectionFromTopic(input, initialSession, emit, deps)
     ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession);
   if (localRunResponse) {
     emit({ role: "assistant", content: localRunResponse });
@@ -2571,6 +2723,7 @@ export async function runAgentTurn(
     : conversationState?.previousResponseId ?? undefined;
   let response: ResponsesApiPayload;
   try {
+    emit({ role: "tool", content: planningProgressLabel(input) });
     response = await withAuthRetry(context, async () => {
       const activeClient = deps.createRemoteClient(requireSession(context));
       const replied = await activeClient.respond({
