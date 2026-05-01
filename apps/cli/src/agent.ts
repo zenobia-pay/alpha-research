@@ -1074,7 +1074,8 @@ function maybeHandleCsvImportHowTo(input: string) {
     "Example:",
     "`/Users/ryanprendergast/Desktop/support_tickets.csv` — customer support tickets with timestamps, categories, priorities, and resolution status.",
     "",
-    "Once you provide that, I can infer the schema, register the dataset, upload it, and deploy it for research. If you only know a hint, I can help narrow it down, but I still need the exact path before import.",
+    "One line is enough for the description. After that, I will infer the schema and import it for research.",
+    "If you do not know the exact path yet, I can show you how to copy it from Finder or Terminal.",
   ].join("\n");
 }
 

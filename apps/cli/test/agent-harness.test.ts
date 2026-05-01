@@ -87,10 +87,11 @@ test("file import how-to asks for path before ingesting", async () => {
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /absolute path/i);
   assert.match(final, /one-line description/i);
+  assert.match(final, /One line is enough/i);
   assert.match(final, /infer the schema/i);
-  assert.match(final, /register the dataset/i);
-  assert.match(final, /upload it/i);
-  assert.match(final, /deploy it/i);
+  assert.match(final, /import it for research/i);
+  assert.match(final, /copy it from Finder or Terminal/i);
+  assert.doesNotMatch(final, /help narrow it down/i);
   assert.doesNotMatch(final, /Started|run-[a-z0-9-]+|Dashboard:/i);
 });
 
