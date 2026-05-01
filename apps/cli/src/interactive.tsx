@@ -22,6 +22,8 @@ type InteractiveAppProps = {
   altScreen?: boolean;
 };
 
+const MIN_PENDING_VISIBLE_MS = 1000;
+
 function shortId(value: string, size = 8) {
   return value.length > size ? value.slice(0, size) : value;
 }
@@ -30,6 +32,10 @@ function fillBar(text: string, width: number) {
   const safeWidth = Math.max(8, width);
   const trimmed = text.length > safeWidth - 4 ? `${text.slice(0, safeWidth - 7)}...` : text;
   return `› ${trimmed}`.padEnd(safeWidth, " ");
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function textFromThreadMessage(message: ThreadMessage | undefined) {
@@ -158,9 +164,10 @@ function UserMessage({ width }: { width: number }) {
   );
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" marginBottom={1}>
+      <Text bold color="cyan">You</Text>
       {text.split("\n").map((line, index) => (
-        <Text key={index} backgroundColor="black" color="white">
+        <Text key={index} color="white">
           {fillBar(line.length > 0 ? line : " ", width)}
         </Text>
       ))}
@@ -177,8 +184,8 @@ function AssistantMessage() {
   );
 
   return (
-    <Box flexDirection="column">
-      <Text bold color="green">research</Text>
+    <Box flexDirection="column" marginBottom={1}>
+      <Text bold color="green">Research</Text>
       <MarkdownText text={text} />
     </Box>
   );
@@ -186,6 +193,7 @@ function AssistantMessage() {
 
 function ActivityIndicator() {
   const isRunning = useAuiState((state) => state.thread.isRunning);
+  const messages = useAuiState((state) => state.thread.messages);
   const [dots, setDots] = useState(".");
 
   useEffect(() => {
@@ -198,9 +206,30 @@ function ActivityIndicator() {
 
   if (!isRunning) return null;
 
+  const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
+  const prompt = textFromThreadMessage(lastUserMessage);
+
   return (
-    <Box>
-      <Text color="yellow">{`· working${dots}`}</Text>
+    <Box borderStyle="round" borderColor="yellow" paddingX={1} marginBottom={1}>
+      <Text color="yellow">
+        {prompt ? `Thinking${dots} ${prompt}` : `Thinking${dots}`}
+      </Text>
+    </Box>
+  );
+}
+
+function ReadyIndicator() {
+  const messages = useAuiState((state) => state.thread.messages);
+  if (messages.length === 0) {
+    return (
+      <Box borderStyle="round" borderColor="green" paddingX={1} marginBottom={1}>
+        <Text color="green">Ask about datasets, runs, results, or how to start.</Text>
+      </Box>
+    );
+  }
+  return (
+    <Box borderStyle="round" borderColor="green" paddingX={1} marginBottom={1}>
+      <Text color="green">Ready for the next prompt.</Text>
     </Box>
   );
 }
@@ -217,7 +246,8 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
   if (activeRuns.length === 0) return null;
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1} marginBottom={1}>
+      <Text bold color="blue">Active Runs</Text>
       {activeRuns.map((run) => (
         <Text key={run.id} color={runStatusColor(run.status)}>
           {`· ${summarizeRunLine(run)}`}
@@ -230,16 +260,14 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
 function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
-  const borderColor = isRunning ? "yellow" : "gray";
+  const hasMessages = useAuiState((state) => state.thread.messages.length > 0);
+  const borderColor = isRunning ? "yellow" : "green";
   const inputWidth = Math.max(20, columns - 4);
 
   return (
     <ThreadPrimitive.Root>
       <ThreadPrimitive.Empty>
-        <Box flexDirection="column">
-          <Text bold color="green">research</Text>
-          <Text>ready.</Text>
-        </Box>
+        <ReadyIndicator />
       </ThreadPrimitive.Empty>
 
       <ThreadPrimitive.Messages>
@@ -252,12 +280,16 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
         }
       </ThreadPrimitive.Messages>
 
-      <ActivityIndicator />
+      {isRunning ? <ActivityIndicator /> : hasMessages ? <ReadyIndicator /> : null}
       <RunStatusPanel runs={trackedRuns} />
 
       <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
         <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
-        <ComposerPrimitive.Input submitOnEnter placeholder="ask RESEARCH" autoFocus />
+        <ComposerPrimitive.Input
+          submitOnEnter
+          placeholder={isRunning ? "research is thinking" : "ask RESEARCH"}
+          autoFocus
+        />
       </Box>
     </ThreadPrimitive.Root>
   );
@@ -347,6 +379,7 @@ function createResearchAdapter({
         yield { content: assistantContent(visibleText || " ") };
       };
       async function* runWithProgress(operation: () => Promise<void>) {
+        const startedAt = Date.now();
         const task = operation();
         while (true) {
           const result = await Promise.race([
@@ -365,6 +398,10 @@ function createResearchAdapter({
           }
         }
         await task;
+        const remainingMs = MIN_PENDING_VISIBLE_MS - (Date.now() - startedAt);
+        if (remainingMs > 0) {
+          await sleep(remainingMs);
+        }
       }
 
       if (!prompt) {

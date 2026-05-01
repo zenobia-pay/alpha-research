@@ -800,7 +800,7 @@ function maybeHandleOrientation(input: string) {
     return null;
   }
   return [
-    "I am a local command center for turning messy data and vague research intent into durable research work: datasets, remote runs, analysis artifacts, and follow-up decisions.",
+    "I help you turn raw data and research questions into usable datasets, focused analyses, and durable results.",
     "",
     "I can help you:",
     "- Intake data from local files, public sources, APIs, exports, or mixed-source environments.",

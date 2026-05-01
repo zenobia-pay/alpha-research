@@ -51,10 +51,10 @@ test("product orientation presents command center identities without tools", asy
 
   assert.equal(messages.length, 1);
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /local command center/i);
-  assert.match(final, /messy data/i);
-  assert.match(final, /vague research intent/i);
-  assert.match(final, /durable research work/i);
+  assert.match(final, /raw data and research questions/i);
+  assert.match(final, /usable datasets/i);
+  assert.match(final, /focused analyses/i);
+  assert.match(final, /durable results/i);
   assert.match(final, /Intake data/i);
   assert.match(final, /Navigate datasets/i);
   assert.match(final, /study designs before spending time/i);
