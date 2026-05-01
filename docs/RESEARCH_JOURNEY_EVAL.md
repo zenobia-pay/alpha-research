@@ -113,6 +113,30 @@ research --prompt "<prompt>"
 
 They are useful for scripted behavior, but they do not show the interactive yellow/green Ink TUI. The `TUIxx` journeys below exercise the true interactive app, equivalent to launching `research` with no prompt and typing inside the TUI.
 
+Run the interactive TUI journeys with:
+
+```bash
+python3 scripts/run-tui-journey-evals.py --out=.tmp/tui-journey-runs
+```
+
+This runner launches `node apps/cli/dist/index.js` in a real PTY, types each journey's messages into the Ink UI, saves raw terminal logs, text snapshots, SVG screenshots with ANSI colors, and a Codex judge briefing for each run. Useful timing/viewport knobs:
+
+```bash
+TUI_JOURNEY_WIDTH=120
+TUI_JOURNEY_HEIGHT=36
+TUI_JOURNEY_SNAPSHOT_SECONDS=3
+TUI_JOURNEY_AFTER_MESSAGE_SECONDS=18
+TUI_JOURNEY_TIMEOUT_SECONDS=180
+TUI_JOURNEY_JUDGE_MODEL=gpt-5.4-mini
+```
+
+For a quick smoke run without judge briefings:
+
+```bash
+TUI_JOURNEY_TIMEOUT_SECONDS=20 TUI_JOURNEY_AFTER_MESSAGE_SECONDS=5 \
+  python3 scripts/run-tui-journey-evals.py --journeys=TUI01 --no-judge --out=.tmp/tui-journey-runs-smoke
+```
+
 The `Pxx` journeys are product-job journeys. They cover the holistic reasons somebody opens `research`: orient, ingest data, choose data, map topic to data, understand data, design research, run precise work, return later, and recover blocked work. They are runnable through the same prompt-mode journey runner:
 
 ```bash
