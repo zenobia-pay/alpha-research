@@ -722,6 +722,80 @@ test("product planning: vague viral tweets request designs scoped experiment bef
   assert.match(joinedMessages, /controversy_level/i);
 });
 
+test("vague dataset interesting request gives a concise briefing and focused choice without starting a run", async () => {
+  const calls: string[] = [];
+  const fakeClient = {
+    async listDatasets() {
+      calls.push("listDatasets");
+      return {
+        datasets: [
+          { id: "econ", name: "County-Month Housing Cycle v2", status: "ready" },
+          { id: "tweets", name: "Tweets", status: "ready" },
+        ],
+      };
+    },
+    async getDataset(datasetId: string) {
+      calls.push("getDataset");
+      assert.equal(datasetId, "econ");
+      return {
+        dataset: {
+          id: "econ",
+          name: "County-Month Housing Cycle v2",
+          status: "ready",
+          profile: {
+            datasetId: "econ",
+            sources: [
+              { name: "Census Building Permits" },
+              { name: "FRED 30yr mortgage rate" },
+              { name: "BEA personal income growth" },
+            ],
+            tables: [{ name: "county_month_panel" }],
+            timeCoverage: { start: "2018-01", end: "2026-01" },
+            geographyCoverage: { level: "county-month panel" },
+            notes: "Income growth is missing in about 23% of county-months.",
+            limitations: [
+              "National mortgage rate is applied to all counties.",
+              "Some permit YoY values are missing where prior-year data is absent.",
+            ],
+          },
+        },
+      };
+    },
+    async startRun() {
+      calls.push("startRun");
+      throw new Error("Vague dataset briefing should not start a run.");
+    },
+    async respond() {
+      calls.push("respond");
+      throw new Error("Vague dataset briefing should be handled locally.");
+    },
+    async appendSessionEntry() {
+      return { id: "entry-1" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Analyze the econ dataset and tell me what's interesting.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.deepEqual(calls, ["listDatasets", "getDataset"]);
+  const transcript = messages.map((message) => message.content).join("\n");
+  assert.match(transcript, /looks most useful for rate sensitivity/i);
+  assert.match(transcript, /Pick one next step: rate sensitivity, coverage quality, regional differences\./i);
+  assert.match(transcript, /I will not start a broad remote analysis until you choose the scope\./i);
+  assert.doesNotMatch(transcript, /deployment finishes|env turns ready|briefing\/profile/i);
+});
+
 test("product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts", async () => {
   const calls: Array<{ name: string; body?: unknown; prompt?: string; options?: unknown }> = [];
   const requiredPublicSources = [

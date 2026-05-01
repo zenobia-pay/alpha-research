@@ -6,7 +6,7 @@ import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
-import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
+import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetDetail, type RemoteDatasetSummary } from "./remote.js";
 import { readSession, login } from "./session.js";
 import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
@@ -857,6 +857,120 @@ function maybeHandleVagueTweetsExperiment(input: string) {
     "",
     "Confirm the scope: should I define viral tweets as the top 0.1% by quote/retweet/like engagement and sample 100 tweets for labeling?",
   ].join("\n");
+}
+
+function extractRequestedDatasetReference(input: string) {
+  const datasetMention = input.match(/\b(?:the\s+)?([a-z0-9][a-z0-9_-]*)\s+dataset\b/iu);
+  if (datasetMention?.[1]) {
+    return datasetMention[1].toLowerCase();
+  }
+  const onOrUsing = input.match(/\b(?:on|using|analyze|inspect|describe)\s+([a-z0-9][a-z0-9_-]*)(?:[.\s]|$)/iu);
+  return onOrUsing?.[1]?.toLowerCase() ?? null;
+}
+
+function matchesDatasetReference(dataset: RemoteDatasetSummary, reference: string) {
+  const normalizedName = `${dataset.id} ${dataset.name}`.toLowerCase();
+  return dataset.id.toLowerCase() === reference || normalizedName.includes(reference);
+}
+
+function takeStringList(value: unknown, limit = 3) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (typeof entry === "string") return entry.trim();
+      if (isRecord(entry)) {
+        return String(entry.name ?? entry.title ?? entry.label ?? entry.id ?? "").trim();
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function vagueInterestingDirections(detail: RemoteDatasetDetail) {
+  const topicText = `${detail.id} ${detail.name} ${detail.profile?.notes ?? ""} ${detail.profile?.briefingMarkdown ?? ""}`.toLowerCase();
+  if (/\bhousing|mortgage|permit|county\b/.test(topicText)) {
+    return ["rate sensitivity", "coverage quality", "regional differences"];
+  }
+  if (/\btweet|social|engagement\b/.test(topicText)) {
+    return ["engagement drivers", "coverage quality", "time trends"];
+  }
+  return ["coverage quality", "time trends", "segment differences"];
+}
+
+function summarizeInterestingDataset(detail: RemoteDatasetDetail) {
+  const profile = detail.profile;
+  const headerName = detail.name?.trim() || detail.id;
+  const sourceNames = takeStringList(profile?.sources, 3);
+  const tableNames = takeStringList(profile?.tables, 2);
+  const coverageText = typeof profile?.notes === "string" ? profile.notes.trim() : "";
+  const limitationText = Array.isArray(profile?.limitations)
+    ? profile.limitations
+      .map((entry: unknown) => typeof entry === "string" ? entry.trim() : isRecord(entry) ? String(entry.summary ?? entry.title ?? entry.name ?? "").trim() : "")
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("; ")
+    : "";
+  const timeCoverage = isRecord(profile?.timeCoverage) ? profile?.timeCoverage as Record<string, unknown> : null;
+  const timeRange = timeCoverage
+    ? [timeCoverage.start, timeCoverage.end].filter((value) => typeof value === "string" && value.trim()).join(" to ")
+    : "";
+  const geographyCoverage = isRecord(profile?.geographyCoverage) ? profile?.geographyCoverage as Record<string, unknown> : null;
+  const geographyLabel = geographyCoverage
+    ? String(geographyCoverage.level ?? geographyCoverage.grain ?? geographyCoverage.summary ?? "").trim()
+    : "";
+  const strongestAngle = vagueInterestingDirections(detail)[0] ?? "coverage quality";
+  const lines = [
+    `${headerName} looks most useful for ${strongestAngle}, but I would keep the first pass narrow.`,
+  ];
+  if (sourceNames.length > 0) {
+    lines.push(`- It combines ${sourceNames.join(", ")}${tableNames.length > 0 ? ` into ${tableNames.join(" and ")}` : ""}.`);
+  }
+  if (timeRange || geographyLabel || coverageText) {
+    const parts = [timeRange ? `Time range: ${timeRange}` : "", geographyLabel ? `Geography: ${geographyLabel}` : "", coverageText || ""].filter(Boolean);
+    lines.push(`- ${parts.join("; ")}.`);
+  }
+  if (limitationText) {
+    lines.push(`- Main caution: ${limitationText}.`);
+  }
+  const directions = vagueInterestingDirections(detail);
+  lines.push("", `Pick one next step: ${directions.join(", ") }.`);
+  lines.push("I can do a small read-only pass on one of those, but I will not start a broad remote analysis until you choose the scope.");
+  return lines.join("\n");
+}
+
+async function maybeHandleVagueDatasetInterestingQuestion(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  const lower = input.toLowerCase();
+  if (!initialSession || !/\bdataset\b/.test(lower) || !/\binterest(?:ing)?\b/.test(lower) || !/\banaly[sz]e\b/.test(lower)) {
+    return null;
+  }
+  const reference = extractRequestedDatasetReference(input);
+  if (!reference) {
+    return null;
+  }
+  const client = deps.createRemoteClient(initialSession);
+  emit({ role: "tool", content: "Checking remote datasets..." });
+  const listed = await client.listDatasets().catch(() => null);
+  if (!listed) {
+    return null;
+  }
+  emit({ role: "tool", content: `Found ${listed.datasets.length} remote datasets.` });
+  const selected = listed.datasets.find((dataset) => matchesDatasetReference(dataset, reference));
+  if (!selected) {
+    return null;
+  }
+  emit({ role: "tool", content: `Inspecting dataset ${selected.id}...` });
+  const detail = await client.getDataset(selected.id).catch(() => null);
+  if (!detail?.dataset) {
+    return null;
+  }
+  emit({ role: "tool", content: `Inspected remote dataset ${selected.id}.` });
+  return summarizeInterestingDataset(detail.dataset);
 }
 
 function extractDatasetIdFromNewAnalysis(input: string) {
@@ -2271,6 +2385,15 @@ export async function runAgentTurn(
     ?? maybeHandleVagueTweetsExperiment(input);
   if (directResponse) {
     emit({ role: "assistant", content: directResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
+  const vagueDatasetResponse = await maybeHandleVagueDatasetInterestingQuestion(input, initialSession, emit, deps);
+  if (vagueDatasetResponse) {
+    emit({ role: "assistant", content: vagueDatasetResponse });
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
