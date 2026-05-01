@@ -8,6 +8,7 @@ import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTe
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
 import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
 import { readSession, login } from "./session.js";
+import { STALE_RUN_AFTER_MS, buildStuckRunBrief } from "./run-presentation.js";
 import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
 export type AgentMessage = {
@@ -894,24 +895,25 @@ async function maybeHandleStuckRunQuestion(input: string, initialSession: Sessio
   if (!initialSession || !/\blast run\b/.test(lower) || !/\b(stuck|happening|progress|status)\b/.test(lower)) {
     return null;
   }
-  const runs = await readTrackedRuns().catch(() => []);
+  const runs = (await readTrackedRuns().catch(() => []))
+    .filter((run) => run.origin === initialSession.origin)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   const active = runs.find((run) => !run.terminalAt && !isTerminalRunStatus(run.status));
   if (!active) {
     return "I do not see an active tracked run right now. Ask `show results from my last run` to inspect the latest completed one.";
   }
-  const updated = active.updatedAt ? new Date(active.updatedAt).getTime() : NaN;
-  const minutes = Number.isFinite(updated) ? Math.max(0, Math.round((Date.now() - updated) / 60000)) : null;
-  const heartbeat = minutes === null ? "unknown" : minutes <= 1 ? "under 1 minute ago" : `${minutes} minutes ago`;
+  const brief = buildStuckRunBrief(active);
   return [
-    `Your run is still active, but its last update was ${heartbeat}.`,
+    `I am watching your active ${brief.datasetId} run.`,
     "",
-    `Run: ${active.id}`,
-    `Dataset: ${active.datasetId}`,
-    `State: ${formatStatusForHumans(active.status)}`,
-    active.prompt ? `Current work: ${active.prompt.split("\n")[0]?.slice(0, 120)}` : "Current work: remote processing",
+    `State: ${brief.stateLabel}.`,
+    `Last update: ${brief.freshness.ageLabel}. Runs are marked stale after ${Math.round(STALE_RUN_AFTER_MS / 60000)} minutes without progress.`,
+    `Current work: ${brief.currentWork}`,
+    `What this means: ${brief.freshness.isStale ? "the run has stopped reporting progress long enough to deserve attention" : "the run is still reporting recently, so it may simply be busy"}.`,
     "",
-    "Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for your workload.",
-    `Debug: research debug run ${active.id}`,
+    `Next action: ${brief.nextAction}`,
+    "In the TUI you can use `/inspect`, `/debug`, `/wait`, or `/cancel`.",
+    active.dashboardUrl ? `Run page: ${active.dashboardUrl}` : null,
   ].join("\n");
 }
 

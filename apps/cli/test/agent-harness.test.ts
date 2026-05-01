@@ -10,6 +10,7 @@ import {
 import type { SessionRecord } from "../src/config.js";
 import { buildRunDebugBundle } from "../src/debug.js";
 import { RemoteRequestError } from "../src/remote.js";
+import { writeTrackedRuns } from "../src/runs.js";
 
 const session = {
   origin: "https://alpharesearch.nyc",
@@ -115,6 +116,45 @@ test("vague housing risk request asks scope before costly work", async () => {
   assert.match(final, /affordability/i);
   assert.match(final, /mortgage rates/i);
   assert.doesNotMatch(final, /Started|Queued|Dashboard:/i);
+});
+
+test("stuck run diagnosis uses plain-language status briefing and actions", async () => {
+  await writeTrackedRuns([{
+    id: "run-stuck-1",
+    datasetId: "enriched-tweets",
+    origin: session.origin,
+    status: "booting",
+    prompt: "Mounted dataset grounding is mandatory for dataset `enriched-tweets`.\nDo analysis.",
+    dashboardUrl: "https://dashboard.alpharesearch.nyc/?view=runs&runId=run-stuck-1#run-run-stuck-1",
+    createdAt: "2026-04-22T00:00:00.000Z",
+    updatedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
+    lastSeenAt: new Date().toISOString(),
+  }]);
+  const fakeClient = {
+    async respond() {
+      throw new Error("Stuck run diagnosis should be answered locally.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("My last run seems stuck. What's happening?", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /watching your active enriched-tweets run/i);
+  assert.match(final, /stale after 2 minutes/i);
+  assert.match(final, /checking that enriched-tweets is mounted and readable before analysis starts/i);
+  assert.match(final, /\/inspect/i);
+  assert.match(final, /\/debug/i);
+  assert.match(final, /\/wait/i);
+  assert.match(final, /\/cancel/i);
+  assert.match(final, /run page:/i);
+  assert.doesNotMatch(final, /Mounted dataset grounding is mandatory/i);
+  assert.doesNotMatch(final, /heartbeat/i);
 });
 
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {

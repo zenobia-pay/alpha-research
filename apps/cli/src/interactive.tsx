@@ -14,8 +14,10 @@ import { MarkdownText } from "@assistant-ui/react-ink-markdown";
 
 import { type AgentConversationState, type AgentMessage, runAgentTurn } from "./agent.js";
 import { RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
+import { buildRunDebugBundle } from "./debug.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
+import { STALE_RUN_AFTER_MS, buildStuckRunBrief } from "./run-presentation.js";
 import { clearSession, login, readSession } from "./session.js";
 
 type InteractiveAppProps = {
@@ -78,10 +80,16 @@ function runStatusColor(status: string) {
   return "yellow";
 }
 
-function summarizeRunLine(run: TrackedRunRecord) {
-  const latest = run.lastEventMessage?.trim();
-  const suffix = latest ? ` · ${latest}` : run.prompt ? ` · ${run.prompt}` : "";
-  return `${shortId(run.id)}  ${run.datasetId}  ${run.status}${suffix}`;
+function runCardColor(status: string, isStale: boolean) {
+  if (isStale) return "yellow";
+  return runStatusColor(status);
+}
+
+function activeRunsForSession(runs: TrackedRunRecord[], session: SessionRecord | null) {
+  return runs
+    .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
+    .filter((item) => (session ? item.origin === session.origin : true))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 async function pollTrackedRuns(
@@ -186,13 +194,14 @@ function AssistantMessage() {
 
 function ActivityIndicator() {
   const isRunning = useAuiState((state) => state.thread.isRunning);
-  const [dots, setDots] = useState(".");
+  const frames = ["· thinking", "· thinking.", "· thinking..", "· thinking..."];
+  const [frameIndex, setFrameIndex] = useState(0);
 
   useEffect(() => {
     if (!isRunning) return undefined;
     const timer = setInterval(() => {
-      setDots((current) => (current.length >= 3 ? "." : `${current}.`));
-    }, 650);
+      setFrameIndex((current) => (current + 1) % frames.length);
+    }, 300);
     return () => clearInterval(timer);
   }, [isRunning]);
 
@@ -200,44 +209,68 @@ function ActivityIndicator() {
 
   return (
     <Box>
-      <Text color="yellow">{`· working${dots}`}</Text>
+      <Text color="yellow">{frames[frameIndex]}</Text>
     </Box>
   );
 }
 
-function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
-  const activeRuns = useMemo(
-    () =>
-      runs
-        .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
-    [runs],
-  );
+function RunStatusPanel({ runs, session }: { runs: TrackedRunRecord[]; session: SessionRecord | null }) {
+  const activeRuns = useMemo(() => activeRunsForSession(runs, session), [runs, session]);
 
   if (activeRuns.length === 0) return null;
 
   return (
-    <Box flexDirection="column">
-      {activeRuns.map((run) => (
-        <Text key={run.id} color={runStatusColor(run.status)}>
-          {`· ${summarizeRunLine(run)}`}
-        </Text>
-      ))}
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold color="yellow">Active run{activeRuns.length === 1 ? "" : "s"}</Text>
+      {activeRuns.map((run) => {
+        const brief = buildStuckRunBrief(run);
+        return (
+          <Box key={run.id} flexDirection="column" borderStyle="round" borderColor={runCardColor(run.status, brief.freshness.isStale)} paddingX={1}>
+            <Text color={runCardColor(run.status, brief.freshness.isStale)}>
+              {`${run.datasetId} ${brief.freshness.isStale ? "· needs attention" : "· in progress"}`}
+            </Text>
+            <Text>{`State: ${brief.stateLabel}`}</Text>
+            <Text>{`Last update: ${brief.freshness.ageLabel} (${brief.freshness.statusLabel}; stale after ${Math.round(STALE_RUN_AFTER_MS / 60000)} minutes)`}</Text>
+            <Text>{`Current work: ${brief.currentWork}`}</Text>
+            <Text dimColor>{`Actions: /inspect (${shortId(run.id)})  /debug  /wait  /cancel`}</Text>
+          </Box>
+        );
+      })}
     </Box>
   );
 }
 
-function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
+function ResearchThread({
+  trackedRuns,
+  session,
+  isBooting,
+}: {
+  trackedRuns: TrackedRunRecord[];
+  session: SessionRecord | null;
+  isBooting: boolean;
+}) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
   const borderColor = isRunning ? "yellow" : "gray";
   const inputWidth = Math.max(20, columns - 4);
+  const activeCount = activeRunsForSession(trackedRuns, session).length;
 
   return (
-    <ThreadPrimitive.Root>
+    <Box flexDirection="column">
+      <Box flexDirection="column" marginBottom={1}>
+        <Text bold color="green">research</Text>
+        <Text dimColor>dataset-backed research agent</Text>
+        <Text color={isBooting ? "yellow" : activeCount > 0 ? "yellow" : "gray"}>
+          {isBooting
+            ? "Loading your workspace..."
+            : activeCount > 0
+              ? `Watching ${activeCount} active run${activeCount === 1 ? "" : "s"}.`
+              : "No active runs. Ask about datasets, runs, or a research plan."}
+        </Text>
+      </Box>
+      <ThreadPrimitive.Root>
       <ThreadPrimitive.Empty>
         <Box flexDirection="column">
-          <Text bold color="green">research</Text>
           <Text>ready.</Text>
         </Box>
       </ThreadPrimitive.Empty>
@@ -253,13 +286,14 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
       </ThreadPrimitive.Messages>
 
       <ActivityIndicator />
-      <RunStatusPanel runs={trackedRuns} />
+      <RunStatusPanel runs={trackedRuns} session={session} />
 
       <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
         <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
         <ComposerPrimitive.Input submitOnEnter placeholder="ask RESEARCH" autoFocus />
       </Box>
-    </ThreadPrimitive.Root>
+      </ThreadPrimitive.Root>
+    </Box>
   );
 }
 
@@ -412,7 +446,7 @@ function createResearchAdapter({
         return;
       }
 
-      if (prompt.startsWith("/cancel")) {
+      if (["/inspect", "/i", "/debug", "/d", "/wait", "/w", "/cancel", "/c"].some((command) => prompt.startsWith(command))) {
         const session = sessionRef.current;
         if (!session) {
           visibleText = "Sign in first with `/login`.";
@@ -424,14 +458,81 @@ function createResearchAdapter({
           const parts = prompt.split(/\s+/u).filter(Boolean);
           const explicitRunId = parts[1];
           const runs = await readTrackedRuns();
-          const activeRuns = runs
-            .filter((item) => item.origin === session.origin)
-            .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
-            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+          const activeRuns = activeRunsForSession(runs, session);
           const targetRunId = explicitRunId ?? activeRuns[0]?.id;
 
           if (!targetRunId) {
-            visibleText = "No active tracked run to cancel.";
+            visibleText = "No active tracked run to inspect.";
+            yield* flush();
+            return;
+          }
+
+          if (prompt.startsWith("/inspect") || prompt.startsWith("/i")) {
+            const targetRun = activeRuns.find((run) => run.id === targetRunId) ?? runs.find((run) => run.id === targetRunId);
+            if (!targetRun) {
+              visibleText = `I could not find tracked run ${targetRunId}.`;
+              yield* flush();
+              return;
+            }
+            const brief = buildStuckRunBrief(targetRun);
+            visibleText = [
+              `Watching ${brief.datasetId}.`,
+              `State: ${brief.stateLabel}.`,
+              `Last update: ${brief.freshness.ageLabel}. Runs are marked stale after ${Math.round(STALE_RUN_AFTER_MS / 60000)} minutes without progress.`,
+              `Current work: ${brief.currentWork}`,
+              `Next action: ${brief.nextAction}`,
+              targetRun.dashboardUrl ? `Run page: ${targetRun.dashboardUrl}` : null,
+            ].filter(Boolean).join("\n");
+            yield* flush();
+            return;
+          }
+
+          if (prompt.startsWith("/debug") || prompt.startsWith("/d")) {
+            const bundle = await buildRunDebugBundle(targetRunId);
+            const trackedRun = bundle.trackedRun;
+            const targetRun = trackedRun ?? activeRuns.find((run) => run.id === targetRunId);
+            const brief = targetRun ? buildStuckRunBrief(targetRun) : null;
+            visibleText = [
+              `Debug summary for ${brief?.datasetId ?? targetRunId}.`,
+              brief ? `State: ${brief.stateLabel}.` : null,
+              brief ? `Last update: ${brief.freshness.ageLabel}.` : null,
+              brief ? `Current work: ${brief.currentWork}` : null,
+              `Lifecycle check: ${bundle.lifecycle.message}`,
+              `Run page: ${bundle.dashboardUrl}`,
+            ].filter(Boolean).join("\n");
+            yield* flush();
+            return;
+          }
+
+          if (prompt.startsWith("/wait") || prompt.startsWith("/w")) {
+            const rawSeconds = Number(parts[1]);
+            const waitSeconds = Number.isFinite(rawSeconds) && rawSeconds > 0 ? Math.min(60, Math.round(rawSeconds)) : 15;
+            const deadline = Date.now() + waitSeconds * 1000;
+            let latestRuns = runs;
+            let latestTarget = activeRuns.find((run) => run.id === targetRunId) ?? runs.find((run) => run.id === targetRunId) ?? null;
+            while (Date.now() < deadline) {
+              latestRuns = await pollTrackedRuns(session, emit);
+              latestTarget = latestRuns.find((run) => run.id === targetRunId) ?? latestTarget;
+              if (latestTarget && (latestTarget.terminalAt || isTerminalRunStatus(latestTarget.status))) {
+                break;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+            setTrackedRuns(latestRuns);
+            if (!latestTarget) {
+              visibleText = `I could not find tracked run ${targetRunId} after waiting.`;
+              yield* flush();
+              return;
+            }
+            const brief = buildStuckRunBrief(latestTarget);
+            visibleText = latestTarget.terminalAt || isTerminalRunStatus(latestTarget.status)
+              ? `Run ${shortId(latestTarget.id)} finished with state ${brief.stateLabel}.`
+              : [
+                `Still watching ${brief.datasetId}.`,
+                `State: ${brief.stateLabel}.`,
+                `Last update: ${brief.freshness.ageLabel}.`,
+                `Current work: ${brief.currentWork}`,
+              ].join("\n");
             yield* flush();
             return;
           }
@@ -497,6 +598,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const { exit } = useApp();
   const [session, setSessionState] = useState<SessionRecord | null>(null);
   const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
+  const [isBooting, setIsBooting] = useState(true);
   const [conversationState, setConversationStateState] = useState<AgentConversationState>({
     sessionId: null,
     previousResponseId: null,
@@ -527,6 +629,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     void readSession().then(setSession);
     void readTrackedRuns().then((runs) => {
       setTrackedRuns(runs);
+      setIsBooting(false);
     });
   }, []);
 
@@ -558,7 +661,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <Box flexDirection="column">
-        <ResearchThread trackedRuns={trackedRuns} />
+        <ResearchThread trackedRuns={trackedRuns} session={session} isBooting={isBooting} />
         <RunPoller runtime={runtime} session={session} setTrackedRuns={setTrackedRuns} />
       </Box>
     </AssistantRuntimeProvider>
