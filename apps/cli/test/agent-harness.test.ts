@@ -722,6 +722,51 @@ test("product planning: vague viral tweets request designs scoped experiment bef
   assert.match(joinedMessages, /controversy_level/i);
 });
 
+test("field-definition prompt instructions enforce concise verdict-first answers", async () => {
+  let capturedInstructions = "";
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      capturedInstructions = String(body.instructions ?? "");
+      return {
+        sessionId: "field-session",
+        payload: {
+          id: "field-final",
+          output_text: "Use `quote_tweet_count` as one proxy signal, not the sole definition of virality.",
+          output: [{
+            type: "message",
+            content: [{
+              type: "output_text",
+              text: "Use `quote_tweet_count` as one proxy signal, not the sole definition of virality.",
+            }],
+          }],
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-field" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { emit } = collect();
+
+  await runAgentTurn(
+    "In the tweets dataset, what does quote_tweet_count mean and can I use it to define virality?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.match(capturedInstructions, /answer the concept question before proposing any work/i);
+  assert.match(capturedInstructions, /lead with a one-line verdict, then one short caveat/i);
+  assert.match(capturedInstructions, /do not include composite formulas, top-N proposals, or offers to start analysis/i);
+  assert.match(capturedInstructions, /do not use vague labels like 'typical'/i);
+});
+
 test("product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts", async () => {
   const calls: Array<{ name: string; body?: unknown; prompt?: string; options?: unknown }> = [];
   const requiredPublicSources = [
