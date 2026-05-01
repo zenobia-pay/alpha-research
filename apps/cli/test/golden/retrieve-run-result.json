@@ -58,8 +58,8 @@
     "get_run_results"
   ],
   "expectedSummaryIncludes": [
-    "Original request\nFind high-engagement tweets.",
+    "Run goal: Find high-engagement tweets.",
     "Rows: 100",
-    "Artifacts are the saved outputs from the run"
+    "Saved outputs: 1"
   ]
 }

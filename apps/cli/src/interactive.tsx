@@ -184,7 +184,7 @@ function AssistantMessage() {
   );
 }
 
-function ActivityIndicator() {
+function ActivityIndicator({ label }: { label?: string | null }) {
   const isRunning = useAuiState((state) => state.thread.isRunning);
   const [dots, setDots] = useState(".");
 
@@ -200,12 +200,12 @@ function ActivityIndicator() {
 
   return (
     <Box>
-      <Text color="yellow">{`· working${dots}`}</Text>
+      <Text color="yellow">{`· ${label?.trim() || "working"}${dots}`}</Text>
     </Box>
   );
 }
 
-function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
+function RunStatusPanel({ runs, hidden = false }: { runs: TrackedRunRecord[]; hidden?: boolean }) {
   const activeRuns = useMemo(
     () =>
       runs
@@ -214,7 +214,7 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
     [runs],
   );
 
-  if (activeRuns.length === 0) return null;
+  if (hidden || activeRuns.length === 0) return null;
 
   return (
     <Box flexDirection="column">
@@ -227,7 +227,15 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
   );
 }
 
-function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
+function ResearchThread({
+  trackedRuns,
+  activityLabel,
+  suppressRunStatus,
+}: {
+  trackedRuns: TrackedRunRecord[];
+  activityLabel?: string | null;
+  suppressRunStatus?: boolean;
+}) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
   const borderColor = isRunning ? "yellow" : "gray";
@@ -252,8 +260,8 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
         }
       </ThreadPrimitive.Messages>
 
-      <ActivityIndicator />
-      <RunStatusPanel runs={trackedRuns} />
+      <ActivityIndicator label={activityLabel} />
+      <RunStatusPanel runs={trackedRuns} hidden={suppressRunStatus} />
 
       <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
         <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
@@ -316,6 +324,8 @@ function createResearchAdapter({
   conversationStateRef,
   setConversationState,
   setTrackedRuns,
+  setActivityLabel,
+  setSuppressRunStatus,
 }: {
   exit: () => void;
   sessionRef: React.MutableRefObject<SessionRecord | null>;
@@ -323,6 +333,8 @@ function createResearchAdapter({
   conversationStateRef: React.MutableRefObject<AgentConversationState>;
   setConversationState: (state: AgentConversationState) => void;
   setTrackedRuns: (runs: TrackedRunRecord[]) => void;
+  setActivityLabel: (label: string | null) => void;
+  setSuppressRunStatus: (hidden: boolean) => void;
 }): ChatModelAdapter {
   return {
     async *run({ messages, abortSignal }) {
@@ -341,6 +353,10 @@ function createResearchAdapter({
       const emit = (message: AgentMessage) => {
         const formatted = formatAgentEmission(message);
         visibleText = visibleText ? `${visibleText}\n${formatted}` : formatted;
+        if (message.role === "tool") {
+          const firstLine = message.content.split("\n")[0]?.trim();
+          setActivityLabel(firstLine ?? null);
+        }
         markChanged();
       };
       const flush = function* () {
@@ -460,6 +476,11 @@ function createResearchAdapter({
 
       try {
         yield* runWithProgress(async () => {
+          const isLastRunRetrieval = /\blast run\b/i.test(prompt) && /\b(result|results|artifact|artifacts|show|retrieve)\b/i.test(prompt);
+          setSuppressRunStatus(isLastRunRetrieval);
+          if (isLastRunRetrieval) {
+            setActivityLabel("Checking run history");
+          }
           const nextSession = await readSession();
           if (nextSession?.accessToken !== sessionRef.current?.accessToken || nextSession?.origin !== sessionRef.current?.origin) {
             setSession(nextSession);
@@ -480,12 +501,16 @@ function createResearchAdapter({
           conversationStateRef.current = nextConversationState;
           setConversationState(nextConversationState);
           setTrackedRuns(await readTrackedRuns());
+          setActivityLabel(null);
+          setSuppressRunStatus(false);
           if (!visibleText) {
             visibleText = "done.";
             markChanged();
           }
         });
       } catch (error) {
+        setActivityLabel(null);
+        setSuppressRunStatus(false);
         visibleText = error instanceof Error ? error.message : String(error);
         yield* flush();
       }
@@ -497,6 +522,8 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const { exit } = useApp();
   const [session, setSessionState] = useState<SessionRecord | null>(null);
   const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
+  const [activityLabel, setActivityLabel] = useState<string | null>(null);
+  const [suppressRunStatus, setSuppressRunStatus] = useState(false);
   const [conversationState, setConversationStateState] = useState<AgentConversationState>({
     sessionId: null,
     previousResponseId: null,
@@ -543,6 +570,8 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
         conversationStateRef,
         setConversationState,
         setTrackedRuns,
+        setActivityLabel,
+        setSuppressRunStatus,
       }),
     [exit],
   );
@@ -558,7 +587,11 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <Box flexDirection="column">
-        <ResearchThread trackedRuns={trackedRuns} />
+        <ResearchThread
+          trackedRuns={trackedRuns}
+          activityLabel={activityLabel}
+          suppressRunStatus={suppressRunStatus}
+        />
         <RunPoller runtime={runtime} session={session} setTrackedRuns={setTrackedRuns} />
       </Box>
     </AssistantRuntimeProvider>

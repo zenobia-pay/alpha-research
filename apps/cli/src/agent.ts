@@ -340,6 +340,29 @@ function artifactBullet(artifact: { title?: string; type?: string }) {
   return title;
 }
 
+function formatTimestampForHumans(value: string | undefined) {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+function compactPromptSummary(prompt: string | undefined) {
+  const raw = prompt?.trim();
+  if (!raw) return null;
+  const withoutGrounding = raw.includes("Mounted dataset grounding is mandatory")
+    ? raw.split(/\n\s*\n/u).at(-1)?.trim() ?? raw
+    : raw;
+  const singleLine = withoutGrounding.replace(/\s+/gu, " ").trim();
+  if (!singleLine) return null;
+  return singleLine.length > 140 ? `${singleLine.slice(0, 137)}...` : singleLine;
+}
+
 function findStructuredResultArtifact(artifacts: Array<{ title?: string; type?: string; content?: unknown }>) {
   return artifacts.find((artifact) => artifact.type === "structured_result" && isRecord(artifact.content))
     ?? artifacts.find((artifact) => artifact.title === "result.json" && isRecord(artifact.content));
@@ -413,21 +436,28 @@ function renderStructuredResult(result: Record<string, unknown>) {
 
 function summarizeRunResultsForHumans(
   payload: {
-    run: { id: string; datasetId: string; status: string; prompt?: string };
+    run: { id: string; datasetId: string; status: string; prompt?: string; createdAt?: string; updatedAt?: string };
     artifacts: Array<{ title?: string; type?: string; content?: unknown }>;
   },
   origin: string,
+  options?: { activeRunNote?: string | null },
 ) {
   const producedArtifacts = payload.artifacts.filter(isProducedArtifact);
   const resultArtifact = findStructuredResultArtifact(producedArtifacts);
   const structuredResult = resultArtifact?.content && isRecord(resultArtifact.content) ? resultArtifact.content : null;
+  const updatedAt = formatTimestampForHumans(payload.run.updatedAt ?? payload.run.createdAt);
+  const runGoal = compactPromptSummary(payload.run.prompt);
   const lines = [
-    "Last completed run",
-    `${payload.run.id} · ${payload.run.datasetId} · ${formatStatusForHumans(payload.run.status)}`,
+    "Run results",
+    `Dataset: ${payload.run.datasetId}`,
+    `Status: ${formatStatusForHumans(payload.run.status)}`,
+    `Run ID: ${payload.run.id}`,
   ];
-  const prompt = payload.run.prompt?.trim();
-  if (prompt) {
-    lines.push("", "Original request", prompt);
+  if (updatedAt) {
+    lines.push(`Updated: ${updatedAt}`);
+  }
+  if (runGoal) {
+    lines.push(`Run goal: ${runGoal}`);
   }
   if (structuredResult) {
     lines.push("", renderStructuredResult(structuredResult));
@@ -436,16 +466,103 @@ function summarizeRunResultsForHumans(
     lines.push(
       "",
       "Artifacts",
-      "Artifacts are the saved outputs from the run. Open them on the run page:",
+      `Saved outputs: ${producedArtifacts.length}`,
       ...producedArtifacts.map((artifact) => `- ${artifactBullet(artifact)}`),
     );
+  } else {
+    lines.push("", "Artifacts", "Saved outputs: 0");
   }
-  lines.push("", "Dashboard", dashboardRunUrl(origin, payload.run.id));
+  if (options?.activeRunNote) {
+    lines.push("", options.activeRunNote);
+  }
+  lines.push("", `Run page: ${dashboardRunUrl(origin, payload.run.id)}`);
   const suggestions = inferFollowUpSuggestions(payload.run.datasetId, structuredResult);
   if (suggestions.length > 0) {
     lines.push("", "Suggested follow-ups", ...suggestions.map((suggestion) => `- ${suggestion}`));
   }
   return lines.join("\n");
+}
+
+function isLastRunResultsRequest(input: string) {
+  const lower = input.toLowerCase();
+  const mentionsRunTarget = /\blast run\b/.test(lower) || /\blast completed run\b/.test(lower) || /\bactive run\b/.test(lower);
+  return mentionsRunTarget && /\b(result|results|artifact|artifacts|show|retrieve)\b/.test(lower);
+}
+
+function summarizeRunChoice(run: { id: string; datasetId: string; status: string; updatedAt?: string }) {
+  const updatedAt = formatTimestampForHumans(run.updatedAt);
+  return `${run.datasetId} · ${run.status}${updatedAt ? ` · updated ${updatedAt}` : ""} · ${run.id}`;
+}
+
+function summarizeTrackedActiveRun(run: { id: string; datasetId: string; status: string; updatedAt: string }) {
+  return `Separate active run: ${summarizeRunChoice(run)}`;
+}
+
+async function maybeHandleLastRunResultsQuestion(
+  input: string,
+  initialSession: SessionRecord | null,
+  deps: AgentRuntimeDeps,
+) {
+  if (!initialSession || !isLastRunResultsRequest(input)) {
+    return null;
+  }
+  const lower = input.toLowerCase();
+  const asksForCompleted = /\b(completed|finished|done|previous)\b/.test(lower);
+  const asksForActive = /\b(active|current|running|booting|in progress)\b/.test(lower);
+  const trackedRuns = (await readTrackedRuns())
+    .filter((item) => item.origin === initialSession.origin)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  const activeRun = trackedRuns.find((item) => !item.terminalAt && !isTerminalRunStatus(item.status)) ?? null;
+  const completedRun = trackedRuns.find((item) => item.terminalAt || isTerminalRunStatus(item.status)) ?? null;
+
+  if (!activeRun && !completedRun) {
+    return "I do not see any tracked runs yet.";
+  }
+  if (activeRun && completedRun && !asksForCompleted && !asksForActive) {
+    return [
+      "I found both an active run and a completed run.",
+      "",
+      "Choose one:",
+      `- last completed run: ${summarizeRunChoice(completedRun)}`,
+      `- active run: ${summarizeRunChoice(activeRun)}`,
+      "",
+      "Reply with `show my last completed run` or `show my active run`.",
+    ].join("\n");
+  }
+  if (asksForActive || (!completedRun && activeRun)) {
+    const target = activeRun ?? trackedRuns[0]!;
+    return [
+      "Your latest active run is still in progress, so there are no final results to retrieve yet.",
+      "",
+      summarizeTrackedActiveRun(target),
+      "",
+      `Debug: research debug run ${target.id}`,
+    ].join("\n");
+  }
+
+  const target = completedRun ?? activeRun;
+  if (!target) {
+    return "I could not find a run to inspect.";
+  }
+  const client = deps.createRemoteClient(initialSession);
+  const payload = await client.getRunResults(target.id);
+  return summarizeRunResultsForHumans(
+    {
+      run: {
+        id: payload.run.id,
+        datasetId: payload.run.datasetId,
+        status: payload.run.status,
+        prompt: payload.run.prompt,
+        createdAt: payload.run.createdAt,
+        updatedAt: payload.run.updatedAt,
+      },
+      artifacts: payload.artifacts.filter(isProducedArtifact),
+    },
+    initialSession.origin,
+    {
+      activeRunNote: activeRun && activeRun.id !== target.id ? summarizeTrackedActiveRun(activeRun) : null,
+    },
+  );
 }
 
 function shouldExposeWaitTool(input: string) {
@@ -2146,6 +2263,8 @@ export function createToolRegistry(): ToolDefinition[] {
               datasetId: payload.run.datasetId,
               status: payload.run.status,
               prompt: payload.run.prompt,
+              createdAt: payload.run.createdAt,
+              updatedAt: payload.run.updatedAt,
             },
             artifacts: producedArtifacts,
           },
@@ -2278,7 +2397,8 @@ export async function runAgentTurn(
   }
 
   const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession)
-    ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession);
+    ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession)
+    ?? await maybeHandleLastRunResultsQuestion(input, initialSession, deps);
   if (localRunResponse) {
     emit({ role: "assistant", content: localRunResponse });
     return {

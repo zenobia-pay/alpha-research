@@ -10,6 +10,7 @@ import {
 import type { SessionRecord } from "../src/config.js";
 import { buildRunDebugBundle } from "../src/debug.js";
 import { RemoteRequestError } from "../src/remote.js";
+import { writeTrackedRuns } from "../src/runs.js";
 
 const session = {
   origin: "https://alpharesearch.nyc",
@@ -26,6 +27,10 @@ function collect() {
     },
   };
 }
+
+test.afterEach(async () => {
+  await writeTrackedRuns([]);
+});
 
 test("unauthenticated local run request bypasses remote planning", async () => {
   const { messages, emit } = collect();
@@ -271,7 +276,7 @@ test("dataset describe request starts briefing run with required artifacts", asy
   assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-describe&runId=run-describe#run-run-describe/);
 });
 
-test("run result retrieval includes original prompt and artifacts", async () => {
+test("run result retrieval includes compact summary and artifacts", async () => {
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
       if (Array.isArray(body.input)) {
@@ -334,10 +339,127 @@ test("run result retrieval includes original prompt and artifacts", async () => 
 
   await runAgentTurn("what was my last result?", session, emit, undefined, deps);
 
-  const toolOutput = messages.find((message) => message.role === "tool" && message.content.includes("Original request"))?.content ?? "";
-  assert.match(toolOutput, /Quick sanity check\./);
-  assert.match(toolOutput, /Artifacts are the saved outputs from the run/);
+  const toolOutput = messages.find((message) => message.role === "tool" && message.content.includes("Run results"))?.content ?? "";
+  assert.match(toolOutput, /Run goal: Quick sanity check\./);
+  assert.match(toolOutput, /Saved outputs: 1/);
   assert.match(toolOutput, /Suggested follow-ups/);
+  assert.doesNotMatch(toolOutput, /Original request/);
+});
+
+test("last run request asks for clarification when active and completed runs both exist", async () => {
+  await writeTrackedRuns([
+    {
+      id: "run-active-1",
+      datasetId: "enriched-tweets",
+      origin: session.origin,
+      status: "booting",
+      createdAt: "2026-05-01T20:00:00.000Z",
+      updatedAt: "2026-05-01T20:02:00.000Z",
+      lastSeenAt: "2026-05-01T20:02:00.000Z",
+    },
+    {
+      id: "run-complete-1",
+      datasetId: "housing-panel",
+      origin: session.origin,
+      status: "ready",
+      createdAt: "2026-05-01T19:00:00.000Z",
+      updatedAt: "2026-05-01T19:45:00.000Z",
+      lastSeenAt: "2026-05-01T19:45:00.000Z",
+      terminalAt: "2026-05-01T19:45:00.000Z",
+    },
+  ]);
+  const fakeClient = {
+    async respond() {
+      throw new Error("Ambiguous last-run retrieval should be handled locally.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Show me the results from my last run.", session, emit, undefined, deps);
+
+  assert.equal(messages.length, 1);
+  const final = messages[0]?.content ?? "";
+  assert.match(final, /both an active run and a completed run/i);
+  assert.match(final, /last completed run: housing-panel/i);
+  assert.match(final, /active run: enriched-tweets/i);
+  assert.match(final, /show my last completed run/i);
+  assert.doesNotMatch(final, /Original request|Mounted dataset grounding|result\.json/i);
+});
+
+test("last completed run retrieval is summarized locally without prompt leakage", async () => {
+  await writeTrackedRuns([
+    {
+      id: "run-active-2",
+      datasetId: "enriched-tweets",
+      origin: session.origin,
+      status: "booting",
+      createdAt: "2026-05-01T20:00:00.000Z",
+      updatedAt: "2026-05-01T20:02:00.000Z",
+      lastSeenAt: "2026-05-01T20:02:00.000Z",
+    },
+    {
+      id: "run-complete-2",
+      datasetId: "housing-panel",
+      origin: session.origin,
+      status: "ready",
+      createdAt: "2026-05-01T19:00:00.000Z",
+      updatedAt: "2026-05-01T19:45:00.000Z",
+      lastSeenAt: "2026-05-01T19:45:00.000Z",
+      terminalAt: "2026-05-01T19:45:00.000Z",
+    },
+  ]);
+  const fakeClient = {
+    async getRunResults(runId: string) {
+      assert.equal(runId, "run-complete-2");
+      return {
+        run: {
+          id: "run-complete-2",
+          datasetId: "housing-panel",
+          status: "ready",
+          createdAt: "2026-05-01T19:00:00.000Z",
+          updatedAt: "2026-05-01T19:45:00.000Z",
+          prompt: "Mounted dataset grounding is mandatory for dataset `housing-panel`.\n\nExplain whether permit growth slowed after the rate shock.",
+        },
+        metadata: { artifactSpec: [{ type: "markdown", title: "Report" }] },
+        events: [],
+        artifacts: [{
+          id: "artifact-2",
+          runId: "run-complete-2",
+          type: "structured_result",
+          title: "result.json",
+          content: {
+            total_rows: 2400,
+            distinct_tweet_ids: 2300,
+          },
+        }],
+      };
+    },
+    async respond() {
+      throw new Error("Last completed run retrieval should bypass remote planning.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Show my last completed run.", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /^Run results/m);
+  assert.match(final, /Dataset: housing-panel/);
+  assert.match(final, /Run goal: Explain whether permit growth slowed after the rate shock\./);
+  assert.match(final, /Rows: 2,400/);
+  assert.match(final, /Saved outputs: 1/);
+  assert.match(final, /Separate active run: enriched-tweets · booting/i);
+  assert.doesNotMatch(final, /Original request|Mounted dataset grounding|Requested artifacts/i);
 });
 
 test("non-resumable run continuation returns artifacts instead of crashing", async () => {
