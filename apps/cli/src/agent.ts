@@ -503,17 +503,66 @@ function summarizeBusyDatasetConflict(error: RemoteRequestError) {
   if (!first) {
     return payload.error;
   }
-  const runId = typeof first.id === "string" ? first.id : "unknown";
-  const status = typeof first.status === "string" ? first.status : "running";
+  return summarizeBusyDatasetBlock({
+    datasetId: typeof first.datasetId === "string" ? first.datasetId : undefined,
+    runId: typeof first.id === "string" ? first.id : "unknown",
+    status: typeof first.status === "string" ? first.status : "running",
+    origin: DEFAULT_WEB_ORIGIN,
+  });
+}
+
+function summarizeBusyDatasetBlock(input: {
+  datasetId?: string;
+  runId: string;
+  status: string;
+  origin: string;
+}) {
+  const noun = input.datasetId ? `${input.datasetId} is busy` : "dataset is already busy";
   return [
-    "Blocked: dataset is already busy.",
-    `Active run: ${runId}`,
-    `Status: ${status}`,
+    `Blocked: ${noun}.`,
+    `Active run ID: ${input.runId}`,
+    `Active run status: ${input.status}`,
+    "Started new run: no",
     "",
-    "No new run was started.",
-    `Check it: research debug run ${runId}`,
-    `Dashboard: ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)}`,
+    "Recommended next step: inspect the active run before retrying.",
+    `Debug command: research debug run ${input.runId}`,
+    `Dashboard run: ${dashboardRunUrl(input.origin, input.runId)}`,
+    "Wait guidance: waiting is usually worthwhile if the active run is still updating; retry only after it finishes or is cancelled.",
   ].join("\n");
+}
+
+async function findBlockingActiveRun(
+  context: ToolExecutionContext,
+  client: RemoteApiClientType,
+  datasetId: string,
+) {
+  const remoteRuns = await withAuthRetry(context, () => client.listRuns(datasetId)).catch(() => null);
+  if (remoteRuns) {
+    return remoteRuns.runs.find((run) => !isTerminalRunStatus(run.status)) ?? null;
+  }
+
+  const tracked = await readTrackedRuns().catch(() => []);
+  return tracked.find((run) => run.datasetId === datasetId && !run.terminalAt && !isTerminalRunStatus(run.status)) ?? null;
+}
+
+async function blockIfDatasetBusy(
+  context: ToolExecutionContext,
+  client: RemoteApiClientType,
+  datasetId: string,
+) {
+  const active = await findBlockingActiveRun(context, client, datasetId);
+  if (!active) {
+    return null;
+  }
+  return {
+    summary: summarizeBusyDatasetBlock({
+      datasetId,
+      runId: active.id,
+      status: active.status,
+      origin: requireSession(context).origin,
+    }),
+    data: { ok: false, reason: "dataset_busy", activeRunId: active.id },
+  };
 }
 
 function summarizeRemoteFailure(error: RemoteRequestError) {
@@ -933,7 +982,7 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
     case "start_remote_agent_run":
     case "query_remote_dataset":
     case "aggregate_remote_dataset":
-      return `Starting remote run for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+      return `Checking whether ${String(input.datasetId ?? "").trim() || "dataset"} is available for a new run...`;
     case "create_research_environment":
     case "create_public_data_environment":
       return "Starting dataset build...";
@@ -1326,6 +1375,10 @@ export function createToolRegistry(): ToolDefinition[] {
         } else {
           context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of creating duplicate ${requestedDatasetId}.` });
         }
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
+        }
         const privateSources: Array<{ key: string; filename: string; sizeBytes?: number; description?: string }> = [];
         for (const inputPath of localPaths) {
           const filename = basename(inputPath);
@@ -1409,6 +1462,10 @@ export function createToolRegistry(): ToolDefinition[] {
         const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, input, existingDatasets.datasets);
         if (datasetId !== requestedDatasetId) {
           context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of creating duplicate ${requestedDatasetId}.` });
+        }
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
         }
         const prompt = String(input.prompt);
         let result;
@@ -1629,6 +1686,10 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
+        }
         const prompt = String(input.prompt);
         let result;
         try {
@@ -1679,6 +1740,10 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
+        }
         const prompt = String(input.prompt);
         let started;
         try {
@@ -1729,6 +1794,10 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
+        }
         const prompt = String(input.prompt);
         let started;
         try {
@@ -1781,6 +1850,10 @@ export function createToolRegistry(): ToolDefinition[] {
         const sourceDescription = String(input.sourceDescription);
         const client = createRemoteClient(context);
         const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
+        }
         let result;
         try {
           result = await client.startRun(datasetId, typeof input.prompt === "string" ? input.prompt : `Fetch public data: ${sourceDescription}`, {
@@ -1859,6 +1932,10 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
+        }
         let result;
         try {
           result = await withAuthRetry(context, () => client.startRun(
@@ -1916,6 +1993,10 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
+        }
         let result;
         try {
           result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
@@ -1984,6 +2065,10 @@ export function createToolRegistry(): ToolDefinition[] {
             },
           };
         }
+        const busy = await blockIfDatasetBusy(context, client, previous.run.datasetId);
+        if (busy) {
+          return busy;
+        }
         let result;
         try {
           result = await client.startRun(previous.run.datasetId, withMountedDatasetGroundingPrompt(previous.run.datasetId, String(input.prompt)), {
@@ -2034,6 +2119,10 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
+        }
         let result;
         try {
           result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
@@ -2086,6 +2175,10 @@ export function createToolRegistry(): ToolDefinition[] {
         const client = createRemoteClient(context);
         const labelingPrompt = String(input.labelingPrompt);
         const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const busy = await blockIfDatasetBusy(context, client, datasetId);
+        if (busy) {
+          return busy;
+        }
         let result;
         try {
           result = await client.startRun(

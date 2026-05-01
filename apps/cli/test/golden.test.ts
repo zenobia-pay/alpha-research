@@ -98,6 +98,9 @@ for (const fixture of await readFixtures()) {
           },
         };
       },
+      async listRuns() {
+        return { runs: [] };
+      },
       async startRun() {
         toolCalls.push("query_remote_dataset");
         return {

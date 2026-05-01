@@ -140,6 +140,10 @@ test("async query run returns immediately with canonical dashboard and terminal 
         },
       };
     },
+    async listRuns() {
+      calls.push("listRuns");
+      return { runs: [] };
+    },
     async startRun(_datasetId: string, prompt: string, options?: Record<string, unknown>) {
       calls.push("startRun");
       startedPrompt = prompt;
@@ -210,6 +214,9 @@ test("dataset describe request starts briefing run with required artifacts", asy
     },
     async listDatasets() {
       return { datasets: [{ id: "econ", name: "Economics", status: "ready" }] };
+    },
+    async listRuns() {
+      return { runs: [] };
     },
     async startRun(datasetId: string, prompt: string, options?: Record<string, unknown>) {
       startedDatasetId = datasetId;
@@ -425,6 +432,7 @@ test("non-resumable run continuation returns artifacts instead of crashing", asy
 });
 
 test("busy dataset conflict returns blocking run guidance", async () => {
+  let attemptedStart = false;
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
       if (Array.isArray(body.input)) {
@@ -450,12 +458,19 @@ test("busy dataset conflict returns blocking run guidance", async () => {
         },
       };
     },
+    async listRuns(datasetId?: string) {
+      assert.equal(datasetId, "busy-dataset");
+      return {
+        runs: [{
+          id: "run-blocking",
+          datasetId: "busy-dataset",
+          status: "running",
+        }],
+      };
+    },
     async startRun() {
-      throw new RemoteRequestError(
-        'Remote request failed (409) for /api/cli/datasets/busy-dataset/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-blocking","status":"running"}]}',
-        409,
-        "/api/cli/datasets/busy-dataset/runs",
-      );
+      attemptedStart = true;
+      throw new Error("busy preflight should prevent startRun");
     },
     async appendSessionEntry() {
       return { id: "entry-1" };
@@ -471,9 +486,13 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   await runAgentTurn("run analysis on busy dataset", session, emit, undefined, deps);
 
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Blocked: dataset is already busy/);
-  assert.match(joined, /Active run: run-blocking/);
-  assert.match(joined, /No new run was started/);
+  assert.equal(attemptedStart, false);
+  assert.match(joined, /Checking whether busy-dataset is available for a new run/);
+  assert.match(joined, /Blocked: busy-dataset is busy/);
+  assert.match(joined, /Active run ID: run-blocking/);
+  assert.match(joined, /Started new run: no/);
+  assert.match(joined, /Debug command: research debug run run-blocking/);
+  assert.match(joined, /Wait guidance: waiting is usually worthwhile/);
   assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
 });
 
@@ -992,6 +1011,9 @@ test("product workflow success: econ research hypothesis creates data environmen
           prompt,
         },
       };
+    },
+    async listRuns() {
+      return { runs: [] };
     },
     async getRunEvents(runId: string) {
       return { events: [{ id: `evt-${runId}`, runId, message: `${runId} completed.` }] };
