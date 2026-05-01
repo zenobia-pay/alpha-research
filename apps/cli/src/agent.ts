@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 
 import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage";
 
-import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
+import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
 import {
   RemoteApiClient,
@@ -1332,6 +1332,10 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
     case "query_remote_dataset":
     case "aggregate_remote_dataset":
       return `Starting remote run for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+    case "run_remote_transformation":
+      return `Starting remote analysis for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+    case "run_remote_labeling":
+      return `Starting labeling run for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
     case "create_research_environment":
     case "create_public_data_environment":
       return "Starting dataset build...";
@@ -1356,6 +1360,87 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
 
 function shouldEchoToolResult(summary: string) {
   return !summary.startsWith("Blocked:");
+}
+
+function normalizeAsyncRunStatus(status: unknown) {
+  const value = typeof status === "string" ? status.toLowerCase() : "";
+  if (value === "booting") return "starting";
+  if (value === "running") return "running";
+  if (value === "queued") return "queued";
+  return value || "queued";
+}
+
+function artifactExpectationFromTitle(title: string) {
+  const lower = title.toLowerCase();
+  if (lower.includes("bar chart")) return "bar chart";
+  if (lower.includes("chart")) return "chart";
+  if (lower.includes("example")) return "representative examples";
+  if (lower.includes("json")) return "structured JSON results";
+  if (lower.includes("label")) return "labeling output";
+  if (lower.includes("summary") || lower.includes("report")) return "written summary";
+  return title;
+}
+
+function inferArtifactExpectations(toolName: string, resultData: Record<string, unknown>, summary: string) {
+  const hints = new Set<string>();
+  const artifacts = Array.isArray(resultData.artifacts) ? resultData.artifacts : [];
+  for (const artifact of artifacts) {
+    if (!isRecord(artifact) || typeof artifact.title !== "string") continue;
+    hints.add(artifactExpectationFromTitle(artifact.title));
+  }
+  const prompt = isRecord(resultData.run) && typeof resultData.run.prompt === "string" ? resultData.run.prompt : summary;
+  const promptLower = prompt.toLowerCase();
+  if (promptLower.includes("bar chart")) hints.add("bar chart");
+  if (promptLower.includes("representative example")) hints.add("representative examples");
+  if (promptLower.includes("strict json")) hints.add("structured JSON results");
+  if (toolName === "run_remote_labeling") hints.add("labeling output");
+  if (toolName === "run_remote_transformation" && hints.size === 0) hints.add("analysis outputs");
+  return [...hints].slice(0, 4);
+}
+
+function asyncRunLaunchSummary(
+  toolName: string,
+  result: AgentToolResult,
+  context: ToolExecutionContext,
+) {
+  const resultData = isRecord(result.data) ? result.data : {};
+  const run = isRecord(resultData.run) ? resultData.run : {};
+  const runId = typeof run.id === "string" ? run.id : null;
+  const datasetId = typeof run.datasetId === "string" ? run.datasetId : null;
+  const status = normalizeAsyncRunStatus(run.status);
+  const expectations = inferArtifactExpectations(toolName, resultData, result.summary);
+  const headline = (() => {
+    switch (toolName) {
+      case "run_remote_transformation":
+        return `Started remote analysis${datasetId ? ` on ${datasetId}` : ""}.`;
+      case "run_remote_labeling":
+        return `Started remote labeling${datasetId ? ` on ${datasetId}` : ""}.`;
+      case "describe_remote_dataset":
+        return `Started dataset briefing run ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
+      case "create_research_environment":
+        return `Started research environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
+      case "create_public_data_environment":
+        return `Started public-data environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
+      case "query_remote_dataset":
+        return `Started query run ${runId ?? "unknown"}${datasetId ? ` on ${datasetId}` : ""}.`;
+      case "aggregate_remote_dataset":
+        return `Started aggregate run ${runId ?? "unknown"}${datasetId ? ` on ${datasetId}` : ""}.`;
+      default:
+        return `Started run ${runId ?? "unknown"}${datasetId ? ` on ${datasetId}` : ""}.`;
+    }
+  })();
+  const lines = [headline];
+  if (runId) {
+    lines.push(`Run: ${runId} (${status})`);
+  }
+  lines.push("Next: the run will keep processing in the background. Follow it in the dashboard or ask `research show active runs`.");
+  if (expectations.length > 0) {
+    lines.push(`Expected artifacts: ${expectations.join(", ")}.`);
+  }
+  if (context.session && runId) {
+    lines.push(`Dashboard: ${dashboardRunUrl(context.session.origin, runId)}`);
+  }
+  return lines.join("\n");
 }
 
 export function createToolRegistry(): ToolDefinition[] {
@@ -2880,7 +2965,7 @@ export async function runAgentTurn(
         }
         throw error;
       }
-      if (shouldEchoToolResult(result.summary)) {
+      if (shouldEchoToolResult(result.summary) && !(ASYNC_RUN_START_TOOLS.has(tool.name) && !exposeWaitTool)) {
         emit({ role: "tool", content: result.summary });
       }
       await persistSessionEntry(context, {
@@ -2892,11 +2977,33 @@ export async function runAgentTurn(
       });
       if (ASYNC_RUN_START_TOOLS.has(tool.name) && !exposeWaitTool) {
         const resultData = isRecord(result.data) ? result.data : {};
+        if (resultData.ok === false) {
+          emit({ role: "assistant", content: result.summary });
+          await persistSessionEntry(context, {
+            role: "assistant",
+            kind: "local_summary",
+            title: "CLI blocked",
+            content: result.summary,
+          });
+          return {
+            sessionId: context.sessionId,
+            previousResponseId: conversationState?.previousResponseId ?? null,
+          };
+        }
         const startedRunId = isRecord(resultData.run) && typeof resultData.run.id === "string" ? resultData.run.id : null;
-        const finalSummary =
-          context.session && context.sessionId && startedRunId
-            ? `${result.summary}\nTerminal session: ${dashboardTerminalSessionUrl(context.session.origin, context.sessionId, startedRunId)}`
-            : result.summary;
+        if (!startedRunId) {
+          toolOutputs.push({
+            type: "function_call_output",
+            call_id: call.call_id ?? tool.name,
+            output: JSON.stringify({
+              ok: true,
+              summary: result.summary,
+              data: result.data,
+            }),
+          });
+          continue;
+        }
+        const finalSummary = asyncRunLaunchSummary(tool.name, result, context);
         emit({ role: "assistant", content: finalSummary });
         await persistSessionEntry(context, {
           role: "assistant",

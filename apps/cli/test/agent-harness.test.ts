@@ -322,8 +322,10 @@ test("async query run returns immediately with canonical dashboard and terminal 
 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Started query run run-123/);
+  assert.match(final, /Run: run-123 \(starting\)/);
+  assert.match(final, /research show active runs/);
   assert.match(final, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-123#run-run-123/);
-  assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-1&runId=run-123#run-run-123/);
+  assert.doesNotMatch(final, /Terminal session:/);
   assert.equal(calls.includes("startRun"), true);
   assert.match(startedPrompt, /Mounted dataset grounding is mandatory for dataset `enriched-tweets`/);
   assert.match(startedPrompt, /Do not download public sample data, GitHub CSVs/);
@@ -421,7 +423,105 @@ test("dataset describe request starts briefing run with required artifacts", asy
   assert.match(messages.map((message) => message.content).join("\n"), /Using dataset Economics \(econ\) for this briefing/);
   assert.match(final, /Started dataset briefing run run-describe for econ/);
   assert.match(final, /Expected artifacts: Dataset Briefing, Dataset Profile/);
-  assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-describe&runId=run-describe#run-run-describe/);
+  assert.match(final, /Run: run-describe \(starting\)/);
+  assert.match(final, /research show active runs/);
+  assert.doesNotMatch(final, /Terminal session:/);
+});
+
+test("specific viral tweets experiment starts with user-facing analysis summary and artifact expectations", async () => {
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "viral-session",
+        payload: {
+          id: "response-viral",
+          output: [
+            {
+              type: "function_call",
+              call_id: "call-list",
+              name: "list_remote_datasets",
+              arguments: JSON.stringify({}),
+            },
+            {
+              type: "function_call",
+              call_id: "call-inspect",
+              name: "inspect_remote_dataset",
+              arguments: JSON.stringify({ datasetId: "enriched-tweets" }),
+            },
+            {
+              type: "function_call",
+              call_id: "call-transform",
+              name: "run_remote_transformation",
+              arguments: JSON.stringify({
+                datasetId: "enriched-tweets",
+                prompt: "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
+              }),
+            },
+          ],
+        },
+      };
+    },
+    async listDatasets() {
+      return { datasets: [{ id: "enriched-tweets", name: "Enriched Tweets", status: "ready" }] };
+    },
+    async getDataset(datasetId: string) {
+      return {
+        dataset: {
+          id: datasetId,
+          name: "Enriched Tweets",
+          status: "ready",
+          fields: ["tweet_id", "quoted_tweet_id", "quote_tweet_count", "text"],
+        },
+      };
+    },
+    async startRun(datasetId: string, prompt: string, options?: Record<string, unknown>) {
+      return {
+        run: {
+          id: "run-transform-viral",
+          datasetId,
+          status: "queued",
+          prompt,
+          createdAt: "2026-05-01T19:42:40.000Z",
+          updatedAt: "2026-05-01T19:42:40.000Z",
+        },
+        artifacts: [
+          { type: "chart", title: "Bar Chart" },
+          { type: "json", title: "Strict JSON Labels" },
+          { type: "markdown", title: "Representative Examples" },
+        ],
+        ...(options ? { options } : {}),
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-viral" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const joinedMessages = messages.map((message) => message.content).join("\n");
+  assert.match(joinedMessages, /Checking remote datasets/);
+  assert.match(joinedMessages, /Inspecting dataset enriched-tweets/);
+  assert.match(joinedMessages, /Starting remote analysis for enriched-tweets/);
+  assert.doesNotMatch(joinedMessages, /Running run_remote_transformation/);
+  assert.match(joinedMessages, /Started remote analysis on enriched-tweets/);
+  assert.match(joinedMessages, /Run: run-transform-viral \(queued\)/);
+  assert.match(joinedMessages, /Expected artifacts: bar chart, structured JSON results, representative examples/);
+  assert.match(joinedMessages, /research show active runs/);
+  assert.match(joinedMessages, /Dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-transform-viral#run-run-transform-viral/);
+  assert.doesNotMatch(joinedMessages, /Terminal session:/);
 });
 
 test("run result retrieval includes original prompt and artifacts", async () => {
