@@ -14,7 +14,16 @@ import {
   type RemoteDatasetSummary,
 } from "./remote.js";
 import { readSession, login } from "./session.js";
-import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
+import {
+  isTerminalRunFailureStatus,
+  isTerminalRunStatus,
+  isTerminalRunSuccessStatus,
+  isUncertainRunStatus,
+  readTrackedRuns,
+  spawnRunWatcher,
+  trackRemoteRun,
+  type TrackedRunRecord,
+} from "./runs.js";
 
 export type AgentMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -433,6 +442,150 @@ function renderStructuredResult(result: Record<string, unknown>) {
   if (lines.length === 0) {
     lines.push("Structured result", `- ${JSON.stringify(result)}`);
   }
+  return lines.join("\n");
+}
+
+function renderArtifactPreview(artifacts: Array<{ title?: string; type?: string; content?: unknown }>) {
+  const summaryArtifact = artifacts.find((artifact) => artifact.type === "remote_agent_summary" && typeof artifact.content === "string");
+  if (summaryArtifact && typeof summaryArtifact.content === "string" && summaryArtifact.content.trim()) {
+    return summaryArtifact.content.trim();
+  }
+  const markdownArtifact = artifacts.find((artifact) => typeof artifact.content === "string" && artifact.title?.endsWith(".md"));
+  if (markdownArtifact && typeof markdownArtifact.content === "string" && markdownArtifact.content.trim()) {
+    return markdownArtifact.content.trim();
+  }
+  return null;
+}
+
+function formatAbsoluteTimestamp(value: string | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
+}
+
+function formatRelativeTimestamp(value: string | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const diffMs = date.getTime() - Date.now();
+  const diffMinutes = Math.round(diffMs / 60000);
+  if (Math.abs(diffMinutes) < 1) return "just now";
+  if (Math.abs(diffMinutes) < 60) return `${Math.abs(diffMinutes)} minute${Math.abs(diffMinutes) === 1 ? "" : "s"} ${diffMinutes < 0 ? "ago" : "from now"}`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) return `${Math.abs(diffHours)} hour${Math.abs(diffHours) === 1 ? "" : "s"} ${diffHours < 0 ? "ago" : "from now"}`;
+  const diffDays = Math.round(diffHours / 24);
+  return `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"} ${diffDays < 0 ? "ago" : "from now"}`;
+}
+
+function formatWhen(value: string | undefined) {
+  const absolute = formatAbsoluteTimestamp(value);
+  const relative = formatRelativeTimestamp(value);
+  if (absolute && relative) return `${absolute} (${relative})`;
+  return absolute ?? relative ?? "unknown";
+}
+
+function chooseLastRunForResults(runs: TrackedRunRecord[]) {
+  const latestTracked = runs[0] ?? null;
+  const latestCompleted = runs.find((run) => isTerminalRunSuccessStatus(run.status)) ?? null;
+  const latestFailed = runs.find((run) => isTerminalRunFailureStatus(run.status) || isUncertainRunStatus(run.status)) ?? null;
+  const activeRuns = runs.filter((run) => !run.terminalAt && !isTerminalRunStatus(run.status));
+  return { latestTracked, latestCompleted, latestFailed, activeRuns };
+}
+
+function renderRecentRunList(label: string, runs: TrackedRunRecord[]) {
+  if (runs.length === 0) return null;
+  return [
+    label,
+    ...runs.map((run) => `- ${run.datasetId} — ${formatStatusForHumans(run.status)} — updated ${formatWhen(run.updatedAt)}`),
+  ].join("\n");
+}
+
+async function maybeHandleLastRunResultsRequest(
+  input: string,
+  initialSession: SessionRecord | null,
+  deps: AgentRuntimeDeps,
+  emit: (message: AgentMessage) => void,
+) {
+  const lower = input.toLowerCase();
+  if (!initialSession || !/\blast\b/.test(lower) || !/\b(run|result|results|artifacts?)\b/.test(lower) || /\b(stuck|happening|progress|status)\b/.test(lower)) {
+    return null;
+  }
+
+  emit({ role: "tool", content: "Checking run history..." });
+  const runs = await readTrackedRuns().catch(() => []);
+  if (runs.length === 0) {
+    return "I do not see any tracked runs yet.";
+  }
+
+  const { latestTracked, latestCompleted, latestFailed, activeRuns } = chooseLastRunForResults(runs);
+  if (!latestCompleted) {
+    if (latestTracked && !isTerminalRunStatus(latestTracked.status)) {
+      const lines = [
+        "Your latest tracked run is still in progress, so there are no finished results to show yet.",
+        "",
+        `Selected run: ${latestTracked.datasetId}`,
+        `Status: ${formatStatusForHumans(latestTracked.status)}`,
+        `Last update: ${formatWhen(latestTracked.updatedAt)}`,
+      ];
+      if (latestTracked.prompt) lines.push(`Request: ${latestTracked.prompt.split("\n")[0]?.slice(0, 160)}`);
+      lines.push("", `Debug: research debug run ${latestTracked.id}`);
+      return lines.join("\n");
+    }
+    if (latestFailed) {
+      return [
+        "Your latest tracked run did not complete successfully, so there are no clean results to show.",
+        "",
+        `Selected run: ${latestFailed.datasetId}`,
+        `Status: ${formatStatusForHumans(latestFailed.status)}`,
+        `Last update: ${formatWhen(latestFailed.updatedAt)}`,
+        "",
+        `Debug: research debug run ${latestFailed.id}`,
+      ].join("\n");
+    }
+    return "I found tracked runs, but none has completed successfully yet.";
+  }
+
+  const reason = latestTracked?.id === latestCompleted.id
+    ? "Selected your most recent tracked run because it already completed."
+    : "Selected your most recent completed run because newer tracked runs are still in progress.";
+
+  emit({ role: "tool", content: `Retrieving results for ${latestCompleted.datasetId}...` });
+  const payload = await deps.createRemoteClient(initialSession).getRunResults(latestCompleted.id);
+  const producedArtifacts = payload.artifacts.filter(isProducedArtifact);
+  const structuredResult = findStructuredResultArtifact(producedArtifacts);
+  const preview = renderArtifactPreview(producedArtifacts);
+  const lines = [
+    reason,
+    "",
+    `Selected run: ${payload.run.datasetId}`,
+    `Completed: ${formatWhen(latestCompleted.terminalAt ?? latestCompleted.updatedAt)}`,
+  ];
+  if (payload.run.prompt?.trim()) {
+    lines.push(`Request: ${payload.run.prompt.trim().split("\n")[0]?.slice(0, 160)}`);
+  }
+  if (structuredResult?.content && isRecord(structuredResult.content)) {
+    lines.push("", renderStructuredResult(structuredResult.content));
+  } else if (preview) {
+    lines.push("", "Result preview", preview);
+  }
+  if (producedArtifacts.length > 0) {
+    lines.push("", "Artifacts", ...producedArtifacts.map((artifact) => `- ${artifactBullet(artifact)}`));
+  }
+  const otherCompleted = runs.filter((run) => run.id !== latestCompleted.id && isTerminalRunSuccessStatus(run.status)).slice(0, 2);
+  const alsoActive = activeRuns.filter((run) => run.id !== latestCompleted.id).slice(0, 2);
+  const activeList = renderRecentRunList("Also active", alsoActive);
+  const completedList = renderRecentRunList("Other recent completed runs", otherCompleted);
+  if (activeList) lines.push("", activeList);
+  if (completedList) lines.push("", completedList);
+  lines.push("", `Debug: research debug run ${latestCompleted.id}`);
   return lines.join("\n");
 }
 
@@ -3099,6 +3252,7 @@ export async function runAgentTurn(
 
   const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession)
     ?? await maybeHandleDatasetSelectionFromTopic(input, initialSession, emit, deps)
+    ?? await maybeHandleLastRunResultsRequest(input, initialSession, deps, emit)
     ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession);
   if (localRunResponse) {
     emit({ role: "assistant", content: localRunResponse });

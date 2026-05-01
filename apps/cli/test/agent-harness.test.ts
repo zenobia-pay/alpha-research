@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
+  createToolRegistry,
   createDefaultAgentRuntimeDeps,
   runAgentTurn,
   type AgentMessage,
@@ -13,6 +14,7 @@ import {
 import type { SessionRecord } from "../src/config.js";
 import { buildRunDebugBundle } from "../src/debug.js";
 import { RemoteRequestError } from "../src/remote.js";
+import { writeTrackedRuns } from "../src/runs.js";
 
 const session = {
   origin: "https://alpharesearch.nyc",
@@ -678,7 +680,8 @@ test("busy dataset conflict explains active run and emits heartbeat while waitin
   }
 });
 
-test("run result retrieval includes original prompt and artifacts", async () => {
+test("run result retrieval includes selected run context and artifacts", async () => {
+  const now = Date.now();
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
       if (Array.isArray(body.input)) {
@@ -736,15 +739,191 @@ test("run result retrieval includes original prompt and artifacts", async () => 
     ...createDefaultAgentRuntimeDeps(),
     createRemoteClient: () => fakeClient as never,
     readSession: async () => session,
+    createToolRegistry,
   };
   const { messages, emit } = collect();
 
-  await runAgentTurn("what was my last result?", session, emit, undefined, deps);
+  const originalEnv = process.env.RESEARCH_SESSION_DIR;
+  const sessionDir = await mkdtemp(join(tmpdir(), "research-last-run-single-"));
+  process.env.RESEARCH_SESSION_DIR = sessionDir;
+  try {
+    await writeTrackedRuns([{
+      id: "run-456",
+      datasetId: "enriched-tweets",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "ready",
+      prompt: "Quick sanity check.",
+      createdAt: new Date(now - 20 * 60_000).toISOString(),
+      updatedAt: new Date(now - 10 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 10 * 60_000).toISOString(),
+      terminalAt: new Date(now - 10 * 60_000).toISOString(),
+    }]);
+    await runAgentTurn("what was my last result?", session, emit, undefined, deps);
+  } finally {
+    process.env.RESEARCH_SESSION_DIR = originalEnv;
+  }
 
-  const toolOutput = messages.find((message) => message.role === "tool" && message.content.includes("Original request"))?.content ?? "";
-  assert.match(toolOutput, /Quick sanity check\./);
-  assert.match(toolOutput, /Artifacts are the saved outputs from the run/);
-  assert.match(toolOutput, /Suggested follow-ups/);
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Selected your most recent tracked run because it already completed\./);
+  assert.match(final, /Selected run: enriched-tweets/);
+  assert.match(final, /Request: Quick sanity check\./);
+  assert.match(final, /Artifacts/);
+});
+
+test("last run results select the latest completed run and explain newer active runs", async () => {
+  const now = Date.now();
+  const trackedRuns = [
+    {
+      id: "run-active-1",
+      datasetId: "econ",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "booting",
+      createdAt: new Date(now - 5 * 60_000).toISOString(),
+      updatedAt: new Date(now - 2 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 2 * 60_000).toISOString(),
+    },
+    {
+      id: "run-active-2",
+      datasetId: "labor",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "running",
+      createdAt: new Date(now - 8 * 60_000).toISOString(),
+      updatedAt: new Date(now - 4 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 4 * 60_000).toISOString(),
+    },
+    {
+      id: "run-complete",
+      datasetId: "enriched-tweets",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "ready",
+      createdAt: new Date(now - 30 * 60_000).toISOString(),
+      updatedAt: new Date(now - 20 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 20 * 60_000).toISOString(),
+      terminalAt: new Date(now - 20 * 60_000).toISOString(),
+    },
+  ];
+  const fakeClient = {
+    async getRunResults(runId: string) {
+      assert.equal(runId, "run-complete");
+      return {
+        run: {
+          id: runId,
+          datasetId: "enriched-tweets",
+          status: "ready",
+          prompt: "Show me the summary.",
+        },
+        metadata: { artifactSpec: [] },
+        events: [],
+        artifacts: [{
+          id: "artifact-summary",
+          runId,
+          type: "remote_agent_summary",
+          title: "Remote Agent Summary",
+          content: "Confirmed the dataset is loaded and summarized the latest findings.",
+        }],
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+    createToolRegistry,
+  };
+  const { messages, emit } = collect();
+
+  const originalEnv = process.env.RESEARCH_SESSION_DIR;
+  const sessionDir = await mkdtemp(join(tmpdir(), "research-last-run-"));
+  process.env.RESEARCH_SESSION_DIR = sessionDir;
+  try {
+    await writeTrackedRuns(trackedRuns);
+    await runAgentTurn("Show me the results from my last run.", session, emit, undefined, deps);
+  } finally {
+    process.env.RESEARCH_SESSION_DIR = originalEnv;
+  }
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Selected your most recent completed run because newer tracked runs are still in progress\./);
+  assert.match(final, /Selected run: enriched-tweets/);
+  assert.match(final, /Result preview/);
+  assert.match(final, /Also active/);
+  assert.doesNotMatch(final, /run-complete ·/);
+});
+
+test("last run results report an in-progress latest run when nothing has completed", async () => {
+  const now = Date.now();
+  const trackedRuns = [
+    {
+      id: "run-active",
+      datasetId: "econ",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "running",
+      prompt: "Build the panel and summarize it.",
+      createdAt: new Date(now - 10 * 60_000).toISOString(),
+      updatedAt: new Date(now - 2 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 2 * 60_000).toISOString(),
+    },
+  ];
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => ({}) as never,
+    readSession: async () => session,
+    createToolRegistry,
+  };
+  const { messages, emit } = collect();
+
+  const originalEnv = process.env.RESEARCH_SESSION_DIR;
+  const sessionDir = await mkdtemp(join(tmpdir(), "research-last-run-active-"));
+  process.env.RESEARCH_SESSION_DIR = sessionDir;
+  try {
+    await writeTrackedRuns(trackedRuns);
+    await runAgentTurn("what was my last result?", session, emit, undefined, deps);
+  } finally {
+    process.env.RESEARCH_SESSION_DIR = originalEnv;
+  }
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /still in progress, so there are no finished results to show yet/);
+  assert.match(final, /Selected run: econ/);
+  assert.match(final, /Debug: research debug run run-active/);
+});
+
+test("last run results report a failed latest run when nothing completed successfully", async () => {
+  const now = Date.now();
+  const trackedRuns = [
+    {
+      id: "run-failed",
+      datasetId: "housing",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "failed",
+      createdAt: new Date(now - 20 * 60_000).toISOString(),
+      updatedAt: new Date(now - 15 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 15 * 60_000).toISOString(),
+      terminalAt: new Date(now - 15 * 60_000).toISOString(),
+    },
+  ];
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => ({}) as never,
+    readSession: async () => session,
+    createToolRegistry,
+  };
+  const { messages, emit } = collect();
+
+  const originalEnv = process.env.RESEARCH_SESSION_DIR;
+  const sessionDir = await mkdtemp(join(tmpdir(), "research-last-run-failed-"));
+  process.env.RESEARCH_SESSION_DIR = sessionDir;
+  try {
+    await writeTrackedRuns(trackedRuns);
+    await runAgentTurn("show me the results from my last run", session, emit, undefined, deps);
+  } finally {
+    process.env.RESEARCH_SESSION_DIR = originalEnv;
+  }
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /did not complete successfully/);
+  assert.match(final, /Selected run: housing/);
+  assert.match(final, /Debug: research debug run run-failed/);
 });
 
 test("non-resumable run continuation returns artifacts instead of crashing", async () => {
