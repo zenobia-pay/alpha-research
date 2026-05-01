@@ -118,6 +118,47 @@ test("vague housing risk request asks scope before costly work", async () => {
   assert.doesNotMatch(final, /Started|Queued|Dashboard:/i);
 });
 
+test("dataset inventory renders a normalized, scannable list with noisy datasets hidden", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Dataset inventory should be answered directly from the product inventory path.");
+    },
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "econ", name: "Econ housing-cycle core sources v1", status: "ready" },
+          { id: "enriched-tweets", name: "Enriched Tweets", status: "uploading", deploymentStatus: "deployed" },
+          { id: "mixed-smoke-1776989749", name: "Mixed Smoke Test 3", status: "deploying" },
+          { id: "upload-test-93961", name: "Upload Test", status: "uploaded", deploymentStatus: "deployable" },
+          { id: "dataset", name: "enriched_tweets_parquet_dataset", status: "draft" },
+        ],
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("What datasets do I have?", session, emit, undefined, deps);
+
+  assert.equal(messages[0]?.content, "Checking local datasets...");
+  assert.equal(messages[2]?.content, "Checking remote datasets. This can take a few seconds...");
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Available datasets/);
+  assert.match(final, /name\s+id\s+scope\s+state\s+description/);
+  assert.match(final, /County Economics\s+demo-econ\s+local\s+ready/);
+  assert.match(final, /Tweet Archive\s+demo-tweets\s+local\s+ready/);
+  assert.match(final, /econ\s+remote\s+ready/);
+  assert.match(final, /Enriched Tweets\s+enriched-tweets\s+remote\s+ready/);
+  assert.match(final, /dataset\s+remote\s+draft/);
+  assert.doesNotMatch(final, /Mixed Smoke Test 3|upload-test-93961/);
+  assert.match(final, /Hidden 2 likely test or system datasets/);
+  assert.match(final, /Next: Try `describe econ`/);
+});
+
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {
   const calls: string[] = [];
   let startedPrompt = "";
