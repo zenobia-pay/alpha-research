@@ -820,16 +820,24 @@ function maybeHandleOrientation(input: string) {
 
 function maybeHandleCsvImportHowTo(input: string) {
   const lower = input.toLowerCase();
-  if (!/\bcsv\b/.test(lower) || !/\b(desktop|downloads|local|my computer|file)\b/.test(lower) || !/\b(how|turn it|import|create|research here)\b/.test(lower)) {
+  const mentionsTabularFile = /\b(csv|tsv|parquet|jsonl?|spreadsheet|export|file)\b/.test(lower);
+  const mentionsImportIntent = /\b(how|need from me|turn it|turn this|import|ingest|create|build|research here|dataset)\b/.test(lower);
+  const missingAbsolutePath = !/(^|[\s("'`])\/[^\s"'`)]+|[a-z]:\\[^\s]+/i.test(input);
+  if (!mentionsTabularFile || !mentionsImportIntent || !missingAbsolutePath) {
     return null;
   }
   return [
-    "I need the absolute path to the CSV and a one-line description of what it contains.",
+    "I need 2 things to import your file into RESEARCH:",
+    "",
+    "- Absolute file path",
+    "- One-line description of what is in the file",
     "",
     "Example:",
-    "`/Users/ryanprendergast/Desktop/support_tickets.csv` — customer support tickets with timestamps, categories, priorities, and resolution status.",
+    "`/Users/ryanprendergast/Desktop/support_tickets.csv`",
+    "`customer support tickets with timestamps, categories, priorities, and resolution status`",
     "",
-    "Once you provide that, I can infer the schema, register the dataset, upload it, and deploy it for research. If you only know a hint, I can help narrow it down, but I still need the exact path before import.",
+    "What happens next: I will inspect the file, infer the schema, choose a dataset name/id with you if needed, and prepare it for research.",
+    "If you are not sure how to get the path, drag the file into Terminal or copy it from Finder.",
   ].join("\n");
 }
 

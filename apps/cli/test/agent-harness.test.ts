@@ -84,13 +84,45 @@ test("file import how-to asks for path before ingesting", async () => {
   );
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /absolute path/i);
+  assert.match(final, /I need 2 things to import your file/i);
+  assert.match(final, /absolute file path/i);
   assert.match(final, /one-line description/i);
   assert.match(final, /infer the schema/i);
-  assert.match(final, /register the dataset/i);
-  assert.match(final, /upload it/i);
-  assert.match(final, /deploy it/i);
+  assert.match(final, /dataset name\/id/i);
+  assert.match(final, /prepare it for research/i);
+  assert.match(final, /\/Users\/ryanprendergast\/Desktop\/support_tickets\.csv/i);
+  assert.doesNotMatch(final, /register the dataset|upload it|deploy it/i);
   assert.doesNotMatch(final, /Started|run-[a-z0-9-]+|Dashboard:/i);
+});
+
+test("journey P02 wording resolves locally without remote planning", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Missing-path intake should be answered locally without remote planning.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "I have a CSV export of customer support tickets. I want to turn it into a dataset I can research here, but I don't know what you need from me.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.equal(messages.length, 1);
+  const final = messages[0]?.content ?? "";
+  assert.match(final, /absolute file path/i);
+  assert.match(final, /one-line description/i);
+  assert.match(final, /What happens next:/i);
+  assert.doesNotMatch(final, /RESEARCH turns your data into a dataset/i);
+  assert.doesNotMatch(final, /register|upload|deploy/i);
 });
 
 test("vague housing risk request asks scope before costly work", async () => {

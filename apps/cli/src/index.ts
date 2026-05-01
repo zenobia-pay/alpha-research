@@ -25,7 +25,21 @@ function printAgentMessage(message: AgentMessage) {
   }
 }
 
+function printPromptModeStatus(prompt: string) {
+  const lower = prompt.toLowerCase();
+  const mentionsTabularFile = /\b(csv|tsv|parquet|jsonl?|spreadsheet|export|file)\b/.test(lower);
+  const mentionsImportIntent = /\b(how|need from me|turn it|turn this|import|ingest|create|build|research here|dataset)\b/.test(lower);
+  const missingAbsolutePath = !/(^|[\s("'`])\/[^\s"'`)]+|[a-z]:\\[^\s]+/i.test(prompt);
+  if (mentionsTabularFile && mentionsImportIntent && missingAbsolutePath) {
+    console.log("I need 2 things to import your file: absolute path and a one-line description.");
+    console.log("Example path: /Users/name/data/tickets.csv");
+    return;
+  }
+  console.log("research is working...");
+}
+
 async function runPromptMode(prompt: string) {
+  printPromptModeStatus(prompt);
   const session = await readSession();
   const conversationState = await runAgentTurn(prompt, session, printAgentMessage);
   return conversationState;
