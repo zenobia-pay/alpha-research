@@ -954,6 +954,10 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
   }
 }
 
+function shouldEmitPreflightProgress(toolName: string) {
+  return !ASYNC_RUN_START_TOOLS.has(toolName);
+}
+
 function shouldEchoToolResult(summary: string) {
   return !summary.startsWith("Blocked:");
 }
@@ -2428,12 +2432,15 @@ export async function runAgentTurn(
         throw new Error(`Model requested unknown tool: ${toolName}`);
       }
       const parsedArguments = parseJsonArguments(call.arguments);
-      emit({ role: "tool", content: progressLabel(tool.name, parsedArguments) });
+      const progress = progressLabel(tool.name, parsedArguments);
+      if (shouldEmitPreflightProgress(tool.name)) {
+        emit({ role: "tool", content: progress });
+      }
       await persistSessionEntry(context, {
         role: "tool",
         kind: "tool_call",
         title: tool.name,
-        content: progressLabel(tool.name, parsedArguments),
+        content: progress,
         metadata: { name: tool.name, arguments: parsedArguments },
       });
       let result: AgentToolResult;

@@ -67,6 +67,36 @@ function formatAgentEmission(message: AgentMessage) {
   return message.content;
 }
 
+type AssistantMessageVariant = "default" | "proposal" | "started" | "blocked";
+
+export function classifyAssistantMessage(text: string): AssistantMessageVariant {
+  const trimmed = text.trim();
+  if (trimmed.startsWith("Before I start a remote run,")) {
+    return "proposal";
+  }
+  if (trimmed.startsWith("Blocked:")) {
+    return "blocked";
+  }
+  if (/^Started (query run|aggregate run|run |deployment |research environment build|public-data environment build)/.test(trimmed)) {
+    return "started";
+  }
+  return "default";
+}
+
+export function summarizeActiveRuns(runs: TrackedRunRecord[]) {
+  const activeRuns = runs
+    .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  if (activeRuns.length === 0) {
+    return null;
+  }
+  return {
+    count: activeRuns.length,
+    label: `${activeRuns.length} active run${activeRuns.length === 1 ? "" : "s"}`,
+    runs: activeRuns,
+  };
+}
+
 function runStatusColor(status: string) {
   const normalized = status.toLowerCase();
   if (normalized === "ready" || normalized === "completed" || normalized === "succeeded") return "green";
@@ -173,52 +203,35 @@ function AssistantMessage() {
     state.message.parts
       .filter((part) => part.type === "text")
       .map((part) => ("text" in part ? part.text : ""))
-      .join(""),
+    .join(""),
   );
+  const variant = classifyAssistantMessage(text);
+  const badge = variant === "proposal"
+    ? { label: "proposal only", color: "cyan" as const }
+    : variant === "started"
+      ? { label: "run started", color: "green" as const }
+      : variant === "blocked"
+        ? { label: "blocked", color: "red" as const }
+        : null;
 
   return (
     <Box flexDirection="column">
       <Text bold color="green">research</Text>
+      {badge ? <Text color={badge.color}>{badge.label}</Text> : null}
       <MarkdownText text={text} />
     </Box>
   );
 }
 
-function ActivityIndicator() {
-  const isRunning = useAuiState((state) => state.thread.isRunning);
-  const [dots, setDots] = useState(".");
-
-  useEffect(() => {
-    if (!isRunning) return undefined;
-    const timer = setInterval(() => {
-      setDots((current) => (current.length >= 3 ? "." : `${current}.`));
-    }, 650);
-    return () => clearInterval(timer);
-  }, [isRunning]);
-
-  if (!isRunning) return null;
-
-  return (
-    <Box>
-      <Text color="yellow">{`· working${dots}`}</Text>
-    </Box>
-  );
-}
-
 function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
-  const activeRuns = useMemo(
-    () =>
-      runs
-        .filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status))
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
-    [runs],
-  );
+  const summary = useMemo(() => summarizeActiveRuns(runs), [runs]);
 
-  if (activeRuns.length === 0) return null;
+  if (!summary) return null;
 
   return (
     <Box flexDirection="column">
-      {activeRuns.map((run) => (
+      <Text color="gray">{summary.label}</Text>
+      {summary.runs.map((run) => (
         <Text key={run.id} color={runStatusColor(run.status)}>
           {`· ${summarizeRunLine(run)}`}
         </Text>
@@ -252,7 +265,6 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
         }
       </ThreadPrimitive.Messages>
 
-      <ActivityIndicator />
       <RunStatusPanel runs={trackedRuns} />
 
       <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
@@ -547,13 +559,6 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     [exit],
   );
   const runtime = useLocalRuntime(adapter);
-
-  useEffect(() => {
-    const active = trackedRuns.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
-    if (active.length > 0 && runtime.thread.getState().messages.length === 0) {
-      appendAssistant(runtime, `tracking ${active.length} existing run${active.length === 1 ? "" : "s"}.`);
-    }
-  }, [runtime, trackedRuns]);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>

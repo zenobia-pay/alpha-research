@@ -169,10 +169,12 @@ test("async query run returns immediately with canonical dashboard and terminal 
 
   await runAgentTurn("get me 10 viral tweets", session, emit, undefined, deps);
 
+  const joinedMessages = messages.map((message) => message.content).join("\n");
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Started query run run-123/);
   assert.match(final, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-123#run-run-123/);
   assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-1&runId=run-123#run-run-123/);
+  assert.doesNotMatch(joinedMessages, /Starting remote run for enriched-tweets/);
   assert.equal(calls.includes("startRun"), true);
   assert.match(startedPrompt, /Mounted dataset grounding is mandatory for dataset `enriched-tweets`/);
   assert.match(startedPrompt, /Do not download public sample data, GitHub CSVs/);
@@ -475,6 +477,7 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   assert.match(joined, /Active run: run-blocking/);
   assert.match(joined, /No new run was started/);
   assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
+  assert.doesNotMatch(joined, /Starting remote run for busy-dataset/);
 });
 
 test("wait for run completion can time out deterministically", async () => {
