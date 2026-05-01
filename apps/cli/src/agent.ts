@@ -12,6 +12,7 @@ import {
   type RemoteApiClient as RemoteApiClientType,
   type RemoteDatasetDetail,
   type RemoteDatasetSummary,
+  type RemoteRunArtifact,
 } from "./remote.js";
 import { readSession, login } from "./session.js";
 import {
@@ -67,6 +68,7 @@ export type AgentRuntimeDeps = {
   createRemoteClient: (session: SessionRecord) => RemoteApiClientType;
   readSession: typeof readSession;
   login: typeof login;
+  readTrackedRuns: typeof readTrackedRuns;
   createToolRegistry: () => ToolDefinition[];
   readTrackedRuns: typeof readTrackedRuns;
   now: () => number;
@@ -155,6 +157,7 @@ export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
     createRemoteClient: (session) => new RemoteApiClient(session),
     readSession,
     login,
+    readTrackedRuns,
     createToolRegistry,
     readTrackedRuns,
     now: () => Date.now(),
@@ -682,6 +685,196 @@ function artifactBullet(artifact: { title?: string; type?: string }) {
     return `${title} — markdown summary/report`;
   }
   return title;
+}
+
+function shortenRunId(runId: string) {
+  return runId.length > 8 ? `${runId.slice(0, 4)}…${runId.slice(-4)}` : runId;
+}
+
+function summarizePromptForHumans(prompt: string | undefined, datasetId: string) {
+  const firstLine = prompt?.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+  const cleaned = firstLine
+    .replace(/[`"'"]/g, "")
+    .replace(/^mounted dataset grounding is mandatory.*$/i, "")
+    .replace(/^describe dataset\s+/i, "Describe ")
+    .trim();
+  if (cleaned) {
+    return cleaned.endsWith(".") ? cleaned : `${cleaned}.`;
+  }
+  return `Recent work on ${datasetId}.`;
+}
+
+function continuityArtifactLabel(artifact: { title?: string; type?: string }) {
+  const title = typeof artifact.title === "string" && artifact.title.trim() ? artifact.title.trim() : artifact.type ?? "artifact";
+  if (artifact.type === "structured_result" || title === "result.json") return "result.json";
+  if (title.endsWith(".md")) return title;
+  return title;
+}
+
+function summarizeContinuityArtifacts(artifacts: RemoteRunArtifact[]) {
+  const produced = artifacts.filter(isProducedArtifact);
+  if (produced.length === 0) {
+    return {
+      count: 0,
+      line: "No user-facing artifacts yet.",
+      bestArtifact: null as string | null,
+    };
+  }
+  const preferred = produced
+    .filter((artifact) => artifact.type !== "remote_agent_transcript" && artifact.type !== "remote_agent_session")
+    .map(continuityArtifactLabel);
+  const labels = [...new Set((preferred.length > 0 ? preferred : produced.map(continuityArtifactLabel)).filter(Boolean))];
+  const bestArtifact = labels[0] ?? null;
+  if (labels.length === 1) {
+    return { count: produced.length, line: `Best artifact: ${labels[0]}.`, bestArtifact };
+  }
+  if (labels.length === 2) {
+    return { count: produced.length, line: `Best artifacts: ${labels[0]} and ${labels[1]}.`, bestArtifact };
+  }
+  return { count: produced.length, line: `Best artifacts: ${labels.slice(0, 3).join(", ")}.`, bestArtifact };
+}
+
+function continuityLifecycle(run: TrackedRunRecord) {
+  if (!isTerminalRunStatus(run.status)) return "active" as const;
+  if (isTerminalRunSuccessStatus(run.status)) return "completed" as const;
+  if (isUncertainRunStatus(run.status)) return "blocked" as const;
+  if (isTerminalRunFailureStatus(run.status)) return "failed" as const;
+  if (["cancelled", "canceled"].includes(run.status.toLowerCase())) return "failed" as const;
+  return "failed" as const;
+}
+
+function pickRelevantContinuityRun(runs: TrackedRunRecord[]) {
+  const completed = runs.find((run) => continuityLifecycle(run) === "completed");
+  if (completed) return completed;
+  const active = runs.find((run) => continuityLifecycle(run) === "active");
+  if (active) return active;
+  return runs[0] ?? null;
+}
+
+async function maybeHandleContinuityQuestion(
+  input: string,
+  initialSession: SessionRecord | null,
+  deps: AgentRuntimeDeps,
+) {
+  const lower = input.toLowerCase();
+  if (!initialSession) {
+    return null;
+  }
+  const asksForContinuity = (
+    /came back|back later|return later|returned later|later\b/.test(lower)
+    || /my research work|recent work/.test(lower)
+    || (/what happened/.test(lower) && /research|run|work/.test(lower))
+  );
+  const asksForStateOrOutputs = /what happened|results?|artifacts?|can i see|show me/.test(lower);
+  if (!(asksForContinuity && asksForStateOrOutputs)) {
+    return null;
+  }
+
+  const runs = await deps.readTrackedRuns().catch(() => []);
+  if (runs.length === 0) {
+    return "I do not see any tracked research work yet. Ask me to show datasets, start a run, or inspect a dataset first.";
+  }
+
+  const active = runs.filter((run) => continuityLifecycle(run) === "active");
+  const completed = runs.filter((run) => continuityLifecycle(run) === "completed");
+  const blocked = runs.filter((run) => continuityLifecycle(run) === "blocked");
+  const failed = runs.filter((run) => continuityLifecycle(run) === "failed");
+  const relevant = pickRelevantContinuityRun(runs);
+  if (!relevant) {
+    return "I could not determine a recent run to summarize.";
+  }
+
+  const client = deps.createRemoteClient(initialSession);
+  let relevantResults: Awaited<ReturnType<RemoteApiClientType["getRunResults"]>> | null = null;
+  if (continuityLifecycle(relevant) === "completed") {
+    relevantResults = await client.getRunResults(relevant.id).catch(() => null);
+  }
+
+  const lines: string[] = [];
+  const topLineParts = [
+    active.length > 0 ? `${active.length} active` : null,
+    completed.length > 0 ? `${completed.length} completed` : null,
+    blocked.length > 0 ? `${blocked.length} blocked` : null,
+    failed.length > 0 ? `${failed.length} failed` : null,
+  ].filter((value): value is string => Boolean(value));
+  lines.push(`I found ${topLineParts.join(", ")} run${runs.length === 1 ? "" : "s"} in your recent work.`);
+
+  const relevantPrompt = summarizePromptForHumans(relevantResults?.run.prompt ?? relevant.prompt, relevant.datasetId);
+  if (continuityLifecycle(relevant) === "completed" && relevantResults) {
+    const artifactSummary = summarizeContinuityArtifacts(relevantResults.artifacts);
+    lines.push(
+      "",
+      `Most relevant result: ${relevant.datasetId} (${shortenRunId(relevant.id)}) finished successfully.`,
+      `What it was doing: ${relevantPrompt}`,
+      artifactSummary.line,
+      `Open in dashboard: ${dashboardRunUrl(initialSession.origin, relevant.id)}`,
+    );
+  } else if (continuityLifecycle(relevant) === "active") {
+    lines.push(
+      "",
+      `Most relevant run: ${relevant.datasetId} (${shortenRunId(relevant.id)}) is still ${formatStatusForHumans(relevant.status)}.`,
+      `What it is doing: ${relevantPrompt}`,
+      "No finished artifacts from that run yet.",
+    );
+  } else if (continuityLifecycle(relevant) === "blocked") {
+    lines.push(
+      "",
+      `Most relevant run: ${relevant.datasetId} (${shortenRunId(relevant.id)}) is blocked.`,
+      `What it was doing: ${relevantPrompt}`,
+      "The worker state needs reconciliation before new results will appear.",
+    );
+  } else {
+    lines.push(
+      "",
+      `Most relevant run: ${relevant.datasetId} (${shortenRunId(relevant.id)}) ended ${formatStatusForHumans(relevant.status)}.`,
+      `What it was doing: ${relevantPrompt}`,
+      "That run did not finish cleanly.",
+    );
+  }
+
+  if (active.length > 0) {
+    lines.push("", "Active");
+    for (const run of active.slice(0, 2)) {
+      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): ${summarizePromptForHumans(run.prompt, run.datasetId)}`);
+    }
+  }
+
+  if (completed.length > 0) {
+    lines.push("", "Completed");
+    for (const run of completed.slice(0, 2)) {
+      if (run.id === relevant.id && relevantResults) {
+        const artifactSummary = summarizeContinuityArtifacts(relevantResults.artifacts);
+        lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): ${artifactSummary.bestArtifact ? `${artifactSummary.bestArtifact} available.` : "Finished with saved artifacts."}`);
+      } else {
+        lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): finished successfully.`);
+      }
+    }
+  }
+
+  if (blocked.length > 0) {
+    lines.push("", "Blocked");
+    for (const run of blocked.slice(0, 2)) {
+      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): worker state needs reconciliation.`);
+    }
+  }
+
+  if (failed.length > 0) {
+    lines.push("", "Failed");
+    for (const run of failed.slice(0, 2)) {
+      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): ${formatStatusForHumans(run.status)}.`);
+    }
+  }
+
+  if (active.length > 0) {
+    const nextRun = active[0]!;
+    lines.push("", `Best next step: wait on ${nextRun.datasetId} (${shortenRunId(nextRun.id)}) if you need that work, or ask for its status if you think it is stuck.`);
+  } else if (continuityLifecycle(relevant) === "completed") {
+    lines.push("", `Best next step: open the ${relevant.datasetId} run artifacts and inspect ${summarizeContinuityArtifacts(relevantResults?.artifacts ?? []).bestArtifact ?? "the saved outputs"}.`);
+  } else {
+    lines.push("", `Best next step: inspect ${relevant.datasetId} (${shortenRunId(relevant.id)}) and decide whether to retry or resume it.`);
+  }
+
+  return lines.join("\n");
 }
 
 function findStructuredResultArtifact(artifacts: Array<{ title?: string; type?: string; content?: unknown }>) {
@@ -2607,8 +2800,8 @@ export function createToolRegistry(): ToolDefinition[] {
         additionalProperties: false,
         properties: {},
       },
-      async execute() {
-        const runs = await readTrackedRuns();
+      async execute(context) {
+        const runs = await context.deps.readTrackedRuns();
         const active = runs.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
         return {
           summary: active.length > 0
@@ -3825,6 +4018,7 @@ export async function runAgentTurn(
   }
 
   const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession, resolvedDeps)
+    ?? await maybeHandleContinuityQuestion(input, initialSession, resolvedDeps)
     ?? await maybeHandleDatasetSelectionFromTopic(input, initialSession, emit, deps)
     ?? await maybeHandleLastRunResultsRequest(input, initialSession, deps, emit)
     ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession, resolvedDeps);

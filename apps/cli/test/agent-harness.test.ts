@@ -1151,6 +1151,88 @@ test("last run results report a failed latest run when nothing completed success
   assert.match(final, /Debug: research debug run run-failed/);
 });
 
+test("continuity question returns compact lifecycle summary without tool chatter", async () => {
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    readTrackedRuns: async () => [
+      {
+        id: "run-active",
+        datasetId: "econ",
+        origin: session.origin,
+        status: "running",
+        prompt: "Build county-month panel",
+        createdAt: "2026-05-01T00:00:00.000Z",
+        updatedAt: "2026-05-01T00:05:00.000Z",
+        lastSeenAt: "2026-05-01T00:05:00.000Z",
+      },
+      {
+        id: "run-completed",
+        datasetId: "enriched-tweets",
+        origin: session.origin,
+        status: "ready",
+        prompt: "Return a sanity summary.",
+        createdAt: "2026-04-30T00:00:00.000Z",
+        updatedAt: "2026-04-30T00:10:00.000Z",
+        lastSeenAt: "2026-04-30T00:10:00.000Z",
+        terminalAt: "2026-04-30T00:10:00.000Z",
+      },
+      {
+        id: "run-blocked",
+        datasetId: "housing",
+        origin: session.origin,
+        status: "worker_unreachable",
+        prompt: "Refresh data sources",
+        createdAt: "2026-04-29T00:00:00.000Z",
+        updatedAt: "2026-04-29T00:05:00.000Z",
+        lastSeenAt: "2026-04-29T00:05:00.000Z",
+        terminalAt: "2026-04-29T00:05:00.000Z",
+      },
+    ],
+    createRemoteClient: () => ({
+      async getRunResults() {
+        return {
+          run: {
+            id: "run-completed",
+            datasetId: "enriched-tweets",
+            status: "ready",
+            prompt: "Return a sanity summary.",
+          },
+          metadata: null,
+          events: [],
+          artifacts: [
+            {
+              id: "artifact-summary",
+              runId: "run-completed",
+              type: "markdown",
+              title: "summary.md",
+            },
+            {
+              id: "artifact-result",
+              runId: "run-completed",
+              type: "structured_result",
+              title: "result.json",
+              content: { total_rows: 10 },
+            },
+          ],
+        };
+      },
+    }) as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+  await runAgentTurn("I came back later. What happened with my research work, and what results or artifacts can I see?", session, emit, undefined, deps);
+
+  assert.equal(messages.some((message) => message.role === "tool"), false);
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /1 active, 1 completed, 1 blocked run/);
+  assert.match(final, /Most relevant result: enriched-tweets \(run-…eted\) finished successfully\./);
+  assert.match(final, /Best artifacts: summary\.md and result\.json\./);
+  assert.match(final, /Active\n- econ \(run-…tive\): Build county-month panel\./);
+  assert.match(final, /Blocked\n- housing \(run-…cked\): worker state needs reconciliation\./);
+  assert.match(final, /Best next step: wait on econ \(run-…tive\)/);
+  assert.doesNotMatch(final, /Running list_run_artifacts|Checking run history|Remote Agent Transcript|No produced artifacts found/);
+});
+
 test("non-resumable run continuation returns artifacts instead of crashing", async () => {
   const calls: string[] = [];
   const fakeClient = {
