@@ -472,9 +472,104 @@ test("busy dataset conflict returns blocking run guidance", async () => {
 
   const joined = messages.map((message) => message.content).join("\n");
   assert.match(joined, /Blocked: dataset is already busy/);
-  assert.match(joined, /Active run: run-blocking/);
-  assert.match(joined, /No new run was started/);
-  assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
+  assert.match(joined, /Holding run: run-blocking \(running\)/);
+  assert.match(joined, /A new run was not started/);
+  assert.match(joined, /Next: research debug run run-blocking/);
+  assert.doesNotMatch(joined, /Dashboard:/);
+});
+
+test("dataset describe request falls back to saved briefing when dataset is busy", async () => {
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "terminal-session-describe-busy",
+        payload: {
+          id: "response-describe-busy",
+          output: [{
+            type: "function_call",
+            call_id: "call-describe-busy",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async listDatasets() {
+      return { datasets: [{ id: "econ", name: "Economics", status: "ready" }] };
+    },
+    async startRun() {
+      throw new RemoteRequestError(
+        'Remote request failed (409) for /api/cli/datasets/econ/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-econ-busy","status":"running"}]}',
+        409,
+        "/api/cli/datasets/econ/runs",
+      );
+    },
+    async getDataset(datasetId: string) {
+      assert.equal(datasetId, "econ");
+      return {
+        dataset: {
+          id: "econ",
+          name: "Economic Indicators",
+          status: "ready",
+          profile: {
+            datasetId: "econ",
+            briefingMarkdown: [
+              "Overview",
+              "Economic indicators dataset with normalized macro tables.",
+              "",
+              "Readiness & Trust",
+              "Usable now. Sources are documented and QA checks passed on the latest normalization run.",
+              "",
+              "Sources",
+              "FRED; Bureau of Labor Statistics.",
+              "",
+              "Schemas",
+              "tables: cpi, unemployment, rates",
+              "",
+              "Time Coverage",
+              "1990-01 through 2026-03",
+              "",
+              "Quality & Validation",
+              "Row counts reconciled against source manifests; date parsing checks passed.",
+              "",
+              "Limitations & Known Gaps",
+              "County-level coverage is incomplete before 2005.",
+            ].join("\n"),
+            briefingArtifactId: "artifact-briefing",
+            profileArtifactId: "artifact-profile",
+            describedAt: "2026-04-30T12:00:00.000Z",
+          },
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-describe-busy" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Before I use the econ dataset, help me understand what's inside it, where it came from, and whether I can trust it.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Using the latest saved dataset briefing for econ while run run-econ-busy is running/);
+  assert.match(final, /Readiness & Trust/);
+  assert.match(final, /Usable now/);
+  assert.match(final, /Sources/);
+  assert.match(final, /FRED/);
+  assert.match(final, /Quality & Validation/);
+  assert.match(final, /Artifacts: Dataset Briefing and Dataset Profile/);
+  assert.doesNotMatch(final, /Started dataset briefing run/);
 });
 
 test("wait for run completion can time out deterministically", async () => {

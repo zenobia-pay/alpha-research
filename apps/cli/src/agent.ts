@@ -6,7 +6,13 @@ import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
-import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
+import {
+  RemoteApiClient,
+  RemoteRequestError,
+  type RemoteApiClient as RemoteApiClientType,
+  type RemoteDatasetDetail,
+  type RemoteDatasetSummary,
+} from "./remote.js";
 import { readSession, login } from "./session.js";
 import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
@@ -490,7 +496,7 @@ function parseRemoteErrorJson(error: RemoteRequestError) {
   }
 }
 
-function summarizeBusyDatasetConflict(error: RemoteRequestError) {
+function parseBusyDatasetConflict(error: RemoteRequestError) {
   if (error.status !== 409) {
     return null;
   }
@@ -501,19 +507,114 @@ function summarizeBusyDatasetConflict(error: RemoteRequestError) {
   const activeRuns = Array.isArray(payload.activeRuns) ? payload.activeRuns as Array<Record<string, unknown>> : [];
   const first = activeRuns[0];
   if (!first) {
-    return payload.error;
+    return {
+      message: payload.error,
+      runId: "unknown",
+      status: "running",
+    };
   }
-  const runId = typeof first.id === "string" ? first.id : "unknown";
-  const status = typeof first.status === "string" ? first.status : "running";
+  return {
+    message: payload.error,
+    runId: typeof first.id === "string" ? first.id : "unknown",
+    status: typeof first.status === "string" ? first.status : "running",
+  };
+}
+
+function summarizeBusyDatasetConflict(error: RemoteRequestError) {
+  const conflict = parseBusyDatasetConflict(error);
+  if (!conflict) {
+    return null;
+  }
   return [
     "Blocked: dataset is already busy.",
-    `Active run: ${runId}`,
-    `Status: ${status}`,
-    "",
-    "No new run was started.",
-    `Check it: research debug run ${runId}`,
-    `Dashboard: ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)}`,
+    `Holding run: ${conflict.runId} (${conflict.status})`,
+    "A new run was not started.",
+    `Next: research debug run ${conflict.runId}`,
   ].join("\n");
+}
+
+function formatUnknownValue(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const parts: string[] = value
+      .map((entry): string | null => formatUnknownValue(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return parts.length > 0 ? parts.join("; ") : null;
+  }
+  if (isRecord(value)) {
+    const pairs: string[] = Object.entries(value)
+      .map(([key, entry]) => {
+        const formatted: string | null = formatUnknownValue(entry);
+        return formatted ? `${key}: ${formatted}` : null;
+      })
+      .filter((entry): entry is string => Boolean(entry));
+    return pairs.length > 0 ? pairs.join("; ") : null;
+  }
+  return null;
+}
+
+function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?: { runId: string; status: string }) {
+  const profile = dataset.profile;
+  if (!profile) {
+    return null;
+  }
+  const lines: string[] = [];
+  if (blockingRun) {
+    lines.push(
+      `Using the latest saved dataset briefing for ${dataset.id} while run ${blockingRun.runId} is ${blockingRun.status}.`,
+      "",
+    );
+  }
+  if (typeof profile.briefingMarkdown === "string" && profile.briefingMarkdown.trim().length > 0) {
+    lines.push(profile.briefingMarkdown.trim());
+  } else {
+    lines.push(
+      `Dataset Briefing: ${dataset.name || dataset.id}`,
+      "",
+      `Overview: ${dataset.name || dataset.id}${dataset.status ? ` (${dataset.status})` : ""}`,
+    );
+    const trust = formatUnknownValue(profile.quality) ?? profile.notes ?? "Saved dataset profile exists, but explicit trust notes are limited.";
+    lines.push(`Readiness & Trust: ${trust}`);
+    const inventory = formatUnknownValue(profile.tables) ?? formatUnknownValue(profile.schema);
+    if (inventory) lines.push(`Data Inventory: ${inventory}`);
+    const sources = formatUnknownValue(profile.sources);
+    if (sources) lines.push(`Sources: ${sources}`);
+    const schema = formatUnknownValue(profile.schema);
+    if (schema) lines.push(`Schemas: ${schema}`);
+    const timeCoverage = formatUnknownValue(profile.timeCoverage);
+    if (timeCoverage) lines.push(`Time Coverage: ${timeCoverage}`);
+    const geographyCoverage = formatUnknownValue(profile.geographyCoverage);
+    if (geographyCoverage) lines.push(`Geography Coverage: ${geographyCoverage}`);
+    const formats = formatUnknownValue(profile.formats);
+    if (formats) lines.push(`Formats: ${formats}`);
+    const transformations = formatUnknownValue(profile.transformations);
+    if (transformations) lines.push(`Transformations & Derived Fields: ${transformations}`);
+    const quality = formatUnknownValue(profile.quality);
+    if (quality) lines.push(`Quality & Validation: ${quality}`);
+    const limitations = formatUnknownValue(profile.limitations);
+    if (limitations) lines.push(`Limitations & Known Gaps: ${limitations}`);
+  }
+  const artifactNotes = [
+    profile.briefingArtifactId ? "Dataset Briefing" : null,
+    profile.profileArtifactId ? "Dataset Profile" : null,
+  ].filter((entry): entry is string => Boolean(entry));
+  const generatedAt = profile.describedAt ?? profile.updatedAt;
+  if (artifactNotes.length > 0 || generatedAt) {
+    lines.push(
+      "",
+      `Artifacts: ${artifactNotes.length > 0 ? artifactNotes.join(" and ") : "saved dataset profile"}${generatedAt ? ` · updated ${generatedAt}` : ""}`,
+    );
+  }
+  return lines.join("\n");
 }
 
 function summarizeRemoteFailure(error: RemoteRequestError) {
@@ -1872,9 +1973,30 @@ export function createToolRegistry(): ToolDefinition[] {
           ));
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            const conflict = parseBusyDatasetConflict(error);
+            if (conflict) {
+              const existing = await withAuthRetry(context, () => client.getDataset(datasetId).catch(() => null));
+              const fallback = existing?.dataset ? formatDatasetProfileFallback(existing.dataset, conflict) : null;
+              if (fallback) {
+                return {
+                  summary: fallback,
+                  data: {
+                    ok: true,
+                    reusedSavedProfile: true,
+                    blockingRunId: conflict.runId,
+                    dataset: existing?.dataset,
+                  },
+                };
+              }
+              return {
+                summary: [
+                  `Blocked: ${datasetId} is already busy.`,
+                  `Holding run: ${conflict.runId} (${conflict.status})`,
+                  "A saved dataset briefing is not available yet.",
+                  `Next: research debug run ${conflict.runId}`,
+                ].join("\n"),
+                data: { ok: false, reason: "dataset_busy", blockingRunId: conflict.runId },
+              };
             }
           }
           throw error;
