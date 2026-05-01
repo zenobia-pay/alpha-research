@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -1376,4 +1379,102 @@ test("product workflow success: econ research hypothesis creates data environmen
   assert.match(joinedMessages, /Regression summary/);
   assert.match(joinedMessages, /Permit sensitivity by income-growth quartile/);
   assert.match(joinedMessages, /Hypothesis report\.md/);
+});
+
+test("uploaded dataset deployment flow uses user-facing stage updates and upload progress", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "research-upload-"));
+  const datasetPath = join(tempDir, "Enriched Tweets.csv");
+  await writeFile(datasetPath, "tweet_id,full_text\n1,hello world\n2,hello again\n", "utf8");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("", { status: 200 });
+
+  try {
+    const fakeClient = {
+      async respond(body: Record<string, unknown>) {
+        if (Array.isArray(body.input)) {
+          return {
+            sessionId: "terminal-session-upload",
+            payload: {
+              id: "response-upload-2",
+              output_text: "Dataset created and deployment started.",
+              output: [{
+                type: "message",
+                content: [{ type: "output_text", text: "Dataset created and deployment started." }],
+              }],
+            },
+          };
+        }
+        return {
+          sessionId: "terminal-session-upload",
+          payload: {
+            id: "response-upload-1",
+            output: [
+              { type: "function_call", call_id: "call-1", name: "resolve_local_dataset", arguments: JSON.stringify({ hint: `"${datasetPath}"` }) },
+              { type: "function_call", call_id: "call-2", name: "profile_local_dataset", arguments: JSON.stringify({ inputPath: datasetPath }) },
+              { type: "function_call", call_id: "call-3", name: "register_remote_dataset", arguments: JSON.stringify({ datasetId: "enriched-tweets", name: "Enriched Tweets", inputPath: datasetPath, mode: "tabular" }) },
+              { type: "function_call", call_id: "call-4", name: "request_dataset_source_upload", arguments: JSON.stringify({ datasetId: "enriched-tweets", inputPath: datasetPath }) },
+              { type: "function_call", call_id: "call-5", name: "upload_local_file", arguments: JSON.stringify({ inputPath: datasetPath, uploadUrl: "https://upload.example.test/object" }) },
+              { type: "function_call", call_id: "call-6", name: "complete_dataset_source_upload", arguments: JSON.stringify({ datasetId: "enriched-tweets" }) },
+              { type: "function_call", call_id: "call-7", name: "deploy_remote_dataset", arguments: JSON.stringify({ datasetId: "enriched-tweets" }) },
+            ],
+          },
+        };
+      },
+      async createDataset() {
+        return { dataset: { id: "enriched-tweets", name: "Enriched Tweets", status: "created" } };
+      },
+      async requestDatasetSourceUpload() {
+        return { upload: { method: "PUT", url: "https://upload.example.test/object", key: "uploads/enriched-tweets.csv" } };
+      },
+      async completeDatasetSourceUpload() {
+        return { ok: true };
+      },
+      async deployDataset() {
+        return {
+          deployment: { datasetId: "enriched-tweets", status: "booting" },
+          run: {
+            id: "run-deploy",
+            datasetId: "enriched-tweets",
+            status: "booting",
+            prompt: "Deploy dataset",
+            createdAt: "2026-05-01T00:00:00.000Z",
+            updatedAt: "2026-05-01T00:00:00.000Z",
+          },
+        };
+      },
+      async appendSessionEntry() {
+        return { id: "entry-upload" };
+      },
+    };
+    const deps: AgentRuntimeDeps = {
+      ...createDefaultAgentRuntimeDeps(),
+      createRemoteClient: () => fakeClient as never,
+      readSession: async () => session,
+    };
+    const { messages, emit } = collect();
+
+    await runAgentTurn(
+      `Create a dataset from "${datasetPath}". It contains tweets, authors, timestamps, text, and engagement counts. Name it Enriched Tweets and deploy it.`,
+      session,
+      emit,
+      undefined,
+      deps,
+    );
+
+    const joinedMessages = messages.map((message) => message.content).join("\n");
+    assert.match(joinedMessages, new RegExp(`Using local file ${datasetPath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
+    assert.match(joinedMessages, /Inspecting Enriched Tweets\.csv/);
+    assert.match(joinedMessages, /Checked the file structure for Enriched Tweets\.csv/);
+    assert.match(joinedMessages, /Created dataset Enriched Tweets \(dataset id: enriched-tweets\)\./);
+    assert.match(joinedMessages, /Upload target ready for Enriched Tweets\.csv\./);
+    assert.match(joinedMessages, /Upload progress: 100%/);
+    assert.match(joinedMessages, /Finished uploading Enriched Tweets\.csv\./);
+    assert.match(joinedMessages, /Source upload verified for dataset enriched-tweets\./);
+    assert.match(joinedMessages, /Deployment started for dataset enriched-tweets\. Run: run-deploy\. Status: booting\./);
+    assert.match(joinedMessages, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-upload&runId=run-deploy#run-run-deploy/);
+    assert.doesNotMatch(joinedMessages, /profile_local_dataset|Registered remote dataset/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
