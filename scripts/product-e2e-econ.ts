@@ -323,6 +323,23 @@ async function waitForTerminalRun(session: SessionRecord, runId: string, timeout
   return null;
 }
 
+async function fetchRunResultsEventually(session: SessionRecord, runId: string, timeoutMs: number) {
+  const startedAt = Date.now();
+  let lastError: unknown = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      return await request<RunResults>(session, `/api/cli/runs/${encodeURIComponent(runId)}/results`);
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
+    }
+  }
+  if (lastError) {
+    console.log(`Could not fetch results for run ${runId}: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+  }
+  return null;
+}
+
 function isPriorEconAttempt(dataset: DatasetSummary) {
   const text = `${dataset.id} ${dataset.name}`.toLowerCase();
   return /\becon\b|economics|housing[-_]cycle|housing cycle/u.test(text);
@@ -374,7 +391,7 @@ function runCli(sessionDir: string, session: SessionRecord) {
     };
     child.stdout.on("data", (chunk) => {
       stdout += String(chunk);
-      if (stdout.includes("Dataset is already busy")) {
+      if (stdout.includes("Dataset is already busy") && !hasSuccessfulRunCompletion(stdout)) {
         const runId = extractBusyRunId(stdout);
         fail(new BusyDatasetError([
           "Live econ product E2E could not start because a dataset is already busy.",
@@ -412,7 +429,11 @@ function runCli(sessionDir: string, session: SessionRecord) {
         resolve({ stdout, stderr });
         return;
       }
-      if (isPostRunPlanningTimeout(stdout, stderr)) {
+      if (isPostRunRespondTransportFailure(stdout, stderr)) {
+        resolve({ stdout, stderr });
+        return;
+      }
+      if (isPostRunBusyAfterSuccess(stdout, stderr)) {
         resolve({ stdout, stderr });
         return;
       }
@@ -426,10 +447,21 @@ function runCli(sessionDir: string, session: SessionRecord) {
   });
 }
 
-function isPostRunPlanningTimeout(stdout: string, stderr: string) {
+function isPostRunRespondTransportFailure(stdout: string, stderr: string) {
   const combined = `${stdout}\n${stderr}`;
   return extractRunIds(combined).length > 0
-    && /Remote agent planning timed out after \d+s for \/api\/cli\/respond/iu.test(combined);
+    && /Remote agent planning timed out after \d+s for \/api\/cli\/respond|fetch failed|UND_ERR_SOCKET|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|other side closed/iu.test(combined);
+}
+
+function hasSuccessfulRunCompletion(text: string) {
+  return /\bRun\s+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\s+finished with status\s+(?:ready|completed|succeeded)\b/iu.test(text);
+}
+
+function isPostRunBusyAfterSuccess(stdout: string, stderr: string) {
+  const combined = `${stdout}\n${stderr}`;
+  return extractRunIds(combined).length > 0
+    && hasSuccessfulRunCompletion(combined)
+    && /Dataset is already busy with run\s+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu.test(combined);
 }
 
 function isRetryableCliStartupFailure(stdout: string, stderr: string) {
@@ -446,10 +478,9 @@ function extractBusyRunId(text: string) {
 }
 
 function extractRunIds(text: string) {
-  const explicitIds = [...text.matchAll(/\brun[-_][A-Za-z0-9][A-Za-z0-9_-]*/gu)].map((match) => match[0]);
   const labelledUuidIds = [...text.matchAll(/\brun\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/giu)]
     .map((match) => match[1]);
-  return [...new Set([...explicitIds, ...labelledUuidIds])];
+  return [...new Set(labelledUuidIds)];
 }
 
 function stringifyEvidence(value: unknown) {
@@ -561,8 +592,7 @@ async function main() {
   const results: RunResults[] = [];
   for (const runId of runIds) {
     await waitForTerminalRun(session, runId, 30 * 60 * 1000);
-    const result = await request<RunResults>(session, `/api/cli/runs/${encodeURIComponent(runId)}/results`)
-      .catch(() => null);
+    const result = await fetchRunResultsEventually(session, runId, 5 * 60 * 1000);
     if (result) {
       results.push(result);
     }
