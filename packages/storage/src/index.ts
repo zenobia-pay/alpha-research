@@ -25,9 +25,9 @@ import type {
   DatasetTextProjection,
   TextCompatibleDocument,
   DatasetValue,
-} from "@zenobia-pay/alpha-core";
-import { matchesFilter } from "@zenobia-pay/alpha-core";
-import type { DatasetImplementationConfig } from "@zenobia-pay/alpha-implementations";
+} from "@rprend/alpha-core";
+import { matchesFilter } from "@rprend/alpha-core";
+import type { DatasetImplementationConfig } from "@rprend/alpha-implementations";
 
 export interface DatasetInstanceBundle {
   implementation: DatasetImplementationConfig;

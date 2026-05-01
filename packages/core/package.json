@@ -1,5 +1,5 @@
 {
-  "name": "@zenobia-pay/alpha-core",
+  "name": "@rprend/alpha-core",
   "version": "0.1.0",
   "type": "module",
   "description": "Core dataset contracts for Alpha Research.",

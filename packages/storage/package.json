@@ -1,5 +1,5 @@
 {
-  "name": "@zenobia-pay/alpha-storage",
+  "name": "@rprend/alpha-storage",
   "version": "0.1.0",
   "type": "module",
   "description": "Local dataset storage for Alpha Research.",
@@ -19,7 +19,10 @@
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@zenobia-pay/alpha-core": "0.1.0",
-    "@zenobia-pay/alpha-implementations": "0.1.0"
+    "@rprend/alpha-core": "0.1.0",
+    "@rprend/alpha-implementations": "0.1.0"
+  },
+  "devDependencies": {
+    "@rprend/alpha-fixture": "0.1.0"
   }
 }

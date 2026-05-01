@@ -6,10 +6,10 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@zenobia-pay/alpha-core": [
+      "@rprend/alpha-core": [
         "../core/src/index.ts"
       ],
-      "@zenobia-pay/alpha-implementations": [
+      "@rprend/alpha-implementations": [
         "../implementations/src/index.ts"
       ]
     }

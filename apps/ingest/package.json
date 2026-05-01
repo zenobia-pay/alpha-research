@@ -1,10 +1,10 @@
 {
-  "name": "@zenobia-pay/alpha-ingest",
+  "name": "@rprend/alpha-ingest",
   "version": "0.1.0",
   "type": "module",
   "private": true,
   "dependencies": {
-    "@zenobia-pay/alpha-storage": "0.1.0"
+    "@rprend/alpha-storage": "0.1.0"
   },
   "scripts": {
     "build": "tsc -b",

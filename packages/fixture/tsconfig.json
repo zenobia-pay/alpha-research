@@ -6,7 +6,7 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@zenobia-pay/alpha-core": [
+      "@rprend/alpha-core": [
         "../core/src/index.ts"
       ]
     }

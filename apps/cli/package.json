@@ -1,5 +1,5 @@
 {
-  "name": "@zenobia-pay/research",
+  "name": "@rprend/research",
   "version": "0.1.0",
   "type": "module",
   "description": "RESEARCH CLI for creating and deploying Alpha Research datasets.",
@@ -16,9 +16,9 @@
     "access": "public"
   },
   "dependencies": {
-    "@zenobia-pay/alpha-core": "0.1.0",
-    "@zenobia-pay/alpha-fixture": "0.1.0",
-    "@zenobia-pay/alpha-storage": "0.1.0",
+    "@rprend/alpha-core": "0.1.0",
+    "@rprend/alpha-fixture": "0.1.0",
+    "@rprend/alpha-storage": "0.1.0",
     "@assistant-ui/react-ink": "^0.0.12",
     "@assistant-ui/react-ink-markdown": "^0.0.11",
     "assistant-cloud": "^0.1.27",

@@ -6,7 +6,7 @@ const scriptPath = fileURLToPath(new URL("../../../scripts/normalize_dataset.py"
 function printUsage() {
   console.log([
     "Usage:",
-    "  npm run dev -w @zenobia-pay/alpha-ingest -- --input <file> --id <instance-id> --name <product-name> [--dataset-id <dataset-id>]",
+    "  npm run dev -w @rprend/alpha-ingest -- --input <file> --id <instance-id> --name <product-name> [--dataset-id <dataset-id>]",
     "Options:",
     "  --title-field <field>",
     "  --summary-field <field>",

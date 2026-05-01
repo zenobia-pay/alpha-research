@@ -1,11 +1,11 @@
 {
-  "name": "@zenobia-pay/alpha-api",
+  "name": "@rprend/alpha-api",
   "version": "0.1.0",
   "type": "module",
   "private": true,
   "dependencies": {
-    "@zenobia-pay/alpha-core": "0.1.0",
-    "@zenobia-pay/alpha-storage": "0.1.0",
+    "@rprend/alpha-core": "0.1.0",
+    "@rprend/alpha-storage": "0.1.0",
     "hono": "^4.11.10",
     "@hono/node-server": "^1.19.6"
   },

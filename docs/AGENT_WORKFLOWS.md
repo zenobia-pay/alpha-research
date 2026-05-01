@@ -36,14 +36,14 @@ Use these recipes when changing this repository. Keep them short and update them
 1. Inspect `packages/fixture/src/index.ts` and `data/instances/`.
 2. Keep fixtures small enough for fast deterministic tests.
 3. Update package tests if the fixture shape changes.
-4. Run `npm run test -w @zenobia-pay/alpha-fixture` and `npm run smoke:local`.
+4. Run `npm run test -w @rprend/alpha-fixture` and `npm run smoke:local`.
 
 ## Change Frontend Explorer Behavior
 
 1. Read `apps/frontend/src/App.tsx` and `apps/frontend/src/styles.css`.
 2. Keep API assumptions aligned with `apps/api/src/server.ts`.
 3. Build the frontend and run the local smoke check.
-4. Run `npm run build -w @zenobia-pay/alpha-frontend` and `npm run smoke:local`.
+4. Run `npm run build -w @rprend/alpha-frontend` and `npm run smoke:local`.
 
 ## Prepare A Deploy
 

@@ -5,7 +5,7 @@ import {
   aggregateRecords,
   buildTextCompatibleDocuments,
   queryDataset,
-} from "@zenobia-pay/alpha-core";
+} from "@rprend/alpha-core";
 import {
   countyEconomicsAdapter,
   tweetArchiveAdapter,

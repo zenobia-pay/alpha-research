@@ -3,12 +3,12 @@
 Install the RESEARCH CLI:
 
 ```bash
-npm install -g @zenobia-pay/research
+npm install -g @rprend/research
 research
 ```
 
 You can also run without a global install:
 
 ```bash
-npx @zenobia-pay/research@latest
+npx @rprend/research@latest
 ```

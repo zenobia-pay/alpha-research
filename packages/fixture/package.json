@@ -1,5 +1,5 @@
 {
-  "name": "@zenobia-pay/alpha-fixture",
+  "name": "@rprend/alpha-fixture",
   "version": "0.1.0",
   "type": "module",
   "description": "Fixture datasets for Alpha Research.",
@@ -14,7 +14,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@zenobia-pay/alpha-core": "0.1.0"
+    "@rprend/alpha-core": "0.1.0"
   },
   "scripts": {
     "build": "tsc -b",
