@@ -414,7 +414,9 @@ test("dataset describe request starts briefing run with required artifacts", asy
   assert.doesNotMatch(startedPrompt, /Suggested follow-ups/);
 
   const final = messages.at(-1)?.content ?? "";
+  assert.match(messages.map((message) => message.content).join("\n"), /Using dataset Economics \(econ\) for this briefing/);
   assert.match(final, /Started dataset briefing run run-describe for econ/);
+  assert.match(final, /Expected artifacts: Dataset Briefing, Dataset Profile/);
   assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-describe&runId=run-describe#run-run-describe/);
 });
 
@@ -618,10 +620,59 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   await runAgentTurn("run analysis on busy dataset", session, emit, undefined, deps);
 
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Blocked: dataset is already busy/);
+  assert.match(joined, /Blocked: .* is waiting on an active dataset run/);
+  assert.match(joined, /Using dataset busy-dataset for /);
   assert.match(joined, /Active run: run-blocking/);
-  assert.match(joined, /No new run was started/);
+  assert.match(joined, /Research does not start a duplicate run/);
   assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
+  assert.match(joined, /When it finishes, ask: show results from run-blocking/);
+});
+
+test("dataset describe conflict keeps guidance anchored on briefing artifacts", async () => {
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "terminal-session-describe-busy",
+        payload: {
+          id: "response-describe-busy",
+          output: [{
+            type: "function_call",
+            call_id: "call-describe-busy",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async listDatasets() {
+      return { datasets: [{ id: "econ", name: "Economics", status: "ready" }] };
+    },
+    async startRun() {
+      throw new RemoteRequestError(
+        'Remote request failed (409) for /api/cli/datasets/econ/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-briefing","status":"running"}]}',
+        409,
+        "/api/cli/datasets/econ/runs",
+      );
+    },
+    async appendSessionEntry() {
+      return { id: "entry-describe-busy" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Describe the econ dataset for me.", session, emit, undefined, deps);
+
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
+  assert.match(joined, /Blocked: this dataset briefing is waiting on an active dataset run/);
+  assert.match(joined, /Expected artifacts once the run finishes: Dataset Briefing, Dataset Profile/);
+  assert.match(joined, /When it finishes, ask: show results from run-briefing/);
+  assert.match(joined, /If it seems stuck, debug: research debug run run-briefing/);
 });
 
 test("wait for run completion can time out deterministically", async () => {
