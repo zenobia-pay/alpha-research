@@ -169,6 +169,8 @@ const ASYNC_RUN_START_TOOLS = new Set([
   "query_remote_dataset",
   "aggregate_remote_dataset",
   "fetch_public_data",
+  "deploy_remote_dataset",
+  "deploy_local_instance",
   "describe_remote_dataset",
   "start_remote_agent_run",
   "continue_remote_agent_run",
@@ -939,16 +941,18 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
       return "Starting dataset build...";
     case "resolve_local_dataset":
       return "Resolving local file...";
+    case "profile_local_dataset":
+      return `Inspecting ${basename(String(input.inputPath ?? "file"))}...`;
     case "register_remote_dataset":
-      return "Creating dataset record...";
+      return "Creating dataset...";
     case "request_dataset_source_upload":
-      return "Preparing upload...";
+      return "Preparing upload target...";
     case "upload_local_file":
       return `Uploading ${basename(String(input.inputPath ?? "file"))}...`;
     case "complete_dataset_source_upload":
-      return "Finalizing upload...";
+      return "Upload complete. Verifying source...";
     case "deploy_remote_dataset":
-      return `Deploying ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+      return `Starting deployment for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
     default:
       return `Running ${toolName}...`;
   }
@@ -1009,7 +1013,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const ingestFlags = inferDatasetIngestFlags(resolvedPath);
         const metadata = await stat(resolvedPath);
         return {
-          summary: `Resolved local dataset to ${resolvedPath}.`,
+          summary: `Using local file ${resolvedPath}.`,
           data: {
             ok: true,
             inputPath: resolvedPath,
@@ -1038,7 +1042,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const inputPath = String(input.inputPath);
         const profile = await inspectLocalDatasetFile(inputPath);
         return {
-          summary: `Inspected local dataset ${basename(inputPath)}.`,
+          summary: `Checked the file structure for ${basename(inputPath)}.`,
           data: profile,
         };
       },
@@ -1242,7 +1246,7 @@ export function createToolRegistry(): ToolDefinition[] {
             : undefined,
         });
         return {
-          summary: `Registered remote dataset ${datasetId}.`,
+          summary: `Created dataset ${name} (dataset id: ${datasetId}).`,
           data: result,
         };
       },
@@ -1476,7 +1480,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const sizeBytes = inputPath ? (await stat(inputPath)).size : undefined;
         const upload = await client.requestDatasetSourceUpload(datasetId, { filename, sizeBytes });
         return {
-          summary: `Requested upload target for ${filename}.`,
+          summary: `Upload target ready for ${filename}.`,
           data: upload,
         };
       },
@@ -1500,7 +1504,7 @@ export function createToolRegistry(): ToolDefinition[] {
           context.emit({ role: "tool", content: message });
         });
         return {
-          summary: `Uploaded ${basename(inputPath)}.`,
+          summary: `Finished uploading ${basename(inputPath)}.`,
           data: { inputPath, sizeBytes },
         };
       },
@@ -1523,7 +1527,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const sizeBytes = typeof input.sizeBytes === "number" ? input.sizeBytes : undefined;
         await client.completeDatasetSourceUpload(datasetId, { sizeBytes });
         return {
-          summary: `Marked source upload complete for ${datasetId}.`,
+          summary: `Source upload verified for dataset ${datasetId}.`,
           data: { datasetId, sizeBytes },
         };
       },
@@ -1555,7 +1559,7 @@ export function createToolRegistry(): ToolDefinition[] {
           });
         }
         return {
-          summary: `Started deployment for ${datasetId}.`,
+          summary: `Deployment started for dataset ${datasetId}.${deployment.run ? ` Run: ${deployment.run.id}.` : ""}${deployment.deployment.status ? ` Status: ${deployment.deployment.status}.` : ""}`,
           data: deployment,
         };
       },
