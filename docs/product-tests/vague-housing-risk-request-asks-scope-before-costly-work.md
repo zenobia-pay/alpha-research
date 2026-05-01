@@ -15,7 +15,10 @@ The agent receives a broad housing-risk prompt. The fake remote client throws if
 ## Assertions Made
 
 - The answer asks whether the user means the U.S. housing market.
+- The answer asks for the smallest scoping decision before work starts.
+- The answer offers a concrete geography choice such as national vs metro/region.
 - The answer distinguishes a quick current-state read from a deeper risk analysis.
-- The answer names concrete operational dimensions such as affordability, mortgage rates, prices, inventory, delinquencies, employment, and regional differences.
+- The answer asks what "in trouble" should mean, with options such as affordability stress, price decline risk, weak demand/inventory imbalance, or credit stress.
+- The answer names concrete operational dimensions such as affordability, mortgage rates, prices, inventory, delinquencies, employment, regional differences, and price/rent divergence.
 - No run, queue, or dashboard language appears.
 - No remote tool planning occurs before scope is chosen.
