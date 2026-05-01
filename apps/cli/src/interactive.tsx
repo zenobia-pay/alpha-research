@@ -32,6 +32,10 @@ function fillBar(text: string, width: number) {
   return `› ${trimmed}`.padEnd(safeWidth, " ");
 }
 
+export function composerPlaceholder(session: SessionRecord | null) {
+  return session ? "Ask about datasets, runs, or artifacts" : "Ask about datasets, runs, or sign-in";
+}
+
 function textFromThreadMessage(message: ThreadMessage | undefined) {
   return message?.content
     .filter((part) => part.type === "text")
@@ -227,7 +231,23 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
   );
 }
 
-function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
+function SignedOutHelp() {
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Text bold color="yellow">Sign in to access remote work.</Text>
+      <Text>Use `/login` here or run `research login` in another terminal.</Text>
+      <Text color="gray">After sign-in, your chat stays open so you can retry the same request.</Text>
+    </Box>
+  );
+}
+
+function ResearchThread({
+  trackedRuns,
+  session,
+}: {
+  trackedRuns: TrackedRunRecord[];
+  session: SessionRecord | null;
+}) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
   const borderColor = isRunning ? "yellow" : "gray";
@@ -239,6 +259,7 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
         <Box flexDirection="column">
           <Text bold color="green">research</Text>
           <Text>ready.</Text>
+          {!session ? <SignedOutHelp /> : null}
         </Box>
       </ThreadPrimitive.Empty>
 
@@ -253,11 +274,11 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
       </ThreadPrimitive.Messages>
 
       <ActivityIndicator />
-      <RunStatusPanel runs={trackedRuns} />
+      {session ? <RunStatusPanel runs={trackedRuns} /> : null}
 
       <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
         <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
-        <ComposerPrimitive.Input submitOnEnter placeholder="ask RESEARCH" autoFocus />
+        <ComposerPrimitive.Input submitOnEnter placeholder={composerPlaceholder(session)} autoFocus />
       </Box>
     </ThreadPrimitive.Root>
   );
@@ -558,7 +579,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <Box flexDirection="column">
-        <ResearchThread trackedRuns={trackedRuns} />
+        <ResearchThread trackedRuns={trackedRuns} session={session} />
         <RunPoller runtime={runtime} session={session} setTrackedRuns={setTrackedRuns} />
       </Box>
     </AssistantRuntimeProvider>
