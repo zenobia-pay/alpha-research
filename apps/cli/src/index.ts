@@ -7,6 +7,7 @@ import { DEFAULT_INSTALL_COMMAND, type SessionRecord } from "./config.js";
 import { type AgentMessage, runAgentTurn } from "./agent.js";
 import { runDebugCommand } from "./debug.js";
 import { parseCliArgs, parseFlags } from "./flags.js";
+import { InteractiveApp } from "./interactive.js";
 import { buildInstallPrompt, handleFixture, printUsage, runScriptedCommand } from "./local-tools.js";
 import { login, readSession } from "./session.js";
 
@@ -91,7 +92,6 @@ export async function main() {
   }
 
   if (!command || command === "agent" || command === "chat") {
-    const { InteractiveApp } = await import("./interactive.js");
     const altScreen = flags["alt-screen"] === "true";
     if (altScreen) {
       enterAltScreen();
