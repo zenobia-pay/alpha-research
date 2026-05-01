@@ -68,7 +68,6 @@ export type AgentRuntimeDeps = {
   createRemoteClient: (session: SessionRecord) => RemoteApiClientType;
   readSession: typeof readSession;
   login: typeof login;
-  readTrackedRuns: typeof readTrackedRuns;
   createToolRegistry: () => ToolDefinition[];
   readTrackedRuns: typeof readTrackedRuns;
   now: () => number;
@@ -157,7 +156,6 @@ export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
     createRemoteClient: (session) => new RemoteApiClient(session),
     readSession,
     login,
-    readTrackedRuns,
     createToolRegistry,
     readTrackedRuns,
     now: () => Date.now(),
@@ -1829,7 +1827,7 @@ function maybeHandleOrientation(input: string) {
   ].join("\n");
 }
 
-function shouldHandleDatasetInventory(input: string) {
+function shouldHandleDatasetInventoryLegacy(input: string) {
   const lower = input.trim().toLowerCase();
   if (!/\bdatasets?\b/.test(lower)) {
     return false;
@@ -1957,13 +1955,13 @@ function nextDatasetStep(entries: DatasetInventoryEntry[]) {
     : `Try \`describe ${preferred.id}\` or ask what is inside ${preferred.name}.`;
 }
 
-async function maybeHandleDatasetInventory(
+async function maybeHandleDatasetInventoryLegacy(
   input: string,
   initialSession: SessionRecord | null,
   emit: (message: AgentMessage) => void,
   deps: AgentRuntimeDeps,
 ) {
-  if (!shouldHandleDatasetInventory(input)) {
+  if (!shouldHandleDatasetInventoryLegacy(input)) {
     return null;
   }
 
@@ -2073,6 +2071,7 @@ function maybeHandleVagueTweetsExperiment(input: string) {
     "Before I start a remote run, here is the experiment I recommend.",
     "",
     "Dataset",
+    "Proposed dataset: `enriched-tweets`.",
     "Use `enriched-tweets`.",
     "Fallback: if it is not in your workspace, I can help you choose or build a tweets dataset with text, timestamps, authors, and engagement fields.",
     "",
@@ -2275,7 +2274,7 @@ async function maybeHandleDatasetSelectionFromTopic(
     .sort((left, right) => right.score - left.score || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? "")));
   const inspectionPool = rankedSummaries.slice(0, Math.min(3, rankedSummaries.length));
   const inspected = await Promise.all(inspectionPool.map(async ({ dataset, score }) => {
-    const detail = await client.getDataset(dataset.id).catch(() => null);
+    const detail = typeof client.getDataset === "function" ? await client.getDataset(dataset.id).catch(() => null) : null;
     const enriched = detail?.dataset ?? dataset;
     return { dataset: enriched, score: Math.max(score, scoreDatasetForTopic(enriched, topicTokens)) };
   }));
@@ -2582,6 +2581,9 @@ function asyncRunLaunchSummary(
   result: AgentToolResult,
   context: ToolExecutionContext,
 ) {
+  if (toolName === "create_research_environment" || toolName === "create_public_data_environment" || toolName === "deploy_remote_dataset" || toolName === "deploy_local_instance") {
+    return result.summary;
+  }
   const resultData = isRecord(result.data) ? result.data : {};
   const run = isRecord(resultData.run) ? resultData.run : {};
   const runId = typeof run.id === "string" ? run.id : null;
@@ -2615,6 +2617,8 @@ function asyncRunLaunchSummary(
   lines.push("Next: the run will keep processing in the background. Follow it in the dashboard or ask `research show active runs`.");
   if (expectations.length > 0) {
     lines.push(`Expected artifacts: ${expectations.join(", ")}.`);
+  } else if (toolName === "describe_remote_dataset") {
+    lines.push("Expected artifacts: Dataset Briefing, Dataset Profile.");
   }
   if (context.session && runId) {
     lines.push(`Dashboard: ${dashboardRunUrl(context.session.origin, runId)}`);
@@ -2748,7 +2752,7 @@ export function createToolRegistry(): ToolDefinition[] {
                 `Found ${datasets.datasets.length} remote dataset${datasets.datasets.length === 1 ? "" : "s"}.`,
                 shortlist ? `Top matches for "${topic}":\n${shortlist}` : null,
               ].filter(Boolean).join("\n")
-            : "No remote datasets found.",
+            : "No remote datasets found; a new build will be needed if the plan proceeds.",
           data: topic
             ? {
                 ...datasets,
@@ -3575,7 +3579,9 @@ export function createToolRegistry(): ToolDefinition[] {
           if (error instanceof RemoteRequestError) {
             const conflict = parseBusyDatasetConflict(error);
             if (conflict) {
-              const existing = await withAuthRetry(context, () => client.getDataset(datasetId).catch(() => null));
+              const existing = typeof client.getDataset === "function"
+                ? await withAuthRetry(context, () => client.getDataset(datasetId).catch(() => null))
+                : null;
               const fallback = existing?.dataset ? formatDatasetProfileFallback(existing.dataset, conflict) : null;
               if (fallback) {
                 return {
@@ -4239,7 +4245,6 @@ export async function runAgentTurn(
         }
         throw error;
       }
-      if (shouldEchoToolResult(tool.name, result.summary)) {
       if (heartbeatTimer) {
         clearInterval(heartbeatTimer);
       }
@@ -4261,6 +4266,19 @@ export async function runAgentTurn(
             role: "assistant",
             kind: "local_summary",
             title: "CLI blocked",
+            content: result.summary,
+          });
+          return {
+            sessionId: context.sessionId,
+            previousResponseId: conversationState?.previousResponseId ?? null,
+          };
+        }
+        if (resultData.reusedSavedProfile === true) {
+          emit({ role: "assistant", content: result.summary });
+          await persistSessionEntry(context, {
+            role: "assistant",
+            kind: "local_summary",
+            title: "CLI summary",
             content: result.summary,
           });
           return {

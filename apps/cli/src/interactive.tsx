@@ -31,6 +31,10 @@ type InteractiveAppProps = {
   altScreen?: boolean;
 };
 
+export function composerPlaceholder(session: SessionRecord | null) {
+  return session ? "Ask about datasets, runs, or artifacts" : "Ask about datasets, runs, or sign-in";
+}
+
 function shortId(value: string, size = 8) {
   return value.length > size ? value.slice(0, size) : value;
 }
