@@ -1250,6 +1250,62 @@ test("run debug bundle classifies worker-unreachable state as lifecycle-uncertai
   assert.match(bundle.lifecycle.message, /reconciled|reconciliation/);
 });
 
+test("stuck run question explains fresh booting run in plain language", async () => {
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    readSession: async () => session,
+    readTrackedRuns: async () => [{
+      id: "run-fresh-1",
+      datasetId: "enriched-tweets",
+      origin: session.origin,
+      status: "booting",
+      prompt: "Mounted dataset grounding is mandatory for dataset `enriched-tweets`.\nBefore doing analysis, read the mount.",
+      createdAt: "2026-04-22T00:00:00.000Z",
+      updatedAt: "2026-04-22T00:00:00.000Z",
+      lastSeenAt: "2026-04-22T00:00:00.000Z",
+    }],
+    now: () => new Date("2026-04-22T00:00:30.000Z").getTime(),
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("My last run seems stuck. What’s happening?", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /does not look stuck yet/i);
+  assert.match(final, /Waiting for dataset enriched-tweets to be mounted/i);
+  assert.match(final, /wait 1-2 minutes/i);
+  assert.match(final, /research debug run run-fresh-1/);
+  assert.doesNotMatch(final, /Mounted dataset grounding is mandatory/i);
+});
+
+test("stuck run question escalates stale running run to debug now", async () => {
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    readSession: async () => session,
+    readTrackedRuns: async () => [{
+      id: "run-stale-1",
+      datasetId: "econ",
+      origin: session.origin,
+      status: "running",
+      prompt: "Analyze housing risk trends.",
+      createdAt: "2026-04-22T00:00:00.000Z",
+      updatedAt: "2026-04-22T00:00:00.000Z",
+      lastSeenAt: "2026-04-22T00:00:00.000Z",
+      lastEventMessage: "Computing grouped aggregates.",
+    }],
+    now: () => new Date("2026-04-22T00:05:00.000Z").getTime(),
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("My last run seems stuck. What’s happening?", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /may be stalled/i);
+  assert.match(final, /Computing grouped aggregates\./i);
+  assert.match(final, /run `research debug run run-stale-1` now/i);
+  assert.match(final, /Last update: 5 minutes ago/i);
+});
+
 test("product planning: vague viral tweets request designs scoped experiment before running", async () => {
   const calls: string[] = [];
   const fakeClient = {
