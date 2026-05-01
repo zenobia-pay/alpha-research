@@ -1056,14 +1056,7 @@ function summarizeResolvedDataset(target: ResolvedDatasetTarget, purpose: string
   return `Using dataset ${label} for ${purpose}.`;
 }
 
-function summarizeBusyDatasetConflict(
-  error: RemoteRequestError,
-  options?: {
-    target?: ResolvedDatasetTarget;
-    purpose?: string;
-    expectedArtifacts?: string[];
-  },
-) {
+function parseBusyDatasetConflict(error: RemoteRequestError) {
   if (error.status !== 409) {
     return null;
   }
@@ -1074,37 +1067,62 @@ function summarizeBusyDatasetConflict(
   const activeRuns = Array.isArray(payload.activeRuns) ? payload.activeRuns as Array<Record<string, unknown>> : [];
   const first = activeRuns[0];
   if (!first) {
-    return payload.error;
+    return {
+      message: payload.error,
+      runId: "unknown",
+      status: "running",
+      datasetId: null,
+      prompt: null,
+      createdAt: undefined,
+      updatedAt: undefined,
+    };
   }
-  const runId = typeof first.id === "string" ? first.id : "unknown";
-  const status = typeof first.status === "string" ? first.status : "running";
+  return {
+    message: payload.error,
+    runId: typeof first.id === "string" ? first.id : "unknown",
+    status: typeof first.status === "string" ? first.status : "running",
+    datasetId: typeof first.datasetId === "string" ? first.datasetId : null,
+    prompt: typeof first.prompt === "string" && first.prompt.trim() ? first.prompt.trim() : null,
+    createdAt: typeof first.createdAt === "string" ? first.createdAt : undefined,
+    updatedAt: typeof first.updatedAt === "string" ? first.updatedAt : typeof first.createdAt === "string" ? first.createdAt : undefined,
+  };
+}
+
+function summarizeBusyDatasetConflict(
+  error: RemoteRequestError,
+  options?: {
+    target?: ResolvedDatasetTarget;
+    purpose?: string;
+    expectedArtifacts?: string[];
+  },
+) {
+  const conflict = parseBusyDatasetConflict(error);
+  if (!conflict) {
+    return null;
+  }
   const purpose = options?.purpose ?? "this request";
-  const datasetId = typeof first.datasetId === "string" ? first.datasetId : null;
-  const prompt = typeof first.prompt === "string" && first.prompt.trim() ? first.prompt.trim() : null;
-  const createdAt = typeof first.createdAt === "string" ? first.createdAt : undefined;
-  const updatedAt = typeof first.updatedAt === "string" ? first.updatedAt : createdAt;
   const lockSummary = renderBusyDatasetConflict({
-    datasetId: datasetId ?? options?.target?.datasetId,
-    runId,
-    status,
-    createdAt,
-    updatedAt,
-    dashboardUrl: dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId),
+    datasetId: conflict.datasetId ?? options?.target?.datasetId,
+    runId: conflict.runId,
+    status: conflict.status,
+    createdAt: conflict.createdAt,
+    updatedAt: conflict.updatedAt,
+    dashboardUrl: dashboardRunUrl(DEFAULT_WEB_ORIGIN, conflict.runId),
   });
   const lines = [
     `Blocked: ${purpose} is waiting on an active dataset run.`,
-    `An analysis is already running${datasetId ? ` on ${datasetId}` : " on this dataset"}.`,
+    `An analysis is already running${conflict.datasetId ? ` on ${conflict.datasetId}` : " on this dataset"}.`,
     options?.target ? summarizeResolvedDataset(options.target, purpose) : null,
-    `Active run: ${runId}`,
-    `State: ${status}`,
-    prompt ? `Current work: ${prompt.slice(0, 140)}` : null,
+    `Active run: ${conflict.runId}`,
+    `State: ${conflict.status}`,
+    conflict.prompt ? `Current work: ${conflict.prompt.slice(0, 140)}` : null,
     "",
     "I did not start a duplicate run because that active run still holds the dataset volume.",
     options?.expectedArtifacts?.length
       ? `Expected artifacts once the run finishes: ${options.expectedArtifacts.join(", ")}.`
       : null,
-    `When it finishes, ask: show results from ${runId}`,
-    `Inspect in CLI: research debug run ${runId}`,
+    `When it finishes, ask: show results from ${conflict.runId}`,
+    `Inspect in CLI: research debug run ${conflict.runId}`,
     "",
     lockSummary,
   ];
@@ -1207,6 +1225,90 @@ function progressHeartbeat(toolName: string, input: Record<string, unknown>, ela
     return `Still starting the remote run for ${datasetId} (${elapsedSeconds}s elapsed).`;
   }
   return `Still running ${toolName} (${elapsedSeconds}s elapsed).`;
+}
+
+function formatUnknownValue(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const parts: string[] = value
+      .map((entry): string | null => formatUnknownValue(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return parts.length > 0 ? parts.join("; ") : null;
+  }
+  if (isRecord(value)) {
+    const pairs: string[] = Object.entries(value)
+      .map(([key, entry]) => {
+        const formatted: string | null = formatUnknownValue(entry);
+        return formatted ? `${key}: ${formatted}` : null;
+      })
+      .filter((entry): entry is string => Boolean(entry));
+    return pairs.length > 0 ? pairs.join("; ") : null;
+  }
+  return null;
+}
+
+function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?: { runId: string; status: string }) {
+  const profile = dataset.profile;
+  if (!profile) {
+    return null;
+  }
+  const lines: string[] = [];
+  if (blockingRun) {
+    lines.push(
+      `Using the latest saved dataset briefing for ${dataset.id} while run ${blockingRun.runId} is ${blockingRun.status}.`,
+      "",
+    );
+  }
+  if (typeof profile.briefingMarkdown === "string" && profile.briefingMarkdown.trim().length > 0) {
+    lines.push(profile.briefingMarkdown.trim());
+  } else {
+    lines.push(
+      `Dataset Briefing: ${dataset.name || dataset.id}`,
+      "",
+      `Overview: ${dataset.name || dataset.id}${dataset.status ? ` (${dataset.status})` : ""}`,
+    );
+    const trust = formatUnknownValue(profile.quality) ?? profile.notes ?? "Saved dataset profile exists, but explicit trust notes are limited.";
+    lines.push(`Readiness & Trust: ${trust}`);
+    const inventory = formatUnknownValue(profile.tables) ?? formatUnknownValue(profile.schema);
+    if (inventory) lines.push(`Data Inventory: ${inventory}`);
+    const sources = formatUnknownValue(profile.sources);
+    if (sources) lines.push(`Sources: ${sources}`);
+    const schema = formatUnknownValue(profile.schema);
+    if (schema) lines.push(`Schemas: ${schema}`);
+    const timeCoverage = formatUnknownValue(profile.timeCoverage);
+    if (timeCoverage) lines.push(`Time Coverage: ${timeCoverage}`);
+    const geographyCoverage = formatUnknownValue(profile.geographyCoverage);
+    if (geographyCoverage) lines.push(`Geography Coverage: ${geographyCoverage}`);
+    const formats = formatUnknownValue(profile.formats);
+    if (formats) lines.push(`Formats: ${formats}`);
+    const transformations = formatUnknownValue(profile.transformations);
+    if (transformations) lines.push(`Transformations & Derived Fields: ${transformations}`);
+    const quality = formatUnknownValue(profile.quality);
+    if (quality) lines.push(`Quality & Validation: ${quality}`);
+    const limitations = formatUnknownValue(profile.limitations);
+    if (limitations) lines.push(`Limitations & Known Gaps: ${limitations}`);
+  }
+  const artifactNotes = [
+    profile.briefingArtifactId ? "Dataset Briefing" : null,
+    profile.profileArtifactId ? "Dataset Profile" : null,
+  ].filter((entry): entry is string => Boolean(entry));
+  const generatedAt = profile.describedAt ?? profile.updatedAt;
+  if (artifactNotes.length > 0 || generatedAt) {
+    lines.push(
+      "",
+      `Artifacts: ${artifactNotes.length > 0 ? artifactNotes.join(" and ") : "saved dataset profile"}${generatedAt ? ` · updated ${generatedAt}` : ""}`,
+    );
+  }
+  return lines.join("\n");
 }
 
 function summarizeRemoteFailure(error: RemoteRequestError) {
@@ -3255,13 +3357,35 @@ export function createToolRegistry(): ToolDefinition[] {
           ));
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error, {
-              target,
-              purpose: "this dataset briefing",
-              expectedArtifacts: DATASET_BRIEFING_ARTIFACTS.map((artifact) => artifact.title),
-            });
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            const conflict = parseBusyDatasetConflict(error);
+            if (conflict) {
+              const existing = await withAuthRetry(context, () => client.getDataset(datasetId).catch(() => null));
+              const fallback = existing?.dataset ? formatDatasetProfileFallback(existing.dataset, conflict) : null;
+              if (fallback) {
+                return {
+                  summary: fallback,
+                  data: {
+                    ok: true,
+                    reusedSavedProfile: true,
+                    blockingRunId: conflict.runId,
+                    dataset: existing?.dataset,
+                  },
+                };
+              }
+              const summary = summarizeBusyDatasetConflict(error, {
+                target,
+                purpose: "this dataset briefing",
+                expectedArtifacts: DATASET_BRIEFING_ARTIFACTS.map((artifact) => artifact.title),
+              });
+              return {
+                summary: summary ?? [
+                  `Blocked: ${datasetId} is already busy.`,
+                  `Holding run: ${conflict.runId} (${conflict.status})`,
+                  "A saved dataset briefing is not available yet.",
+                  `Next: research debug run ${conflict.runId}`,
+                ].join("\n"),
+                data: { ok: false, reason: "dataset_busy", blockingRunId: conflict.runId },
+              };
             }
           }
           throw error;

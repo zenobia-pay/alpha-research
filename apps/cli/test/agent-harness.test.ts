@@ -834,6 +834,77 @@ test("busy dataset conflict explains active run and emits heartbeat while waitin
   }
 });
 
+test("dataset describe request falls back to saved briefing when dataset is busy", async () => {
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "terminal-session-describe-busy",
+        payload: {
+          id: "response-describe-busy",
+          output: [{
+            type: "function_call",
+            call_id: "call-describe-busy",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async startRun() {
+      throw new RemoteRequestError(
+        'Remote request failed (409) for /api/cli/datasets/econ/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-econ-busy","status":"running"}]}',
+        409,
+        "/api/cli/datasets/econ/runs",
+      );
+    },
+    async getDataset() {
+      return {
+        dataset: {
+          id: "econ",
+          name: "Economic Indicators",
+          status: "ready",
+          profile: {
+            briefingMarkdown: [
+              "Overview",
+              "Economic indicators dataset with normalized macro tables.",
+              "",
+              "Readiness & Trust",
+              "Usable now.",
+              "",
+              "Sources",
+              "FRED",
+              "",
+              "Quality & Validation",
+              "Validated schemas.",
+            ].join("\n"),
+            briefingArtifactId: "artifact-briefing",
+            profileArtifactId: "artifact-profile",
+            describedAt: "2026-04-30T12:00:00.000Z",
+          },
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-describe-busy" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("describe the econ dataset", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Using the latest saved dataset briefing for econ while run run-econ-busy is running/);
+  assert.match(final, /Readiness & Trust/);
+  assert.match(final, /FRED/);
+  assert.match(final, /Artifacts: Dataset Briefing and Dataset Profile/);
+  assert.doesNotMatch(final, /Started dataset briefing run/);
+});
+
 test("run result retrieval includes selected run context and artifacts", async () => {
   const now = Date.now();
   const fakeClient = {
