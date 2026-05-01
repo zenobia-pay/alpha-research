@@ -1,0 +1,196 @@
+# J02 UX Briefing: Dataset Inventory
+
+## Verdict
+
+Partial.
+
+The CLI chose the right broad behavior for “What datasets do I have?”: it retrieved both local and remote datasets, reported counts, separated local from remote, and ended with a reasonable next step. The final answer is scannable and not overwhelming, but it under-explains readiness/status, gives almost no dataset descriptions, and exposes internal-looking status combinations that make it harder for a normal user to decide what to inspect next.
+
+## User Input Burden
+
+Low. The user asked one natural-language question and did not need to clarify, authenticate, or choose from an intermediate prompt.
+
+The only follow-up burden is at the end: “Want details on any one?” is easy to answer, but the list does not provide enough context to confidently choose a dataset beyond names, ids, records for local datasets, and raw statuses for remote datasets.
+
+## Correct Behavior Assessment
+
+Correct behavior: retrieve and summarize.
+
+`research` correctly started work without asking an unnecessary clarification question. It called `list_local_datasets`, then `list_remote_datasets`, then reported both inventories. This matches the journey intention: orient the user around available data before choosing work.
+
+Evidence:
+
+- `snapshots/0001-5s.txt`: shows progress after 5 seconds: `Calling list_local_datasets`, `Found 2 local datasets.`, `Calling list_remote_datasets`.
+- `snapshots/0002-final.txt`: shows the completed local and remote inventory.
+- `events.jsonl`: first visible output appears around 2389 ms, final snapshot at 9404 ms, exit code 0 in `metadata.json`.
+- `terminal.log`: confirms the exact final text and no visible error output.
+
+The main gap is not behavior selection; it is presentation quality. For this journey, the CLI should help the user answer “what can I use now, what is still being prepared, and what is each dataset about?” The current output only partially answers that.
+
+## Confusing Moments Ordered By Severity
+
+1. Remote readiness is ambiguous and sometimes contradictory.
+
+   Evidence: `snapshots/0002-final.txt` and `terminal.log` show:
+
+   - `Enriched Tweets (id: enriched-tweets) — uploading (deployment: ready)`
+   - `Upload Test (id: upload-test-93961) — uploaded (deployment: upload_ready)`
+   - `enriched_tweets_parquet_dataset (id: dataset) — created (deployment: draft)`
+
+   A normal user has to infer the difference between dataset status and deployment status. “uploading” paired with “deployment: ready” looks contradictory: is it usable or not? “uploaded” paired with “upload_ready” is also unclear. “created” and “draft” do not say whether the user can query it.
+
+2. The inventory lacks descriptions, so the user cannot choose intelligently.
+
+   Evidence: `journey.md` says the correct outcome should include “short descriptions when available.” `snapshots/0002-final.txt` lists names, ids, statuses, and local record counts, but no descriptions or schema/topic hints. For example, `Mixed Smoke Test`, `Upload Test`, and `dataset` do not explain what data they contain.
+
+3. Remote datasets do not show record counts or size.
+
+   Evidence: local entries in `snapshots/0002-final.txt` include `records: 4` and `records: 3`; remote entries do not include counts. This asymmetry may be technically justified, but the UI does not say whether counts are unavailable, still loading, or intentionally omitted.
+
+4. Internal/test-looking dataset names dominate the list without grouping or de-emphasis.
+
+   Evidence: `snapshots/0002-final.txt` includes three “Mixed Smoke Test” entries, `Upload Test`, and `enriched_tweets_parquet_dataset`. These may be real fixtures or test artifacts, but to a normal user they look noisy and lower confidence in the inventory. The CLI does not distinguish production/user datasets from smoke-test or draft artifacts.
+
+5. The initial screen is blank.
+
+   Evidence: `snapshots/0000-start.txt` is empty. `events.jsonl` shows the first stdout around 2389 ms. This is a short delay, but a blank initial state can feel like the command did not start, especially in scripted `--prompt` mode.
+
+6. Tool-call names are somewhat developer-facing.
+
+   Evidence: `snapshots/0001-5s.txt` and `snapshots/0002-final.txt` show `Calling list_local_datasets` and `Calling list_remote_datasets`. These are useful for transparency, but they read like internal function names rather than user-facing progress.
+
+## Confusion Categories
+
+Product confusion:
+
+- The output does not clearly rank or group datasets by usefulness/readiness.
+- The final prompt asks “Want details on any one?” before giving enough context to choose one.
+
+Dataset confusion:
+
+- Dataset names such as `dataset`, `Upload Test`, and `Mixed Smoke Test` are not self-explanatory.
+- No short descriptions, schemas, topics, last-updated timestamps, or examples are shown.
+- Local datasets have record counts; remote datasets do not.
+
+Auth confusion:
+
+- None visible. There was no login prompt, token warning, or permission failure.
+
+Run lifecycle confusion:
+
+- Moderate. Statuses like `deploying`, `uploading`, `uploaded`, `created`, `ready`, `upload_ready`, and `draft` appear without explanation.
+- The nested `deployment:` status makes lifecycle state harder to parse.
+
+Terminal/UI readability problems:
+
+- Overall readability is good: short sections, clear counts, and enough whitespace.
+- The bullet list is easy to scan at 120 columns.
+- The visible progress lines are understandable but too implementation-flavored.
+- The blank start state is the only notable terminal-state issue.
+
+## Information Density
+
+Slightly too sparse.
+
+The number of lines is right-sized for the journey, and the output is not too dense. However, the content density is low where it matters: there is not enough semantic information to decide which dataset to use. A better answer could stay about the same length by replacing raw lifecycle labels with clearer readiness labels and adding one compact descriptor per dataset when available.
+
+## Missing Information That Would Have Helped
+
+- A plain readiness label for each remote dataset, such as `Ready to query`, `Still deploying`, `Draft`, or `Upload in progress`.
+- One-line dataset descriptions or inferred topics.
+- Remote record counts, row counts, file counts, or “count unavailable” if unknown.
+- Last updated or created timestamps, especially for similarly named smoke-test datasets.
+- A clear distinction between local-only datasets and remote datasets available for backend/agent work.
+- A recommendation such as “Ready now: Mixed Smoke Test. Local demo datasets: County Economics, Tweet Archive.”
+- A note explaining whether draft/deploying/uploading datasets can be queried yet.
+
+## Information To Remove Or De-emphasize
+
+- De-emphasize raw internal statuses like `deployment: upload_ready` unless the user asks for debug details.
+- Avoid showing tool names as primary progress text; use user-facing labels first.
+- Consider hiding or grouping obvious test/smoke datasets under a “Test/draft” section if they are not likely to be user-relevant.
+- Avoid exposing both `uploading` and `deployment: ready` on the same line without a plain-language interpretation.
+
+## Suggested UI/Output Changes
+
+1. Use user-facing progress text.
+
+   Replace:
+
+   ```text
+   · Calling list_local_datasets
+   · Calling list_remote_datasets
+   ```
+
+   With:
+
+   ```text
+   · Checking local datasets...
+   · Checking remote datasets...
+   ```
+
+2. Add readiness grouping for remote datasets.
+
+   Example:
+
+   ```text
+   Remote ready to use:
+   - Mixed Smoke Test (id: mixed-smoke-1776979192) — ready
+
+   Remote still being prepared:
+   - Econ Orchestrator Environment (id: econ) — deploying
+   - Enriched Tweets (id: enriched-tweets) — upload in progress; deployment ready
+
+   Drafts:
+   - enriched_tweets_parquet_dataset (id: dataset) — draft
+   ```
+
+3. Include descriptions where available, or say when none are available.
+
+   Example:
+
+   ```text
+   - County Economics (county-economics) — 4 records; county-level economic indicators
+   - Tweet Archive (tweets) — 3 records; sample tweet archive
+   ```
+
+4. Normalize status wording.
+
+   Instead of `uploaded (deployment: upload_ready)`, show a single interpreted state:
+
+   ```text
+   uploaded, not deployed yet
+   ```
+
+   Or:
+
+   ```text
+   upload complete; deployment pending
+   ```
+
+5. End with a more guided next step.
+
+   Replace:
+
+   ```text
+   Want details on any one?
+   ```
+
+   With:
+
+   ```text
+   You can ask “describe tweets” or “show ready remote datasets.”
+   ```
+
+   This keeps the conversational affordance while reducing choice paralysis.
+
+## Evidence References
+
+- `journey.md`: defines the prompt, user intention, correct outcome, and judge criteria.
+- `snapshots/0000-start.txt`: blank initial state.
+- `snapshots/0001-5s.txt`: progress state after local lookup and while remote lookup is running.
+- `snapshots/0002-final.txt`: final user-visible inventory.
+- `screenshots/0002-final.svg`: confirms the final layout, spacing, and visible text at 120x36 terminal size.
+- `terminal.log`: exact final output text.
+- `events.jsonl`: timing of stdout and snapshots; final snapshot at 9404 ms.
+- `metadata.json`: command completed successfully with exit code 0 and no timeout.
