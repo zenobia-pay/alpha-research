@@ -2,7 +2,7 @@ import { access, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
-import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage";
+import { getInstanceBootstrap, listInstanceBundles, type DatasetInstanceSummary } from "@rprend/alpha-storage";
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
@@ -53,6 +53,7 @@ export type AgentRuntimeDeps = {
   readSession: typeof readSession;
   login: typeof login;
   createToolRegistry: () => ToolDefinition[];
+  listLocalDatasets: () => Promise<DatasetInstanceSummary[]>;
 };
 
 const STANDARD_ANALYSIS_RESOURCES = {
@@ -138,6 +139,7 @@ export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
     readSession,
     login,
     createToolRegistry,
+    listLocalDatasets: () => listInstanceBundles(DEFAULT_INSTANCE_ROOT),
   };
 }
 
@@ -252,8 +254,164 @@ function formatStatusForHumans(status: string | undefined) {
   return status ?? "unknown";
 }
 
+function formatDatasetLifecycleLabel(status: string | undefined, deploymentStatus?: string | undefined) {
+  const normalized = (status ?? "").toLowerCase();
+  const deployment = (deploymentStatus ?? "").toLowerCase();
+  if (normalized === "ready" || deployment === "ready" || deployment === "deployed") {
+    return "ready to use";
+  }
+  if (normalized === "provisioning" || normalized === "building" || normalized === "booting") {
+    return "still being prepared";
+  }
+  if (normalized === "draft") {
+    return "still a draft";
+  }
+  if (normalized === "uploaded" || deployment === "uploaded") {
+    return "uploaded but not queryable yet";
+  }
+  if (normalized === "deployed") {
+    return "ready to query";
+  }
+  return status?.trim() || "status unknown";
+}
+
+function inferDatasetActionLabel(kind: "local" | "remote", ready: boolean) {
+  if (!ready) {
+    return "not ready yet";
+  }
+  return kind === "local" ? "use locally" : "query remotely";
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNoisyDatasetName(value: string) {
+  return /\b(test|smoke|draft|upload|fixture|demo|tmp|sample)\b/i.test(value);
+}
+
+function inferDatasetPurpose(name: string, description?: string | null) {
+  const trimmedDescription = description?.trim();
+  if (trimmedDescription) {
+    return trimmedDescription;
+  }
+  const lower = name.toLowerCase();
+  if (/\btweets?\b/.test(lower)) {
+    return "tweet archive for social/content analysis";
+  }
+  if (/\becon|econom/.test(lower)) {
+    return "economic indicators and trend analysis";
+  }
+  if (/\bhousing|home values?\b/.test(lower)) {
+    return "housing market and home-value analysis";
+  }
+  return "general research dataset";
+}
+
+type InventoryDatasetCard = {
+  kind: "local" | "remote";
+  id: string;
+  name: string;
+  purpose: string;
+  readiness: string;
+  action: string;
+  ready: boolean;
+  noisy: boolean;
+  detail: string | null;
+};
+
+function localInventoryCard(instance: DatasetInstanceSummary): InventoryDatasetCard {
+  return {
+    kind: "local",
+    id: instance.datasetId,
+    name: instance.displayName,
+    purpose: inferDatasetPurpose(instance.displayName, instance.description),
+    readiness: "ready to use",
+    action: inferDatasetActionLabel("local", true),
+    ready: true,
+    noisy: isNoisyDatasetName(`${instance.datasetId} ${instance.displayName}`),
+    detail: `${formatNumber(instance.recordCount)} rows`,
+  };
+}
+
+function remoteInventoryCard(dataset: RemoteDatasetSummary): InventoryDatasetCard {
+  const status = (dataset.status ?? "").toLowerCase();
+  const deployment = (dataset.deploymentStatus ?? "").toLowerCase();
+  const ready = status === "ready" || deployment === "ready" || deployment === "deployed";
+  return {
+    kind: "remote",
+    id: dataset.id,
+    name: dataset.name?.trim() || dataset.id,
+    purpose: inferDatasetPurpose(dataset.name?.trim() || dataset.id),
+    readiness: formatDatasetLifecycleLabel(dataset.status, dataset.deploymentStatus),
+    action: inferDatasetActionLabel("remote", ready),
+    ready,
+    noisy: isNoisyDatasetName(`${dataset.id} ${dataset.name ?? ""}`),
+    detail: ready ? "deployed" : null,
+  };
+}
+
+function inventorySort(left: InventoryDatasetCard, right: InventoryDatasetCard) {
+  if (left.ready !== right.ready) return left.ready ? -1 : 1;
+  if (left.noisy !== right.noisy) return left.noisy ? 1 : -1;
+  if (left.kind !== right.kind) return left.kind === "local" ? -1 : 1;
+  return left.name.localeCompare(right.name);
+}
+
+function chooseRecommendedInventoryDataset(cards: InventoryDatasetCard[]) {
+  const ranked = [...cards].sort((left, right) => {
+    const leftScore = (left.ready ? 100 : 0) + (left.noisy ? 0 : 10) + (left.kind === "local" ? 2 : 1);
+    const rightScore = (right.ready ? 100 : 0) + (right.noisy ? 0 : 10) + (right.kind === "local" ? 2 : 1);
+    return rightScore - leftScore || inventorySort(left, right);
+  });
+  return ranked[0] ?? null;
+}
+
+function renderInventoryDatasetLine(card: InventoryDatasetCard) {
+  const detail = card.detail ? `; ${card.detail}` : "";
+  return `- ${card.name} (${card.kind}) — ${card.purpose}. ${card.action}; ${card.readiness}${detail}. id: ${card.id}`;
+}
+
+function formatDatasetInventoryResponse(
+  localInstances: DatasetInstanceSummary[],
+  remoteDatasets: RemoteDatasetSummary[],
+) {
+  const cards = [
+    ...localInstances.map(localInventoryCard),
+    ...remoteDatasets.map(remoteInventoryCard),
+  ].sort(inventorySort);
+  const readyChoices = cards.filter((card) => card.ready && !card.noisy);
+  const otherChoices = cards.filter((card) => !readyChoices.includes(card));
+  const recommendation = chooseRecommendedInventoryDataset(readyChoices.length > 0 ? readyChoices : cards);
+  const lines: string[] = [];
+
+  if (recommendation) {
+    lines.push(
+      `Best starting point: ${recommendation.name} (${recommendation.kind}) — ${recommendation.purpose}. Next step: ${recommendation.action} with dataset id \`${recommendation.id}\`.`,
+    );
+  }
+
+  if (readyChoices.length > 0) {
+    lines.push("", "Ready now");
+    for (const card of readyChoices) {
+      lines.push(renderInventoryDatasetLine(card));
+    }
+  } else {
+    lines.push("", "Ready now", "- No datasets are ready to use yet.");
+  }
+
+  if (otherChoices.length > 0) {
+    lines.push("", "Other datasets");
+    for (const card of otherChoices) {
+      lines.push(renderInventoryDatasetLine(card));
+    }
+  }
+
+  lines.push(
+    "",
+    "Why these groups: `Ready now` means you can use the dataset immediately from this CLI. `Other datasets` are still being prepared, are drafts, or look like test/noise datasets.",
+  );
+  return lines.join("\n");
 }
 
 function reusableEnvironmentTokens(value: string) {
@@ -857,6 +1015,28 @@ function maybeHandleVagueTweetsExperiment(input: string) {
     "",
     "Confirm the scope: should I define viral tweets as the top 0.1% by quote/retweet/like engagement and sample 100 tweets for labeling?",
   ].join("\n");
+}
+
+function shouldHandleDatasetInventory(input: string) {
+  const lower = input.trim().toLowerCase();
+  return (
+    /\b(what data do i already have|what datasets do i have|show (?:my )?datasets|list (?:my )?datasets|dataset inventory)\b/.test(lower)
+    || (/\bready to use\b/.test(lower) && /\bdata|dataset/.test(lower))
+  );
+}
+
+async function maybeHandleDatasetInventory(input: string, initialSession: SessionRecord | null, deps: AgentRuntimeDeps) {
+  if (!initialSession || !shouldHandleDatasetInventory(input)) {
+    return null;
+  }
+  const localInstances = await deps.listLocalDatasets().catch(() => []);
+  const client = deps.createRemoteClient(initialSession);
+  const remoteDatasets = await client.listDatasets().then((payload) => payload.datasets).catch(() => []);
+  return {
+    localCount: localInstances.length,
+    remoteCount: remoteDatasets.length,
+    response: formatDatasetInventoryResponse(localInstances, remoteDatasets),
+  };
 }
 
 function extractDatasetIdFromNewAnalysis(input: string) {
@@ -2265,6 +2445,19 @@ export async function runAgentTurn(
   conversationState?: AgentConversationState,
   deps: AgentRuntimeDeps = createDefaultAgentRuntimeDeps(),
 ): Promise<AgentConversationState> {
+  const datasetInventoryResponse = await maybeHandleDatasetInventory(input, initialSession, deps);
+  if (datasetInventoryResponse) {
+    emit({ role: "tool", content: "Checking local datasets..." });
+    emit({ role: "tool", content: `Found ${datasetInventoryResponse.localCount} local dataset${datasetInventoryResponse.localCount === 1 ? "" : "s"}.` });
+    emit({ role: "tool", content: "Checking remote datasets..." });
+    emit({ role: "tool", content: `Found ${datasetInventoryResponse.remoteCount} remote dataset${datasetInventoryResponse.remoteCount === 1 ? "" : "s"}.` });
+    emit({ role: "assistant", content: datasetInventoryResponse.response });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
   const directResponse = maybeHandleOrientation(input)
     ?? maybeHandleCsvImportHowTo(input)
     ?? maybeHandleVagueMarketQuestion(input)

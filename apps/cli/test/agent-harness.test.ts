@@ -117,6 +117,70 @@ test("vague housing risk request asks scope before costly work", async () => {
   assert.doesNotMatch(final, /Started|Queued|Dashboard:/i);
 });
 
+test("dataset inventory is recommendation-first, name-first, and de-emphasizes noisy datasets", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Dataset inventory should be answered locally from dataset listings.");
+    },
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "enriched-tweets", name: "Enriched Tweets", status: "ready", deploymentStatus: "ready" },
+          { id: "mixed-smoke-1776979192", name: "Mixed Smoke Test", status: "ready", deploymentStatus: "ready" },
+          { id: "econ", name: "Unemployment vs Home Values 2019–2024", status: "provisioning", deploymentStatus: "building" },
+          { id: "upload-test-93961", name: "Upload Test", status: "uploaded", deploymentStatus: "uploaded" },
+          { id: "dataset", name: "enriched_tweets_parquet_dataset", status: "draft" },
+        ],
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+    listLocalDatasets: async () => [
+      {
+        id: "local-county-econ",
+        productName: "County Economics",
+        datasetId: "county-economics",
+        displayName: "County Economics",
+        description: "county-level economics for regional trend comparisons",
+        recordCount: 4,
+        layout: "sharded",
+      },
+      {
+        id: "local-tweets",
+        productName: "Tweet Archive",
+        datasetId: "tweets",
+        displayName: "Tweet Archive",
+        description: "tweet archive for social/content analysis",
+        recordCount: 3,
+        layout: "sharded",
+      },
+    ],
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("What data do I already have that is ready to use?", session, emit, undefined, deps);
+
+  assert.equal(messages[0]?.content, "Checking local datasets...");
+  assert.equal(messages[2]?.content, "Checking remote datasets...");
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /^Best starting point: County Economics \(local\)/);
+  assert.match(final, /Next step: use locally with dataset id `county-economics`/);
+  assert.match(final, /Ready now/);
+  assert.match(final, /County Economics \(local\) — county-level economics for regional trend comparisons\./);
+  assert.match(final, /Enriched Tweets \(remote\) — tweet archive for social\/content analysis\./);
+  assert.match(final, /id: county-economics/);
+  assert.match(final, /id: enriched-tweets/);
+  assert.match(final, /Other datasets/);
+  assert.match(final, /Mixed Smoke Test \(remote\).*query remotely; ready to use; deployed\./);
+  assert.match(final, /Unemployment vs Home Values 2019–2024 \(remote\).*not ready yet; still being prepared\./);
+  assert.match(final, /Upload Test \(remote\).*uploaded but not queryable yet\./);
+  assert.match(final, /enriched_tweets_parquet_dataset \(remote\).*still a draft\./);
+});
+
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {
   const calls: string[] = [];
   let startedPrompt = "";
