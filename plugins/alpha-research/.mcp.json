@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "alpha-research": {
+      "command": "node",
+      "args": [
+        "./plugins/alpha-research/mcp/server.js"
+      ],
+      "env": {
+        "ALPHA_RESEARCH_REPO_ROOT": "."
+      }
+    }
+  }
+}

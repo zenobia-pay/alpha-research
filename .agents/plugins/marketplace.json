@@ -1,0 +1,20 @@
+{
+  "name": "alpha-datasets",
+  "interface": {
+    "displayName": "Alpha Datasets"
+  },
+  "plugins": [
+    {
+      "name": "alpha-research",
+      "source": {
+        "source": "local",
+        "path": "./plugins/alpha-research"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
