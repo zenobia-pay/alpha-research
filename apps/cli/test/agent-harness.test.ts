@@ -530,6 +530,154 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
   assert.doesNotMatch(joinedMessages, /Terminal session:/);
 });
 
+test("dataset inspection surfaces schema evidence for requested analysis fields", async () => {
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "terminal-session-inspect",
+          payload: {
+            id: "response-inspect-2",
+            output_text: "Inspection complete.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Inspection complete." }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-inspect",
+        payload: {
+          id: "response-inspect",
+          output: [{
+            type: "function_call",
+            call_id: "call-inspect",
+            name: "inspect_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async getDataset(datasetId: string) {
+      assert.equal(datasetId, "econ");
+      return {
+        dataset: {
+          id: "econ",
+          name: "Economics",
+          status: "ready",
+          profile: {
+            schema: [
+              { name: "county_name", type: "string" },
+              { name: "year", type: "integer" },
+              { name: "unemployment_rate", type: "number" },
+              { name: "median_home_value", type: "number" },
+            ],
+            timeCoverage: { start: "2010", end: "2024" },
+            geographyCoverage: { level: "county" },
+            notes: "County-year economics panel.",
+          },
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-inspect" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("inspect econ", session, emit, undefined, deps);
+
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /econ appears to include county, time, unemployment, and home value fields/i);
+  assert.match(joined, /county_name, year, unemployment_rate, median_home_value/i);
+  assert.match(joined, /Coverage: 2010 to 2024 at county level/i);
+});
+
+test("busy dataset conflict explains active run and emits heartbeat while waiting", async () => {
+  const originalHeartbeat = process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS;
+  process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS = "25";
+  try {
+    const fakeClient = {
+      async respond(body: Record<string, unknown>) {
+        if (Array.isArray(body.input)) {
+          return {
+            sessionId: "terminal-session-busy",
+            payload: {
+              id: "response-busy-2",
+              output_text: "Busy run noted.",
+              output: [{ type: "message", content: [{ type: "output_text", text: "Busy run noted." }] }],
+            },
+          };
+        }
+        return {
+          sessionId: "terminal-session-busy",
+          payload: {
+            id: "response-busy",
+            output: [{
+              type: "function_call",
+              call_id: "call-busy",
+              name: "create_research_environment",
+              arguments: JSON.stringify({
+                datasetId: "econ",
+                name: "Economics",
+                sourceDescription: "Existing economics dataset",
+                prompt: "Analyze unemployment versus home values.",
+                artifacts: [
+                  { type: "table", title: "Correlation table" },
+                  { type: "chart", title: "Scatter plot" },
+                  { type: "markdown", title: "Markdown summary" },
+                ],
+              }),
+            }],
+          },
+        };
+      },
+      async listDatasets() {
+        return { datasets: [{ id: "econ", name: "Economics", status: "ready" }] };
+      },
+      async createDataset() {
+        return { dataset: { id: "econ", name: "Economics", status: "ready" } };
+      },
+      async createResearchEnvironment() {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        throw new RemoteRequestError(
+          "Remote request failed (409) for /api/cli/datasets/econ/environment. {\"error\":\"dataset has an active run holding its volume\",\"activeRuns\":[{\"id\":\"run-busy\",\"datasetId\":\"econ\",\"status\":\"booting\",\"prompt\":\"Compare unemployment and home values\"}]}",
+          409,
+          "/api/cli/datasets/econ/environment",
+        );
+      },
+      async appendSessionEntry() {
+        return { id: "entry-busy" };
+      },
+    };
+    const deps: AgentRuntimeDeps = {
+      ...createDefaultAgentRuntimeDeps(),
+      createRemoteClient: () => fakeClient as never,
+      readSession: async () => session,
+    };
+    const { messages, emit } = collect();
+
+    await runAgentTurn("run the econ analysis", session, emit, undefined, deps);
+
+    const joined = messages.map((message) => message.content).join("\n");
+    assert.match(joined, /Expected artifacts: Correlation table; Scatter plot; Markdown summary\./);
+    assert.match(joined, /Still preparing the econ environment and checking whether the dataset volume is free/i);
+    assert.match(joined, /An analysis is already running on econ\./);
+    assert.match(joined, /I did not start a duplicate run/i);
+    assert.match(joined, /Dashboard run: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-busy#run-run-busy/);
+    assert.match(joined, /Inspect in CLI: research debug run run-busy/);
+  } finally {
+    if (originalHeartbeat === undefined) {
+      delete process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS;
+    } else {
+      process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS = originalHeartbeat;
+    }
+  }
+});
+
 test("run result retrieval includes original prompt and artifacts", async () => {
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
@@ -733,9 +881,11 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   assert.match(joined, /Blocked: .* is waiting on an active dataset run/);
   assert.match(joined, /Using dataset busy-dataset for /);
   assert.match(joined, /Active run: run-blocking/);
-  assert.match(joined, /Research does not start a duplicate run/);
+  assert.match(joined, /An analysis is already running on this dataset\./);
+  assert.match(joined, /I did not start a duplicate run/);
   assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
   assert.match(joined, /When it finishes, ask: show results from run-blocking/);
+  assert.match(joined, /Inspect in CLI: research debug run run-blocking/);
 });
 
 test("dataset describe conflict keeps guidance anchored on briefing artifacts", async () => {
