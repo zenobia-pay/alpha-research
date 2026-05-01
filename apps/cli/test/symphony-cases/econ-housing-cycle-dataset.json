@@ -55,8 +55,10 @@
       "create_research_environment"
     ],
     "assistantIncludes": [
-      "Started research environment build run-symphony-econ-build",
-      "econ-housing-cycle"
+      "Started research environment build for Housing-cycle economics panel.",
+      "Dataset: econ-housing-cycle",
+      "Run: run-symphony-econ-build",
+      "Expected artifacts:"
     ],
     "createdDataset": {
       "datasetId": "econ-housing-cycle",

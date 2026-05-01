@@ -15,6 +15,7 @@ export const INGEST_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), ".
 export const RUN_WATCHER_SCRIPT = fileURLToPath(new URL("./run-watcher.js", import.meta.url));
 export const DEFAULT_AGENT_MODEL = process.env.RESEARCH_AGENT_MODEL ?? "gpt-5";
 export const RUN_POLL_INTERVAL_MS = Number(process.env.RESEARCH_RUN_POLL_INTERVAL_MS ?? "5000");
+export const PROGRESS_HEARTBEAT_MS = Number(process.env.RESEARCH_PROGRESS_HEARTBEAT_MS ?? "8000");
 
 export type SessionRecord = {
   origin: string;

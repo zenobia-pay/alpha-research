@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, extname, resolve } from "node:path";
+import { Transform } from "node:stream";
 
 import {
   aggregateRecords,
@@ -82,25 +83,96 @@ export async function runIngest(args: string[], logger: (message: string) => voi
 
 export async function uploadFileToPresignedUrl(filePath: string, uploadUrl: string, logger: (message: string) => void = console.log) {
   const metadata = await stat(filePath);
-  const sizeMb = metadata.size / 1_000_000;
-  const humanSize = sizeMb >= 100 ? `${Math.round(sizeMb).toLocaleString()} MB` : `${sizeMb.toFixed(1)} MB`;
-  logger(`Uploading ${filePath} (${humanSize})`);
+  const sizeBytes = metadata.size;
+  logger(`Uploading ${basename(filePath)} (${formatBytes(sizeBytes)} total). This may take a few minutes for large files.`);
+  const startedAt = Date.now();
+  let uploadedBytes = 0;
+  let lastEmittedAt = 0;
+  let lastEmittedPercent = -1;
+  let lastHeartbeatAt = startedAt;
+  const reportProgress = (force = false) => {
+    const now = Date.now();
+    const percent = sizeBytes > 0 ? Math.min(100, Math.floor((uploadedBytes / sizeBytes) * 100)) : 100;
+    const elapsedSeconds = Math.max((now - startedAt) / 1000, 0.001);
+    const bytesPerSecond = uploadedBytes / elapsedSeconds;
+    const remainingBytes = Math.max(sizeBytes - uploadedBytes, 0);
+    const etaSeconds = bytesPerSecond > 0 ? remainingBytes / bytesPerSecond : null;
+    const shouldEmit = force
+      || percent >= lastEmittedPercent + 5
+      || now - lastEmittedAt >= 5000;
+    if (!shouldEmit) {
+      return;
+    }
+    lastEmittedAt = now;
+    lastEmittedPercent = percent;
+    lastHeartbeatAt = now;
+    logger([
+      `Upload progress: ${percent}%`,
+      `(${formatBytes(uploadedBytes)} / ${formatBytes(sizeBytes)})`,
+      `${formatBytes(bytesPerSecond)}/s`,
+      etaSeconds === null ? "ETA calculating..." : `ETA ${formatDuration(etaSeconds)}`,
+    ].join(" "));
+  };
+  const heartbeat = setInterval(() => {
+    if (Date.now() - lastHeartbeatAt >= 15000 && uploadedBytes < sizeBytes) {
+      logger(`Still uploading ${basename(filePath)}... ${formatBytes(uploadedBytes)} of ${formatBytes(sizeBytes)} transferred.`);
+      lastHeartbeatAt = Date.now();
+    }
+  }, 5000);
+  const body = createReadStream(filePath).pipe(new Transform({
+    transform(chunk, _encoding, callback) {
+      uploadedBytes += chunk.length;
+      reportProgress();
+      callback(null, chunk);
+    },
+  }));
   const init = {
     method: "PUT",
     headers: {
-      "Content-Length": String(metadata.size),
+      "Content-Length": String(sizeBytes),
       "Content-Type": "application/octet-stream",
     },
-    body: createReadStream(filePath) as unknown as BodyInit,
+    body: body as unknown as BodyInit,
     duplex: "half" as const,
   } as RequestInit & { duplex: "half" };
-  const response = await fetch(uploadUrl, init);
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`Upload failed (${response.status})${detail ? ` ${detail}` : ""}`);
+  try {
+    const response = await fetch(uploadUrl, init);
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Upload failed (${response.status})${detail ? ` ${detail}` : ""}`);
+    }
+  } finally {
+    clearInterval(heartbeat);
   }
-  logger(`Upload complete for ${filePath}`);
-  return metadata.size;
+  reportProgress(true);
+  logger(`Upload complete for ${basename(filePath)} in ${formatDuration((Date.now() - startedAt) / 1000)}.`);
+  return sizeBytes;
+}
+
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let index = 0;
+  while (size >= 1000 && index < units.length - 1) {
+    size /= 1000;
+    index += 1;
+  }
+  const digits = size >= 100 || index === 0 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(digits)} ${units[index]}`;
+}
+
+function formatDuration(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "under 1s";
+  if (seconds < 60) return `${Math.max(1, Math.round(seconds))}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  if (minutes < 60) {
+    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
 export async function inspectLocalDatasetFile(filePath: string) {

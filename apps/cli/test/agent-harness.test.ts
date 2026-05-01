@@ -1,15 +1,21 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
 import {
+  createToolRegistry,
   createDefaultAgentRuntimeDeps,
   runAgentTurn,
   type AgentMessage,
   type AgentRuntimeDeps,
 } from "../src/agent.js";
-import type { SessionRecord } from "../src/config.js";
+import { RUNS_PATH, type SessionRecord } from "../src/config.js";
 import { buildRunDebugBundle } from "../src/debug.js";
+import { composerPlaceholder } from "../src/interactive.js";
 import { RemoteRequestError } from "../src/remote.js";
+import { writeTrackedRuns } from "../src/runs.js";
 
 const session = {
   origin: "https://alpharesearch.nyc",
@@ -34,6 +40,23 @@ test("unauthenticated local run request bypasses remote planning", async () => {
   assert.equal(messages.at(-1)?.role, "assistant");
 });
 
+test("signed-out remote dataset request explains auth recovery and preserves intent", async () => {
+  const { messages, emit } = collect();
+  await runAgentTurn("Show my remote datasets.", null, emit);
+
+  assert.equal(messages.length, 1);
+  const final = messages[0]?.content ?? "";
+  assert.match(final, /Sign in to view your remote datasets\./);
+  assert.match(final, /run `\/login` in this chat or `research login` in another terminal/i);
+  assert.match(final, /After you sign in, ask me again and I’ll pick up: "Show my remote datasets\."/);
+  assert.doesNotMatch(final, /session\.json|token|working|Checking remote datasets|Found \d+ remote datasets/i);
+});
+
+test("signed-out composer placeholder is contextual", () => {
+  assert.equal(composerPlaceholder(null), "Ask about datasets, runs, or sign-in");
+  assert.equal(composerPlaceholder(session), "Ask about datasets, runs, or artifacts");
+});
+
 test("product orientation presents command center identities without tools", async () => {
   const fakeClient = {
     async respond() {
@@ -51,15 +74,49 @@ test("product orientation presents command center identities without tools", asy
 
   assert.equal(messages.length, 1);
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /local command center/i);
-  assert.match(final, /messy data/i);
-  assert.match(final, /vague research intent/i);
-  assert.match(final, /durable research work/i);
-  assert.match(final, /Intake data/i);
-  assert.match(final, /Navigate datasets/i);
-  assert.match(final, /study designs before spending time/i);
-  assert.match(final, /Recover prior work/i);
-  assert.doesNotMatch(final, /manifest-backed|mounted dataset|worker_unreachable|lifecycle/i);
+  assert.match(final, /turn files and datasets into research/i);
+  assert.match(final, /Start here:/i);
+  assert.match(final, /Show my datasets/i);
+  assert.match(final, /research login/i);
+  assert.match(final, /Create a dataset from \/absolute\/path\/customers\.csv/i);
+  assert.match(final, /inspect what each one contains/i);
+  assert.match(final, /Brief a dataset before you trust or analyze it/i);
+  assert.match(final, /Plan or run an analysis for a specific question/i);
+  assert.match(final, /latest results or saved files from earlier work/i);
+  assert.match(final, /Show my latest analysis results/i);
+  assert.match(final, /what data do i already have ready to use/i);
+  assert.match(final, /brief the econ dataset/i);
+  assert.doesNotMatch(final, /dataset-backed|artifacts|labeling jobs|experiments|last run|remote run|manifest-backed|mounted dataset|worker_unreachable|lifecycle|remote environments?|normalize/i);
+});
+
+test("cold-start orientation prompt stays local and recommends first steps", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Cold-start orientation should be answered locally.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "I just opened research. What is this, and what should I type first?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.equal(messages.length, 1);
+  const coldStart = messages.at(-1)?.content ?? "";
+  assert.match(coldStart, /^RESEARCH helps you turn files and datasets into research/i);
+  assert.match(coldStart, /`research login`/i);
+  assert.match(coldStart, /so I can see your datasets and start research runs for you/i);
+  assert.match(coldStart, /What data do I already have ready to use/i);
+  assert.doesNotMatch(coldStart, /datasets ls|local ls|env create|normalize|remote datasets|artifacts/u);
 });
 
 test("file import how-to asks for path before ingesting", async () => {
@@ -84,13 +141,48 @@ test("file import how-to asks for path before ingesting", async () => {
   );
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /absolute path/i);
+  assert.match(final, /I need 2 things to import your file/i);
+  assert.match(final, /absolute file path/i);
   assert.match(final, /one-line description/i);
+  assert.match(final, /One line is enough/i);
   assert.match(final, /infer the schema/i);
-  assert.match(final, /register the dataset/i);
-  assert.match(final, /upload it/i);
-  assert.match(final, /deploy it/i);
+  assert.match(final, /dataset name\/id/i);
+  assert.match(final, /prepare it for research/i);
+  assert.match(final, /\/Users\/ryanprendergast\/Desktop\/support_tickets\.csv/i);
+  assert.match(final, /copy it from Finder/i);
+  assert.doesNotMatch(final, /register the dataset|upload it|deploy it/i);
+  assert.doesNotMatch(final, /help narrow it down/i);
   assert.doesNotMatch(final, /Started|run-[a-z0-9-]+|Dashboard:/i);
+});
+
+test("journey P02 wording resolves locally without remote planning", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Missing-path intake should be answered locally without remote planning.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "I have a CSV export of customer support tickets. I want to turn it into a dataset I can research here, but I don't know what you need from me.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.equal(messages.length, 1);
+  const final = messages[0]?.content ?? "";
+  assert.match(final, /absolute file path/i);
+  assert.match(final, /one-line description/i);
+  assert.match(final, /What happens next:/i);
+  assert.doesNotMatch(final, /RESEARCH turns your data into a dataset/i);
+  assert.doesNotMatch(final, /register|upload|deploy/i);
 });
 
 test("vague housing risk request asks scope before costly work", async () => {
@@ -109,12 +201,251 @@ test("vague housing risk request asks scope before costly work", async () => {
   await runAgentTurn("Can you look into whether the housing market is in trouble?", session, emit, undefined, deps);
 
   const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /smallest scope decision/i);
   assert.match(final, /U\.S\. housing market/i);
+  assert.match(final, /specific metro\/region/i);
   assert.match(final, /quick current-state read/i);
   assert.match(final, /deeper risk analysis/i);
+  assert.match(final, /affordability stress/i);
+  assert.match(final, /price decline risk/i);
+  assert.match(final, /credit stress/i);
   assert.match(final, /affordability/i);
   assert.match(final, /mortgage rates/i);
+  assert.match(final, /price\/rent divergence/i);
   assert.doesNotMatch(final, /Started|Queued|Dashboard:/i);
+});
+
+test("dataset inventory is recommendation-first, name-first, and de-emphasizes noisy datasets", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Dataset inventory should be answered locally from dataset listings.");
+    },
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "enriched-tweets", name: "Enriched Tweets", status: "ready", deploymentStatus: "ready" },
+          { id: "mixed-smoke-1776979192", name: "Mixed Smoke Test", status: "ready", deploymentStatus: "ready" },
+          { id: "econ", name: "Unemployment vs Home Values 2019–2024", status: "provisioning", deploymentStatus: "building" },
+          { id: "upload-test-93961", name: "Upload Test", status: "uploaded", deploymentStatus: "uploaded" },
+          { id: "dataset", name: "enriched_tweets_parquet_dataset", status: "draft" },
+        ],
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+    listLocalDatasets: async () => [
+      {
+        id: "local-county-econ",
+        productName: "County Economics",
+        datasetId: "county-economics",
+        displayName: "County Economics",
+        description: "county-level economics for regional trend comparisons",
+        recordCount: 4,
+        layout: "sharded",
+      },
+      {
+        id: "local-tweets",
+        productName: "Tweet Archive",
+        datasetId: "tweets",
+        displayName: "Tweet Archive",
+        description: "tweet archive for social/content analysis",
+        recordCount: 3,
+        layout: "sharded",
+      },
+    ],
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("What data do I already have that is ready to use?", session, emit, undefined, deps);
+
+  assert.equal(messages[0]?.content, "Checking local datasets...");
+  assert.equal(messages[2]?.content, "Checking remote datasets...");
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /^Best starting point: County Economics \(local\)/);
+  assert.match(final, /Next step: use locally with dataset id `county-economics`/);
+  assert.match(final, /Ready now/);
+  assert.match(final, /County Economics \(local\) — county-level economics for regional trend comparisons\./);
+  assert.match(final, /Enriched Tweets \(remote\) — tweet archive for social\/content analysis\./);
+  assert.match(final, /id: county-economics/);
+  assert.match(final, /id: enriched-tweets/);
+  assert.match(final, /Other datasets/);
+  assert.match(final, /Mixed Smoke Test \(remote\).*query remotely; ready to use; deployed\./);
+  assert.match(final, /Unemployment vs Home Values 2019–2024 \(remote\).*not ready yet; still being prepared\./);
+  assert.match(final, /Upload Test \(remote\).*uploaded but not queryable yet\./);
+  assert.match(final, /enriched_tweets_parquet_dataset \(remote\).*still a draft\./);
+});
+
+test("dataset selection from topic uses dataset metadata and asks one focused follow-up", async () => {
+  let respondCalled = false;
+  const fakeClient = {
+    async respond() {
+      respondCalled = true;
+      throw new Error("Dataset-choice prompts should be handled from lightweight metadata lookup first.");
+    },
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "econ", name: "Economics", status: "ready", createdAt: "2026-04-20T00:00:00.000Z" },
+          { id: "tweets", name: "Tweets", status: "ready", createdAt: "2026-04-19T00:00:00.000Z" },
+          { id: "housing-policy", name: "Housing Policy", status: "ready", createdAt: "2026-04-18T00:00:00.000Z" },
+        ],
+      };
+    },
+    async getDataset(datasetId: string) {
+      if (datasetId === "econ") {
+        return {
+          dataset: {
+            id: "econ",
+            name: "Economics",
+            status: "ready",
+            profile: {
+              sources: ["ACS", "HUD", "Zillow"],
+              notes: "County and metro rent, income, and home-value coverage for affordability work.",
+            },
+          },
+        };
+      }
+      if (datasetId === "housing-policy") {
+        return {
+          dataset: {
+            id: "housing-policy",
+            name: "Housing Policy",
+            status: "ready",
+            profile: {
+              sources: ["HUD"],
+              notes: "Policy thresholds and local housing-program reference tables.",
+            },
+          },
+        };
+      }
+      return {
+        dataset: {
+          id: datasetId,
+          name: datasetId,
+          status: "ready",
+          profile: null,
+        },
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("I want to study housing affordability. Which dataset should I use?", session, emit, undefined, deps);
+
+  assert.equal(messages[0]?.role, "tool");
+  assert.match(messages[0]?.content ?? "", /Looking up candidate datasets/i);
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Primary dataset/i);
+  assert.match(final, /`econ`/i);
+  assert.match(final, /ACS\/Census coverage|HUD affordability benchmarks|housing market rent\/home value series/i);
+  assert.doesNotMatch(final, /Primary dataset[\s\S]*Primary dataset/i);
+  assert.match(final, /Need from you/i);
+  assert.match(final, /Which geography matters most/i);
+  assert.doesNotMatch(final, /reuse one|create one|provision/i);
+  assert.equal(respondCalled, false);
+});
+
+test("remote planning emits immediate progress before waiting on backend response", async () => {
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "terminal-session-progress",
+        payload: {
+          id: "response-progress",
+          output_text: "Use dataset `econ`.",
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-progress" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Show my remote datasets.", session, emit, undefined, deps);
+
+  assert.equal(messages[0]?.role, "tool");
+  assert.match(messages[0]?.content ?? "", /Checking datasets/i);
+  assert.equal(messages.at(-1)?.role, "assistant");
+  assert.match(messages.at(-1)?.content ?? "", /Use dataset `econ`\./);
+});
+
+test("dataset recommendation inventory includes ranked shortlist for the topic", async () => {
+  const { messages, emit } = collect();
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "dataset-shortlist-session",
+          payload: {
+            id: "dataset-shortlist-final",
+            output_text: "Recommendation ready",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Recommendation ready" }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "dataset-shortlist-session",
+        payload: {
+          id: "dataset-shortlist-plan",
+          output: [{
+            type: "function_call",
+            call_id: "call-datasets",
+            name: "list_remote_datasets",
+            arguments: JSON.stringify({
+              topic: "housing affordability county-month affordability metrics",
+              limit: 3,
+            }),
+          }],
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-1" };
+    },
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "econ-housing", name: "Housing Economics", status: "ready", createdAt: "2026-04-22T00:00:00.000Z" },
+          { id: "econ", name: "Macro Economics", status: "ready", createdAt: "2026-04-21T00:00:00.000Z" },
+          { id: "tweets", name: "Tweets", status: "ready", createdAt: "2026-04-20T00:00:00.000Z" },
+        ],
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+
+  await runAgentTurn(
+    "I want to research housing affordability. Which dataset should I use, or do I need to build a new one?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Found 3 remote datasets\./);
+  assert.match(joined, /Top matches for "housing affordability county-month affordability metrics":/);
+  assert.match(joined, /1\. econ-housing \(ready, score \d+\) - name overlap: housing/);
+  assert.match(joined, /2\. econ \(ready, score \d+\) - ready existing environment/);
 });
 
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {
@@ -171,8 +502,10 @@ test("async query run returns immediately with canonical dashboard and terminal 
 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Started query run run-123/);
+  assert.match(final, /Run: run-123 \(starting\)/);
+  assert.match(final, /research show active runs/);
   assert.match(final, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-123#run-run-123/);
-  assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-1&runId=run-123#run-run-123/);
+  assert.doesNotMatch(final, /Terminal session:/);
   assert.equal(calls.includes("startRun"), true);
   assert.match(startedPrompt, /Mounted dataset grounding is mandatory for dataset `enriched-tweets`/);
   assert.match(startedPrompt, /Do not download public sample data, GitHub CSVs/);
@@ -267,11 +600,331 @@ test("dataset describe request starts briefing run with required artifacts", asy
   assert.doesNotMatch(startedPrompt, /Suggested follow-ups/);
 
   const final = messages.at(-1)?.content ?? "";
+  assert.match(messages.map((message) => message.content).join("\n"), /Using dataset Economics \(econ\) for this briefing/);
   assert.match(final, /Started dataset briefing run run-describe for econ/);
-  assert.match(final, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-describe&runId=run-describe#run-run-describe/);
+  assert.match(final, /Expected artifacts: Dataset Briefing, Dataset Profile/);
+  assert.match(final, /Run: run-describe \(starting\)/);
+  assert.match(final, /research show active runs/);
+  assert.doesNotMatch(final, /Terminal session:/);
 });
 
-test("run result retrieval includes original prompt and artifacts", async () => {
+test("specific viral tweets experiment starts with user-facing analysis summary and artifact expectations", async () => {
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "viral-session",
+        payload: {
+          id: "response-viral",
+          output: [
+            {
+              type: "function_call",
+              call_id: "call-list",
+              name: "list_remote_datasets",
+              arguments: JSON.stringify({}),
+            },
+            {
+              type: "function_call",
+              call_id: "call-inspect",
+              name: "inspect_remote_dataset",
+              arguments: JSON.stringify({ datasetId: "enriched-tweets" }),
+            },
+            {
+              type: "function_call",
+              call_id: "call-transform",
+              name: "run_remote_transformation",
+              arguments: JSON.stringify({
+                datasetId: "enriched-tweets",
+                prompt: "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
+              }),
+            },
+          ],
+        },
+      };
+    },
+    async listDatasets() {
+      return { datasets: [{ id: "enriched-tweets", name: "Enriched Tweets", status: "ready" }] };
+    },
+    async getDataset(datasetId: string) {
+      return {
+        dataset: {
+          id: datasetId,
+          name: "Enriched Tweets",
+          status: "ready",
+          fields: ["tweet_id", "quoted_tweet_id", "quote_tweet_count", "text"],
+        },
+      };
+    },
+    async startRun(datasetId: string, prompt: string, options?: Record<string, unknown>) {
+      return {
+        run: {
+          id: "run-transform-viral",
+          datasetId,
+          status: "queued",
+          prompt,
+          createdAt: "2026-05-01T19:42:40.000Z",
+          updatedAt: "2026-05-01T19:42:40.000Z",
+        },
+        artifacts: [
+          { type: "chart", title: "Bar Chart" },
+          { type: "json", title: "Strict JSON Labels" },
+          { type: "markdown", title: "Representative Examples" },
+        ],
+        ...(options ? { options } : {}),
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-viral" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const joinedMessages = messages.map((message) => message.content).join("\n");
+  assert.match(joinedMessages, /Checking remote datasets/);
+  assert.match(joinedMessages, /Inspecting dataset enriched-tweets/);
+  assert.match(joinedMessages, /Starting remote analysis for enriched-tweets/);
+  assert.doesNotMatch(joinedMessages, /Running run_remote_transformation/);
+  assert.match(joinedMessages, /Started remote analysis on enriched-tweets/);
+  assert.match(joinedMessages, /Run: run-transform-viral \(queued\)/);
+  assert.match(joinedMessages, /Expected artifacts: bar chart, structured JSON results, representative examples/);
+  assert.match(joinedMessages, /research show active runs/);
+  assert.match(joinedMessages, /Dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-transform-viral#run-run-transform-viral/);
+  assert.doesNotMatch(joinedMessages, /Terminal session:/);
+});
+
+test("dataset inspection surfaces schema evidence for requested analysis fields", async () => {
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "terminal-session-inspect",
+          payload: {
+            id: "response-inspect-2",
+            output_text: "Inspection complete.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Inspection complete." }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-inspect",
+        payload: {
+          id: "response-inspect",
+          output: [{
+            type: "function_call",
+            call_id: "call-inspect",
+            name: "inspect_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async getDataset(datasetId: string) {
+      assert.equal(datasetId, "econ");
+      return {
+        dataset: {
+          id: "econ",
+          name: "Economics",
+          status: "ready",
+          profile: {
+            schema: [
+              { name: "county_name", type: "string" },
+              { name: "year", type: "integer" },
+              { name: "unemployment_rate", type: "number" },
+              { name: "median_home_value", type: "number" },
+            ],
+            timeCoverage: { start: "2010", end: "2024" },
+            geographyCoverage: { level: "county" },
+            notes: "County-year economics panel.",
+          },
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-inspect" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("inspect econ", session, emit, undefined, deps);
+
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /econ appears to include county, time, unemployment, and home value fields/i);
+  assert.match(joined, /county_name, year, unemployment_rate, median_home_value/i);
+  assert.match(joined, /Coverage: 2010 to 2024 at county level/i);
+});
+
+test("busy dataset conflict explains active run and emits heartbeat while waiting", async () => {
+  const originalHeartbeat = process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS;
+  process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS = "25";
+  try {
+    const fakeClient = {
+      async respond(body: Record<string, unknown>) {
+        if (Array.isArray(body.input)) {
+          return {
+            sessionId: "terminal-session-busy",
+            payload: {
+              id: "response-busy-2",
+              output_text: "Busy run noted.",
+              output: [{ type: "message", content: [{ type: "output_text", text: "Busy run noted." }] }],
+            },
+          };
+        }
+        return {
+          sessionId: "terminal-session-busy",
+          payload: {
+            id: "response-busy",
+            output: [{
+              type: "function_call",
+              call_id: "call-busy",
+              name: "create_research_environment",
+              arguments: JSON.stringify({
+                datasetId: "econ",
+                name: "Economics",
+                sourceDescription: "Existing economics dataset",
+                prompt: "Analyze unemployment versus home values.",
+                artifacts: [
+                  { type: "table", title: "Correlation table" },
+                  { type: "chart", title: "Scatter plot" },
+                  { type: "markdown", title: "Markdown summary" },
+                ],
+              }),
+            }],
+          },
+        };
+      },
+      async listDatasets() {
+        return { datasets: [{ id: "econ", name: "Economics", status: "ready" }] };
+      },
+      async createDataset() {
+        return { dataset: { id: "econ", name: "Economics", status: "ready" } };
+      },
+      async createResearchEnvironment() {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        throw new RemoteRequestError(
+          "Remote request failed (409) for /api/cli/datasets/econ/environment. {\"error\":\"dataset has an active run holding its volume\",\"activeRuns\":[{\"id\":\"run-busy\",\"datasetId\":\"econ\",\"status\":\"booting\",\"prompt\":\"Compare unemployment and home values\"}]}",
+          409,
+          "/api/cli/datasets/econ/environment",
+        );
+      },
+      async appendSessionEntry() {
+        return { id: "entry-busy" };
+      },
+    };
+    const deps: AgentRuntimeDeps = {
+      ...createDefaultAgentRuntimeDeps(),
+      createRemoteClient: () => fakeClient as never,
+      readSession: async () => session,
+    };
+    const { messages, emit } = collect();
+
+    await runAgentTurn("run the econ analysis", session, emit, undefined, deps);
+
+    const joined = messages.map((message) => message.content).join("\n");
+    assert.match(joined, /Expected artifacts: Correlation table; Scatter plot; Markdown summary\./);
+    assert.match(joined, /Still preparing the econ environment and checking whether the dataset volume is free/i);
+    assert.match(joined, /An analysis is already running on econ\./);
+    assert.match(joined, /I did not start a duplicate run/i);
+    assert.match(joined, /Dashboard run: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-busy#run-run-busy/);
+    assert.match(joined, /Inspect in CLI: research debug run run-busy/);
+  } finally {
+    if (originalHeartbeat === undefined) {
+      delete process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS;
+    } else {
+      process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS = originalHeartbeat;
+    }
+  }
+});
+
+test("dataset describe request falls back to saved briefing when dataset is busy", async () => {
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "terminal-session-describe-busy",
+        payload: {
+          id: "response-describe-busy",
+          output: [{
+            type: "function_call",
+            call_id: "call-describe-busy",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async startRun() {
+      throw new RemoteRequestError(
+        'Remote request failed (409) for /api/cli/datasets/econ/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-econ-busy","status":"running"}]}',
+        409,
+        "/api/cli/datasets/econ/runs",
+      );
+    },
+    async getDataset() {
+      return {
+        dataset: {
+          id: "econ",
+          name: "Economic Indicators",
+          status: "ready",
+          profile: {
+            briefingMarkdown: [
+              "Overview",
+              "Economic indicators dataset with normalized macro tables.",
+              "",
+              "Readiness & Trust",
+              "Usable now.",
+              "",
+              "Sources",
+              "FRED",
+              "",
+              "Quality & Validation",
+              "Validated schemas.",
+            ].join("\n"),
+            briefingArtifactId: "artifact-briefing",
+            profileArtifactId: "artifact-profile",
+            describedAt: "2026-04-30T12:00:00.000Z",
+          },
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-describe-busy" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("describe the econ dataset", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Using the latest saved dataset briefing for econ while run run-econ-busy is running/);
+  assert.match(final, /Readiness & Trust/);
+  assert.match(final, /FRED/);
+  assert.match(final, /Artifacts: Dataset Briefing and Dataset Profile/);
+  assert.doesNotMatch(final, /Started dataset briefing run/);
+});
+
+test("run result retrieval includes selected run context and artifacts", async () => {
+  const now = Date.now();
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
       if (Array.isArray(body.input)) {
@@ -329,15 +982,273 @@ test("run result retrieval includes original prompt and artifacts", async () => 
     ...createDefaultAgentRuntimeDeps(),
     createRemoteClient: () => fakeClient as never,
     readSession: async () => session,
+    createToolRegistry,
   };
   const { messages, emit } = collect();
 
-  await runAgentTurn("what was my last result?", session, emit, undefined, deps);
+  const originalEnv = process.env.RESEARCH_SESSION_DIR;
+  const sessionDir = await mkdtemp(join(tmpdir(), "research-last-run-single-"));
+  process.env.RESEARCH_SESSION_DIR = sessionDir;
+  try {
+    await writeTrackedRuns([{
+      id: "run-456",
+      datasetId: "enriched-tweets",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "ready",
+      prompt: "Quick sanity check.",
+      createdAt: new Date(now - 20 * 60_000).toISOString(),
+      updatedAt: new Date(now - 10 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 10 * 60_000).toISOString(),
+      terminalAt: new Date(now - 10 * 60_000).toISOString(),
+    }]);
+    await runAgentTurn("what was my last result?", session, emit, undefined, deps);
+  } finally {
+    process.env.RESEARCH_SESSION_DIR = originalEnv;
+  }
 
-  const toolOutput = messages.find((message) => message.role === "tool" && message.content.includes("Original request"))?.content ?? "";
-  assert.match(toolOutput, /Quick sanity check\./);
-  assert.match(toolOutput, /Artifacts are the saved outputs from the run/);
-  assert.match(toolOutput, /Suggested follow-ups/);
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Selected your most recent tracked run because it already completed\./);
+  assert.match(final, /Selected run: enriched-tweets/);
+  assert.match(final, /Request: Quick sanity check\./);
+  assert.match(final, /Artifacts/);
+});
+
+test("last run results select the latest completed run and explain newer active runs", async () => {
+  const now = Date.now();
+  const trackedRuns = [
+    {
+      id: "run-active-1",
+      datasetId: "econ",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "booting",
+      createdAt: new Date(now - 5 * 60_000).toISOString(),
+      updatedAt: new Date(now - 2 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 2 * 60_000).toISOString(),
+    },
+    {
+      id: "run-active-2",
+      datasetId: "labor",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "running",
+      createdAt: new Date(now - 8 * 60_000).toISOString(),
+      updatedAt: new Date(now - 4 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 4 * 60_000).toISOString(),
+    },
+    {
+      id: "run-complete",
+      datasetId: "enriched-tweets",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "ready",
+      createdAt: new Date(now - 30 * 60_000).toISOString(),
+      updatedAt: new Date(now - 20 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 20 * 60_000).toISOString(),
+      terminalAt: new Date(now - 20 * 60_000).toISOString(),
+    },
+  ];
+  const fakeClient = {
+    async getRunResults(runId: string) {
+      assert.equal(runId, "run-complete");
+      return {
+        run: {
+          id: runId,
+          datasetId: "enriched-tweets",
+          status: "ready",
+          prompt: "Show me the summary.",
+        },
+        metadata: { artifactSpec: [] },
+        events: [],
+        artifacts: [{
+          id: "artifact-summary",
+          runId,
+          type: "remote_agent_summary",
+          title: "Remote Agent Summary",
+          content: "Confirmed the dataset is loaded and summarized the latest findings.",
+        }],
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+    createToolRegistry,
+  };
+  const { messages, emit } = collect();
+
+  const originalEnv = process.env.RESEARCH_SESSION_DIR;
+  const sessionDir = await mkdtemp(join(tmpdir(), "research-last-run-"));
+  process.env.RESEARCH_SESSION_DIR = sessionDir;
+  try {
+    await writeTrackedRuns(trackedRuns);
+    await runAgentTurn("Show me the results from my last run.", session, emit, undefined, deps);
+  } finally {
+    process.env.RESEARCH_SESSION_DIR = originalEnv;
+  }
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Selected your most recent completed run because newer tracked runs are still in progress\./);
+  assert.match(final, /Selected run: enriched-tweets/);
+  assert.match(final, /Result preview/);
+  assert.match(final, /Also active/);
+  assert.doesNotMatch(final, /run-complete ·/);
+});
+
+test("last run results report an in-progress latest run when nothing has completed", async () => {
+  const now = Date.now();
+  const trackedRuns = [
+    {
+      id: "run-active",
+      datasetId: "econ",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "running",
+      prompt: "Build the panel and summarize it.",
+      createdAt: new Date(now - 10 * 60_000).toISOString(),
+      updatedAt: new Date(now - 2 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 2 * 60_000).toISOString(),
+    },
+  ];
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => ({}) as never,
+    readSession: async () => session,
+    createToolRegistry,
+  };
+  const { messages, emit } = collect();
+
+  const originalEnv = process.env.RESEARCH_SESSION_DIR;
+  const sessionDir = await mkdtemp(join(tmpdir(), "research-last-run-active-"));
+  process.env.RESEARCH_SESSION_DIR = sessionDir;
+  try {
+    await writeTrackedRuns(trackedRuns);
+    await runAgentTurn("what was my last result?", session, emit, undefined, deps);
+  } finally {
+    process.env.RESEARCH_SESSION_DIR = originalEnv;
+  }
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /still in progress, so there are no finished results to show yet/);
+  assert.match(final, /Selected run: econ/);
+  assert.match(final, /Debug: research debug run run-active/);
+});
+
+test("last run results report a failed latest run when nothing completed successfully", async () => {
+  const now = Date.now();
+  const trackedRuns = [
+    {
+      id: "run-failed",
+      datasetId: "housing",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "failed",
+      createdAt: new Date(now - 20 * 60_000).toISOString(),
+      updatedAt: new Date(now - 15 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 15 * 60_000).toISOString(),
+      terminalAt: new Date(now - 15 * 60_000).toISOString(),
+    },
+  ];
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => ({}) as never,
+    readSession: async () => session,
+    createToolRegistry,
+  };
+  const { messages, emit } = collect();
+
+  const originalEnv = process.env.RESEARCH_SESSION_DIR;
+  const sessionDir = await mkdtemp(join(tmpdir(), "research-last-run-failed-"));
+  process.env.RESEARCH_SESSION_DIR = sessionDir;
+  try {
+    await writeTrackedRuns(trackedRuns);
+    await runAgentTurn("show me the results from my last run", session, emit, undefined, deps);
+  } finally {
+    process.env.RESEARCH_SESSION_DIR = originalEnv;
+  }
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /did not complete successfully/);
+  assert.match(final, /Selected run: housing/);
+  assert.match(final, /Debug: research debug run run-failed/);
+});
+
+test("continuity question returns compact lifecycle summary without tool chatter", async () => {
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    readTrackedRuns: async () => [
+      {
+        id: "run-active",
+        datasetId: "econ",
+        origin: session.origin,
+        status: "running",
+        prompt: "Build county-month panel",
+        createdAt: "2026-05-01T00:00:00.000Z",
+        updatedAt: "2026-05-01T00:05:00.000Z",
+        lastSeenAt: "2026-05-01T00:05:00.000Z",
+      },
+      {
+        id: "run-completed",
+        datasetId: "enriched-tweets",
+        origin: session.origin,
+        status: "ready",
+        prompt: "Return a sanity summary.",
+        createdAt: "2026-04-30T00:00:00.000Z",
+        updatedAt: "2026-04-30T00:10:00.000Z",
+        lastSeenAt: "2026-04-30T00:10:00.000Z",
+        terminalAt: "2026-04-30T00:10:00.000Z",
+      },
+      {
+        id: "run-blocked",
+        datasetId: "housing",
+        origin: session.origin,
+        status: "worker_unreachable",
+        prompt: "Refresh data sources",
+        createdAt: "2026-04-29T00:00:00.000Z",
+        updatedAt: "2026-04-29T00:05:00.000Z",
+        lastSeenAt: "2026-04-29T00:05:00.000Z",
+        terminalAt: "2026-04-29T00:05:00.000Z",
+      },
+    ],
+    createRemoteClient: () => ({
+      async getRunResults() {
+        return {
+          run: {
+            id: "run-completed",
+            datasetId: "enriched-tweets",
+            status: "ready",
+            prompt: "Return a sanity summary.",
+          },
+          metadata: null,
+          events: [],
+          artifacts: [
+            {
+              id: "artifact-summary",
+              runId: "run-completed",
+              type: "markdown",
+              title: "summary.md",
+            },
+            {
+              id: "artifact-result",
+              runId: "run-completed",
+              type: "structured_result",
+              title: "result.json",
+              content: { total_rows: 10 },
+            },
+          ],
+        };
+      },
+    }) as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+  await runAgentTurn("I came back later. What happened with my research work, and what results or artifacts can I see?", session, emit, undefined, deps);
+
+  assert.equal(messages.some((message) => message.role === "tool"), false);
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /1 active, 1 completed, 1 blocked run/);
+  assert.match(final, /Most relevant result: enriched-tweets \(run-…eted\) finished successfully\./);
+  assert.match(final, /Best artifacts: summary\.md and result\.json\./);
+  assert.match(final, /Active\n- econ \(run-…tive\): Build county-month panel\./);
+  assert.match(final, /Blocked\n- housing \(run-…cked\): worker state needs reconciliation\./);
+  assert.match(final, /Best next step: wait on econ \(run-…tive\)/);
+  assert.doesNotMatch(final, /Running list_run_artifacts|Checking run history|Remote Agent Transcript|No produced artifacts found/);
 });
 
 test("non-resumable run continuation returns artifacts instead of crashing", async () => {
@@ -452,7 +1363,7 @@ test("busy dataset conflict returns blocking run guidance", async () => {
     },
     async startRun() {
       throw new RemoteRequestError(
-        'Remote request failed (409) for /api/cli/datasets/busy-dataset/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-blocking","status":"running"}]}',
+        'Remote request failed (409) for /api/cli/datasets/busy-dataset/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-blocking","status":"running","createdAt":"2026-05-01T19:40:00.000Z","updatedAt":"2026-05-01T19:44:00.000Z"}]}',
         409,
         "/api/cli/datasets/busy-dataset/runs",
       );
@@ -471,10 +1382,115 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   await runAgentTurn("run analysis on busy dataset", session, emit, undefined, deps);
 
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Blocked: dataset is already busy/);
+  assert.match(joined, /Blocked: .* is waiting on an active dataset run/);
+  assert.match(joined, /Using dataset busy-dataset for /);
   assert.match(joined, /Active run: run-blocking/);
+  assert.match(joined, /An analysis is already running on this dataset\./);
+  assert.match(joined, /I did not start a duplicate run/);
+  assert.match(joined, /Started: 2026-05-01T19:40:00.000Z/);
+  assert.match(joined, /Last update: 2026-05-01T19:44:00.000Z/);
   assert.match(joined, /No new run was started/);
+  assert.match(joined, /Next steps:/);
+  assert.match(joined, /Inspect now: `research debug run run-blocking`/);
   assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
+  assert.match(joined, /When it finishes, ask: show results from run-blocking/);
+  assert.match(joined, /Inspect in CLI: research debug run run-blocking/);
+});
+
+test("dataset describe conflict keeps guidance anchored on briefing artifacts", async () => {
+  const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "terminal-session-describe-busy",
+        payload: {
+          id: "response-describe-busy",
+          output: [{
+            type: "function_call",
+            call_id: "call-describe-busy",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async listDatasets() {
+      return { datasets: [{ id: "econ", name: "Economics", status: "ready" }] };
+    },
+    async startRun() {
+      throw new RemoteRequestError(
+        'Remote request failed (409) for /api/cli/datasets/econ/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-briefing","status":"running"}]}',
+        409,
+        "/api/cli/datasets/econ/runs",
+      );
+    },
+    async appendSessionEntry() {
+      return { id: "entry-describe-busy" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Describe the econ dataset for me.", session, emit, undefined, deps);
+
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
+  assert.match(joined, /Blocked: this dataset briefing is waiting on an active dataset run/);
+  assert.match(joined, /Expected artifacts once the run finishes: Dataset Briefing, Dataset Profile/);
+  assert.match(joined, /When it finishes, ask: show results from run-briefing/);
+  assert.match(joined, /If it seems stuck, debug: research debug run run-briefing/);
+});
+
+test("prompt-mode busy dataset shortcut shows age, health, and clear actions", { concurrency: false }, async () => {
+  const datasetId = "enriched-tweets-busy-local";
+  const previousRuns = await readFile(RUNS_PATH, "utf8").catch(() => null);
+  try {
+    await mkdir(dirname(RUNS_PATH), { recursive: true });
+    await writeFile(RUNS_PATH, `${JSON.stringify([{
+      id: "run-local-blocker",
+      datasetId,
+      origin: session.origin,
+      status: "booting",
+      dashboardUrl: "https://dashboard.alpharesearch.nyc/?view=runs&runId=run-local-blocker#run-run-local-blocker",
+      createdAt: "2026-05-01T19:40:00.000Z",
+      updatedAt: "2026-05-01T19:44:00.000Z",
+      lastSeenAt: "2026-05-01T19:44:00.000Z",
+    }], null, 2)}\n`, "utf8");
+
+    const fakeClient = {
+      async respond() {
+        throw new Error("Busy dataset shortcut should return before remote planning.");
+      },
+    };
+    const deps: AgentRuntimeDeps = {
+      ...createDefaultAgentRuntimeDeps(),
+      createRemoteClient: () => fakeClient as never,
+      readSession: async () => session,
+    };
+    const { messages, emit } = collect();
+
+    await runAgentTurn(`Run a new analysis on ${datasetId}.`, session, emit, undefined, deps);
+
+    const final = messages.at(-1)?.content ?? "";
+    assert.match(final, new RegExp(`Blocked: ${datasetId} is already busy\\.`));
+    assert.match(final, /Status: booting/);
+    assert.match(final, /Started: 2026-05-01T19:40:00.000Z/);
+    assert.match(final, /Last update: 2026-05-01T19:44:00.000Z/);
+    assert.match(final, /holding the dataset lock/);
+    assert.match(final, /worth inspecting|expected while the worker starts/);
+    assert.match(final, /Inspect now: `research debug run run-local-blocker`/);
+    assert.match(final, /Open dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-local-blocker#run-run-local-blocker/);
+    assert.match(final, /Wait for the active run to finish, or cancel it if you confirm it is stuck\./);
+  } finally {
+    if (previousRuns === null) {
+      await rm(RUNS_PATH, { force: true }).catch(() => {});
+    } else {
+      await writeFile(RUNS_PATH, previousRuns, "utf8");
+    }
+  }
 });
 
 test("wait for run completion can time out deterministically", async () => {
@@ -613,23 +1629,64 @@ test("run debug bundle classifies worker-unreachable state as lifecycle-uncertai
   assert.match(bundle.lifecycle.message, /reconciled|reconciliation/);
 });
 
+test("stuck run question explains fresh booting run in plain language", async () => {
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    readSession: async () => session,
+    readTrackedRuns: async () => [{
+      id: "run-fresh-1",
+      datasetId: "enriched-tweets",
+      origin: session.origin,
+      status: "booting",
+      prompt: "Mounted dataset grounding is mandatory for dataset `enriched-tweets`.\nBefore doing analysis, read the mount.",
+      createdAt: "2026-04-22T00:00:00.000Z",
+      updatedAt: "2026-04-22T00:00:00.000Z",
+      lastSeenAt: "2026-04-22T00:00:00.000Z",
+    }],
+    now: () => new Date("2026-04-22T00:00:30.000Z").getTime(),
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("My last run seems stuck. What’s happening?", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /does not look stuck yet/i);
+  assert.match(final, /Waiting for dataset enriched-tweets to be mounted/i);
+  assert.match(final, /wait 1-2 minutes/i);
+  assert.match(final, /research debug run run-fresh-1/);
+  assert.doesNotMatch(final, /Mounted dataset grounding is mandatory/i);
+});
+
+test("stuck run question escalates stale running run to debug now", async () => {
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    readSession: async () => session,
+    readTrackedRuns: async () => [{
+      id: "run-stale-1",
+      datasetId: "econ",
+      origin: session.origin,
+      status: "running",
+      prompt: "Analyze housing risk trends.",
+      createdAt: "2026-04-22T00:00:00.000Z",
+      updatedAt: "2026-04-22T00:00:00.000Z",
+      lastSeenAt: "2026-04-22T00:00:00.000Z",
+      lastEventMessage: "Computing grouped aggregates.",
+    }],
+    now: () => new Date("2026-04-22T00:05:00.000Z").getTime(),
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("My last run seems stuck. What’s happening?", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /may be stalled/i);
+  assert.match(final, /Computing grouped aggregates\./i);
+  assert.match(final, /run `research debug run run-stale-1` now/i);
+  assert.match(final, /Last update: 5 minutes ago/i);
+});
+
 test("product planning: vague viral tweets request designs scoped experiment before running", async () => {
   const calls: string[] = [];
-  const finalPlan = [
-    "This is not precise enough to run yet: `viral` needs an operational definition and the experiment needs a fixed sample, labels, and output artifact.",
-    "",
-    "Here is the experiment I would run:",
-    "- Dataset: enriched-tweets.",
-    "- Virality definition: tweets in the top 0.1% by quote_tweet_count.",
-    "- Sample: pick 100 random viral tweets from that top 0.1%, stratified by month if the timestamps support it.",
-    "- Labeling: run an LLM labeling job on each tweet using the tweet text and available metadata.",
-    "- Structured fields to extract: hook_type, topic, emotional_tone, controversy_level, novelty, specificity, media_or_link_presence, named_entities, audience_target, call_to_action, quote_tweet_reason, and concise_rationale.",
-    "- Labeling prompt: classify why this tweet was quote-tweeted; return strict JSON with the structured fields and a one-sentence rationale grounded only in the tweet text/metadata.",
-    "- Visualization: show a bar chart of hook_type frequency, stacked bars for emotional_tone by controversy_level, and a table of representative examples with labels and quote counts.",
-    "- Synthesis prompt: summarize which tweet traits are overrepresented among the viral sample and which hypotheses should be tested on a larger matched control set.",
-    "",
-    "Does this design look good, or do you want an alternative definition like retweets/likes, a control group of non-viral tweets, or a different labeling schema?",
-  ].join("\n");
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
       if (Array.isArray(body.input)) {
@@ -637,8 +1694,8 @@ test("product planning: vague viral tweets request designs scoped experiment bef
           sessionId: "planning-session",
           payload: {
             id: "planning-final",
-            output_text: finalPlan,
-            output: [{ type: "message", content: [{ type: "output_text", text: finalPlan }] }],
+            output_text: "unused",
+            output: [{ type: "message", content: [{ type: "output_text", text: "unused" }] }],
           },
         };
       }
@@ -715,11 +1772,137 @@ test("product planning: vague viral tweets request designs scoped experiment bef
   const joinedMessages = messages.map((message) => message.content).join("\n");
   assert.doesNotMatch(joinedMessages, /Starting remote run/i);
   assert.match(joinedMessages, /Before I start a remote run/i);
-  assert.match(joinedMessages, /top 0\.1% by quote\/retweet\/like engagement/i);
+  assert.match(joinedMessages, /Proposed dataset: `enriched-tweets`/i);
+  assert.match(joinedMessages, /assuming it has tweet text, timestamps, and engagement fields/i);
+  assert.match(joinedMessages, /top 0\.1% by `quote_tweet_count`/i);
   assert.match(joinedMessages, /sample 100 tweets/i);
   assert.match(joinedMessages, /hook_type/i);
   assert.match(joinedMessages, /emotional_tone/i);
   assert.match(joinedMessages, /controversy_level/i);
+  assert.match(joinedMessages, /Choose one virality definition/i);
+  assert.match(joinedMessages, /1\.\s+Top 0\.1% by `quote_tweet_count`/i);
+  assert.match(joinedMessages, /2\.\s+Top 0\.1% by `retweet_count`/i);
+  assert.match(joinedMessages, /3\.\s+Top 0\.1% by `favorite_count`/i);
+  assert.match(joinedMessages, /reply with 1, 2, or 3/i);
+});
+
+test("field-definition prompt instructions enforce concise verdict-first answers", async () => {
+  let capturedInstructions = "";
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      capturedInstructions = String(body.instructions ?? "");
+      return {
+        sessionId: "field-session",
+        payload: {
+          id: "field-final",
+          output_text: "Use `quote_tweet_count` as one proxy signal, not the sole definition of virality.",
+          output: [{
+            type: "message",
+            content: [{
+              type: "output_text",
+              text: "Use `quote_tweet_count` as one proxy signal, not the sole definition of virality.",
+            }],
+          }],
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-field" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { emit } = collect();
+
+  await runAgentTurn(
+    "In the tweets dataset, what does quote_tweet_count mean and can I use it to define virality?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.match(capturedInstructions, /answer the concept question before proposing any work/i);
+  assert.match(capturedInstructions, /lead with a one-line verdict, then one short caveat/i);
+  assert.match(capturedInstructions, /do not include composite formulas, top-N proposals, or offers to start analysis/i);
+  assert.match(capturedInstructions, /do not use vague labels like 'typical'/i);
+});
+
+test("vague dataset interesting request gives a concise briefing and focused choice without starting a run", async () => {
+  const calls: string[] = [];
+  const fakeClient = {
+    async listDatasets() {
+      calls.push("listDatasets");
+      return {
+        datasets: [
+          { id: "econ", name: "County-Month Housing Cycle v2", status: "ready" },
+          { id: "tweets", name: "Tweets", status: "ready" },
+        ],
+      };
+    },
+    async getDataset(datasetId: string) {
+      calls.push("getDataset");
+      assert.equal(datasetId, "econ");
+      return {
+        dataset: {
+          id: "econ",
+          name: "County-Month Housing Cycle v2",
+          status: "ready",
+          profile: {
+            datasetId: "econ",
+            sources: [
+              { name: "Census Building Permits" },
+              { name: "FRED 30yr mortgage rate" },
+              { name: "BEA personal income growth" },
+            ],
+            tables: [{ name: "county_month_panel" }],
+            timeCoverage: { start: "2018-01", end: "2026-01" },
+            geographyCoverage: { level: "county-month panel" },
+            notes: "Income growth is missing in about 23% of county-months.",
+            limitations: [
+              "National mortgage rate is applied to all counties.",
+              "Some permit YoY values are missing where prior-year data is absent.",
+            ],
+          },
+        },
+      };
+    },
+    async startRun() {
+      calls.push("startRun");
+      throw new Error("Vague dataset briefing should not start a run.");
+    },
+    async respond() {
+      calls.push("respond");
+      throw new Error("Vague dataset briefing should be handled locally.");
+    },
+    async appendSessionEntry() {
+      return { id: "entry-1" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Analyze the econ dataset and tell me what's interesting.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.deepEqual(calls, ["listDatasets", "getDataset"]);
+  const transcript = messages.map((message) => message.content).join("\n");
+  assert.match(transcript, /looks most useful for rate sensitivity/i);
+  assert.match(transcript, /Pick one next step: rate sensitivity, coverage quality, regional differences\./i);
+  assert.match(transcript, /I will not start a broad remote analysis until you choose the scope\./i);
+  assert.doesNotMatch(transcript, /deployment finishes|env turns ready|briefing\/profile/i);
 });
 
 test("product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts", async () => {
@@ -1124,12 +2307,111 @@ test("product workflow success: econ research hypothesis creates data environmen
   assert.deepEqual(runTypes, ["transform", "label", "hypothesis"]);
 
   const joinedMessages = messages.map((message) => message.content).join("\n");
-  assert.match(joinedMessages, /Started research environment build run-env/);
+  assert.match(joinedMessages, /No remote datasets found; a new build will be needed if the plan proceeds\./);
+  assert.match(joinedMessages, /Reviewing remote datasets and drafting the next step\.\.\./);
   assert.match(joinedMessages, /Created research spec spec-housing-rates/);
-  assert.match(joinedMessages, /Queued transformation run run-transform/);
-  assert.match(joinedMessages, /Queued labeling run run-label/);
-  assert.match(joinedMessages, /Started run run-hypothesis/);
+  assert.match(joinedMessages, /Running run_remote_transformation\.\.\./);
+  assert.match(joinedMessages, /Running run_remote_labeling\.\.\./);
+  assert.match(joinedMessages, /Starting remote run for econ-housing-cycle\.\.\./);
   assert.match(joinedMessages, /Regression summary/);
   assert.match(joinedMessages, /Permit sensitivity by income-growth quartile/);
   assert.match(joinedMessages, /Hypothesis report\.md/);
+});
+
+test("uploaded dataset deployment flow uses user-facing stage updates and upload progress", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "research-upload-"));
+  const datasetPath = join(tempDir, "Enriched Tweets.csv");
+  await writeFile(datasetPath, "tweet_id,full_text\n1,hello world\n2,hello again\n", "utf8");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("", { status: 200 });
+
+  try {
+    const fakeClient = {
+      async respond(body: Record<string, unknown>) {
+        if (Array.isArray(body.input)) {
+          return {
+            sessionId: "terminal-session-upload",
+            payload: {
+              id: "response-upload-2",
+              output_text: "Dataset created and deployment started.",
+              output: [{
+                type: "message",
+                content: [{ type: "output_text", text: "Dataset created and deployment started." }],
+              }],
+            },
+          };
+        }
+        return {
+          sessionId: "terminal-session-upload",
+          payload: {
+            id: "response-upload-1",
+            output: [
+              { type: "function_call", call_id: "call-1", name: "resolve_local_dataset", arguments: JSON.stringify({ hint: `"${datasetPath}"` }) },
+              { type: "function_call", call_id: "call-2", name: "profile_local_dataset", arguments: JSON.stringify({ inputPath: datasetPath }) },
+              { type: "function_call", call_id: "call-3", name: "register_remote_dataset", arguments: JSON.stringify({ datasetId: "enriched-tweets", name: "Enriched Tweets", inputPath: datasetPath, mode: "tabular" }) },
+              { type: "function_call", call_id: "call-4", name: "request_dataset_source_upload", arguments: JSON.stringify({ datasetId: "enriched-tweets", inputPath: datasetPath }) },
+              { type: "function_call", call_id: "call-5", name: "upload_local_file", arguments: JSON.stringify({ inputPath: datasetPath, uploadUrl: "https://upload.example.test/object" }) },
+              { type: "function_call", call_id: "call-6", name: "complete_dataset_source_upload", arguments: JSON.stringify({ datasetId: "enriched-tweets" }) },
+              { type: "function_call", call_id: "call-7", name: "deploy_remote_dataset", arguments: JSON.stringify({ datasetId: "enriched-tweets" }) },
+            ],
+          },
+        };
+      },
+      async createDataset() {
+        return { dataset: { id: "enriched-tweets", name: "Enriched Tweets", status: "created" } };
+      },
+      async requestDatasetSourceUpload() {
+        return { upload: { method: "PUT", url: "https://upload.example.test/object", key: "uploads/enriched-tweets.csv" } };
+      },
+      async completeDatasetSourceUpload() {
+        return { ok: true };
+      },
+      async deployDataset() {
+        return {
+          deployment: { datasetId: "enriched-tweets", status: "booting" },
+          run: {
+            id: "run-deploy",
+            datasetId: "enriched-tweets",
+            status: "booting",
+            prompt: "Deploy dataset",
+            createdAt: "2026-05-01T00:00:00.000Z",
+            updatedAt: "2026-05-01T00:00:00.000Z",
+          },
+        };
+      },
+      async appendSessionEntry() {
+        return { id: "entry-upload" };
+      },
+    };
+    const deps: AgentRuntimeDeps = {
+      ...createDefaultAgentRuntimeDeps(),
+      createRemoteClient: () => fakeClient as never,
+      readSession: async () => session,
+    };
+    const { messages, emit } = collect();
+
+    await runAgentTurn(
+      `Create a dataset from "${datasetPath}". It contains tweets, authors, timestamps, text, and engagement counts. Name it Enriched Tweets and deploy it.`,
+      session,
+      emit,
+      undefined,
+      deps,
+    );
+
+    const joinedMessages = messages.map((message) => message.content).join("\n");
+    assert.match(joinedMessages, new RegExp(`Using local file ${datasetPath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
+    assert.match(joinedMessages, /Inspecting Enriched Tweets\.csv/);
+    assert.match(joinedMessages, /Checked the file structure for Enriched Tweets\.csv/);
+    assert.match(joinedMessages, /Created dataset Enriched Tweets \(dataset id: enriched-tweets\)\./);
+    assert.match(joinedMessages, /Upload target ready for Enriched Tweets\.csv\./);
+    assert.match(joinedMessages, /Upload progress: 100%/);
+    assert.match(joinedMessages, /Finished uploading Enriched Tweets\.csv\./);
+    assert.match(joinedMessages, /Source upload verified for dataset enriched-tweets\./);
+    assert.match(joinedMessages, /Deployment started for dataset enriched-tweets\. Run: run-deploy\. Status: booting\./);
+    assert.match(joinedMessages, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-upload&runId=run-deploy#run-run-deploy/);
+    assert.doesNotMatch(joinedMessages, /profile_local_dataset|Registered remote dataset/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });

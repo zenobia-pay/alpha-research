@@ -2,13 +2,29 @@ import { access, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
-import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage";
+import { getInstanceBootstrap, listInstanceBundles, type DatasetInstanceSummary } from "@rprend/alpha-storage";
 
-import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
+import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
-import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
+import {
+  RemoteApiClient,
+  RemoteRequestError,
+  type RemoteApiClient as RemoteApiClientType,
+  type RemoteDatasetDetail,
+  type RemoteDatasetSummary,
+  type RemoteRunArtifact,
+} from "./remote.js";
 import { readSession, login } from "./session.js";
-import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
+import {
+  isTerminalRunFailureStatus,
+  isTerminalRunStatus,
+  isTerminalRunSuccessStatus,
+  isUncertainRunStatus,
+  readTrackedRuns,
+  spawnRunWatcher,
+  trackRemoteRun,
+  type TrackedRunRecord,
+} from "./runs.js";
 
 export type AgentMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -53,6 +69,9 @@ export type AgentRuntimeDeps = {
   readSession: typeof readSession;
   login: typeof login;
   createToolRegistry: () => ToolDefinition[];
+  readTrackedRuns: typeof readTrackedRuns;
+  now: () => number;
+  listLocalDatasets: () => Promise<DatasetInstanceSummary[]>;
 };
 
 const STANDARD_ANALYSIS_RESOURCES = {
@@ -138,6 +157,9 @@ export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
     readSession,
     login,
     createToolRegistry,
+    readTrackedRuns,
+    now: () => Date.now(),
+    listLocalDatasets: () => listInstanceBundles(DEFAULT_INSTANCE_ROOT),
   };
 }
 
@@ -169,6 +191,8 @@ const ASYNC_RUN_START_TOOLS = new Set([
   "query_remote_dataset",
   "aggregate_remote_dataset",
   "fetch_public_data",
+  "deploy_remote_dataset",
+  "deploy_local_instance",
   "describe_remote_dataset",
   "start_remote_agent_run",
   "continue_remote_agent_run",
@@ -207,8 +231,16 @@ const AGENT_INSTRUCTIONS = [
   "For local file import how-to questions without an exact path, ask for the absolute path and a one-line description before listing or importing datasets.",
   "For vague research prompts such as housing-market risk or what makes tweets viral, propose a scoped plan and ask for confirmation before starting a remote run.",
   "When recommending a dataset, anchor the answer to actual datasets found in RESEARCH before suggesting external sources.",
+  "For dataset-choice questions such as which dataset should I use, call list_remote_datasets with the user's topic, show a ranked shortlist of 2-3 real datasets when available, and say explicitly why the top choice beat the alternatives.",
+  "For dataset-choice answers, separate recommendation state from future build work. Use concise sections in this order: Recommendation ready or Need clarifications to finalize, Best existing dataset, Why it wins, What's missing, Questions needed.",
+  "If an existing dataset is a usable base but still needs extension, say that explicitly as best current match. Do not lead with a source-acquisition plan before the user answers the remaining clarifying questions.",
   "When resolving an ambiguous dataset name, state which dataset you selected and why.",
+  "For field-definition questions, answer the concept question before proposing any work.",
   "For field-definition questions, include a compact schema-evidence line and clearly distinguish stored fields from derived metrics.",
+  "If you verified the field from dataset metadata, say so plainly. If you did not verify it, say that the answer is based on a common schema pattern; do not use vague labels like 'typical' without saying what is uncertain.",
+  "For field-definition questions about research suitability, lead with a one-line verdict, then one short caveat.",
+  "For field-definition questions, do not include composite formulas, top-N proposals, or offers to start analysis unless the user explicitly asks for analysis work.",
+  "For field-definition questions, keep the answer concise and terminal-friendly; avoid long wrapped field lists.",
   "If deriving tweet quote counts, say: quote_count_for_tweet = count(rows where row.quoted_tweet_id == target.tweet_id). Never describe this as quoted_tweet_id == tweet_id on the same row.",
   "When a dataset is provisioning or busy, say what cannot happen yet, whether a new run was started, and give a concrete next command.",
   "When the user asks for the last run, distinguish latest active run from last completed run instead of blending them.",
@@ -239,6 +271,15 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+type DatasetInventoryEntry = {
+  id: string;
+  name: string;
+  scope: "local" | "remote";
+  state: "ready" | "draft" | "building" | "deployable";
+  description: string | null;
+  hidden: boolean;
+};
+
 function formatStatusForHumans(status: string | undefined) {
   const normalized = (status ?? "").toLowerCase();
   if (normalized === "ready") return "completed successfully";
@@ -252,8 +293,248 @@ function formatStatusForHumans(status: string | undefined) {
   return status ?? "unknown";
 }
 
+function formatIsoTimestamp(timestamp: string | undefined) {
+  if (!timestamp) return null;
+  const value = new Date(timestamp);
+  if (Number.isNaN(value.getTime())) return null;
+  return value.toISOString();
+}
+
+function formatRelativeAge(timestamp: string | undefined) {
+  if (!timestamp) return null;
+  const ageMs = Date.now() - new Date(timestamp).getTime();
+  if (!Number.isFinite(ageMs)) return null;
+  const ageMinutes = Math.max(0, Math.round(ageMs / 60000));
+  if (ageMinutes < 1) return "under 1 minute ago";
+  if (ageMinutes === 1) return "1 minute ago";
+  if (ageMinutes < 60) return `${ageMinutes} minutes ago`;
+  const ageHours = Math.round(ageMinutes / 60);
+  if (ageHours === 1) return "1 hour ago";
+  if (ageHours < 48) return `${ageHours} hours ago`;
+  const ageDays = Math.round(ageHours / 24);
+  return ageDays === 1 ? "1 day ago" : `${ageDays} days ago`;
+}
+
+function explainBlockingRunStatus(status: string | undefined, updatedAt: string | undefined) {
+  const normalized = (status ?? "").toLowerCase();
+  const ageMinutes = updatedAt ? Math.max(0, Math.round((Date.now() - new Date(updatedAt).getTime()) / 60000)) : null;
+  if (normalized === "booting") {
+    if (ageMinutes !== null && ageMinutes >= 10) {
+      return "The run is still booting and holding the dataset lock. That is normal briefly, but this age may indicate a stuck startup worth inspecting.";
+    }
+    return "The run is booting and holding the dataset lock. That is expected while the worker starts.";
+  }
+  if (normalized === "queued") {
+    return "The run is queued and already owns the dataset lock, so no competing analysis can start until it advances or is cancelled.";
+  }
+  if (normalized === "running") {
+    return "The run is actively using the dataset, so starting another analysis would create competing work.";
+  }
+  if (isUncertainRunStatus(normalized)) {
+    return "The run state needs reconciliation, so the dataset remains blocked until the backend confirms whether the lock can be released.";
+  }
+  return "The active run still holds the dataset lock, so no new analysis was started.";
+}
+
+function renderBusyDatasetConflict(details: {
+  datasetId?: string;
+  runId: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+  dashboardUrl?: string;
+}) {
+  const startedAt = formatIsoTimestamp(details.createdAt);
+  const updatedAt = formatIsoTimestamp(details.updatedAt);
+  const startedAge = formatRelativeAge(details.createdAt);
+  const updatedAge = formatRelativeAge(details.updatedAt);
+  const lines = [
+    details.datasetId
+      ? `Blocked: ${details.datasetId} is already busy.`
+      : "Blocked: dataset is already busy.",
+    "",
+    `Active run: ${details.runId}`,
+    `Status: ${details.status}`,
+  ];
+  if (startedAt) {
+    lines.push(`Started: ${startedAt}${startedAge ? ` (${startedAge})` : ""}`);
+  }
+  if (updatedAt) {
+    lines.push(`Last update: ${updatedAt}${updatedAge ? ` (${updatedAge})` : ""}`);
+  }
+  lines.push(
+    "",
+    "No new run was started.",
+    explainBlockingRunStatus(details.status, details.updatedAt),
+    "",
+    "Next steps:",
+    `- Inspect now: \`research debug run ${details.runId}\``,
+  );
+  if (details.dashboardUrl) {
+    lines.push(`- Open dashboard: ${details.dashboardUrl}`);
+  }
+  lines.push("- Wait for the active run to finish, or cancel it if you confirm it is stuck.");
+  return lines.join("\n");
+}
+
+function formatDatasetLifecycleLabel(status: string | undefined, deploymentStatus?: string | undefined) {
+  const normalized = (status ?? "").toLowerCase();
+  const deployment = (deploymentStatus ?? "").toLowerCase();
+  if (normalized === "ready" || deployment === "ready" || deployment === "deployed") {
+    return "ready to use";
+  }
+  if (normalized === "provisioning" || normalized === "building" || normalized === "booting") {
+    return "still being prepared";
+  }
+  if (normalized === "draft") {
+    return "still a draft";
+  }
+  if (normalized === "uploaded" || deployment === "uploaded") {
+    return "uploaded but not queryable yet";
+  }
+  if (normalized === "deployed") {
+    return "ready to query";
+  }
+  return status?.trim() || "status unknown";
+}
+
+function inferDatasetActionLabel(kind: "local" | "remote", ready: boolean) {
+  if (!ready) {
+    return "not ready yet";
+  }
+  return kind === "local" ? "use locally" : "query remotely";
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNoisyDatasetName(value: string) {
+  return /\b(test|smoke|draft|upload|fixture|demo|tmp|sample)\b/i.test(value);
+}
+
+function inferDatasetPurpose(name: string, description?: string | null) {
+  const trimmedDescription = description?.trim();
+  if (trimmedDescription) {
+    return trimmedDescription;
+  }
+  const lower = name.toLowerCase();
+  if (/\btweets?\b/.test(lower)) {
+    return "tweet archive for social/content analysis";
+  }
+  if (/\becon|econom/.test(lower)) {
+    return "economic indicators and trend analysis";
+  }
+  if (/\bhousing|home values?\b/.test(lower)) {
+    return "housing market and home-value analysis";
+  }
+  return "general research dataset";
+}
+
+type InventoryDatasetCard = {
+  kind: "local" | "remote";
+  id: string;
+  name: string;
+  purpose: string;
+  readiness: string;
+  action: string;
+  ready: boolean;
+  noisy: boolean;
+  detail: string | null;
+};
+
+function localInventoryCard(instance: DatasetInstanceSummary): InventoryDatasetCard {
+  return {
+    kind: "local",
+    id: instance.datasetId,
+    name: instance.displayName,
+    purpose: inferDatasetPurpose(instance.displayName, instance.description),
+    readiness: "ready to use",
+    action: inferDatasetActionLabel("local", true),
+    ready: true,
+    noisy: isNoisyDatasetName(`${instance.datasetId} ${instance.displayName}`),
+    detail: `${formatNumber(instance.recordCount)} rows`,
+  };
+}
+
+function remoteInventoryCard(dataset: RemoteDatasetSummary): InventoryDatasetCard {
+  const status = (dataset.status ?? "").toLowerCase();
+  const deployment = (dataset.deploymentStatus ?? "").toLowerCase();
+  const ready = status === "ready" || deployment === "ready" || deployment === "deployed";
+  return {
+    kind: "remote",
+    id: dataset.id,
+    name: dataset.name?.trim() || dataset.id,
+    purpose: inferDatasetPurpose(dataset.name?.trim() || dataset.id),
+    readiness: formatDatasetLifecycleLabel(dataset.status, dataset.deploymentStatus),
+    action: inferDatasetActionLabel("remote", ready),
+    ready,
+    noisy: isNoisyDatasetName(`${dataset.id} ${dataset.name ?? ""}`),
+    detail: ready ? "deployed" : null,
+  };
+}
+
+function inventorySort(left: InventoryDatasetCard, right: InventoryDatasetCard) {
+  if (left.ready !== right.ready) return left.ready ? -1 : 1;
+  if (left.noisy !== right.noisy) return left.noisy ? 1 : -1;
+  if (left.kind !== right.kind) return left.kind === "local" ? -1 : 1;
+  return left.name.localeCompare(right.name);
+}
+
+function chooseRecommendedInventoryDataset(cards: InventoryDatasetCard[]) {
+  const ranked = [...cards].sort((left, right) => {
+    const leftScore = (left.ready ? 100 : 0) + (left.noisy ? 0 : 10) + (left.kind === "local" ? 2 : 1);
+    const rightScore = (right.ready ? 100 : 0) + (right.noisy ? 0 : 10) + (right.kind === "local" ? 2 : 1);
+    return rightScore - leftScore || inventorySort(left, right);
+  });
+  return ranked[0] ?? null;
+}
+
+function renderInventoryDatasetLine(card: InventoryDatasetCard) {
+  const detail = card.detail ? `; ${card.detail}` : "";
+  return `- ${card.name} (${card.kind}) — ${card.purpose}. ${card.action}; ${card.readiness}${detail}. id: ${card.id}`;
+}
+
+function formatDatasetInventoryResponse(
+  localInstances: DatasetInstanceSummary[],
+  remoteDatasets: RemoteDatasetSummary[],
+) {
+  const cards = [
+    ...localInstances.map(localInventoryCard),
+    ...remoteDatasets.map(remoteInventoryCard),
+  ].sort(inventorySort);
+  const readyChoices = cards.filter((card) => card.ready && !card.noisy);
+  const otherChoices = cards.filter((card) => !readyChoices.includes(card));
+  const recommendation = chooseRecommendedInventoryDataset(readyChoices.length > 0 ? readyChoices : cards);
+  const lines: string[] = [];
+
+  if (recommendation) {
+    lines.push(
+      `Best starting point: ${recommendation.name} (${recommendation.kind}) — ${recommendation.purpose}. Next step: ${recommendation.action} with dataset id \`${recommendation.id}\`.`,
+    );
+  }
+
+  if (readyChoices.length > 0) {
+    lines.push("", "Ready now");
+    for (const card of readyChoices) {
+      lines.push(renderInventoryDatasetLine(card));
+    }
+  } else {
+    lines.push("", "Ready now", "- No datasets are ready to use yet.");
+  }
+
+  if (otherChoices.length > 0) {
+    lines.push("", "Other datasets");
+    for (const card of otherChoices) {
+      lines.push(renderInventoryDatasetLine(card));
+    }
+  }
+
+  lines.push(
+    "",
+    "Why these groups: `Ready now` means you can use the dataset immediately from this CLI. `Other datasets` are still being prepared, are drafts, or look like test/noise datasets.",
+  );
+  return lines.join("\n");
 }
 
 function reusableEnvironmentTokens(value: string) {
@@ -276,6 +557,67 @@ function datasetReuseScore(requestedText: string, dataset: RemoteDatasetSummary)
   const overlap = candidate.filter((token) => requested.has(token));
   const readinessBonus = dataset.status?.toLowerCase() === "ready" ? 1 : 0;
   return overlap.length + readinessBonus;
+}
+
+function topicRecommendationTokens(value: string) {
+  const synonyms = new Map<string, string>([
+    ["home", "housing"],
+    ["homes", "housing"],
+    ["rent", "rental"],
+    ["rents", "rental"],
+    ["renters", "rental"],
+    ["affordable", "affordability"],
+    ["prices", "price"],
+    ["counties", "county"],
+  ]);
+  return [...new Set(value.toLowerCase().split(/[^a-z0-9]+/u)
+    .map((token) => synonyms.get(token) ?? token)
+    .filter((token) => token.length >= 3 && !/^\d+$/u.test(token)))];
+}
+
+function recommendationMatchScore(topic: string, dataset: RemoteDatasetSummary) {
+  const requested = new Set(topicRecommendationTokens(topic));
+  if (requested.size === 0) return 0;
+  const candidate = topicRecommendationTokens([dataset.id, dataset.name].join(" "));
+  const overlap = candidate.filter((token) => requested.has(token));
+  const readyBonus = ["ready", "deployed"].includes((dataset.status ?? dataset.deploymentStatus ?? "").toLowerCase()) ? 2 : 0;
+  return overlap.length * 3 + readyBonus;
+}
+
+function recommendationReason(topic: string, dataset: RemoteDatasetSummary) {
+  const requested = new Set(topicRecommendationTokens(topic));
+  const candidate = topicRecommendationTokens([dataset.id, dataset.name].join(" "));
+  const overlap = candidate.filter((token) => requested.has(token));
+  if (overlap.length > 0) {
+    return `name overlap: ${overlap.slice(0, 3).join(", ")}`;
+  }
+  if (["ready", "deployed"].includes((dataset.status ?? dataset.deploymentStatus ?? "").toLowerCase())) {
+    return "ready existing environment";
+  }
+  return "available but weak topical signal";
+}
+
+function rankDatasetsForRecommendation(topic: string, datasets: RemoteDatasetSummary[], limit = 3) {
+  return datasets
+    .map((dataset) => ({
+      dataset,
+      score: recommendationMatchScore(topic, dataset),
+      reason: recommendationReason(topic, dataset),
+    }))
+    .sort((left, right) =>
+      right.score - left.score
+      || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? ""))
+      || left.dataset.id.localeCompare(right.dataset.id))
+    .slice(0, Math.max(1, limit));
+}
+
+function formatDatasetShortlist(topic: string, datasets: RemoteDatasetSummary[], limit = 3) {
+  const ranked = rankDatasetsForRecommendation(topic, datasets, limit);
+  if (ranked.length === 0) return null;
+  return ranked.map(({ dataset, score, reason }, index) => {
+    const status = dataset.status ?? dataset.deploymentStatus ?? "unknown";
+    return `${index + 1}. ${dataset.id} (${status}, score ${score}) - ${reason}`;
+  }).join("\n");
 }
 
 function selectReusableEnvironmentDatasetId(
@@ -303,20 +645,23 @@ function selectReusableEnvironmentDatasetId(
   return scored[0]?.dataset.id ?? requestedDatasetId;
 }
 
-async function resolveRunnableEnvironmentDatasetId(
+async function resolveRunnableEnvironmentDataset(
   context: ToolExecutionContext,
   client: RemoteApiClientType,
   requestedDatasetId: string,
   request: Record<string, unknown>,
-) {
+) : Promise<ResolvedDatasetTarget> {
   const existingDatasets = typeof client.listDatasets === "function"
     ? await client.listDatasets().catch(() => ({ datasets: [] }))
     : { datasets: [] };
   const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, request, existingDatasets.datasets);
-  if (datasetId !== requestedDatasetId) {
-    context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of unavailable duplicate ${requestedDatasetId}.` });
-  }
-  return datasetId;
+  const matchedDataset = existingDatasets.datasets.find((dataset) => dataset.id === datasetId);
+  return {
+    requestedDatasetId,
+    datasetId,
+    datasetName: matchedDataset?.name,
+    reusedExisting: datasetId !== requestedDatasetId,
+  };
 }
 
 function isProducedArtifact(artifact: { type?: string }) {
@@ -338,6 +683,196 @@ function artifactBullet(artifact: { title?: string; type?: string }) {
     return `${title} — markdown summary/report`;
   }
   return title;
+}
+
+function shortenRunId(runId: string) {
+  return runId.length > 8 ? `${runId.slice(0, 4)}…${runId.slice(-4)}` : runId;
+}
+
+function summarizePromptForHumans(prompt: string | undefined, datasetId: string) {
+  const firstLine = prompt?.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+  const cleaned = firstLine
+    .replace(/[`"'"]/g, "")
+    .replace(/^mounted dataset grounding is mandatory.*$/i, "")
+    .replace(/^describe dataset\s+/i, "Describe ")
+    .trim();
+  if (cleaned) {
+    return cleaned.endsWith(".") ? cleaned : `${cleaned}.`;
+  }
+  return `Recent work on ${datasetId}.`;
+}
+
+function continuityArtifactLabel(artifact: { title?: string; type?: string }) {
+  const title = typeof artifact.title === "string" && artifact.title.trim() ? artifact.title.trim() : artifact.type ?? "artifact";
+  if (artifact.type === "structured_result" || title === "result.json") return "result.json";
+  if (title.endsWith(".md")) return title;
+  return title;
+}
+
+function summarizeContinuityArtifacts(artifacts: RemoteRunArtifact[]) {
+  const produced = artifacts.filter(isProducedArtifact);
+  if (produced.length === 0) {
+    return {
+      count: 0,
+      line: "No user-facing artifacts yet.",
+      bestArtifact: null as string | null,
+    };
+  }
+  const preferred = produced
+    .filter((artifact) => artifact.type !== "remote_agent_transcript" && artifact.type !== "remote_agent_session")
+    .map(continuityArtifactLabel);
+  const labels = [...new Set((preferred.length > 0 ? preferred : produced.map(continuityArtifactLabel)).filter(Boolean))];
+  const bestArtifact = labels[0] ?? null;
+  if (labels.length === 1) {
+    return { count: produced.length, line: `Best artifact: ${labels[0]}.`, bestArtifact };
+  }
+  if (labels.length === 2) {
+    return { count: produced.length, line: `Best artifacts: ${labels[0]} and ${labels[1]}.`, bestArtifact };
+  }
+  return { count: produced.length, line: `Best artifacts: ${labels.slice(0, 3).join(", ")}.`, bestArtifact };
+}
+
+function continuityLifecycle(run: TrackedRunRecord) {
+  if (!isTerminalRunStatus(run.status)) return "active" as const;
+  if (isTerminalRunSuccessStatus(run.status)) return "completed" as const;
+  if (isUncertainRunStatus(run.status)) return "blocked" as const;
+  if (isTerminalRunFailureStatus(run.status)) return "failed" as const;
+  if (["cancelled", "canceled"].includes(run.status.toLowerCase())) return "failed" as const;
+  return "failed" as const;
+}
+
+function pickRelevantContinuityRun(runs: TrackedRunRecord[]) {
+  const completed = runs.find((run) => continuityLifecycle(run) === "completed");
+  if (completed) return completed;
+  const active = runs.find((run) => continuityLifecycle(run) === "active");
+  if (active) return active;
+  return runs[0] ?? null;
+}
+
+async function maybeHandleContinuityQuestion(
+  input: string,
+  initialSession: SessionRecord | null,
+  deps: AgentRuntimeDeps,
+) {
+  const lower = input.toLowerCase();
+  if (!initialSession) {
+    return null;
+  }
+  const asksForContinuity = (
+    /came back|back later|return later|returned later|later\b/.test(lower)
+    || /my research work|recent work/.test(lower)
+    || (/what happened/.test(lower) && /research|run|work/.test(lower))
+  );
+  const asksForStateOrOutputs = /what happened|results?|artifacts?|can i see|show me/.test(lower);
+  if (!(asksForContinuity && asksForStateOrOutputs)) {
+    return null;
+  }
+
+  const runs = await deps.readTrackedRuns().catch(() => []);
+  if (runs.length === 0) {
+    return "I do not see any tracked research work yet. Ask me to show datasets, start a run, or inspect a dataset first.";
+  }
+
+  const active = runs.filter((run) => continuityLifecycle(run) === "active");
+  const completed = runs.filter((run) => continuityLifecycle(run) === "completed");
+  const blocked = runs.filter((run) => continuityLifecycle(run) === "blocked");
+  const failed = runs.filter((run) => continuityLifecycle(run) === "failed");
+  const relevant = pickRelevantContinuityRun(runs);
+  if (!relevant) {
+    return "I could not determine a recent run to summarize.";
+  }
+
+  const client = deps.createRemoteClient(initialSession);
+  let relevantResults: Awaited<ReturnType<RemoteApiClientType["getRunResults"]>> | null = null;
+  if (continuityLifecycle(relevant) === "completed") {
+    relevantResults = await client.getRunResults(relevant.id).catch(() => null);
+  }
+
+  const lines: string[] = [];
+  const topLineParts = [
+    active.length > 0 ? `${active.length} active` : null,
+    completed.length > 0 ? `${completed.length} completed` : null,
+    blocked.length > 0 ? `${blocked.length} blocked` : null,
+    failed.length > 0 ? `${failed.length} failed` : null,
+  ].filter((value): value is string => Boolean(value));
+  lines.push(`I found ${topLineParts.join(", ")} run${runs.length === 1 ? "" : "s"} in your recent work.`);
+
+  const relevantPrompt = summarizePromptForHumans(relevantResults?.run.prompt ?? relevant.prompt, relevant.datasetId);
+  if (continuityLifecycle(relevant) === "completed" && relevantResults) {
+    const artifactSummary = summarizeContinuityArtifacts(relevantResults.artifacts);
+    lines.push(
+      "",
+      `Most relevant result: ${relevant.datasetId} (${shortenRunId(relevant.id)}) finished successfully.`,
+      `What it was doing: ${relevantPrompt}`,
+      artifactSummary.line,
+      `Open in dashboard: ${dashboardRunUrl(initialSession.origin, relevant.id)}`,
+    );
+  } else if (continuityLifecycle(relevant) === "active") {
+    lines.push(
+      "",
+      `Most relevant run: ${relevant.datasetId} (${shortenRunId(relevant.id)}) is still ${formatStatusForHumans(relevant.status)}.`,
+      `What it is doing: ${relevantPrompt}`,
+      "No finished artifacts from that run yet.",
+    );
+  } else if (continuityLifecycle(relevant) === "blocked") {
+    lines.push(
+      "",
+      `Most relevant run: ${relevant.datasetId} (${shortenRunId(relevant.id)}) is blocked.`,
+      `What it was doing: ${relevantPrompt}`,
+      "The worker state needs reconciliation before new results will appear.",
+    );
+  } else {
+    lines.push(
+      "",
+      `Most relevant run: ${relevant.datasetId} (${shortenRunId(relevant.id)}) ended ${formatStatusForHumans(relevant.status)}.`,
+      `What it was doing: ${relevantPrompt}`,
+      "That run did not finish cleanly.",
+    );
+  }
+
+  if (active.length > 0) {
+    lines.push("", "Active");
+    for (const run of active.slice(0, 2)) {
+      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): ${summarizePromptForHumans(run.prompt, run.datasetId)}`);
+    }
+  }
+
+  if (completed.length > 0) {
+    lines.push("", "Completed");
+    for (const run of completed.slice(0, 2)) {
+      if (run.id === relevant.id && relevantResults) {
+        const artifactSummary = summarizeContinuityArtifacts(relevantResults.artifacts);
+        lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): ${artifactSummary.bestArtifact ? `${artifactSummary.bestArtifact} available.` : "Finished with saved artifacts."}`);
+      } else {
+        lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): finished successfully.`);
+      }
+    }
+  }
+
+  if (blocked.length > 0) {
+    lines.push("", "Blocked");
+    for (const run of blocked.slice(0, 2)) {
+      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): worker state needs reconciliation.`);
+    }
+  }
+
+  if (failed.length > 0) {
+    lines.push("", "Failed");
+    for (const run of failed.slice(0, 2)) {
+      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): ${formatStatusForHumans(run.status)}.`);
+    }
+  }
+
+  if (active.length > 0) {
+    const nextRun = active[0]!;
+    lines.push("", `Best next step: wait on ${nextRun.datasetId} (${shortenRunId(nextRun.id)}) if you need that work, or ask for its status if you think it is stuck.`);
+  } else if (continuityLifecycle(relevant) === "completed") {
+    lines.push("", `Best next step: open the ${relevant.datasetId} run artifacts and inspect ${summarizeContinuityArtifacts(relevantResults?.artifacts ?? []).bestArtifact ?? "the saved outputs"}.`);
+  } else {
+    lines.push("", `Best next step: inspect ${relevant.datasetId} (${shortenRunId(relevant.id)}) and decide whether to retry or resume it.`);
+  }
+
+  return lines.join("\n");
 }
 
 function findStructuredResultArtifact(artifacts: Array<{ title?: string; type?: string; content?: unknown }>) {
@@ -411,6 +946,150 @@ function renderStructuredResult(result: Record<string, unknown>) {
   return lines.join("\n");
 }
 
+function renderArtifactPreview(artifacts: Array<{ title?: string; type?: string; content?: unknown }>) {
+  const summaryArtifact = artifacts.find((artifact) => artifact.type === "remote_agent_summary" && typeof artifact.content === "string");
+  if (summaryArtifact && typeof summaryArtifact.content === "string" && summaryArtifact.content.trim()) {
+    return summaryArtifact.content.trim();
+  }
+  const markdownArtifact = artifacts.find((artifact) => typeof artifact.content === "string" && artifact.title?.endsWith(".md"));
+  if (markdownArtifact && typeof markdownArtifact.content === "string" && markdownArtifact.content.trim()) {
+    return markdownArtifact.content.trim();
+  }
+  return null;
+}
+
+function formatAbsoluteTimestamp(value: string | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
+}
+
+function formatRelativeTimestamp(value: string | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const diffMs = date.getTime() - Date.now();
+  const diffMinutes = Math.round(diffMs / 60000);
+  if (Math.abs(diffMinutes) < 1) return "just now";
+  if (Math.abs(diffMinutes) < 60) return `${Math.abs(diffMinutes)} minute${Math.abs(diffMinutes) === 1 ? "" : "s"} ${diffMinutes < 0 ? "ago" : "from now"}`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) return `${Math.abs(diffHours)} hour${Math.abs(diffHours) === 1 ? "" : "s"} ${diffHours < 0 ? "ago" : "from now"}`;
+  const diffDays = Math.round(diffHours / 24);
+  return `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"} ${diffDays < 0 ? "ago" : "from now"}`;
+}
+
+function formatWhen(value: string | undefined) {
+  const absolute = formatAbsoluteTimestamp(value);
+  const relative = formatRelativeTimestamp(value);
+  if (absolute && relative) return `${absolute} (${relative})`;
+  return absolute ?? relative ?? "unknown";
+}
+
+function chooseLastRunForResults(runs: TrackedRunRecord[]) {
+  const latestTracked = runs[0] ?? null;
+  const latestCompleted = runs.find((run) => isTerminalRunSuccessStatus(run.status)) ?? null;
+  const latestFailed = runs.find((run) => isTerminalRunFailureStatus(run.status) || isUncertainRunStatus(run.status)) ?? null;
+  const activeRuns = runs.filter((run) => !run.terminalAt && !isTerminalRunStatus(run.status));
+  return { latestTracked, latestCompleted, latestFailed, activeRuns };
+}
+
+function renderRecentRunList(label: string, runs: TrackedRunRecord[]) {
+  if (runs.length === 0) return null;
+  return [
+    label,
+    ...runs.map((run) => `- ${run.datasetId} — ${formatStatusForHumans(run.status)} — updated ${formatWhen(run.updatedAt)}`),
+  ].join("\n");
+}
+
+async function maybeHandleLastRunResultsRequest(
+  input: string,
+  initialSession: SessionRecord | null,
+  deps: AgentRuntimeDeps,
+  emit: (message: AgentMessage) => void,
+) {
+  const lower = input.toLowerCase();
+  if (!initialSession || !/\blast\b/.test(lower) || !/\b(run|result|results|artifacts?)\b/.test(lower) || /\b(stuck|happening|progress|status)\b/.test(lower)) {
+    return null;
+  }
+
+  emit({ role: "tool", content: "Checking run history..." });
+  const runs = await readTrackedRuns().catch(() => []);
+  if (runs.length === 0) {
+    return "I do not see any tracked runs yet.";
+  }
+
+  const { latestTracked, latestCompleted, latestFailed, activeRuns } = chooseLastRunForResults(runs);
+  if (!latestCompleted) {
+    if (latestTracked && !isTerminalRunStatus(latestTracked.status)) {
+      const lines = [
+        "Your latest tracked run is still in progress, so there are no finished results to show yet.",
+        "",
+        `Selected run: ${latestTracked.datasetId}`,
+        `Status: ${formatStatusForHumans(latestTracked.status)}`,
+        `Last update: ${formatWhen(latestTracked.updatedAt)}`,
+      ];
+      if (latestTracked.prompt) lines.push(`Request: ${latestTracked.prompt.split("\n")[0]?.slice(0, 160)}`);
+      lines.push("", `Debug: research debug run ${latestTracked.id}`);
+      return lines.join("\n");
+    }
+    if (latestFailed) {
+      return [
+        "Your latest tracked run did not complete successfully, so there are no clean results to show.",
+        "",
+        `Selected run: ${latestFailed.datasetId}`,
+        `Status: ${formatStatusForHumans(latestFailed.status)}`,
+        `Last update: ${formatWhen(latestFailed.updatedAt)}`,
+        "",
+        `Debug: research debug run ${latestFailed.id}`,
+      ].join("\n");
+    }
+    return "I found tracked runs, but none has completed successfully yet.";
+  }
+
+  const reason = latestTracked?.id === latestCompleted.id
+    ? "Selected your most recent tracked run because it already completed."
+    : "Selected your most recent completed run because newer tracked runs are still in progress.";
+
+  emit({ role: "tool", content: `Retrieving results for ${latestCompleted.datasetId}...` });
+  const payload = await deps.createRemoteClient(initialSession).getRunResults(latestCompleted.id);
+  const producedArtifacts = payload.artifacts.filter(isProducedArtifact);
+  const structuredResult = findStructuredResultArtifact(producedArtifacts);
+  const preview = renderArtifactPreview(producedArtifacts);
+  const lines = [
+    reason,
+    "",
+    `Selected run: ${payload.run.datasetId}`,
+    `Completed: ${formatWhen(latestCompleted.terminalAt ?? latestCompleted.updatedAt)}`,
+  ];
+  if (payload.run.prompt?.trim()) {
+    lines.push(`Request: ${payload.run.prompt.trim().split("\n")[0]?.slice(0, 160)}`);
+  }
+  if (structuredResult?.content && isRecord(structuredResult.content)) {
+    lines.push("", renderStructuredResult(structuredResult.content));
+  } else if (preview) {
+    lines.push("", "Result preview", preview);
+  }
+  if (producedArtifacts.length > 0) {
+    lines.push("", "Artifacts", ...producedArtifacts.map((artifact) => `- ${artifactBullet(artifact)}`));
+  }
+  const otherCompleted = runs.filter((run) => run.id !== latestCompleted.id && isTerminalRunSuccessStatus(run.status)).slice(0, 2);
+  const alsoActive = activeRuns.filter((run) => run.id !== latestCompleted.id).slice(0, 2);
+  const activeList = renderRecentRunList("Also active", alsoActive);
+  const completedList = renderRecentRunList("Other recent completed runs", otherCompleted);
+  if (activeList) lines.push("", activeList);
+  if (completedList) lines.push("", completedList);
+  lines.push("", `Debug: research debug run ${latestCompleted.id}`);
+  return lines.join("\n");
+}
+
 function summarizeRunResultsForHumans(
   payload: {
     run: { id: string; datasetId: string; status: string; prompt?: string };
@@ -445,6 +1124,69 @@ function summarizeRunResultsForHumans(
   if (suggestions.length > 0) {
     lines.push("", "Suggested follow-ups", ...suggestions.map((suggestion) => `- ${suggestion}`));
   }
+  return lines.join("\n");
+}
+
+function compactPromptLine(prompt: string | undefined, maxLength = 160) {
+  const normalized = (prompt ?? "").replace(/\s+/gu, " ").trim();
+  if (!normalized) return null;
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 3)}...` : normalized;
+}
+
+function inferExpectedArtifacts(
+  artifacts: Array<Record<string, unknown>> | undefined,
+  prompt: string | undefined,
+) {
+  const labels = new Set<string>();
+  for (const artifact of artifacts ?? []) {
+    const title = typeof artifact.title === "string" ? artifact.title.trim() : "";
+    const type = typeof artifact.type === "string" ? artifact.type.trim() : "";
+    if (title) {
+      labels.add(title);
+      continue;
+    }
+    if (type === "markdown") {
+      labels.add("Validation report");
+      continue;
+    }
+    if (type) {
+      labels.add(type.replace(/_/gu, " "));
+    }
+  }
+  const promptLower = (prompt ?? "").toLowerCase();
+  if (promptLower.includes("data dictionary")) labels.add("Data dictionary");
+  if (promptLower.includes("manifest")) labels.add("Manifest");
+  if (promptLower.includes("validation")) labels.add("Validation report");
+  return Array.from(labels);
+}
+
+function formatEnvironmentBuildSummary(args: {
+  buildKind: "research environment" | "public-data environment";
+  datasetId: string;
+  datasetName?: string;
+  prompt?: string;
+  artifacts?: Array<Record<string, unknown>>;
+  run: { id: string; status: string };
+  origin: string;
+}) {
+  const lines = [
+    `Started ${args.buildKind} build for ${args.datasetName?.trim() || args.datasetId}.`,
+    `Dataset: ${args.datasetId}`,
+    `Run: ${args.run.id}`,
+  ];
+  const plan = compactPromptLine(args.prompt);
+  if (plan) {
+    lines.push(`Plan: ${plan}`);
+  }
+  const expectedArtifacts = inferExpectedArtifacts(args.artifacts, args.prompt);
+  if (expectedArtifacts.length > 0) {
+    lines.push(`Expected artifacts: ${expectedArtifacts.join("; ")}`);
+  }
+  lines.push(
+    `Status: ${formatStatusForHumans(args.run.status)}. Build is running in the background.`,
+    `Monitor: research debug run ${args.run.id}`,
+    `Dashboard: ${dashboardRunUrl(args.origin, args.run.id)}`,
+  );
   return lines.join("\n");
 }
 
@@ -490,7 +1232,22 @@ function parseRemoteErrorJson(error: RemoteRequestError) {
   }
 }
 
-function summarizeBusyDatasetConflict(error: RemoteRequestError) {
+type ResolvedDatasetTarget = {
+  requestedDatasetId: string;
+  datasetId: string;
+  datasetName?: string;
+  reusedExisting: boolean;
+};
+
+function summarizeResolvedDataset(target: ResolvedDatasetTarget, purpose: string) {
+  const label = target.datasetName ? `${target.datasetName} (${target.datasetId})` : target.datasetId;
+  if (target.reusedExisting && target.datasetId !== target.requestedDatasetId) {
+    return `Using existing dataset ${label} for ${purpose} instead of unavailable duplicate ${target.requestedDatasetId}.`;
+  }
+  return `Using dataset ${label} for ${purpose}.`;
+}
+
+function parseBusyDatasetConflict(error: RemoteRequestError) {
   if (error.status !== 409) {
     return null;
   }
@@ -501,19 +1258,248 @@ function summarizeBusyDatasetConflict(error: RemoteRequestError) {
   const activeRuns = Array.isArray(payload.activeRuns) ? payload.activeRuns as Array<Record<string, unknown>> : [];
   const first = activeRuns[0];
   if (!first) {
-    return payload.error;
+    return {
+      message: payload.error,
+      runId: "unknown",
+      status: "running",
+      datasetId: null,
+      prompt: null,
+      createdAt: undefined,
+      updatedAt: undefined,
+    };
   }
-  const runId = typeof first.id === "string" ? first.id : "unknown";
-  const status = typeof first.status === "string" ? first.status : "running";
-  return [
-    "Blocked: dataset is already busy.",
-    `Active run: ${runId}`,
-    `Status: ${status}`,
+  return {
+    message: payload.error,
+    runId: typeof first.id === "string" ? first.id : "unknown",
+    status: typeof first.status === "string" ? first.status : "running",
+    datasetId: typeof first.datasetId === "string" ? first.datasetId : null,
+    prompt: typeof first.prompt === "string" && first.prompt.trim() ? first.prompt.trim() : null,
+    createdAt: typeof first.createdAt === "string" ? first.createdAt : undefined,
+    updatedAt: typeof first.updatedAt === "string" ? first.updatedAt : typeof first.createdAt === "string" ? first.createdAt : undefined,
+  };
+}
+
+function summarizeBusyDatasetConflict(
+  error: RemoteRequestError,
+  options?: {
+    target?: ResolvedDatasetTarget;
+    purpose?: string;
+    expectedArtifacts?: string[];
+  },
+) {
+  const conflict = parseBusyDatasetConflict(error);
+  if (!conflict) {
+    return null;
+  }
+  const purpose = options?.purpose ?? "this request";
+  const lockSummary = renderBusyDatasetConflict({
+    datasetId: conflict.datasetId ?? options?.target?.datasetId,
+    runId: conflict.runId,
+    status: conflict.status,
+    createdAt: conflict.createdAt,
+    updatedAt: conflict.updatedAt,
+    dashboardUrl: dashboardRunUrl(DEFAULT_WEB_ORIGIN, conflict.runId),
+  });
+  const lines = [
+    `Blocked: ${purpose} is waiting on an active dataset run.`,
+    `An analysis is already running${conflict.datasetId ? ` on ${conflict.datasetId}` : " on this dataset"}.`,
+    options?.target ? summarizeResolvedDataset(options.target, purpose) : null,
+    `Active run: ${conflict.runId}`,
+    `State: ${conflict.status}`,
+    conflict.prompt ? `Current work: ${conflict.prompt.slice(0, 140)}` : null,
     "",
-    "No new run was started.",
-    `Check it: research debug run ${runId}`,
-    `Dashboard: ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)}`,
-  ].join("\n");
+    "I did not start a duplicate run because that active run still holds the dataset volume.",
+    options?.expectedArtifacts?.length
+      ? `Expected artifacts once the run finishes: ${options.expectedArtifacts.join(", ")}.`
+      : null,
+    `When it finishes, ask: show results from ${conflict.runId}`,
+    `Inspect in CLI: research debug run ${conflict.runId}`,
+    "",
+    lockSummary,
+  ];
+  return lines.filter(Boolean).join("\n");
+}
+
+function schemaFieldNames(schema: unknown) {
+  if (!Array.isArray(schema)) return [];
+  return schema
+    .map((field) => (isRecord(field) && typeof field.name === "string" ? field.name.trim() : ""))
+    .filter((name) => name.length > 0);
+}
+
+function findMatchingFields(fieldNames: string[], patterns: RegExp[]) {
+  const matches: string[] = [];
+  for (const fieldName of fieldNames) {
+    if (patterns.some((pattern) => pattern.test(fieldName))) {
+      matches.push(fieldName);
+    }
+  }
+  return matches;
+}
+
+function toolHeartbeatIntervalMs() {
+  return Number(process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS ?? "4000");
+}
+
+function joinWithAnd(values: string[]) {
+  if (values.length <= 1) return values.join("");
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
+}
+
+function summarizeRemoteDatasetInspection(dataset: RemoteDatasetDetail) {
+  const profile = dataset.profile;
+  const fieldNames = schemaFieldNames(profile?.schema);
+  const countyFields = findMatchingFields(fieldNames, [/county/i, /\bfips\b/i]);
+  const yearFields = findMatchingFields(fieldNames, [/\byear\b/i, /date/i, /month/i, /quarter/i]);
+  const unemploymentFields = findMatchingFields(fieldNames, [/unemployment/i, /jobless/i, /labor/i]);
+  const homeValueFields = findMatchingFields(fieldNames, [/home[_ ]?value/i, /house[_ ]?price/i, /hpi\b/i, /zillow/i]);
+  const timeCoverage = isRecord(profile?.timeCoverage) ? profile?.timeCoverage : null;
+  const geographyCoverage = isRecord(profile?.geographyCoverage) ? profile?.geographyCoverage : null;
+  const start = typeof timeCoverage?.start === "string" ? timeCoverage.start : typeof timeCoverage?.min === "string" ? timeCoverage.min : null;
+  const end = typeof timeCoverage?.end === "string" ? timeCoverage.end : typeof timeCoverage?.max === "string" ? timeCoverage.max : null;
+  const geographyLevel = typeof geographyCoverage?.level === "string" ? geographyCoverage.level : null;
+  if (countyFields.length === 0 && typeof geographyLevel === "string" && /\bcounty\b/i.test(geographyLevel)) {
+    countyFields.push(geographyLevel);
+  }
+  const matchedCoverage = [
+    countyFields.length > 0 ? "county" : null,
+    yearFields.length > 0 ? "time" : null,
+    unemploymentFields.length > 0 ? "unemployment" : null,
+    homeValueFields.length > 0 ? "home value" : null,
+  ].filter((value): value is string => value !== null);
+  const evidenceFields = [
+    countyFields[0],
+    yearFields[0],
+    unemploymentFields[0],
+    homeValueFields[0],
+  ].filter((value): value is string => Boolean(value));
+  const lines = [`Inspected remote dataset ${dataset.id}.`];
+  if (matchedCoverage.length > 0 || evidenceFields.length > 0) {
+    const summary = matchedCoverage.length > 0
+      ? `${dataset.id} appears to include ${joinWithAnd(matchedCoverage)} fields`
+      : `${dataset.id} schema is available`;
+    lines.push(`${summary}${evidenceFields.length > 0 ? ` (${evidenceFields.join(", ")})` : ""}.`);
+  }
+  if (start || end || geographyLevel) {
+    lines.push(`Coverage: ${start ?? "unknown start"} to ${end ?? "unknown end"}${geographyLevel ? ` at ${geographyLevel} level` : ""}.`);
+  }
+  if (typeof profile?.notes === "string" && profile.notes.trim()) {
+    lines.push(`Notes: ${profile.notes.trim()}`);
+  }
+  return lines.join("\n");
+}
+
+function summarizeExpectedArtifacts(input: Record<string, unknown>) {
+  const artifacts = Array.isArray(input.artifacts) ? input.artifacts : [];
+  const titles = artifacts
+    .map((artifact) => {
+      if (!isRecord(artifact)) return null;
+      if (typeof artifact.title === "string" && artifact.title.trim()) return artifact.title.trim();
+      if (typeof artifact.type === "string" && artifact.type.trim()) return artifact.type.trim();
+      return null;
+    })
+    .filter((title): title is string => title !== null);
+  if (titles.length === 0) return null;
+  return `Expected artifacts: ${titles.slice(0, 4).join("; ")}.`;
+}
+
+function progressHeartbeat(toolName: string, input: Record<string, unknown>, elapsedSeconds: number) {
+  const datasetId = typeof input.datasetId === "string" && input.datasetId.trim() ? input.datasetId.trim() : "the dataset";
+  if (toolName === "inspect_remote_dataset") {
+    return `Still inspecting ${datasetId} for schema, time coverage, and geography fields (${elapsedSeconds}s elapsed).`;
+  }
+  if (toolName === "create_research_environment" || toolName === "create_public_data_environment") {
+    return `Still preparing the ${datasetId} environment and checking whether the dataset volume is free (${elapsedSeconds}s elapsed).`;
+  }
+  if (ASYNC_RUN_START_TOOLS.has(toolName)) {
+    return `Still starting the remote run for ${datasetId} (${elapsedSeconds}s elapsed).`;
+  }
+  return `Still running ${toolName} (${elapsedSeconds}s elapsed).`;
+}
+
+function formatUnknownValue(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const parts: string[] = value
+      .map((entry): string | null => formatUnknownValue(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return parts.length > 0 ? parts.join("; ") : null;
+  }
+  if (isRecord(value)) {
+    const pairs: string[] = Object.entries(value)
+      .map(([key, entry]) => {
+        const formatted: string | null = formatUnknownValue(entry);
+        return formatted ? `${key}: ${formatted}` : null;
+      })
+      .filter((entry): entry is string => Boolean(entry));
+    return pairs.length > 0 ? pairs.join("; ") : null;
+  }
+  return null;
+}
+
+function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?: { runId: string; status: string }) {
+  const profile = dataset.profile;
+  if (!profile) {
+    return null;
+  }
+  const lines: string[] = [];
+  if (blockingRun) {
+    lines.push(
+      `Using the latest saved dataset briefing for ${dataset.id} while run ${blockingRun.runId} is ${blockingRun.status}.`,
+      "",
+    );
+  }
+  if (typeof profile.briefingMarkdown === "string" && profile.briefingMarkdown.trim().length > 0) {
+    lines.push(profile.briefingMarkdown.trim());
+  } else {
+    lines.push(
+      `Dataset Briefing: ${dataset.name || dataset.id}`,
+      "",
+      `Overview: ${dataset.name || dataset.id}${dataset.status ? ` (${dataset.status})` : ""}`,
+    );
+    const trust = formatUnknownValue(profile.quality) ?? profile.notes ?? "Saved dataset profile exists, but explicit trust notes are limited.";
+    lines.push(`Readiness & Trust: ${trust}`);
+    const inventory = formatUnknownValue(profile.tables) ?? formatUnknownValue(profile.schema);
+    if (inventory) lines.push(`Data Inventory: ${inventory}`);
+    const sources = formatUnknownValue(profile.sources);
+    if (sources) lines.push(`Sources: ${sources}`);
+    const schema = formatUnknownValue(profile.schema);
+    if (schema) lines.push(`Schemas: ${schema}`);
+    const timeCoverage = formatUnknownValue(profile.timeCoverage);
+    if (timeCoverage) lines.push(`Time Coverage: ${timeCoverage}`);
+    const geographyCoverage = formatUnknownValue(profile.geographyCoverage);
+    if (geographyCoverage) lines.push(`Geography Coverage: ${geographyCoverage}`);
+    const formats = formatUnknownValue(profile.formats);
+    if (formats) lines.push(`Formats: ${formats}`);
+    const transformations = formatUnknownValue(profile.transformations);
+    if (transformations) lines.push(`Transformations & Derived Fields: ${transformations}`);
+    const quality = formatUnknownValue(profile.quality);
+    if (quality) lines.push(`Quality & Validation: ${quality}`);
+    const limitations = formatUnknownValue(profile.limitations);
+    if (limitations) lines.push(`Limitations & Known Gaps: ${limitations}`);
+  }
+  const artifactNotes = [
+    profile.briefingArtifactId ? "Dataset Briefing" : null,
+    profile.profileArtifactId ? "Dataset Profile" : null,
+  ].filter((entry): entry is string => Boolean(entry));
+  const generatedAt = profile.describedAt ?? profile.updatedAt;
+  if (artifactNotes.length > 0 || generatedAt) {
+    lines.push(
+      "",
+      `Artifacts: ${artifactNotes.length > 0 ? artifactNotes.join(" and ") : "saved dataset profile"}${generatedAt ? ` · updated ${generatedAt}` : ""}`,
+    );
+  }
+  return lines.join("\n");
 }
 
 function summarizeRemoteFailure(error: RemoteRequestError) {
@@ -794,42 +1780,266 @@ function maybeHandleUnauthenticatedLocalRequest(input: string) {
   return null;
 }
 
-function maybeHandleOrientation(input: string) {
-  const lower = input.trim().toLowerCase();
-  if (!/^(what can you help me do\??|help|what do you do\??)$/u.test(lower)) {
+function maybeHandleSignedOutRemoteDatasetRequest(input: string) {
+  const lower = input.toLowerCase();
+  if (!/\bremote datasets?\b/.test(lower) && !/\bmy datasets?\b/.test(lower) && !/\bshow datasets?\b/.test(lower)) {
     return null;
   }
   return [
-    "I am a local command center for turning messy data and vague research intent into durable research work: datasets, remote runs, analysis artifacts, and follow-up decisions.",
+    "Sign in to view your remote datasets.",
+    "",
+    "Next step: run `/login` in this chat or `research login` in another terminal.",
+    `After you sign in, ask me again and I’ll pick up: "${input.trim()}".`,
+  ].join("\n");
+}
+
+function maybeHandleOrientation(input: string) {
+  const lower = input.trim().toLowerCase();
+  if (!(
+    /^(what can you help me do\??|help|what do you do\??)$/u.test(lower)
+    || (
+      /\b(just opened|what is this|what should i type first|where should i start|how do i start)\b/u.test(lower)
+      && /\bresearch\b/u.test(lower)
+    )
+  )) {
+    return null;
+  }
+  return [
+    "RESEARCH helps you turn files and datasets into research you can inspect, run, and review.",
+    "",
+    "Start here:",
+    "- `research login` so I can see your datasets and start research runs for you",
+    "- `Show my datasets`",
     "",
     "I can help you:",
-    "- Intake data from local files, public sources, APIs, exports, or mixed-source environments.",
-    "- Navigate datasets you already have: readiness, fields, sources, coverage, quality, and limitations.",
-    "- Turn fuzzy questions into concrete study designs before spending time on remote work.",
-    "- Run analyses, queries, labeling jobs, and experiments with durable artifacts.",
-    "- Recover prior work: run status, dashboard links, results, failures, and next decisions.",
-    "",
-    "Examples to type:",
-    "- Show my datasets",
     "- Create a dataset from /absolute/path/customers.csv",
+    "- List datasets and inspect what each one contains",
+    "- Brief a dataset before you trust or analyze it",
+    "- Plan or run an analysis for a specific question",
+    "- Show the latest results or saved files from earlier work",
+    "",
+    "Other useful prompts:",
+    "- What data do I already have ready to use?",
     "- Brief the sales dataset",
+    "- Brief the econ dataset",
     "- Test whether retention changed after launch",
-    "- Show results from my last run",
+    "- Show my latest analysis results",
   ].join("\n");
+}
+
+function shouldHandleDatasetInventoryLegacy(input: string) {
+  const lower = input.trim().toLowerCase();
+  if (!/\bdatasets?\b/.test(lower)) {
+    return false;
+  }
+  if (/\b(create|build|make|start|run|analy[sz]e|test|wait|show me results|artifacts?)\b/.test(lower)) {
+    return false;
+  }
+  return /\b(what|which|show|list)\b/.test(lower) || /\bdo i have\b/.test(lower) || /\binventory\b/.test(lower);
+}
+
+function wantsLocalDatasetsOnly(input: string) {
+  const lower = input.toLowerCase();
+  return /\blocal datasets?\b/.test(lower) && !/\bremote datasets?\b/.test(lower);
+}
+
+function wantsRemoteDatasetsOnly(input: string) {
+  const lower = input.toLowerCase();
+  return /\bremote datasets?\b/.test(lower) && !/\blocal datasets?\b/.test(lower);
+}
+
+function wantsAllDatasets(input: string) {
+  const lower = input.toLowerCase();
+  return /\b(all datasets|include tests|including tests|show hidden|debug datasets?)\b/.test(lower);
+}
+
+function looksLikeNoisyDataset(id: string, name: string) {
+  const text = `${id} ${name}`.toLowerCase();
+  if (/mixed-smoke|smoke test|fixture|sample fixture/.test(text)) return true;
+  if (/^upload-test[-\d]*$/u.test(id.toLowerCase()) || /^upload test\b/u.test(name.toLowerCase())) return true;
+  return false;
+}
+
+function normalizeRemoteDatasetState(dataset: RemoteDatasetSummary): DatasetInventoryEntry["state"] {
+  const status = (dataset.status ?? "").toLowerCase();
+  const deploymentStatus = (dataset.deploymentStatus ?? "").toLowerCase();
+  if (deploymentStatus === "deployed" || deploymentStatus === "ready" || status === "ready" || status === "deployed") {
+    return "ready";
+  }
+  if (deploymentStatus === "deploying" || status === "deploying" || status === "uploading" || status === "building") {
+    return "building";
+  }
+  if (deploymentStatus === "deployable" || status === "deployable" || status === "uploaded") {
+    return "deployable";
+  }
+  return "draft";
+}
+
+function localInventoryEntry(instance: Awaited<ReturnType<typeof listInstanceBundles>>[number]): DatasetInventoryEntry {
+  return {
+    id: instance.id,
+    name: instance.displayName || instance.productName || instance.id,
+    scope: "local",
+    state: "ready",
+    description: instance.description?.trim() || `${formatNumber(instance.recordCount)} records`,
+    hidden: looksLikeNoisyDataset(instance.id, instance.displayName || instance.productName || instance.id),
+  };
+}
+
+function remoteInventoryEntry(dataset: RemoteDatasetSummary): DatasetInventoryEntry {
+  const state = normalizeRemoteDatasetState(dataset);
+  return {
+    id: dataset.id,
+    name: dataset.name?.trim() || dataset.id,
+    scope: "remote",
+    state,
+    description: null,
+    hidden: looksLikeNoisyDataset(dataset.id, dataset.name ?? dataset.id),
+  };
+}
+
+function inventoryStateLabel(state: DatasetInventoryEntry["state"]) {
+  switch (state) {
+    case "ready":
+      return "ready";
+    case "building":
+      return "building";
+    case "deployable":
+      return "deployable";
+    case "draft":
+    default:
+      return "draft";
+  }
+}
+
+function padCell(value: string, width: number) {
+  if (value.length >= width) return value;
+  return value.padEnd(width, " ");
+}
+
+function trimCell(value: string, width: number) {
+  if (value.length <= width) return value;
+  if (width <= 3) return value.slice(0, width);
+  return `${value.slice(0, width - 3)}...`;
+}
+
+function renderInventoryTable(entries: DatasetInventoryEntry[]) {
+  const headers = ["name", "id", "scope", "state", "description"] as const;
+  const rows = entries.map((entry) => [
+    entry.name,
+    entry.id,
+    entry.scope,
+    inventoryStateLabel(entry.state),
+    entry.description ?? "—",
+  ]);
+  const widths = headers.map((header, index) => {
+    const cellWidths = rows.map((row) => row[index]?.length ?? 0);
+    return Math.min(Math.max(header.length, ...cellWidths), index === 4 ? 44 : 28);
+  });
+  const renderRow = (cells: string[]) => cells.map((cell, index) => padCell(trimCell(cell, widths[index] ?? cell.length), widths[index] ?? cell.length)).join("  ");
+  return [
+    renderRow([...headers]),
+    renderRow(widths.map((width) => "-".repeat(width))),
+    ...rows.map(renderRow),
+  ].join("\n");
+}
+
+function nextDatasetStep(entries: DatasetInventoryEntry[]) {
+  const preferred = entries.find((entry) => entry.state === "ready" && entry.scope === "remote")
+    ?? entries.find((entry) => entry.state === "ready");
+  if (!preferred) {
+    return "Choose a ready or deployable dataset to inspect next.";
+  }
+  return preferred.scope === "remote"
+    ? `Try \`describe ${preferred.id}\` to inspect what is inside ${preferred.name}.`
+    : `Try \`describe ${preferred.id}\` or ask what is inside ${preferred.name}.`;
+}
+
+async function maybeHandleDatasetInventoryLegacy(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!shouldHandleDatasetInventoryLegacy(input)) {
+    return null;
+  }
+
+  const localOnly = wantsLocalDatasetsOnly(input);
+  const remoteOnly = wantsRemoteDatasetsOnly(input);
+  const includeHidden = wantsAllDatasets(input);
+
+  const entries: DatasetInventoryEntry[] = [];
+  let hiddenCount = 0;
+
+  if (!remoteOnly) {
+    emit({ role: "tool", content: "Checking local datasets..." });
+    const instances = await listInstanceBundles(DEFAULT_INSTANCE_ROOT);
+    const localEntries = instances.map(localInventoryEntry);
+    hiddenCount += localEntries.filter((entry) => entry.hidden).length;
+    entries.push(...(includeHidden ? localEntries : localEntries.filter((entry) => !entry.hidden)));
+    emit({ role: "tool", content: instances.length > 0 ? `Found ${instances.length} local datasets.` : "No local datasets found." });
+  }
+
+  if (!localOnly && initialSession) {
+    emit({ role: "tool", content: "Checking remote datasets. This can take a few seconds..." });
+    const client = deps.createRemoteClient(initialSession);
+    const datasets = await client.listDatasets();
+    const remoteEntries = datasets.datasets.map(remoteInventoryEntry);
+    hiddenCount += remoteEntries.filter((entry) => entry.hidden).length;
+    entries.push(...(includeHidden ? remoteEntries : remoteEntries.filter((entry) => !entry.hidden)));
+    emit({ role: "tool", content: datasets.datasets.length > 0 ? `Found ${datasets.datasets.length} remote datasets.` : "No remote datasets found." });
+  }
+
+  if (!localOnly && !initialSession && remoteOnly) {
+    return "Sign in first with `/login`, then ask me to show remote datasets.";
+  }
+
+  const sorted = entries.sort((left, right) =>
+    Number(right.state === "ready") - Number(left.state === "ready")
+    || Number(left.scope === "local") - Number(right.scope === "local")
+    || left.name.localeCompare(right.name));
+
+  if (sorted.length === 0) {
+    return localOnly
+      ? "I do not see any local datasets yet."
+      : remoteOnly
+        ? "I do not see any remote datasets yet."
+        : "I do not see any datasets yet.";
+  }
+
+  const lines = [
+    "Available datasets",
+    "",
+    renderInventoryTable(sorted),
+  ];
+  if (hiddenCount > 0 && !includeHidden) {
+    lines.push("", `Hidden ${hiddenCount} likely test or system datasets. Ask \`show all datasets\` to include them.`);
+  }
+  lines.push("", `Next: ${nextDatasetStep(sorted)}`);
+  return lines.join("\n");
 }
 
 function maybeHandleCsvImportHowTo(input: string) {
   const lower = input.toLowerCase();
-  if (!/\bcsv\b/.test(lower) || !/\b(desktop|downloads|local|my computer|file)\b/.test(lower) || !/\b(how|turn it|import|create|research here)\b/.test(lower)) {
+  const mentionsTabularFile = /\b(csv|tsv|parquet|jsonl?|spreadsheet|export|file)\b/.test(lower);
+  const mentionsImportIntent = /\b(how|need from me|turn it|turn this|import|ingest|create|build|research here|dataset)\b/.test(lower);
+  const missingAbsolutePath = !/(^|[\s("'`])\/[^\s"'`)]+|[a-z]:\\[^\s]+/i.test(input);
+  if (!mentionsTabularFile || !mentionsImportIntent || !missingAbsolutePath) {
     return null;
   }
   return [
-    "I need the absolute path to the CSV and a one-line description of what it contains.",
+    "I need 2 things to import your file into RESEARCH:",
+    "",
+    "- Absolute file path",
+    "- One-line description of what is in the file",
     "",
     "Example:",
-    "`/Users/ryanprendergast/Desktop/support_tickets.csv` — customer support tickets with timestamps, categories, priorities, and resolution status.",
+    "`/Users/ryanprendergast/Desktop/support_tickets.csv`",
+    "`customer support tickets with timestamps, categories, priorities, and resolution status`",
     "",
-    "Once you provide that, I can infer the schema, register the dataset, upload it, and deploy it for research. If you only know a hint, I can help narrow it down, but I still need the exact path before import.",
+    "What happens next: I will inspect the file, infer the schema, choose a dataset name/id with you if needed, and prepare it for research.",
+    "One line is enough for the description. If you are not sure how to get the path, drag the file into Terminal or copy it from Finder.",
   ].join("\n");
 }
 
@@ -838,7 +2048,15 @@ function maybeHandleVagueMarketQuestion(input: string) {
   if (!/\bhousing market\b/.test(lower) || !/\b(trouble|crash|bad|risk|look into)\b/.test(lower)) {
     return null;
   }
-  return "Do you mean the U.S. housing market, and do you want a quick current-state read or a deeper risk analysis? I would look at affordability, prices, inventory, mortgage rates, delinquencies, employment, and regional differences once you choose the scope.";
+  return [
+    "Before I start research, pick the smallest scope decision so I do not launch a broad housing-market build.",
+    "",
+    "- Market: U.S. housing market or a specific metro/region?",
+    "- Depth: quick current-state read or deeper risk analysis?",
+    "- Meaning of `in trouble`: affordability stress, price decline risk, weak demand/inventory imbalance, or credit stress?",
+    "",
+    "Once you choose, I can assess the right signals: affordability, prices, inventory, mortgage rates, delinquencies, employment, regional differences, and price/rent divergence over the time period that matters.",
+  ].join("\n");
 }
 
 function maybeHandleVagueTweetsExperiment(input: string) {
@@ -850,13 +2068,310 @@ function maybeHandleVagueTweetsExperiment(input: string) {
     return null;
   }
   return [
-    "Before I start a remote run, here is the experiment I would use.",
+    "Before I start a remote run, here is the experiment I recommend.",
     "",
-    "Dataset: `enriched-tweets`, if available, because it should contain tweet text, timestamps, authors, and engagement fields.",
-    "Plan: define virality from available engagement counts, label `hook_type`, `emotional_tone`, and `controversy_level`, compare media or topic fields if present, and return a short summary with visualizations and representative examples.",
+    "Dataset",
+    "Proposed dataset: `enriched-tweets`.",
+    "Use `enriched-tweets`.",
+    "Fallback: if it is not in your workspace, I can help you choose or build a tweets dataset with text, timestamps, authors, and engagement fields.",
     "",
-    "Confirm the scope: should I define viral tweets as the top 0.1% by quote/retweet/like engagement and sample 100 tweets for labeling?",
+    "Definition",
+    "Outcome: treat viral tweets as the top 0.1% by `quote_tweet_count`.",
+    "Sample: label 100 tweets from the viral set.",
+    "Labels: `hook_type`, `emotional_tone`, `controversy_level`.",
+    "Outputs: a short summary, visualizations, and representative examples.",
+    "",
+    "Choose one virality definition:",
+    "1. Top 0.1% by `quote_tweet_count`.",
+    "2. Top 0.1% by `retweet_count`.",
+    "3. Top 0.1% by `favorite_count`.",
+    "",
+    "Approval",
+    "Proceed with this default design? Reply with 1, 2, or 3 and I will use that virality definition.",
+    "Optional changes: choose a different virality metric or sample size before I start.",
+    "Next: once you confirm, I will start the run with that scope.",
   ].join("\n");
+}
+
+function isDatasetSelectionFromTopicQuestion(input: string) {
+  const lower = input.toLowerCase();
+  return /\bwhich dataset should i use\b/.test(lower)
+    && !/\b(?:using|use|on)\s+[a-z0-9][a-z0-9_-]*\b/.test(lower);
+}
+
+function planningProgressLabel(input: string) {
+  const lower = input.toLowerCase();
+  if (isDatasetSelectionFromTopicQuestion(input)) {
+    return "Looking up candidate datasets...";
+  }
+  if (/\bdescribe\b.*\bdataset\b|\bdataset\b.*\bdescribe\b/.test(lower)) {
+    return "Planning dataset briefing...";
+  }
+  if (/\b(show|list)\b.*\bdatasets?\b/.test(lower)) {
+    return "Checking datasets...";
+  }
+  if (/\b(show|list)\b.*\bruns?\b|\bresults?\b|\bartifacts?\b/.test(lower)) {
+    return "Checking prior work...";
+  }
+  return "Analyzing request...";
+}
+
+function datasetSelectionTopicTokens(input: string) {
+  const lower = input.toLowerCase();
+  const tokens = reusableEnvironmentTokens(lower);
+  if (/\bhousing\b/.test(lower)) tokens.push("rent", "rents", "home", "homes", "mortgage", "zillow", "hud", "acs");
+  if (/\bafford/.test(lower)) tokens.push("income", "cost", "burden", "econom", "econ");
+  return [...new Set(tokens)];
+}
+
+function datasetMetadataText(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const profile = "profile" in dataset ? dataset.profile : null;
+  const sourceText = isRecord(profile)
+    ? JSON.stringify({
+        sources: profile.sources ?? null,
+        tables: profile.tables ?? null,
+        timeCoverage: profile.timeCoverage ?? null,
+        geographyCoverage: profile.geographyCoverage ?? null,
+        limitations: profile.limitations ?? null,
+        notes: profile.notes ?? null,
+        briefingMarkdown: profile.briefingMarkdown ?? null,
+      }).toLowerCase()
+    : "";
+  return [dataset.id, dataset.name, sourceText].filter(Boolean).join(" ").toLowerCase();
+}
+
+function scoreDatasetForTopic(dataset: RemoteDatasetSummary | RemoteDatasetDetail, topicTokens: string[]) {
+  const metadata = datasetMetadataText(dataset);
+  let score = 0;
+  for (const token of topicTokens) {
+    if (metadata.includes(token)) score += 2;
+  }
+  if (/\becon(?:omic)?s?\b/.test(metadata)) score += 2;
+  if (/\bhousing\b|\brent\b|\bincome\b|\bhome\b|\bmortgage\b/.test(metadata)) score += 3;
+  if ((dataset.status ?? "").toLowerCase() === "ready") score += 1;
+  if ((dataset.deploymentStatus ?? "").toLowerCase() === "ready") score += 1;
+  return score;
+}
+
+function summarizeDatasetEvidence(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const metadata = datasetMetadataText(dataset);
+  const evidence: string[] = [];
+  if (/\bacs\b|american community survey|census/.test(metadata)) evidence.push("ACS/Census coverage");
+  if (/\bhud\b|fair market rent|income limits|chas/.test(metadata)) evidence.push("HUD affordability benchmarks");
+  if (/\bzillow\b|zori\b|zhvi\b|rent\b|home value/.test(metadata)) evidence.push("housing market rent/home value series");
+  if (/\bincome\b/.test(metadata)) evidence.push("income measures");
+  if (/\bhousing\b|\bafford/.test(metadata)) evidence.push("housing affordability focus");
+  if (evidence.length === 0 && /\becon(?:omic)?s?\b/.test(metadata)) evidence.push("broader economics coverage");
+  return evidence.slice(0, 3);
+}
+
+function extractRequestedDatasetReference(input: string) {
+  const datasetMention = input.match(/\b(?:the\s+)?([a-z0-9][a-z0-9_-]*)\s+dataset\b/iu);
+  if (datasetMention?.[1]) {
+    return datasetMention[1].toLowerCase();
+  }
+  const onOrUsing = input.match(/\b(?:on|using|analyze|inspect|describe)\s+([a-z0-9][a-z0-9_-]*)(?:[.\s]|$)/iu);
+  return onOrUsing?.[1]?.toLowerCase() ?? null;
+}
+
+function matchesDatasetReference(dataset: RemoteDatasetSummary, reference: string) {
+  const normalizedName = `${dataset.id} ${dataset.name}`.toLowerCase();
+  return dataset.id.toLowerCase() === reference || normalizedName.includes(reference);
+}
+
+function takeStringList(value: unknown, limit = 3) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (typeof entry === "string") return entry.trim();
+      if (isRecord(entry)) {
+        return String(entry.name ?? entry.title ?? entry.label ?? entry.id ?? "").trim();
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function vagueInterestingDirections(detail: RemoteDatasetDetail) {
+  const topicText = `${detail.id} ${detail.name} ${detail.profile?.notes ?? ""} ${detail.profile?.briefingMarkdown ?? ""}`.toLowerCase();
+  if (/\bhousing|mortgage|permit|county\b/.test(topicText)) {
+    return ["rate sensitivity", "coverage quality", "regional differences"];
+  }
+  if (/\btweet|social|engagement\b/.test(topicText)) {
+    return ["engagement drivers", "coverage quality", "time trends"];
+  }
+  return ["coverage quality", "time trends", "segment differences"];
+}
+
+function summarizeInterestingDataset(detail: RemoteDatasetDetail) {
+  const profile = detail.profile;
+  const headerName = detail.name?.trim() || detail.id;
+  const sourceNames = takeStringList(profile?.sources, 3);
+  const tableNames = takeStringList(profile?.tables, 2);
+  const coverageText = typeof profile?.notes === "string" ? profile.notes.trim() : "";
+  const limitationText = Array.isArray(profile?.limitations)
+    ? profile.limitations
+      .map((entry: unknown) => typeof entry === "string" ? entry.trim() : isRecord(entry) ? String(entry.summary ?? entry.title ?? entry.name ?? "").trim() : "")
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("; ")
+    : "";
+  const timeCoverage = isRecord(profile?.timeCoverage) ? profile?.timeCoverage as Record<string, unknown> : null;
+  const timeRange = timeCoverage
+    ? [timeCoverage.start, timeCoverage.end].filter((value) => typeof value === "string" && value.trim()).join(" to ")
+    : "";
+  const geographyCoverage = isRecord(profile?.geographyCoverage) ? profile?.geographyCoverage as Record<string, unknown> : null;
+  const geographyLabel = geographyCoverage
+    ? String(geographyCoverage.level ?? geographyCoverage.grain ?? geographyCoverage.summary ?? "").trim()
+    : "";
+  const strongestAngle = vagueInterestingDirections(detail)[0] ?? "coverage quality";
+  const lines = [
+    `${headerName} looks most useful for ${strongestAngle}, but I would keep the first pass narrow.`,
+  ];
+  if (sourceNames.length > 0) {
+    lines.push(`- It combines ${sourceNames.join(", ")}${tableNames.length > 0 ? ` into ${tableNames.join(" and ")}` : ""}.`);
+  }
+  if (timeRange || geographyLabel || coverageText) {
+    const parts = [timeRange ? `Time range: ${timeRange}` : "", geographyLabel ? `Geography: ${geographyLabel}` : "", coverageText || ""].filter(Boolean);
+    lines.push(`- ${parts.join("; ")}.`);
+  }
+  if (limitationText) {
+    lines.push(`- Main caution: ${limitationText}.`);
+  }
+  const directions = vagueInterestingDirections(detail);
+  lines.push("", `Pick one next step: ${directions.join(", ") }.`);
+  lines.push("I can do a small read-only pass on one of those, but I will not start a broad remote analysis until you choose the scope.");
+  return lines.join("\n");
+}
+
+async function maybeHandleDatasetSelectionFromTopic(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!initialSession || !isDatasetSelectionFromTopicQuestion(input)) {
+    return null;
+  }
+
+  emit({ role: "tool", content: "Looking up candidate datasets..." });
+  const client = deps.createRemoteClient(initialSession);
+  const listed = await client.listDatasets().catch(() => ({ datasets: [] }));
+  if (listed.datasets.length === 0) {
+    return [
+      "I do not see any remote datasets in RESEARCH yet for this topic.",
+      "",
+      "Need from you",
+      "- Which geography matters most: nationwide, state, metro, county, or tract?",
+      "- If you want, I can help design the right housing-affordability dataset after that.",
+    ].join("\n");
+  }
+
+  const topicTokens = datasetSelectionTopicTokens(input);
+  const rankedSummaries = [...listed.datasets]
+    .map((dataset) => ({ dataset, score: scoreDatasetForTopic(dataset, topicTokens) }))
+    .sort((left, right) => right.score - left.score || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? "")));
+  const inspectionPool = rankedSummaries.slice(0, Math.min(3, rankedSummaries.length));
+  const inspected = await Promise.all(inspectionPool.map(async ({ dataset, score }) => {
+    const detail = typeof client.getDataset === "function" ? await client.getDataset(dataset.id).catch(() => null) : null;
+    const enriched = detail?.dataset ?? dataset;
+    return { dataset: enriched, score: Math.max(score, scoreDatasetForTopic(enriched, topicTokens)) };
+  }));
+  const ranked = inspected
+    .sort((left, right) => right.score - left.score || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? "")));
+  const primary = ranked[0]?.dataset ?? rankedSummaries[0]?.dataset;
+  if (!primary) {
+    return null;
+  }
+  const supplements = ranked
+    .slice(1)
+    .filter((entry) => entry.score >= Math.max(2, (ranked[0]?.score ?? 0) - 2))
+    .slice(0, 2);
+  const evidence = summarizeDatasetEvidence(primary);
+  const primaryWhy = evidence.length > 0
+    ? `${primary.name || primary.id} is the strongest current match because its metadata points to ${evidence.join(", ")}.`
+    : `${primary.name || primary.id} is the closest current match by dataset metadata and availability in RESEARCH.`;
+
+  const lines = [
+    "Primary dataset",
+    `- Start with \`${primary.id}\`${primary.name && primary.name !== primary.id ? ` (${primary.name})` : ""}.`,
+    "",
+    "Why",
+    `- ${primaryWhy}`,
+    `- Status: ${(primary.status ?? primary.deploymentStatus ?? "unknown").toLowerCase() === "ready" ? "ready to inspect or analyze now" : primary.status ?? primary.deploymentStatus ?? "available"}.`,
+  ];
+  if (supplements.length > 0) {
+    lines.push("", "Optional supplements");
+    for (const entry of supplements) {
+      const supplementEvidence = summarizeDatasetEvidence(entry.dataset);
+      lines.push(
+        `- \`${entry.dataset.id}\`${entry.dataset.name && entry.dataset.name !== entry.dataset.id ? ` (${entry.dataset.name})` : ""}: ${supplementEvidence[0] ?? "another plausible supporting dataset if you need a different angle"}.`,
+      );
+    }
+  }
+  lines.push(
+    "",
+    "Need from you",
+    "- Which geography matters most: nationwide, state, metro, county, or tract?",
+  );
+  return lines.join("\n");
+}
+
+async function maybeHandleVagueDatasetInterestingQuestion(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  const lower = input.toLowerCase();
+  if (!initialSession || !/\bdataset\b/.test(lower) || !/\binterest(?:ing)?\b/.test(lower) || !/\banaly[sz]e\b/.test(lower)) {
+    return null;
+  }
+  const reference = extractRequestedDatasetReference(input);
+  if (!reference) {
+    return null;
+  }
+  const client = deps.createRemoteClient(initialSession);
+  emit({ role: "tool", content: "Checking remote datasets..." });
+  const listed = await client.listDatasets().catch(() => null);
+  if (!listed) {
+    return null;
+  }
+  emit({ role: "tool", content: `Found ${listed.datasets.length} remote datasets.` });
+  const selected = listed.datasets.find((dataset) => matchesDatasetReference(dataset, reference));
+  if (!selected) {
+    return null;
+  }
+  emit({ role: "tool", content: `Inspecting dataset ${selected.id}...` });
+  const detail = await client.getDataset(selected.id).catch(() => null);
+  if (!detail?.dataset) {
+    return null;
+  }
+  emit({ role: "tool", content: `Inspected remote dataset ${selected.id}.` });
+  return summarizeInterestingDataset(detail.dataset);
+}
+
+function shouldHandleDatasetInventory(input: string) {
+  const lower = input.trim().toLowerCase();
+  return (
+    /\b(what data do i already have|what datasets do i have|show (?:my )?datasets|list (?:my )?datasets|dataset inventory)\b/.test(lower)
+    || (/\bready to use\b/.test(lower) && /\bdata|dataset/.test(lower))
+  );
+}
+
+async function maybeHandleDatasetInventory(input: string, initialSession: SessionRecord | null, deps: AgentRuntimeDeps) {
+  if (!initialSession || !shouldHandleDatasetInventory(input)) {
+    return null;
+  }
+  const localInstances = await deps.listLocalDatasets().catch(() => []);
+  const client = deps.createRemoteClient(initialSession);
+  const remoteDatasets = await client.listDatasets().then((payload) => payload.datasets).catch(() => []);
+  return {
+    localCount: localInstances.length,
+    remoteCount: remoteDatasets.length,
+    response: formatDatasetInventoryResponse(localInstances, remoteDatasets),
+  };
 }
 
 function extractDatasetIdFromNewAnalysis(input: string) {
@@ -864,7 +2379,11 @@ function extractDatasetIdFromNewAnalysis(input: string) {
   return match?.[1] ?? null;
 }
 
-async function maybeHandleBusyDatasetBeforePlanning(input: string, initialSession: SessionRecord | null) {
+async function maybeHandleBusyDatasetBeforePlanning(
+  input: string,
+  initialSession: SessionRecord | null,
+  deps: AgentRuntimeDeps,
+) {
   const lower = input.toLowerCase();
   if (!initialSession || !/\b(new analysis|run.*analysis|start.*analysis)\b/.test(lower)) {
     return null;
@@ -873,45 +2392,102 @@ async function maybeHandleBusyDatasetBeforePlanning(input: string, initialSessio
   if (!datasetId) {
     return null;
   }
-  const runs = await readTrackedRuns().catch(() => []);
+  const runs = await deps.readTrackedRuns().catch(() => []);
   const active = runs.find((run) => run.datasetId === datasetId && !run.terminalAt && !isTerminalRunStatus(run.status));
   if (!active) {
     return null;
   }
-  return [
-    `Blocked: ${datasetId} is already busy.`,
-    `Active run: ${active.id}`,
-    `Status: ${active.status}`,
-    "",
-    "Starting a duplicate analysis is not allowed while that run holds the dataset.",
-    `Check it: research debug run ${active.id}`,
-    "Next: wait for it to finish, inspect it, or cancel it before starting a new analysis.",
-  ].join("\n");
+  return renderBusyDatasetConflict({
+    datasetId,
+    runId: active.id,
+    status: active.status,
+    createdAt: active.createdAt,
+    updatedAt: active.updatedAt,
+    dashboardUrl: active.dashboardUrl ?? dashboardRunUrl(active.origin, active.id),
+  });
 }
 
-async function maybeHandleStuckRunQuestion(input: string, initialSession: SessionRecord | null) {
+function summarizeTrackedRunWork(run: { datasetId: string; prompt?: string; lastEventMessage?: string }) {
+  const latest = run.lastEventMessage?.trim();
+  if (latest) {
+    return latest;
+  }
+  const firstPromptLine = run.prompt?.split("\n")[0]?.trim();
+  if (!firstPromptLine) {
+    return "Remote processing is in progress.";
+  }
+  if (/mounted dataset grounding is mandatory/i.test(firstPromptLine)) {
+    return `Waiting for dataset ${run.datasetId} to be mounted so the run can start reading it.`;
+  }
+  return firstPromptLine.endsWith(".") ? firstPromptLine : `${firstPromptLine}.`;
+}
+
+function describeRunDiagnosis(status: string | undefined, minutesSinceUpdate: number | null) {
+  const normalized = (status ?? "").toLowerCase();
+  if (minutesSinceUpdate === null) {
+    return "I can see an active run, but I do not have a reliable heartbeat yet.";
+  }
+  if (normalized === "booting") {
+    if (minutesSinceUpdate <= 2) {
+      return "The run is still booting and was updated recently, so it does not look stuck yet.";
+    }
+    return "The run is still marked as booting and has not updated recently, so it may be stalled.";
+  }
+  if (normalized === "queued") {
+    if (minutesSinceUpdate <= 2) {
+      return "The run is still queued and was updated recently, so it does not look stuck yet.";
+    }
+    return "The run is still queued and has not updated recently, so it may be waiting on capacity.";
+  }
+  if (normalized === "running") {
+    if (minutesSinceUpdate <= 2) {
+      return "The run is still running and was updated recently, so it does not look stuck yet.";
+    }
+    return "The run is still marked as running but has not updated recently, so it may be stalled.";
+  }
+  if (minutesSinceUpdate <= 2) {
+    return `The run is still ${formatStatusForHumans(status)} and was updated recently, so it does not look stuck yet.`;
+  }
+  return `The run is still ${formatStatusForHumans(status)} but has not updated recently, so it may be stalled.`;
+}
+
+function formatHeartbeat(minutesSinceUpdate: number | null) {
+  if (minutesSinceUpdate === null) return "unknown";
+  if (minutesSinceUpdate < 1) return "less than 1 minute ago";
+  if (minutesSinceUpdate === 1) return "1 minute ago";
+  return `${minutesSinceUpdate} minutes ago`;
+}
+
+function recommendedRunAction(runId: string, minutesSinceUpdate: number | null) {
+  if (minutesSinceUpdate === null || minutesSinceUpdate > 2) {
+    return `Next: run \`research debug run ${runId}\` now to inspect the latest remote state and events.`;
+  }
+  return `Next: wait 1-2 minutes. If there is still no new update, run \`research debug run ${runId}\`.`;
+}
+
+async function maybeHandleStuckRunQuestion(input: string, initialSession: SessionRecord | null, deps: AgentRuntimeDeps) {
   const lower = input.toLowerCase();
   if (!initialSession || !/\blast run\b/.test(lower) || !/\b(stuck|happening|progress|status)\b/.test(lower)) {
     return null;
   }
-  const runs = await readTrackedRuns().catch(() => []);
+  const runs = await deps.readTrackedRuns().catch(() => []);
   const active = runs.find((run) => !run.terminalAt && !isTerminalRunStatus(run.status));
   if (!active) {
     return "I do not see an active tracked run right now. Ask `show results from my last run` to inspect the latest completed one.";
   }
   const updated = active.updatedAt ? new Date(active.updatedAt).getTime() : NaN;
-  const minutes = Number.isFinite(updated) ? Math.max(0, Math.round((Date.now() - updated) / 60000)) : null;
-  const heartbeat = minutes === null ? "unknown" : minutes <= 1 ? "under 1 minute ago" : `${minutes} minutes ago`;
+  const minutes = Number.isFinite(updated) ? Math.max(0, Math.round((deps.now() - updated) / 60000)) : null;
   return [
-    `Your run is still active, but its last update was ${heartbeat}.`,
+    describeRunDiagnosis(active.status, minutes),
     "",
-    `Run: ${active.id}`,
-    `Dataset: ${active.datasetId}`,
+    `What it is doing: ${summarizeTrackedRunWork(active)}`,
+    "",
+    recommendedRunAction(active.id, minutes),
+    "",
     `State: ${formatStatusForHumans(active.status)}`,
-    active.prompt ? `Current work: ${active.prompt.split("\n")[0]?.slice(0, 120)}` : "Current work: remote processing",
-    "",
-    "Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for your workload.",
-    `Debug: research debug run ${active.id}`,
+    `Last update: ${formatHeartbeat(minutes)}`,
+    `Dataset: ${active.datasetId}`,
+    `Run ID: ${active.id}`,
   ].join("\n");
 }
 
@@ -934,28 +2510,120 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
     case "query_remote_dataset":
     case "aggregate_remote_dataset":
       return `Starting remote run for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+    case "run_remote_transformation":
+      return `Starting remote analysis for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+    case "run_remote_labeling":
+      return `Starting labeling run for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
     case "create_research_environment":
     case "create_public_data_environment":
       return "Starting dataset build...";
     case "resolve_local_dataset":
       return "Resolving local file...";
+    case "profile_local_dataset":
+      return `Inspecting ${basename(String(input.inputPath ?? "file"))}...`;
     case "register_remote_dataset":
-      return "Creating dataset record...";
+      return "Creating dataset...";
     case "request_dataset_source_upload":
-      return "Preparing upload...";
+      return "Preparing upload target...";
     case "upload_local_file":
       return `Uploading ${basename(String(input.inputPath ?? "file"))}...`;
     case "complete_dataset_source_upload":
-      return "Finalizing upload...";
+      return "Upload complete. Verifying source...";
     case "deploy_remote_dataset":
-      return `Deploying ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+      return `Starting deployment for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
     default:
       return `Running ${toolName}...`;
   }
 }
 
-function shouldEchoToolResult(summary: string) {
-  return !summary.startsWith("Blocked:");
+function shouldEchoToolResult(toolName: string, summary: string) {
+  return !summary.startsWith("Blocked:") && !ASYNC_RUN_START_TOOLS.has(toolName);
+}
+
+function normalizeAsyncRunStatus(status: unknown) {
+  const value = typeof status === "string" ? status.toLowerCase() : "";
+  if (value === "booting") return "starting";
+  if (value === "running") return "running";
+  if (value === "queued") return "queued";
+  return value || "queued";
+}
+
+function artifactExpectationFromTitle(title: string) {
+  const lower = title.toLowerCase();
+  if (lower.includes("bar chart")) return "bar chart";
+  if (lower.includes("chart")) return "chart";
+  if (lower.includes("example")) return "representative examples";
+  if (lower.includes("json")) return "structured JSON results";
+  if (lower.includes("label")) return "labeling output";
+  if (lower.includes("summary") || lower.includes("report")) return "written summary";
+  return title;
+}
+
+function inferArtifactExpectations(toolName: string, resultData: Record<string, unknown>, summary: string) {
+  const hints = new Set<string>();
+  const artifacts = Array.isArray(resultData.artifacts) ? resultData.artifacts : [];
+  for (const artifact of artifacts) {
+    if (!isRecord(artifact) || typeof artifact.title !== "string") continue;
+    hints.add(artifactExpectationFromTitle(artifact.title));
+  }
+  const prompt = isRecord(resultData.run) && typeof resultData.run.prompt === "string" ? resultData.run.prompt : summary;
+  const promptLower = prompt.toLowerCase();
+  if (promptLower.includes("bar chart")) hints.add("bar chart");
+  if (promptLower.includes("representative example")) hints.add("representative examples");
+  if (promptLower.includes("strict json")) hints.add("structured JSON results");
+  if (toolName === "run_remote_labeling") hints.add("labeling output");
+  if (toolName === "run_remote_transformation" && hints.size === 0) hints.add("analysis outputs");
+  return [...hints].slice(0, 4);
+}
+
+function asyncRunLaunchSummary(
+  toolName: string,
+  result: AgentToolResult,
+  context: ToolExecutionContext,
+) {
+  if (toolName === "create_research_environment" || toolName === "create_public_data_environment" || toolName === "deploy_remote_dataset" || toolName === "deploy_local_instance") {
+    return result.summary;
+  }
+  const resultData = isRecord(result.data) ? result.data : {};
+  const run = isRecord(resultData.run) ? resultData.run : {};
+  const runId = typeof run.id === "string" ? run.id : null;
+  const datasetId = typeof run.datasetId === "string" ? run.datasetId : null;
+  const status = normalizeAsyncRunStatus(run.status);
+  const expectations = inferArtifactExpectations(toolName, resultData, result.summary);
+  const headline = (() => {
+    switch (toolName) {
+      case "run_remote_transformation":
+        return `Started remote analysis${datasetId ? ` on ${datasetId}` : ""}.`;
+      case "run_remote_labeling":
+        return `Started remote labeling${datasetId ? ` on ${datasetId}` : ""}.`;
+      case "describe_remote_dataset":
+        return `Started dataset briefing run ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
+      case "create_research_environment":
+        return `Started research environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
+      case "create_public_data_environment":
+        return `Started public-data environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
+      case "query_remote_dataset":
+        return `Started query run ${runId ?? "unknown"}${datasetId ? ` on ${datasetId}` : ""}.`;
+      case "aggregate_remote_dataset":
+        return `Started aggregate run ${runId ?? "unknown"}${datasetId ? ` on ${datasetId}` : ""}.`;
+      default:
+        return `Started run ${runId ?? "unknown"}${datasetId ? ` on ${datasetId}` : ""}.`;
+    }
+  })();
+  const lines = [headline];
+  if (runId) {
+    lines.push(`Run: ${runId} (${status})`);
+  }
+  lines.push("Next: the run will keep processing in the background. Follow it in the dashboard or ask `research show active runs`.");
+  if (expectations.length > 0) {
+    lines.push(`Expected artifacts: ${expectations.join(", ")}.`);
+  } else if (toolName === "describe_remote_dataset") {
+    lines.push("Expected artifacts: Dataset Briefing, Dataset Profile.");
+  }
+  if (context.session && runId) {
+    lines.push(`Dashboard: ${dashboardRunUrl(context.session.origin, runId)}`);
+  }
+  return lines.join("\n");
 }
 
 export function createToolRegistry(): ToolDefinition[] {
@@ -1009,7 +2677,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const ingestFlags = inferDatasetIngestFlags(resolvedPath);
         const metadata = await stat(resolvedPath);
         return {
-          summary: `Resolved local dataset to ${resolvedPath}.`,
+          summary: `Using local file ${resolvedPath}.`,
           data: {
             ok: true,
             inputPath: resolvedPath,
@@ -1038,7 +2706,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const inputPath = String(input.inputPath);
         const profile = await inspectLocalDatasetFile(inputPath);
         return {
-          summary: `Inspected local dataset ${basename(inputPath)}.`,
+          summary: `Checked the file structure for ${basename(inputPath)}.`,
           data: profile,
         };
       },
@@ -1067,16 +2735,31 @@ export function createToolRegistry(): ToolDefinition[] {
       inputSchema: {
         type: "object",
         additionalProperties: false,
-        properties: {},
+        properties: {
+          topic: { type: "string" },
+          limit: { type: "integer" },
+        },
       },
-      async execute(context) {
+      async execute(context, input) {
         const client = createRemoteClient(context);
         const datasets = await client.listDatasets();
+        const topic = typeof input.topic === "string" ? input.topic.trim() : "";
+        const limit = typeof input.limit === "number" ? input.limit : 3;
+        const shortlist = topic ? formatDatasetShortlist(topic, datasets.datasets, limit) : null;
         return {
           summary: datasets.datasets.length > 0
-            ? `Found ${datasets.datasets.length} remote dataset${datasets.datasets.length === 1 ? "" : "s"}.`
-            : "No remote datasets found.",
-          data: datasets,
+            ? [
+                `Found ${datasets.datasets.length} remote dataset${datasets.datasets.length === 1 ? "" : "s"}.`,
+                shortlist ? `Top matches for "${topic}":\n${shortlist}` : null,
+              ].filter(Boolean).join("\n")
+            : "No remote datasets found; a new build will be needed if the plan proceeds.",
+          data: topic
+            ? {
+                ...datasets,
+                recommendationTopic: topic,
+                shortlist: rankDatasetsForRecommendation(topic, datasets.datasets, limit),
+              }
+            : datasets,
         };
       },
     },
@@ -1096,7 +2779,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const datasetId = String(input.datasetId);
         const payload = await client.getDataset(datasetId);
         return {
-          summary: `Inspected remote dataset ${datasetId}.`,
+          summary: summarizeRemoteDatasetInspection(payload.dataset),
           data: payload,
         };
       },
@@ -1134,8 +2817,8 @@ export function createToolRegistry(): ToolDefinition[] {
         additionalProperties: false,
         properties: {},
       },
-      async execute() {
-        const runs = await readTrackedRuns();
+      async execute(context) {
+        const runs = await context.deps.readTrackedRuns();
         const active = runs.filter((item) => !item.terminalAt && !isTerminalRunStatus(item.status));
         return {
           summary: active.length > 0
@@ -1242,7 +2925,7 @@ export function createToolRegistry(): ToolDefinition[] {
             : undefined,
         });
         return {
-          summary: `Registered remote dataset ${datasetId}.`,
+          summary: `Created dataset ${name} (dataset id: ${datasetId}).`,
           data: result,
         };
       },
@@ -1378,7 +3061,15 @@ export function createToolRegistry(): ToolDefinition[] {
           spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Started research environment build ${result.run.id} for ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          summary: formatEnvironmentBuildSummary({
+            buildKind: "research environment",
+            datasetId: result.run.datasetId,
+            datasetName: typeof input.name === "string" ? input.name : undefined,
+            prompt,
+            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+            run: result.run,
+            origin: requireSession(context).origin,
+          }),
           data: result,
         };
       },
@@ -1443,7 +3134,15 @@ export function createToolRegistry(): ToolDefinition[] {
           spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Started public-data environment build ${result.run.id} for ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          summary: formatEnvironmentBuildSummary({
+            buildKind: "public-data environment",
+            datasetId: result.run.datasetId,
+            datasetName: typeof input.name === "string" ? input.name : undefined,
+            prompt,
+            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+            run: result.run,
+            origin: requireSession(context).origin,
+          }),
           data: result,
         };
       },
@@ -1476,7 +3175,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const sizeBytes = inputPath ? (await stat(inputPath)).size : undefined;
         const upload = await client.requestDatasetSourceUpload(datasetId, { filename, sizeBytes });
         return {
-          summary: `Requested upload target for ${filename}.`,
+          summary: `Upload target ready for ${filename}.`,
           data: upload,
         };
       },
@@ -1500,7 +3199,7 @@ export function createToolRegistry(): ToolDefinition[] {
           context.emit({ role: "tool", content: message });
         });
         return {
-          summary: `Uploaded ${basename(inputPath)}.`,
+          summary: `Finished uploading ${basename(inputPath)}.`,
           data: { inputPath, sizeBytes },
         };
       },
@@ -1523,7 +3222,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const sizeBytes = typeof input.sizeBytes === "number" ? input.sizeBytes : undefined;
         await client.completeDatasetSourceUpload(datasetId, { sizeBytes });
         return {
-          summary: `Marked source upload complete for ${datasetId}.`,
+          summary: `Source upload verified for dataset ${datasetId}.`,
           data: { datasetId, sizeBytes },
         };
       },
@@ -1555,7 +3254,7 @@ export function createToolRegistry(): ToolDefinition[] {
           });
         }
         return {
-          summary: `Started deployment for ${datasetId}.`,
+          summary: `Deployment started for dataset ${datasetId}.${deployment.run ? ` Run: ${deployment.run.id}.` : ""}${deployment.deployment.status ? ` Status: ${deployment.deployment.status}.` : ""}`,
           data: deployment,
         };
       },
@@ -1628,7 +3327,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         const prompt = String(input.prompt);
         let result;
         try {
@@ -1639,7 +3339,7 @@ export function createToolRegistry(): ToolDefinition[] {
           });
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this run" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -1678,7 +3378,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         const prompt = String(input.prompt);
         let started;
         try {
@@ -1689,7 +3390,7 @@ export function createToolRegistry(): ToolDefinition[] {
           }));
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this query" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -1728,7 +3429,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         const prompt = String(input.prompt);
         let started;
         try {
@@ -1739,7 +3441,7 @@ export function createToolRegistry(): ToolDefinition[] {
           }));
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this aggregation" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -1780,7 +3482,8 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const sourceDescription = String(input.sourceDescription);
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         let result;
         try {
           result = await client.startRun(datasetId, typeof input.prompt === "string" ? input.prompt : `Fetch public data: ${sourceDescription}`, {
@@ -1858,7 +3561,9 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
+        context.emit({ role: "tool", content: summarizeResolvedDataset(target, "this briefing") });
         let result;
         try {
           result = await withAuthRetry(context, () => client.startRun(
@@ -1872,9 +3577,37 @@ export function createToolRegistry(): ToolDefinition[] {
           ));
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
+            const conflict = parseBusyDatasetConflict(error);
+            if (conflict) {
+              const existing = typeof client.getDataset === "function"
+                ? await withAuthRetry(context, () => client.getDataset(datasetId).catch(() => null))
+                : null;
+              const fallback = existing?.dataset ? formatDatasetProfileFallback(existing.dataset, conflict) : null;
+              if (fallback) {
+                return {
+                  summary: fallback,
+                  data: {
+                    ok: true,
+                    reusedSavedProfile: true,
+                    blockingRunId: conflict.runId,
+                    dataset: existing?.dataset,
+                  },
+                };
+              }
+              const summary = summarizeBusyDatasetConflict(error, {
+                target,
+                purpose: "this dataset briefing",
+                expectedArtifacts: DATASET_BRIEFING_ARTIFACTS.map((artifact) => artifact.title),
+              });
+              return {
+                summary: summary ?? [
+                  `Blocked: ${datasetId} is already busy.`,
+                  `Holding run: ${conflict.runId} (${conflict.status})`,
+                  "A saved dataset briefing is not available yet.",
+                  `Next: research debug run ${conflict.runId}`,
+                ].join("\n"),
+                data: { ok: false, reason: "dataset_busy", blockingRunId: conflict.runId },
+              };
             }
           }
           throw error;
@@ -1892,7 +3625,7 @@ export function createToolRegistry(): ToolDefinition[] {
           spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Started dataset briefing run ${result.run.id} for ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          summary: `Started dataset briefing run ${result.run.id} for ${datasetId}. Expected artifacts: Dataset Briefing, Dataset Profile. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
           data: result,
         };
       },
@@ -1915,7 +3648,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         let result;
         try {
           result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
@@ -1925,7 +3659,7 @@ export function createToolRegistry(): ToolDefinition[] {
           });
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this remote agent run" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -2033,7 +3767,8 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         let result;
         try {
           result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
@@ -2044,7 +3779,7 @@ export function createToolRegistry(): ToolDefinition[] {
           });
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this transformation" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -2085,7 +3820,8 @@ export function createToolRegistry(): ToolDefinition[] {
       async execute(context, input) {
         const client = createRemoteClient(context);
         const labelingPrompt = String(input.labelingPrompt);
-        const datasetId = await resolveRunnableEnvironmentDatasetId(context, client, String(input.datasetId), input);
+        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+        const datasetId = target.datasetId;
         let result;
         try {
           result = await client.startRun(
@@ -2265,6 +4001,20 @@ export async function runAgentTurn(
   conversationState?: AgentConversationState,
   deps: AgentRuntimeDeps = createDefaultAgentRuntimeDeps(),
 ): Promise<AgentConversationState> {
+  const resolvedDeps = deps;
+  const datasetInventoryResponse = await maybeHandleDatasetInventory(input, initialSession, resolvedDeps);
+  if (datasetInventoryResponse) {
+    emit({ role: "tool", content: "Checking local datasets..." });
+    emit({ role: "tool", content: `Found ${datasetInventoryResponse.localCount} local dataset${datasetInventoryResponse.localCount === 1 ? "" : "s"}.` });
+    emit({ role: "tool", content: "Checking remote datasets..." });
+    emit({ role: "tool", content: `Found ${datasetInventoryResponse.remoteCount} remote dataset${datasetInventoryResponse.remoteCount === 1 ? "" : "s"}.` });
+    emit({ role: "assistant", content: datasetInventoryResponse.response });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
   const directResponse = maybeHandleOrientation(input)
     ?? maybeHandleCsvImportHowTo(input)
     ?? maybeHandleVagueMarketQuestion(input)
@@ -2277,8 +4027,20 @@ export async function runAgentTurn(
     };
   }
 
-  const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession)
-    ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession);
+  const vagueDatasetResponse = await maybeHandleVagueDatasetInterestingQuestion(input, initialSession, emit, deps);
+  if (vagueDatasetResponse) {
+    emit({ role: "assistant", content: vagueDatasetResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
+  const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession, resolvedDeps)
+    ?? await maybeHandleContinuityQuestion(input, initialSession, resolvedDeps)
+    ?? await maybeHandleDatasetSelectionFromTopic(input, initialSession, emit, deps)
+    ?? await maybeHandleLastRunResultsRequest(input, initialSession, deps, emit)
+    ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession, resolvedDeps);
   if (localRunResponse) {
     emit({ role: "assistant", content: localRunResponse });
     return {
@@ -2332,6 +4094,20 @@ export async function runAgentTurn(
     };
   }
 
+  if (!context.session) {
+    const signedOutRemoteDatasetRequest = maybeHandleSignedOutRemoteDatasetRequest(input);
+    if (signedOutRemoteDatasetRequest) {
+      emit({
+        role: "assistant",
+        content: signedOutRemoteDatasetRequest,
+      });
+      return {
+        sessionId: context.sessionId,
+        previousResponseId: conversationState?.previousResponseId ?? null,
+      };
+    }
+  }
+
   if (!context.session && maybeAutoLoginRequest(input)) {
     const loginTool = toolsByName.get("login");
     if (!loginTool) {
@@ -2345,7 +4121,7 @@ export async function runAgentTurn(
   if (!context.session) {
     emit({
       role: "assistant",
-      content: "Sign in first with `/login`, then ask me to create datasets, deploy them, or manage runs.",
+      content: "Sign in first with `/login` so I can access your remote datasets, runs, and deployment work.",
     });
     return {
       sessionId: context.sessionId,
@@ -2359,6 +4135,7 @@ export async function runAgentTurn(
     : conversationState?.previousResponseId ?? undefined;
   let response: ResponsesApiPayload;
   try {
+    emit({ role: "tool", content: planningProgressLabel(input) });
     response = await withAuthRetry(context, async () => {
       const activeClient = deps.createRemoteClient(requireSession(context));
       const replied = await activeClient.respond({
@@ -2436,10 +4213,22 @@ export async function runAgentTurn(
         content: progressLabel(tool.name, parsedArguments),
         metadata: { name: tool.name, arguments: parsedArguments },
       });
+      const expectedArtifacts = summarizeExpectedArtifacts(parsedArguments);
+      if (expectedArtifacts && ASYNC_RUN_START_TOOLS.has(tool.name)) {
+        emit({ role: "tool", content: expectedArtifacts });
+      }
       let result: AgentToolResult;
+      const startedAt = Date.now();
+      let heartbeatTimer: NodeJS.Timeout | null = null;
       try {
+        heartbeatTimer = setInterval(() => {
+          emit({ role: "tool", content: progressHeartbeat(tool.name, parsedArguments, Math.max(1, Math.round((Date.now() - startedAt) / 1000))) });
+        }, toolHeartbeatIntervalMs());
         result = await withAuthRetry(context, () => tool.execute(context, parsedArguments));
       } catch (error) {
+        if (heartbeatTimer) {
+          clearInterval(heartbeatTimer);
+        }
         if (error instanceof RemoteRequestError) {
           const summary = summarizeRemoteFailure(error);
           emit({ role: "assistant", content: summary });
@@ -2456,7 +4245,10 @@ export async function runAgentTurn(
         }
         throw error;
       }
-      if (shouldEchoToolResult(result.summary)) {
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+      }
+      if (shouldEchoToolResult(tool.name, result.summary)) {
         emit({ role: "tool", content: result.summary });
       }
       await persistSessionEntry(context, {
@@ -2468,11 +4260,46 @@ export async function runAgentTurn(
       });
       if (ASYNC_RUN_START_TOOLS.has(tool.name) && !exposeWaitTool) {
         const resultData = isRecord(result.data) ? result.data : {};
+        if (resultData.ok === false) {
+          emit({ role: "assistant", content: result.summary });
+          await persistSessionEntry(context, {
+            role: "assistant",
+            kind: "local_summary",
+            title: "CLI blocked",
+            content: result.summary,
+          });
+          return {
+            sessionId: context.sessionId,
+            previousResponseId: conversationState?.previousResponseId ?? null,
+          };
+        }
+        if (resultData.reusedSavedProfile === true) {
+          emit({ role: "assistant", content: result.summary });
+          await persistSessionEntry(context, {
+            role: "assistant",
+            kind: "local_summary",
+            title: "CLI summary",
+            content: result.summary,
+          });
+          return {
+            sessionId: context.sessionId,
+            previousResponseId: conversationState?.previousResponseId ?? null,
+          };
+        }
         const startedRunId = isRecord(resultData.run) && typeof resultData.run.id === "string" ? resultData.run.id : null;
-        const finalSummary =
-          context.session && context.sessionId && startedRunId
-            ? `${result.summary}\nTerminal session: ${dashboardTerminalSessionUrl(context.session.origin, context.sessionId, startedRunId)}`
-            : result.summary;
+        if (!startedRunId) {
+          toolOutputs.push({
+            type: "function_call_output",
+            call_id: call.call_id ?? tool.name,
+            output: JSON.stringify({
+              ok: true,
+              summary: result.summary,
+              data: result.data,
+            }),
+          });
+          continue;
+        }
+        const finalSummary = asyncRunLaunchSummary(tool.name, result, context);
         emit({ role: "assistant", content: finalSummary });
         await persistSessionEntry(context, {
           role: "assistant",
@@ -2507,6 +4334,10 @@ export async function runAgentTurn(
           data: result.data,
         }),
       });
+    }
+
+    if (functionCalls.length === 1 && functionCalls[0]?.name === "list_remote_datasets") {
+      emit({ role: "tool", content: "Reviewing remote datasets and drafting the next step..." });
     }
 
     const refreshedSession = await deps.readSession();

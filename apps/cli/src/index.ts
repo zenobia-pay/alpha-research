@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { fileURLToPath } from "node:url";
 import React from "react";
 import { render } from "ink";
 
@@ -6,6 +7,7 @@ import { DEFAULT_INSTALL_COMMAND, type SessionRecord } from "./config.js";
 import { type AgentMessage, runAgentTurn } from "./agent.js";
 import { runDebugCommand } from "./debug.js";
 import { parseCliArgs, parseFlags } from "./flags.js";
+import { InteractiveApp } from "./interactive.js";
 import { buildInstallPrompt, handleFixture, printUsage, runScriptedCommand } from "./local-tools.js";
 import { login, readSession } from "./session.js";
 
@@ -21,17 +23,64 @@ function printAgentMessage(message: AgentMessage) {
   const prefix = message.role === "tool" ? "· " : "";
   const lines = message.content.split("\n");
   for (const line of lines) {
-    console.log(`${prefix}${line}`);
+    const wrapped = wrapForStdout(`${prefix}${line}`);
+    for (const wrappedLine of wrapped) {
+      console.log(wrappedLine);
+    }
   }
 }
 
+function wrapForStdout(line: string) {
+  const width = Math.max(40, Number.isFinite(process.stdout.columns) ? (process.stdout.columns ?? 0) : 0);
+  if (line.length <= width) {
+    return [line];
+  }
+  const wrapped: string[] = [];
+  let remaining = line;
+  while (remaining.length > width) {
+    const breakAt = remaining.lastIndexOf(" ", width);
+    const splitIndex = breakAt > 0 ? breakAt : width;
+    wrapped.push(remaining.slice(0, splitIndex).trimEnd());
+    remaining = remaining.slice(splitIndex).trimStart();
+  }
+  wrapped.push(remaining);
+  return wrapped;
+}
+
+export function initialPromptModeStatus(prompt: string) {
+  const lower = prompt.trim().toLowerCase();
+  if (/\bwhat does\b|\bmeaning\b|\bmean\b|\bfield\b|\bschema\b/.test(lower)) {
+    return "Checking dataset metadata...";
+  }
+  if (/\bresult\b|\bartifact\b|\blast run\b|\bstatus\b|\bprogress\b/.test(lower)) {
+    return "Checking run state...";
+  }
+  if (/\bdataset\b|\bsource\b|\bcoverage\b|\bquality\b|\blimitation\b/.test(lower)) {
+    return "Inspecting dataset details...";
+  }
+  if (/\bcreate\b|\bupload\b|\bimport\b|\bdeploy\b/.test(lower)) {
+    return "Preparing dataset workflow...";
+  }
+  if (/\banaly[sz]e\b|\bresearch\b|\bhypothesis\b|\bexperiment\b/.test(lower)) {
+    return "Scoping the research task...";
+  }
+  return "Thinking...";
+}
+
+function printPromptModeLoading() {
+  console.log("research");
+  console.log("· working...");
+}
+
 async function runPromptMode(prompt: string) {
+  printPromptModeLoading();
   const session = await readSession();
+  printAgentMessage({ role: "tool", content: initialPromptModeStatus(prompt) });
   const conversationState = await runAgentTurn(prompt, session, printAgentMessage);
   return conversationState;
 }
 
-async function main() {
+export async function main() {
   const argv = process.argv.slice(2);
   const { flags, positionals } = parseCliArgs(argv);
   const [command, ...rest] = positionals;
@@ -43,7 +92,6 @@ async function main() {
   }
 
   if (!command || command === "agent" || command === "chat") {
-    const { InteractiveApp } = await import("./interactive.js");
     const altScreen = flags["alt-screen"] === "true";
     if (altScreen) {
       enterAltScreen();
@@ -118,7 +166,10 @@ async function main() {
   process.exitCode = 1;
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+const entryPath = process.argv[1];
+if (entryPath && fileURLToPath(import.meta.url) === entryPath) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

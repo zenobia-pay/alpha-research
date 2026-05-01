@@ -1,0 +1,73 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  describeRunExpectation,
+  describeRunPhase,
+  formatRunLastUpdate,
+  summarizePrompt,
+} from "../src/interactive.js";
+import type { TrackedRunRecord } from "../src/runs.js";
+
+function makeRun(overrides: Partial<TrackedRunRecord> = {}): TrackedRunRecord {
+  return {
+    id: "run_123456789",
+    datasetId: "enriched-tweets",
+    origin: "https://alpharesearch.nyc",
+    status: "booting",
+    prompt: "Using enriched-tweets, label tweets in strict JSON, produce a bar chart, and show 10 representative examples.",
+    dashboardUrl: "https://dashboard.alpharesearch.nyc/?view=runs&runId=run_123456789#run-run_123456789",
+    createdAt: "2026-05-01T20:00:00.000Z",
+    updatedAt: "2026-05-01T20:00:05.000Z",
+    lastSeenAt: "2026-05-01T20:00:05.000Z",
+    ...overrides,
+  };
+}
+
+test("describeRunPhase distinguishes starting, running, and blocked states", () => {
+  assert.deepEqual(describeRunPhase("booting"), {
+    label: "Starting",
+    detail: "Accepted and provisioning the remote worker for this run.",
+  });
+  assert.deepEqual(describeRunPhase("running"), {
+    label: "Running",
+    detail: "Worker is active and still processing the request.",
+  });
+  assert.deepEqual(describeRunPhase("worker_unreachable"), {
+    label: "Blocked",
+    detail: "Remote state is unclear. Inspect the run or retry later.",
+  });
+});
+
+test("summarizePrompt preserves readable task context without dumping the full prompt", () => {
+  const summary = summarizePrompt(
+    "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
+    120,
+  );
+  assert.match(summary, /Using enriched-tweets, define viral tweets/);
+  assert.equal(summary.endsWith("..."), true);
+  assert.ok(summary.length <= 120);
+});
+
+test("run expectations and last update stay actionable when there is no event history", () => {
+  const run = makeRun();
+  assert.equal(
+    describeRunExpectation(run),
+    "Expected outputs: structured JSON, chart, examples, labels.",
+  );
+  assert.equal(
+    formatRunLastUpdate(run),
+    "No remote milestone yet. You can leave this open while the worker continues.",
+  );
+});
+
+test("run last update clamps long event messages", () => {
+  const run = makeRun({
+    lastEventMessage:
+      "Remote agent droplet ar-run-enriched-tweets-926412 launched in nyc1 (s-8vcpu-16gb) and is now downloading dependencies before starting execution.",
+  });
+  const summary = formatRunLastUpdate(run);
+  assert.match(summary, /Remote agent droplet/);
+  assert.equal(summary.endsWith("..."), true);
+  assert.ok(summary.length <= 120);
+});
