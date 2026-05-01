@@ -105,6 +105,14 @@ Do not judge backend correctness beyond what the user could observe unless logs 
 
 ## Journeys
 
+The `Jxx` journeys exercise one-shot prompt mode, equivalent to:
+
+```bash
+research --prompt "<prompt>"
+```
+
+They are useful for scripted behavior, but they do not show the interactive yellow/green Ink TUI. The `TUIxx` journeys below exercise the true interactive app, equivalent to launching `research` with no prompt and typing inside the TUI.
+
 ### J01: Product Orientation
 
 Prompt:
@@ -417,3 +425,202 @@ Correct outcome:
 Judge for:
 Did it prioritize artifacts and user impact over internal logs, redact sensitive information, separate known facts from uncertainty, and recommend a concrete next action?
 
+## Interactive TUI Journeys
+
+These journeys must be captured in a real PTY with the interactive app open. The command under test is:
+
+```bash
+research
+```
+
+Local development equivalent:
+
+```bash
+node apps/cli/dist/index.js
+```
+
+The runner should wait for the Ink UI to render, capture the empty/initial screen, type the listed user messages into the TUI, press Enter after each message, and capture screenshots every 2-5 seconds plus after visible state transitions. These journeys specifically judge the yellow/green TUI layout, status panel, prompt input behavior, scrolling, wrapping, color semantics, and multi-turn continuity.
+
+### TUI01: First Open Empty State
+
+Typed messages:
+
+```text
+<none>
+```
+
+Intention:
+The user has just opened `research` and has not typed anything yet.
+
+Correct outcome:
+The TUI immediately communicates what `research` is, whether there are active runs, and what the user can type next. The input area should be obvious. The screen should not look blank, broken, or like a generic terminal prompt.
+
+Judge for:
+Is the first screen self-explanatory, are colors legible, is the input target obvious, are active-run/status panels understandable, and does the UI avoid overwhelming a first-time user?
+
+### TUI02: Orientation In TUI
+
+Typed messages:
+
+```text
+What can you help me do?
+```
+
+Intention:
+The user asks for product orientation from inside the interactive app.
+
+Correct outcome:
+The TUI shows the user message, a visible pending/thinking state, and a concise orientation answer. It should preserve readable layout after the response and keep the input area ready for the next prompt.
+
+Judge for:
+Does the user see that their message was submitted, is pending state visible, does the answer fit without awkward wrapping, and is the next input location clear?
+
+### TUI03: Multi-Turn Dataset Discovery And Follow-Up
+
+Typed messages:
+
+```text
+What datasets do I have?
+Describe the tweets dataset.
+```
+
+Intention:
+The user starts with inventory, then follows up using a dataset mentioned in the prior response.
+
+Correct outcome:
+The TUI should preserve conversational context, show the dataset inventory clearly, then interpret "tweets" as the dataset from the list. It should not force the user to restate ids if the prior response made the dataset obvious.
+
+Judge for:
+Can the user visually connect the follow-up to the previous answer, does scrolling preserve enough context, are tool/progress messages distinguishable from final answers, and does the input remain ergonomic?
+
+### TUI04: Vague Idea Clarification Loop
+
+Typed messages:
+
+```text
+What’s up with tweets? Can you run an experiment for me on what types of tweets go viral?
+Use quote_tweet_count and sample 100 tweets.
+```
+
+Intention:
+The user gives a vague experiment request, then answers the clarification/approval prompt.
+
+Correct outcome:
+The first turn should propose a concrete experiment without starting a run. The second turn should either start the run or ask only for genuinely missing details. The UI should make it visually obvious when work is only proposed versus when it has actually started.
+
+Judge for:
+Are "plan/proposal" and "run started" visually distinct, does the TUI avoid duplicate messages, and does the user understand whether expensive work has begun?
+
+### TUI05: Specific Run Start And Active Status Panel
+
+Typed messages:
+
+```text
+Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.
+```
+
+Intention:
+The user provides a specific analysis request and expects a run to start or a clear block.
+
+Correct outcome:
+The TUI should show progress through dataset lookup/start-run steps, then either show a run id/link/artifact expectations or a clear busy/blocking state. If a run starts, the active-run panel should update and remain understandable.
+
+Judge for:
+Does the active-run panel update, are status colors meaningful, are run ids/links readable without dominating the screen, and is the next action clear?
+
+### TUI06: Busy Dataset Recovery In TUI
+
+Typed messages:
+
+```text
+Run a new analysis on enriched-tweets.
+```
+
+Setup:
+`enriched-tweets` has an active blocking run in tracked or backend state.
+
+Intention:
+The user tries to start work on a locked dataset.
+
+Correct outcome:
+The TUI should show a clear blocked state before presenting analysis options. It should identify the active run, explain that no new run was started, and offer recovery actions such as inspect, wait, cancel, or retry later.
+
+Judge for:
+Is the block visually prominent, does color communicate severity without ambiguity, are recovery actions clear, and does the UI avoid presenting normal analysis menus before resolving the lock?
+
+### TUI07: Stuck Run From Active Status Panel
+
+Typed messages:
+
+```text
+My last run seems stuck. What’s happening?
+```
+
+Setup:
+At least one active tracked run is visible in the TUI status panel.
+
+Intention:
+The user sees the active run panel and asks for diagnosis.
+
+Correct outcome:
+The TUI should connect the answer to the visible active run, explain last update/heartbeat/current activity in plain language, and offer inspect/debug/wait/cancel actions.
+
+Judge for:
+Does the answer match the run shown in the panel, are stale/active states visually clear, and does the UI avoid raw lifecycle jargon?
+
+### TUI08: Return Later And Retrieve Results
+
+Typed messages:
+
+```text
+Show me the results from my last run.
+```
+
+Setup:
+The tracked-run store contains at least one active run and one completed or failed run.
+
+Intention:
+The user expects continuity without remembering run ids.
+
+Correct outcome:
+The TUI should distinguish latest active run from last completed run. If ambiguous, it should show a compact choice list. It should not dump raw prompts, mounted-dataset instructions, or artifact JSON into the main conversation.
+
+Judge for:
+Is "last run" disambiguated, are artifacts summarized cleanly, and does the TUI keep long results readable through scrolling/wrapping?
+
+### TUI09: Signed-Out Interactive Auth Recovery
+
+Typed messages:
+
+```text
+Show my remote datasets.
+```
+
+Setup:
+The TUI is launched with no valid `research` session.
+
+Intention:
+The user is inside the interactive app and asks for remote data while signed out.
+
+Correct outcome:
+The TUI should explain sign-in in product terms, show exactly how to sign in, and keep the conversation usable after auth. It should avoid session-file internals and should not leave the user wondering whether to quit.
+
+Judge for:
+Is auth failure visually and verbally clear, does the UI show a simple next step, and does it preserve the user's original intent after sign-in if possible?
+
+### TUI10: Long Output And Scroll Ergonomics
+
+Typed messages:
+
+```text
+Make me a county-month economics dataset for testing a housing-cycle hypothesis from 2015 to 2025. Include FRED rates, Census population/income, Zillow home values and rents, BLS employment/unemployment/CPI, FHFA HPI, and NBER recession indicators. Validate source URLs, row counts, missingness, join keys, temporal coverage, and produce a data dictionary and manifest.
+```
+
+Intention:
+The user provides a long, specific build request that may produce a long plan or run-start response.
+
+Correct outcome:
+The TUI should preserve the full user prompt, show progress without blank/stalled screens, and render the plan or block state in a scannable way. Long URLs and ids should not destroy layout.
+
+Judge for:
+Does wrapping remain readable, does the input composer handle long text, does the output avoid flooding the viewport, and are the next action/artifact expectations visible without excessive scrolling?
