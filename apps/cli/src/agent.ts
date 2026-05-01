@@ -838,7 +838,15 @@ function maybeHandleVagueMarketQuestion(input: string) {
   if (!/\bhousing market\b/.test(lower) || !/\b(trouble|crash|bad|risk|look into)\b/.test(lower)) {
     return null;
   }
-  return "Do you mean the U.S. housing market, and do you want a quick current-state read or a deeper risk analysis? I would look at affordability, prices, inventory, mortgage rates, delinquencies, employment, and regional differences once you choose the scope.";
+  return [
+    "Before I start research, pick the smallest scope decision so I do not launch a broad housing-market build.",
+    "",
+    "- Market: U.S. housing market or a specific metro/region?",
+    "- Depth: quick current-state read or deeper risk analysis?",
+    "- Meaning of `in trouble`: affordability stress, price decline risk, weak demand/inventory imbalance, or credit stress?",
+    "",
+    "Once you choose, I can assess the right signals: affordability, prices, inventory, mortgage rates, delinquencies, employment, regional differences, and price/rent divergence over the time period that matters.",
+  ].join("\n");
 }
 
 function maybeHandleVagueTweetsExperiment(input: string) {
