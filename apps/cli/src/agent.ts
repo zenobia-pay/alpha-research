@@ -6,7 +6,7 @@ import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
-import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
+import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetDetail, type RemoteDatasetSummary } from "./remote.js";
 import { readSession, login } from "./session.js";
 import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
 
@@ -505,15 +505,118 @@ function summarizeBusyDatasetConflict(error: RemoteRequestError) {
   }
   const runId = typeof first.id === "string" ? first.id : "unknown";
   const status = typeof first.status === "string" ? first.status : "running";
+  const datasetId = typeof first.datasetId === "string" ? first.datasetId : null;
+  const prompt = typeof first.prompt === "string" && first.prompt.trim() ? first.prompt.trim() : null;
+  const dashboardUrl = dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId);
   return [
-    "Blocked: dataset is already busy.",
+    `An analysis is already running${datasetId ? ` on ${datasetId}` : " on this dataset"}.`,
     `Active run: ${runId}`,
     `Status: ${status}`,
+    ...(prompt ? [`Current work: ${prompt.slice(0, 140)}`] : []),
     "",
-    "No new run was started.",
-    `Check it: research debug run ${runId}`,
-    `Dashboard: ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)}`,
+    "I did not start a duplicate run because that active run still holds the dataset volume.",
+    "Next: wait for that run to finish, open its dashboard, or inspect it in the CLI.",
+    `Dashboard run: ${dashboardUrl}`,
+    `Inspect in CLI: research debug run ${runId}`,
   ].join("\n");
+}
+
+function schemaFieldNames(schema: unknown) {
+  if (!Array.isArray(schema)) return [];
+  return schema
+    .map((field) => (isRecord(field) && typeof field.name === "string" ? field.name.trim() : ""))
+    .filter((name) => name.length > 0);
+}
+
+function findMatchingFields(fieldNames: string[], patterns: RegExp[]) {
+  const matches: string[] = [];
+  for (const fieldName of fieldNames) {
+    if (patterns.some((pattern) => pattern.test(fieldName))) {
+      matches.push(fieldName);
+    }
+  }
+  return matches;
+}
+
+function toolHeartbeatIntervalMs() {
+  return Number(process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS ?? "4000");
+}
+
+function joinWithAnd(values: string[]) {
+  if (values.length <= 1) return values.join("");
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+}
+
+function summarizeRemoteDatasetInspection(dataset: RemoteDatasetDetail) {
+  const profile = dataset.profile;
+  const fieldNames = schemaFieldNames(profile?.schema);
+  const countyFields = findMatchingFields(fieldNames, [/county/i, /\bfips\b/i]);
+  const yearFields = findMatchingFields(fieldNames, [/\byear\b/i, /date/i, /month/i, /quarter/i]);
+  const unemploymentFields = findMatchingFields(fieldNames, [/unemployment/i, /jobless/i, /labor/i]);
+  const homeValueFields = findMatchingFields(fieldNames, [/home[_ ]?value/i, /house[_ ]?price/i, /hpi\b/i, /zillow/i]);
+  const timeCoverage = isRecord(profile?.timeCoverage) ? profile?.timeCoverage : null;
+  const geographyCoverage = isRecord(profile?.geographyCoverage) ? profile?.geographyCoverage : null;
+  const start = typeof timeCoverage?.start === "string" ? timeCoverage.start : typeof timeCoverage?.min === "string" ? timeCoverage.min : null;
+  const end = typeof timeCoverage?.end === "string" ? timeCoverage.end : typeof timeCoverage?.max === "string" ? timeCoverage.max : null;
+  const geographyLevel = typeof geographyCoverage?.level === "string" ? geographyCoverage.level : null;
+  if (countyFields.length === 0 && typeof geographyLevel === "string" && /\bcounty\b/i.test(geographyLevel)) {
+    countyFields.push(geographyLevel);
+  }
+  const matchedCoverage = [
+    countyFields.length > 0 ? "county" : null,
+    yearFields.length > 0 ? "time" : null,
+    unemploymentFields.length > 0 ? "unemployment" : null,
+    homeValueFields.length > 0 ? "home value" : null,
+  ].filter((value): value is string => value !== null);
+  const evidenceFields = [
+    countyFields[0],
+    yearFields[0],
+    unemploymentFields[0],
+    homeValueFields[0],
+  ].filter((value): value is string => Boolean(value));
+  const lines = [`Inspected remote dataset ${dataset.id}.`];
+  if (matchedCoverage.length > 0 || evidenceFields.length > 0) {
+    const summary = matchedCoverage.length > 0
+      ? `${dataset.id} appears to include ${joinWithAnd(matchedCoverage)} fields`
+      : `${dataset.id} schema is available`;
+    lines.push(`${summary}${evidenceFields.length > 0 ? ` (${evidenceFields.join(", ")})` : ""}.`);
+  }
+  if (start || end || geographyLevel) {
+    lines.push(`Coverage: ${start ?? "unknown start"} to ${end ?? "unknown end"}${geographyLevel ? ` at ${geographyLevel} level` : ""}.`);
+  }
+  if (typeof profile?.notes === "string" && profile.notes.trim()) {
+    lines.push(`Notes: ${profile.notes.trim()}`);
+  }
+  return lines.join("\n");
+}
+
+function summarizeExpectedArtifacts(input: Record<string, unknown>) {
+  const artifacts = Array.isArray(input.artifacts) ? input.artifacts : [];
+  const titles = artifacts
+    .map((artifact) => {
+      if (!isRecord(artifact)) return null;
+      if (typeof artifact.title === "string" && artifact.title.trim()) return artifact.title.trim();
+      if (typeof artifact.type === "string" && artifact.type.trim()) return artifact.type.trim();
+      return null;
+    })
+    .filter((title): title is string => title !== null);
+  if (titles.length === 0) return null;
+  return `Expected artifacts: ${titles.slice(0, 4).join("; ")}.`;
+}
+
+function progressHeartbeat(toolName: string, input: Record<string, unknown>, elapsedSeconds: number) {
+  const datasetId = typeof input.datasetId === "string" && input.datasetId.trim() ? input.datasetId.trim() : "the dataset";
+  if (toolName === "inspect_remote_dataset") {
+    return `Still inspecting ${datasetId} for schema, time coverage, and geography fields (${elapsedSeconds}s elapsed).`;
+  }
+  if (toolName === "create_research_environment" || toolName === "create_public_data_environment") {
+    return `Still preparing the ${datasetId} environment and checking whether the dataset volume is free (${elapsedSeconds}s elapsed).`;
+  }
+  if (ASYNC_RUN_START_TOOLS.has(toolName)) {
+    return `Still starting the remote run for ${datasetId} (${elapsedSeconds}s elapsed).`;
+  }
+  return `Still running ${toolName} (${elapsedSeconds}s elapsed).`;
 }
 
 function summarizeRemoteFailure(error: RemoteRequestError) {
@@ -1096,7 +1199,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const datasetId = String(input.datasetId);
         const payload = await client.getDataset(datasetId);
         return {
-          summary: `Inspected remote dataset ${datasetId}.`,
+          summary: summarizeRemoteDatasetInspection(payload.dataset),
           data: payload,
         };
       },
@@ -2436,10 +2539,22 @@ export async function runAgentTurn(
         content: progressLabel(tool.name, parsedArguments),
         metadata: { name: tool.name, arguments: parsedArguments },
       });
+      const expectedArtifacts = summarizeExpectedArtifacts(parsedArguments);
+      if (expectedArtifacts && ASYNC_RUN_START_TOOLS.has(tool.name)) {
+        emit({ role: "tool", content: expectedArtifacts });
+      }
       let result: AgentToolResult;
+      const startedAt = Date.now();
+      let heartbeatTimer: NodeJS.Timeout | null = null;
       try {
+        heartbeatTimer = setInterval(() => {
+          emit({ role: "tool", content: progressHeartbeat(tool.name, parsedArguments, Math.max(1, Math.round((Date.now() - startedAt) / 1000))) });
+        }, toolHeartbeatIntervalMs());
         result = await withAuthRetry(context, () => tool.execute(context, parsedArguments));
       } catch (error) {
+        if (heartbeatTimer) {
+          clearInterval(heartbeatTimer);
+        }
         if (error instanceof RemoteRequestError) {
           const summary = summarizeRemoteFailure(error);
           emit({ role: "assistant", content: summary });
@@ -2455,6 +2570,9 @@ export async function runAgentTurn(
           };
         }
         throw error;
+      }
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
       }
       if (shouldEchoToolResult(result.summary)) {
         emit({ role: "tool", content: result.summary });
