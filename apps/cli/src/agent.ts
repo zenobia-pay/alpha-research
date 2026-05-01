@@ -6,9 +6,16 @@ import { getInstanceBootstrap, listInstanceBundles } from "@rprend/alpha-storage
 
 import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
-import { RemoteApiClient, RemoteRequestError, type RemoteApiClient as RemoteApiClientType, type RemoteDatasetSummary } from "./remote.js";
+import {
+  RemoteApiClient,
+  RemoteRequestError,
+  type RemoteApiClient as RemoteApiClientType,
+  type RemoteDatasetSummary,
+  type RemoteRunArtifact,
+  type RemoteRunSummary,
+} from "./remote.js";
 import { readSession, login } from "./session.js";
-import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun } from "./runs.js";
+import { isTerminalRunStatus, isUncertainRunStatus, readTrackedRuns, spawnRunWatcher, trackRemoteRun, type TrackedRunRecord } from "./runs.js";
 
 export type AgentMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -53,6 +60,7 @@ export type AgentRuntimeDeps = {
   readSession: typeof readSession;
   login: typeof login;
   createToolRegistry: () => ToolDefinition[];
+  readTrackedRuns?: typeof readTrackedRuns;
 };
 
 const STANDARD_ANALYSIS_RESOURCES = {
@@ -338,6 +346,182 @@ function artifactBullet(artifact: { title?: string; type?: string }) {
     return `${title} — markdown summary/report`;
   }
   return title;
+}
+
+function artifactDisplayTitle(artifact: { title?: string; type?: string }) {
+  const title = typeof artifact.title === "string" && artifact.title.trim() ? artifact.title.trim() : artifact.type ?? "artifact";
+  return title.length > 48 ? `${title.slice(0, 45)}...` : title;
+}
+
+function shortRunId(runId: string) {
+  return runId.slice(0, 8);
+}
+
+function elapsedSince(value: string | undefined) {
+  const timestamp = value ? Date.parse(value) : NaN;
+  if (!Number.isFinite(timestamp)) {
+    return null;
+  }
+  const diffMs = Math.max(0, Date.now() - timestamp);
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 1) return "under 1 minute ago";
+  if (minutes === 1) return "1 minute ago";
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours === 1) return "1 hour ago";
+  if (hours < 48) return `${hours} hours ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? "1 day ago" : `${days} days ago`;
+}
+
+function cleanRunStatusLabel(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized === "running") return "still running";
+  if (normalized === "booting") return "starting up";
+  if (normalized === "queued") return "waiting to start";
+  if (normalized === "ready" || normalized === "completed" || normalized === "succeeded") return "finished";
+  if (normalized === "failed") return "failed";
+  if (normalized === "cancelled" || normalized === "canceled") return "was cancelled";
+  if (normalized === "error") return "hit an error";
+  return formatStatusForHumans(status);
+}
+
+function oneLineRunWork(run: { prompt?: string; outputPreview?: string; lastEventMessage?: string }) {
+  const raw = run.lastEventMessage ?? run.outputPreview ?? run.prompt ?? "";
+  const line = raw.split("\n")[0]?.trim() ?? "";
+  if (!line) return null;
+  return line.length > 88 ? `${line.slice(0, 85)}...` : line;
+}
+
+function mergeRunHistory(
+  trackedRuns: TrackedRunRecord[],
+  remoteRuns: RemoteRunSummary[],
+): Array<TrackedRunRecord & { outputPreview?: string }> {
+  const merged = new Map<string, TrackedRunRecord & { outputPreview?: string }>();
+  for (const run of trackedRuns) {
+    merged.set(run.id, { ...run });
+  }
+  for (const run of remoteRuns) {
+    const current = merged.get(run.id);
+    merged.set(run.id, {
+      id: run.id,
+      datasetId: run.datasetId,
+      origin: current?.origin ?? DEFAULT_WEB_ORIGIN,
+      status: run.status,
+      prompt: run.prompt ?? current?.prompt,
+      dashboardUrl: current?.dashboardUrl ?? dashboardRunUrl(DEFAULT_WEB_ORIGIN, run.id),
+      createdAt: run.createdAt ?? current?.createdAt ?? new Date().toISOString(),
+      updatedAt: run.updatedAt ?? current?.updatedAt ?? new Date().toISOString(),
+      lastSeenAt: current?.lastSeenAt ?? new Date().toISOString(),
+      lastEventId: current?.lastEventId,
+      lastEventMessage: current?.lastEventMessage,
+      terminalAt: isTerminalRunStatus(run.status)
+        ? (current?.terminalAt ?? run.updatedAt ?? new Date().toISOString())
+        : undefined,
+      outputPreview: run.outputPreview,
+    });
+  }
+  return [...merged.values()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+function isRecoveryQuestion(input: string) {
+  const lower = input.toLowerCase();
+  return (
+    /\b(blocked|stuck|failed|failure|error)\b/.test(lower)
+    && /\b(what is happening|what's happening|what happened|useful|produced|next|do next)\b/.test(lower)
+  );
+}
+
+async function maybeHandleRecoveryQuestion(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!initialSession || !isRecoveryQuestion(input)) {
+    return null;
+  }
+
+  emit({ role: "tool", content: "Checking active runs..." });
+  const trackedRuns = (await (deps.readTrackedRuns ?? readTrackedRuns)().catch(() => []))
+    .filter((run) => run.origin === initialSession.origin);
+  const client = deps.createRemoteClient(initialSession);
+  const remoteRuns = await client.listRuns().then((payload) => payload.runs).catch(() => []);
+  const runs = mergeRunHistory(trackedRuns, remoteRuns);
+  const activeRuns = runs.filter((run) => !run.terminalAt && !isTerminalRunStatus(run.status)).slice(0, 2);
+  const terminalRuns = runs.filter((run) => run.terminalAt || isTerminalRunStatus(run.status));
+
+  emit({ role: "tool", content: "Checking useful output..." });
+  let usefulRun: { run: TrackedRunRecord & { outputPreview?: string }; artifacts: RemoteRunArtifact[] } | null = null;
+  for (const run of terminalRuns.slice(0, 4)) {
+    if (!["ready", "completed", "succeeded"].includes(run.status.toLowerCase())) {
+      continue;
+    }
+    const result = await client.getRunResults(run.id).catch(() => null);
+    const producedArtifacts = result?.artifacts.filter(isProducedArtifact) ?? [];
+    if (producedArtifacts.length > 0) {
+      usefulRun = { run, artifacts: producedArtifacts };
+      break;
+    }
+  }
+
+  const olderFailures = terminalRuns.filter((run) => ["failed", "error", "cancelled", "canceled"].includes(run.status.toLowerCase()));
+  const primaryLine = activeRuns.length > 0
+    ? `Nothing looks blocked right now. ${activeRuns.length} run${activeRuns.length === 1 ? "" : "s"} ${activeRuns.length === 1 ? "is" : "are"} still progressing.`
+    : usefulRun
+      ? "I do not see an active blocked run right now. The most recent useful work already finished."
+      : olderFailures.length > 0
+        ? "I do not see an active run progressing right now. The latest visible issue is an older failed or cancelled run."
+        : "I do not see clear evidence of a blocked run right now.";
+
+  const lines = [primaryLine, "", "Current status"];
+  if (activeRuns.length > 0) {
+    for (const run of activeRuns) {
+      const when = elapsedSince(run.updatedAt) ?? "recently";
+      const work = oneLineRunWork(run);
+      lines.push(`- ${run.datasetId}: ${cleanRunStatusLabel(run.status)}; last update ${when}.`);
+      if (work) {
+        lines.push(`  ${work}`);
+      }
+    }
+  } else if (olderFailures[0]) {
+    const failedRun = olderFailures[0];
+    lines.push(`- Latest visible issue: ${failedRun.datasetId} ${cleanRunStatusLabel(failedRun.status)}.`);
+  } else {
+    lines.push("- No active run needs intervention from what I can see.");
+  }
+
+  lines.push("", "Useful output");
+  if (usefulRun) {
+    const artifactTitles = usefulRun.artifacts.slice(0, 2).map(artifactDisplayTitle);
+    const artifactSummary = artifactTitles.join(" and ");
+    lines.push(`- Best result to inspect first: ${usefulRun.run.datasetId} from run ${shortRunId(usefulRun.run.id)}.`);
+    lines.push(`- Available now: ${artifactSummary}.`);
+  } else {
+    lines.push("- I do not see a completed run with saved artifacts to inspect yet.");
+  }
+  if (olderFailures.length > 0 && activeRuns.length > 0) {
+    lines.push("- Older failed or cancelled attempts are in the history, but they look separate from the runs still making progress now.");
+  }
+
+  lines.push("", "Next step");
+  if (activeRuns.length > 0 && usefulRun) {
+    lines.push(`- Primary recommendation: inspect the completed ${usefulRun.run.datasetId} artifacts now, then let the active runs continue unless their last update stops moving.`);
+  } else if (activeRuns.length > 0) {
+    lines.push("- Primary recommendation: wait a bit longer and check again. These runs still show recent progress.");
+  } else if (olderFailures[0]) {
+    lines.push(`- Primary recommendation: run \`research debug run ${olderFailures[0].id}\` to inspect the failed attempt before retrying.`);
+  } else {
+    lines.push("- Primary recommendation: check the latest run results, then decide whether to retry or start a narrower follow-up run.");
+  }
+  if (activeRuns[0]) {
+    lines.push(`- If one of the active runs stops updating for longer than expected, inspect it with \`research debug run ${activeRuns[0].id}\`.`);
+  }
+  if (activeRuns.length > 0) {
+    lines.push(`- If you want to stop the current work, type \`/cancel ${activeRuns[0].id}\` in the TUI, or run \`research debug run ${activeRuns[0].id}\` first to confirm what it is doing.`);
+  }
+
+  return lines.join("\n");
 }
 
 function findStructuredResultArtifact(artifacts: Array<{ title?: string; type?: string; content?: unknown }>) {
@@ -2277,7 +2461,8 @@ export async function runAgentTurn(
     };
   }
 
-  const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession)
+  const localRunResponse = await maybeHandleRecoveryQuestion(input, initialSession, emit, deps)
+    ?? await maybeHandleStuckRunQuestion(input, initialSession)
     ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession);
   if (localRunResponse) {
     emit({ role: "assistant", content: localRunResponse });

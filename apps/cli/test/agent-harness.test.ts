@@ -477,6 +477,104 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
 });
 
+test("blocked-or-failed recovery summarizes active health and best useful output", async () => {
+  const fakeClient = {
+    async listRuns() {
+      return {
+        runs: [
+          {
+            id: "run-active-1",
+            datasetId: "enriched-tweets",
+            status: "running",
+            updatedAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+            prompt: "Computing viral sample by quote_tweet_count",
+          },
+          {
+            id: "run-active-2",
+            datasetId: "econ",
+            status: "running",
+            updatedAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+            prompt: "Building county-month housing panel",
+          },
+          {
+            id: "run-ready-1",
+            datasetId: "enriched-tweets",
+            status: "ready",
+            updatedAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+            prompt: "Label viral tweet sample",
+          },
+          {
+            id: "run-failed-1",
+            datasetId: "econ",
+            status: "failed",
+            updatedAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+            prompt: "Older failed attempt",
+          },
+        ],
+      };
+    },
+    async getRunResults(runId: string) {
+      assert.equal(runId, "run-ready-1");
+      return {
+        run: {
+          id: "run-ready-1",
+          datasetId: "enriched-tweets",
+          status: "ready",
+          prompt: "Label viral tweet sample",
+        },
+        metadata: null,
+        events: [],
+        artifacts: [
+          { id: "a1", runId: "run-ready-1", type: "json", title: "labels_sampled_viral_100.json" },
+          { id: "a2", runId: "run-ready-1", type: "image", title: "viral_label_distribution.png" },
+        ],
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-recovery" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+    readTrackedRuns: async () => [{
+      id: "run-active-1",
+      datasetId: "enriched-tweets",
+      origin: session.origin,
+      status: "running",
+      prompt: "Computing viral sample by quote_tweet_count",
+      createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+      lastSeenAt: new Date().toISOString(),
+      lastEventMessage: "Computing viral sample by quote_tweet_count",
+    }],
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Something seems blocked or failed. Tell me what is happening, whether anything useful was produced, and what I should do next.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Checking active runs/);
+  assert.match(joined, /Checking useful output/);
+  assert.match(joined, /Nothing looks blocked right now\. 2 runs are still progressing\./);
+  assert.match(joined, /Current status/);
+  assert.match(joined, /enriched-tweets: still running; last update/);
+  assert.match(joined, /Useful output/);
+  assert.match(joined, /Best result to inspect first: enriched-tweets from run run-read/);
+  assert.match(joined, /labels_sampled_viral_100\.json and viral_label_distribution\.png/);
+  assert.match(joined, /Older failed or cancelled attempts are in the history, but they look separate/);
+  assert.match(joined, /Primary recommendation: inspect the completed enriched-tweets artifacts now/);
+  assert.doesNotMatch(joined, /Dashboard:/);
+  assert.doesNotMatch(joined, /recent heartbeats|actively executing Python code|Acquire raw data sources/);
+});
+
 test("wait for run completion can time out deterministically", async () => {
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
