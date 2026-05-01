@@ -53,6 +53,8 @@ export type AgentRuntimeDeps = {
   readSession: typeof readSession;
   login: typeof login;
   createToolRegistry: () => ToolDefinition[];
+  readTrackedRuns: typeof readTrackedRuns;
+  now: () => number;
 };
 
 const STANDARD_ANALYSIS_RESOURCES = {
@@ -138,6 +140,8 @@ export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
     readSession,
     login,
     createToolRegistry,
+    readTrackedRuns,
+    now: () => Date.now(),
   };
 }
 
@@ -864,7 +868,11 @@ function extractDatasetIdFromNewAnalysis(input: string) {
   return match?.[1] ?? null;
 }
 
-async function maybeHandleBusyDatasetBeforePlanning(input: string, initialSession: SessionRecord | null) {
+async function maybeHandleBusyDatasetBeforePlanning(
+  input: string,
+  initialSession: SessionRecord | null,
+  deps: AgentRuntimeDeps,
+) {
   const lower = input.toLowerCase();
   if (!initialSession || !/\b(new analysis|run.*analysis|start.*analysis)\b/.test(lower)) {
     return null;
@@ -873,7 +881,7 @@ async function maybeHandleBusyDatasetBeforePlanning(input: string, initialSessio
   if (!datasetId) {
     return null;
   }
-  const runs = await readTrackedRuns().catch(() => []);
+  const runs = await deps.readTrackedRuns().catch(() => []);
   const active = runs.find((run) => run.datasetId === datasetId && !run.terminalAt && !isTerminalRunStatus(run.status));
   if (!active) {
     return null;
@@ -889,29 +897,87 @@ async function maybeHandleBusyDatasetBeforePlanning(input: string, initialSessio
   ].join("\n");
 }
 
-async function maybeHandleStuckRunQuestion(input: string, initialSession: SessionRecord | null) {
+function summarizeTrackedRunWork(run: { datasetId: string; prompt?: string; lastEventMessage?: string }) {
+  const latest = run.lastEventMessage?.trim();
+  if (latest) {
+    return latest;
+  }
+  const firstPromptLine = run.prompt?.split("\n")[0]?.trim();
+  if (!firstPromptLine) {
+    return "Remote processing is in progress.";
+  }
+  if (/mounted dataset grounding is mandatory/i.test(firstPromptLine)) {
+    return `Waiting for dataset ${run.datasetId} to be mounted so the run can start reading it.`;
+  }
+  return firstPromptLine.endsWith(".") ? firstPromptLine : `${firstPromptLine}.`;
+}
+
+function describeRunDiagnosis(status: string | undefined, minutesSinceUpdate: number | null) {
+  const normalized = (status ?? "").toLowerCase();
+  if (minutesSinceUpdate === null) {
+    return "I can see an active run, but I do not have a reliable heartbeat yet.";
+  }
+  if (normalized === "booting") {
+    if (minutesSinceUpdate <= 2) {
+      return "The run is still booting and was updated recently, so it does not look stuck yet.";
+    }
+    return "The run is still marked as booting and has not updated recently, so it may be stalled.";
+  }
+  if (normalized === "queued") {
+    if (minutesSinceUpdate <= 2) {
+      return "The run is still queued and was updated recently, so it does not look stuck yet.";
+    }
+    return "The run is still queued and has not updated recently, so it may be waiting on capacity.";
+  }
+  if (normalized === "running") {
+    if (minutesSinceUpdate <= 2) {
+      return "The run is still running and was updated recently, so it does not look stuck yet.";
+    }
+    return "The run is still marked as running but has not updated recently, so it may be stalled.";
+  }
+  if (minutesSinceUpdate <= 2) {
+    return `The run is still ${formatStatusForHumans(status)} and was updated recently, so it does not look stuck yet.`;
+  }
+  return `The run is still ${formatStatusForHumans(status)} but has not updated recently, so it may be stalled.`;
+}
+
+function formatHeartbeat(minutesSinceUpdate: number | null) {
+  if (minutesSinceUpdate === null) return "unknown";
+  if (minutesSinceUpdate < 1) return "less than 1 minute ago";
+  if (minutesSinceUpdate === 1) return "1 minute ago";
+  return `${minutesSinceUpdate} minutes ago`;
+}
+
+function recommendedRunAction(runId: string, minutesSinceUpdate: number | null) {
+  if (minutesSinceUpdate === null || minutesSinceUpdate > 2) {
+    return `Next: run \`research debug run ${runId}\` now to inspect the latest remote state and events.`;
+  }
+  return `Next: wait 1-2 minutes. If there is still no new update, run \`research debug run ${runId}\`.`;
+}
+
+async function maybeHandleStuckRunQuestion(input: string, initialSession: SessionRecord | null, deps: AgentRuntimeDeps) {
   const lower = input.toLowerCase();
   if (!initialSession || !/\blast run\b/.test(lower) || !/\b(stuck|happening|progress|status)\b/.test(lower)) {
     return null;
   }
-  const runs = await readTrackedRuns().catch(() => []);
+  const runs = await deps.readTrackedRuns().catch(() => []);
   const active = runs.find((run) => !run.terminalAt && !isTerminalRunStatus(run.status));
   if (!active) {
     return "I do not see an active tracked run right now. Ask `show results from my last run` to inspect the latest completed one.";
   }
   const updated = active.updatedAt ? new Date(active.updatedAt).getTime() : NaN;
-  const minutes = Number.isFinite(updated) ? Math.max(0, Math.round((Date.now() - updated) / 60000)) : null;
-  const heartbeat = minutes === null ? "unknown" : minutes <= 1 ? "under 1 minute ago" : `${minutes} minutes ago`;
+  const minutes = Number.isFinite(updated) ? Math.max(0, Math.round((deps.now() - updated) / 60000)) : null;
   return [
-    `Your run is still active, but its last update was ${heartbeat}.`,
+    describeRunDiagnosis(active.status, minutes),
     "",
-    `Run: ${active.id}`,
-    `Dataset: ${active.datasetId}`,
+    `What it is doing: ${summarizeTrackedRunWork(active)}`,
+    "",
+    recommendedRunAction(active.id, minutes),
+    "",
     `State: ${formatStatusForHumans(active.status)}`,
-    active.prompt ? `Current work: ${active.prompt.split("\n")[0]?.slice(0, 120)}` : "Current work: remote processing",
-    "",
-    "Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for your workload.",
-    `Debug: research debug run ${active.id}`,
+    `Last update: ${formatHeartbeat(minutes)}`,
+    `Dataset: ${active.datasetId}`,
+    `Run ID: ${active.id}`,
   ].join("\n");
 }
 
@@ -2265,6 +2331,7 @@ export async function runAgentTurn(
   conversationState?: AgentConversationState,
   deps: AgentRuntimeDeps = createDefaultAgentRuntimeDeps(),
 ): Promise<AgentConversationState> {
+  const resolvedDeps = deps;
   const directResponse = maybeHandleOrientation(input)
     ?? maybeHandleCsvImportHowTo(input)
     ?? maybeHandleVagueMarketQuestion(input)
@@ -2277,8 +2344,8 @@ export async function runAgentTurn(
     };
   }
 
-  const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession)
-    ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession);
+  const localRunResponse = await maybeHandleStuckRunQuestion(input, initialSession, resolvedDeps)
+    ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession, resolvedDeps);
   if (localRunResponse) {
     emit({ role: "assistant", content: localRunResponse });
     return {
