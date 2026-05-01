@@ -14,6 +14,7 @@ import { MarkdownText } from "@assistant-ui/react-ink-markdown";
 
 import { type AgentConversationState, type AgentMessage, runAgentTurn } from "./agent.js";
 import { RUN_POLL_INTERVAL_MS, type SessionRecord } from "./config.js";
+import { deriveBusyDatasetLock, extractBusyDatasetLock, isTrackingMessage, type BusyDatasetLockState } from "./interactive-lock.js";
 import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
 import { clearSession, login, readSession } from "./session.js";
@@ -176,6 +177,10 @@ function AssistantMessage() {
       .join(""),
   );
 
+  if (extractBusyDatasetLock(text, []) || isTrackingMessage(text)) {
+    return null;
+  }
+
   return (
     <Box flexDirection="column">
       <Text bold color="green">research</Text>
@@ -205,7 +210,7 @@ function ActivityIndicator() {
   );
 }
 
-function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
+function RunStatusPanel({ runs, hidden = false }: { runs: TrackedRunRecord[]; hidden?: boolean }) {
   const activeRuns = useMemo(
     () =>
       runs
@@ -214,7 +219,7 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
     [runs],
   );
 
-  if (activeRuns.length === 0) return null;
+  if (hidden || activeRuns.length === 0) return null;
 
   return (
     <Box flexDirection="column">
@@ -227,9 +232,34 @@ function RunStatusPanel({ runs }: { runs: TrackedRunRecord[] }) {
   );
 }
 
+function LockedDatasetPanel({ lock }: { lock: BusyDatasetLockState }) {
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginBottom={1}>
+      <Text backgroundColor="yellow" color="black" bold> DATASET LOCKED </Text>
+      <Text color="yellow">{`${lock.datasetId} cannot start a new analysis right now.`}</Text>
+      <Text>No new run was started.</Text>
+      <Text>{`Active run: ${shortId(lock.runId)}  Status: ${lock.status}`}</Text>
+      <Text color="gray">{`Run ID: ${lock.runId}`}</Text>
+      <Text>{lock.reason}</Text>
+      <Text>{`Inspect: ${lock.debugCommand}`}</Text>
+      <Text>{`Recovery: [w] wait/refresh  [i] inspect  [c] cancel active run`}</Text>
+    </Box>
+  );
+}
+
+function RecoveryComposer({ lock }: { lock: BusyDatasetLockState }) {
+  return (
+    <Box borderStyle="round" borderColor="yellow" paddingX={1}>
+      <Text color="yellow">normal prompts paused</Text>
+      <Text color="gray">{` for ${lock.datasetId}. Use w, i, or c.`}</Text>
+    </Box>
+  );
+}
+
 function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
+  const blockedState = useAuiState((state) => deriveBusyDatasetLock(state.thread.messages, trackedRuns));
   const borderColor = isRunning ? "yellow" : "gray";
   const inputWidth = Math.max(20, columns - 4);
 
@@ -252,12 +282,19 @@ function ResearchThread({ trackedRuns }: { trackedRuns: TrackedRunRecord[] }) {
         }
       </ThreadPrimitive.Messages>
 
+      {blockedState ? <LockedDatasetPanel lock={blockedState} /> : null}
       <ActivityIndicator />
-      <RunStatusPanel runs={trackedRuns} />
+      <RunStatusPanel runs={trackedRuns} hidden={Boolean(blockedState)} />
 
-      <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
-        <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
-        <ComposerPrimitive.Input submitOnEnter placeholder="ask RESEARCH" autoFocus />
+      <Box width={inputWidth}>
+        {blockedState ? (
+          <RecoveryComposer lock={blockedState} />
+        ) : (
+          <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
+            <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
+            <ComposerPrimitive.Input submitOnEnter placeholder="ask RESEARCH" autoFocus />
+          </Box>
+        )}
       </Box>
     </ThreadPrimitive.Root>
   );
@@ -305,6 +342,103 @@ function RunPoller({
       clearInterval(timer);
     };
   }, [runtime, session, setTrackedRuns]);
+
+  return null;
+}
+
+function LockedDatasetHotkeys({
+  altScreen,
+  exit,
+  runtime,
+  sessionRef,
+  trackedRuns,
+  setTrackedRuns,
+}: {
+  altScreen: boolean;
+  exit: () => void;
+  runtime: AssistantRuntime;
+  sessionRef: React.MutableRefObject<SessionRecord | null>;
+  trackedRuns: TrackedRunRecord[];
+  setTrackedRuns: (runs: TrackedRunRecord[]) => void;
+}) {
+  const blockedState = useAuiState((state) => deriveBusyDatasetLock(state.thread.messages, trackedRuns));
+  const [actionBusy, setActionBusy] = useState(false);
+
+  useInput((value, key) => {
+    if (key.escape && !altScreen) {
+      exit();
+      return;
+    }
+    if (key.ctrl && value === "c") {
+      exit();
+      return;
+    }
+    if (!blockedState || actionBusy || key.ctrl || key.meta || key.shift) {
+      return;
+    }
+
+    if (value === "i") {
+      appendAssistant(runtime, [
+        `Inspect the blocking run with: ${blockedState.debugCommand}`,
+        blockedState.runId !== "unknown" ? `Run ID: ${blockedState.runId}` : null,
+      ].filter(Boolean).join("\n"));
+      return;
+    }
+
+    if (value === "w" || value === "r") {
+      const currentSession = sessionRef.current;
+      if (!currentSession) {
+        appendAssistant(runtime, "Sign in first with `/login` to refresh tracked run status.");
+        return;
+      }
+      setActionBusy(true);
+      void pollTrackedRuns(currentSession, (message) => {
+        appendAssistant(runtime, formatAgentEmission(message));
+      }).then((runs) => {
+        setTrackedRuns(runs);
+        const refreshed = runs.find((run) => run.id === blockedState.runId);
+        appendAssistant(runtime, refreshed
+          ? `Still blocked: ${refreshed.datasetId} is ${refreshed.status}.`
+          : `Refreshed tracked runs for ${blockedState.datasetId}.`);
+      }).catch(() => {
+        appendAssistant(runtime, "Refresh failed. The tracked run state is unchanged.");
+      }).finally(() => {
+        setActionBusy(false);
+      });
+      return;
+    }
+
+    if (value === "c") {
+      const currentSession = sessionRef.current;
+      if (!currentSession) {
+        appendAssistant(runtime, "Sign in first with `/login` before cancelling the blocking run.");
+        return;
+      }
+      setActionBusy(true);
+      void (async () => {
+        try {
+          const client = new RemoteApiClient(currentSession);
+          const payload = await client.cancelRun(blockedState.runId);
+          await updateTrackedRun(blockedState.runId, (current) => {
+            const timestamp = payload.run.updatedAt ?? new Date().toISOString();
+            return {
+              ...current,
+              status: payload.run.status,
+              updatedAt: timestamp,
+              lastSeenAt: timestamp,
+              terminalAt: isTerminalRunStatus(payload.run.status) ? (current.terminalAt ?? timestamp) : current.terminalAt,
+            };
+          });
+          setTrackedRuns(await readTrackedRuns());
+          appendAssistant(runtime, `Cancelled run ${blockedState.runId}. ${blockedState.datasetId} can accept a new analysis once backend state refreshes.`);
+        } catch (error) {
+          appendAssistant(runtime, error instanceof Error ? error.message : String(error));
+        } finally {
+          setActionBusy(false);
+        }
+      })();
+    }
+  });
 
   return null;
 }
@@ -514,15 +648,6 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     setConversationStateState(nextState);
   };
 
-  useInput((value, key) => {
-    if (key.escape && !altScreen) {
-      exit();
-    }
-    if (key.ctrl && value === "c") {
-      exit();
-    }
-  });
-
   useEffect(() => {
     void readSession().then(setSession);
     void readTrackedRuns().then((runs) => {
@@ -560,6 +685,14 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
       <Box flexDirection="column">
         <ResearchThread trackedRuns={trackedRuns} />
         <RunPoller runtime={runtime} session={session} setTrackedRuns={setTrackedRuns} />
+        <LockedDatasetHotkeys
+          altScreen={altScreen}
+          exit={exit}
+          runtime={runtime}
+          sessionRef={sessionRef}
+          trackedRuns={trackedRuns}
+          setTrackedRuns={setTrackedRuns}
+        />
       </Box>
     </AssistantRuntimeProvider>
   );

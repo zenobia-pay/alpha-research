@@ -507,12 +507,14 @@ function summarizeBusyDatasetConflict(error: RemoteRequestError) {
   const status = typeof first.status === "string" ? first.status : "running";
   return [
     "Blocked: dataset is already busy.",
+    "No new run was started.",
     `Active run: ${runId}`,
     `Status: ${status}`,
     "",
-    "No new run was started.",
-    `Check it: research debug run ${runId}`,
+    "The existing run still holds the dataset volume.",
+    `Inspect: research debug run ${runId}`,
     `Dashboard: ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)}`,
+    "Next: wait for it to finish, inspect it, or cancel it before retrying.",
   ].join("\n");
 }
 
@@ -880,11 +882,12 @@ async function maybeHandleBusyDatasetBeforePlanning(input: string, initialSessio
   }
   return [
     `Blocked: ${datasetId} is already busy.`,
+    "No new run was started.",
     `Active run: ${active.id}`,
     `Status: ${active.status}`,
     "",
-    "Starting a duplicate analysis is not allowed while that run holds the dataset.",
-    `Check it: research debug run ${active.id}`,
+    "The existing run still holds the dataset.",
+    `Inspect: research debug run ${active.id}`,
     "Next: wait for it to finish, inspect it, or cancel it before starting a new analysis.",
   ].join("\n");
 }

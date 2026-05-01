@@ -10,6 +10,7 @@ import {
 import type { SessionRecord } from "../src/config.js";
 import { buildRunDebugBundle } from "../src/debug.js";
 import { RemoteRequestError } from "../src/remote.js";
+import { writeTrackedRuns } from "../src/runs.js";
 
 const session = {
   origin: "https://alpharesearch.nyc",
@@ -115,6 +116,43 @@ test("vague housing risk request asks scope before costly work", async () => {
   assert.match(final, /affordability/i);
   assert.match(final, /mortgage rates/i);
   assert.doesNotMatch(final, /Started|Queued|Dashboard:/i);
+});
+
+test("busy dataset request reports blocked state and does not start duplicate work", async () => {
+  await writeTrackedRuns([{
+    id: "8888cc05-c277-4923-a91f-27f5cd4cd0b9",
+    datasetId: "enriched-tweets",
+    origin: session.origin,
+    status: "booting",
+    prompt: "Earlier analysis",
+    dashboardUrl: "https://dashboard.alpharesearch.nyc/?view=runs&runId=8888cc05-c277-4923-a91f-27f5cd4cd0b9#run-8888cc05-c277-4923-a91f-27f5cd4cd0b9",
+    createdAt: "2026-05-01T20:20:00.000Z",
+    updatedAt: "2026-05-01T20:20:05.000Z",
+    lastSeenAt: "2026-05-01T20:20:05.000Z",
+  }]);
+
+  const fakeClient = {
+    async respond() {
+      throw new Error("Busy dataset check should stop before remote planning.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Run a new analysis on enriched-tweets.", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /^Blocked: enriched-tweets is already busy\./);
+  assert.match(final, /No new run was started\./);
+  assert.match(final, /Active run: 8888cc05-c277-4923-a91f-27f5cd4cd0b9/);
+  assert.match(final, /Status: booting/);
+  assert.match(final, /Inspect: research debug run 8888cc05-c277-4923-a91f-27f5cd4cd0b9/);
+
+  await writeTrackedRuns([]);
 });
 
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {
