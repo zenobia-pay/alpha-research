@@ -22,8 +22,28 @@ function printAgentMessage(message: AgentMessage) {
   const prefix = message.role === "tool" ? "· " : "";
   const lines = message.content.split("\n");
   for (const line of lines) {
-    console.log(`${prefix}${line}`);
+    const wrapped = wrapForStdout(`${prefix}${line}`);
+    for (const wrappedLine of wrapped) {
+      console.log(wrappedLine);
+    }
   }
+}
+
+function wrapForStdout(line: string) {
+  const width = Math.max(40, Number.isFinite(process.stdout.columns) ? (process.stdout.columns ?? 0) : 0);
+  if (line.length <= width) {
+    return [line];
+  }
+  const wrapped: string[] = [];
+  let remaining = line;
+  while (remaining.length > width) {
+    const breakAt = remaining.lastIndexOf(" ", width);
+    const splitIndex = breakAt > 0 ? breakAt : width;
+    wrapped.push(remaining.slice(0, splitIndex).trimEnd());
+    remaining = remaining.slice(splitIndex).trimStart();
+  }
+  wrapped.push(remaining);
+  return wrapped;
 }
 
 export function initialPromptModeStatus(prompt: string) {

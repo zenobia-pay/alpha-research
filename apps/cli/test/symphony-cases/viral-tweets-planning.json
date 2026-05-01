@@ -33,9 +33,13 @@
       "hook_type",
       "emotional_tone",
       "controversy_level",
-      "visualizations",
+      "Choose one virality definition",
+      "quote_tweet_count",
+      "retweet_count",
+      "favorite_count",
+      "bar chart",
       "representative examples",
-      "Confirm the scope"
+      "reply with 1, 2, or 3"
     ],
     "forbiddenToolCalls": [
       "query_remote_dataset",
