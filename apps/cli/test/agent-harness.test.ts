@@ -1124,11 +1124,12 @@ test("product workflow success: econ research hypothesis creates data environmen
   assert.deepEqual(runTypes, ["transform", "label", "hypothesis"]);
 
   const joinedMessages = messages.map((message) => message.content).join("\n");
-  assert.match(joinedMessages, /Started research environment build run-env/);
+  assert.match(joinedMessages, /No remote datasets found; a new build will be needed if the plan proceeds\./);
+  assert.match(joinedMessages, /Reviewing remote datasets and drafting the next step\.\.\./);
   assert.match(joinedMessages, /Created research spec spec-housing-rates/);
-  assert.match(joinedMessages, /Queued transformation run run-transform/);
-  assert.match(joinedMessages, /Queued labeling run run-label/);
-  assert.match(joinedMessages, /Started run run-hypothesis/);
+  assert.match(joinedMessages, /Running run_remote_transformation\.\.\./);
+  assert.match(joinedMessages, /Running run_remote_labeling\.\.\./);
+  assert.match(joinedMessages, /Starting remote run for econ-housing-cycle\.\.\./);
   assert.match(joinedMessages, /Regression summary/);
   assert.match(joinedMessages, /Permit sensitivity by income-growth quartile/);
   assert.match(joinedMessages, /Hypothesis report\.md/);

@@ -448,6 +448,69 @@ function summarizeRunResultsForHumans(
   return lines.join("\n");
 }
 
+function compactPromptLine(prompt: string | undefined, maxLength = 160) {
+  const normalized = (prompt ?? "").replace(/\s+/gu, " ").trim();
+  if (!normalized) return null;
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 3)}...` : normalized;
+}
+
+function inferExpectedArtifacts(
+  artifacts: Array<Record<string, unknown>> | undefined,
+  prompt: string | undefined,
+) {
+  const labels = new Set<string>();
+  for (const artifact of artifacts ?? []) {
+    const title = typeof artifact.title === "string" ? artifact.title.trim() : "";
+    const type = typeof artifact.type === "string" ? artifact.type.trim() : "";
+    if (title) {
+      labels.add(title);
+      continue;
+    }
+    if (type === "markdown") {
+      labels.add("Validation report");
+      continue;
+    }
+    if (type) {
+      labels.add(type.replace(/_/gu, " "));
+    }
+  }
+  const promptLower = (prompt ?? "").toLowerCase();
+  if (promptLower.includes("data dictionary")) labels.add("Data dictionary");
+  if (promptLower.includes("manifest")) labels.add("Manifest");
+  if (promptLower.includes("validation")) labels.add("Validation report");
+  return Array.from(labels);
+}
+
+function formatEnvironmentBuildSummary(args: {
+  buildKind: "research environment" | "public-data environment";
+  datasetId: string;
+  datasetName?: string;
+  prompt?: string;
+  artifacts?: Array<Record<string, unknown>>;
+  run: { id: string; status: string };
+  origin: string;
+}) {
+  const lines = [
+    `Started ${args.buildKind} build for ${args.datasetName?.trim() || args.datasetId}.`,
+    `Dataset: ${args.datasetId}`,
+    `Run: ${args.run.id}`,
+  ];
+  const plan = compactPromptLine(args.prompt);
+  if (plan) {
+    lines.push(`Plan: ${plan}`);
+  }
+  const expectedArtifacts = inferExpectedArtifacts(args.artifacts, args.prompt);
+  if (expectedArtifacts.length > 0) {
+    lines.push(`Expected artifacts: ${expectedArtifacts.join("; ")}`);
+  }
+  lines.push(
+    `Status: ${formatStatusForHumans(args.run.status)}. Build is running in the background.`,
+    `Monitor: research debug run ${args.run.id}`,
+    `Dashboard: ${dashboardRunUrl(args.origin, args.run.id)}`,
+  );
+  return lines.join("\n");
+}
+
 function shouldExposeWaitTool(input: string) {
   const lower = input.toLowerCase();
   return /\b(wait|watch|follow|monitor|stay on|block until|until complete|until it finishes|keep checking)\b/.test(lower);
@@ -954,8 +1017,8 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
   }
 }
 
-function shouldEchoToolResult(summary: string) {
-  return !summary.startsWith("Blocked:");
+function shouldEchoToolResult(toolName: string, summary: string) {
+  return !summary.startsWith("Blocked:") && !ASYNC_RUN_START_TOOLS.has(toolName);
 }
 
 export function createToolRegistry(): ToolDefinition[] {
@@ -1074,8 +1137,8 @@ export function createToolRegistry(): ToolDefinition[] {
         const datasets = await client.listDatasets();
         return {
           summary: datasets.datasets.length > 0
-            ? `Found ${datasets.datasets.length} remote dataset${datasets.datasets.length === 1 ? "" : "s"}.`
-            : "No remote datasets found.",
+            ? `Found ${datasets.datasets.length} remote dataset${datasets.datasets.length === 1 ? "" : "s"}; checking for a reusable match.`
+            : "No remote datasets found; a new build will be needed if the plan proceeds.",
           data: datasets,
         };
       },
@@ -1378,7 +1441,15 @@ export function createToolRegistry(): ToolDefinition[] {
           spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Started research environment build ${result.run.id} for ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          summary: formatEnvironmentBuildSummary({
+            buildKind: "research environment",
+            datasetId: result.run.datasetId,
+            datasetName: typeof input.name === "string" ? input.name : undefined,
+            prompt,
+            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+            run: result.run,
+            origin: requireSession(context).origin,
+          }),
           data: result,
         };
       },
@@ -1443,7 +1514,15 @@ export function createToolRegistry(): ToolDefinition[] {
           spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Started public-data environment build ${result.run.id} for ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          summary: formatEnvironmentBuildSummary({
+            buildKind: "public-data environment",
+            datasetId: result.run.datasetId,
+            datasetName: typeof input.name === "string" ? input.name : undefined,
+            prompt,
+            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
+            run: result.run,
+            origin: requireSession(context).origin,
+          }),
           data: result,
         };
       },
@@ -2456,7 +2535,7 @@ export async function runAgentTurn(
         }
         throw error;
       }
-      if (shouldEchoToolResult(result.summary)) {
+      if (shouldEchoToolResult(tool.name, result.summary)) {
         emit({ role: "tool", content: result.summary });
       }
       await persistSessionEntry(context, {
@@ -2469,8 +2548,9 @@ export async function runAgentTurn(
       if (ASYNC_RUN_START_TOOLS.has(tool.name) && !exposeWaitTool) {
         const resultData = isRecord(result.data) ? result.data : {};
         const startedRunId = isRecord(resultData.run) && typeof resultData.run.id === "string" ? resultData.run.id : null;
+        const includeTerminalSession = tool.name !== "create_research_environment" && tool.name !== "create_public_data_environment";
         const finalSummary =
-          context.session && context.sessionId && startedRunId
+          includeTerminalSession && context.session && context.sessionId && startedRunId
             ? `${result.summary}\nTerminal session: ${dashboardTerminalSessionUrl(context.session.origin, context.sessionId, startedRunId)}`
             : result.summary;
         emit({ role: "assistant", content: finalSummary });
@@ -2507,6 +2587,10 @@ export async function runAgentTurn(
           data: result.data,
         }),
       });
+    }
+
+    if (functionCalls.length === 1 && functionCalls[0]?.name === "list_remote_datasets") {
+      emit({ role: "tool", content: "Reviewing remote datasets and drafting the next step..." });
     }
 
     const refreshedSession = await deps.readSession();
