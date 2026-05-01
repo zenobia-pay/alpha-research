@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { fileURLToPath } from "node:url";
 import React from "react";
 import { render } from "ink";
 
@@ -25,13 +26,34 @@ function printAgentMessage(message: AgentMessage) {
   }
 }
 
+export function initialPromptModeStatus(prompt: string) {
+  const lower = prompt.trim().toLowerCase();
+  if (/\bwhat does\b|\bmeaning\b|\bmean\b|\bfield\b|\bschema\b/.test(lower)) {
+    return "Checking dataset metadata...";
+  }
+  if (/\bresult\b|\bartifact\b|\blast run\b|\bstatus\b|\bprogress\b/.test(lower)) {
+    return "Checking run state...";
+  }
+  if (/\bdataset\b|\bsource\b|\bcoverage\b|\bquality\b|\blimitation\b/.test(lower)) {
+    return "Inspecting dataset details...";
+  }
+  if (/\bcreate\b|\bupload\b|\bimport\b|\bdeploy\b/.test(lower)) {
+    return "Preparing dataset workflow...";
+  }
+  if (/\banaly[sz]e\b|\bresearch\b|\bhypothesis\b|\bexperiment\b/.test(lower)) {
+    return "Scoping the research task...";
+  }
+  return "Thinking...";
+}
+
 async function runPromptMode(prompt: string) {
   const session = await readSession();
+  printAgentMessage({ role: "tool", content: initialPromptModeStatus(prompt) });
   const conversationState = await runAgentTurn(prompt, session, printAgentMessage);
   return conversationState;
 }
 
-async function main() {
+export async function main() {
   const argv = process.argv.slice(2);
   const { flags, positionals } = parseCliArgs(argv);
   const [command, ...rest] = positionals;
@@ -118,7 +140,10 @@ async function main() {
   process.exitCode = 1;
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+const entryPath = process.argv[1];
+if (entryPath && fileURLToPath(import.meta.url) === entryPath) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
