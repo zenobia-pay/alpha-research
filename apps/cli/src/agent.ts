@@ -252,6 +252,90 @@ function formatStatusForHumans(status: string | undefined) {
   return status ?? "unknown";
 }
 
+function formatIsoTimestamp(timestamp: string | undefined) {
+  if (!timestamp) return null;
+  const value = new Date(timestamp);
+  if (Number.isNaN(value.getTime())) return null;
+  return value.toISOString();
+}
+
+function formatRelativeAge(timestamp: string | undefined) {
+  if (!timestamp) return null;
+  const ageMs = Date.now() - new Date(timestamp).getTime();
+  if (!Number.isFinite(ageMs)) return null;
+  const ageMinutes = Math.max(0, Math.round(ageMs / 60000));
+  if (ageMinutes < 1) return "under 1 minute ago";
+  if (ageMinutes === 1) return "1 minute ago";
+  if (ageMinutes < 60) return `${ageMinutes} minutes ago`;
+  const ageHours = Math.round(ageMinutes / 60);
+  if (ageHours === 1) return "1 hour ago";
+  if (ageHours < 48) return `${ageHours} hours ago`;
+  const ageDays = Math.round(ageHours / 24);
+  return ageDays === 1 ? "1 day ago" : `${ageDays} days ago`;
+}
+
+function explainBlockingRunStatus(status: string | undefined, updatedAt: string | undefined) {
+  const normalized = (status ?? "").toLowerCase();
+  const ageMinutes = updatedAt ? Math.max(0, Math.round((Date.now() - new Date(updatedAt).getTime()) / 60000)) : null;
+  if (normalized === "booting") {
+    if (ageMinutes !== null && ageMinutes >= 10) {
+      return "The run is still booting and holding the dataset lock. That is normal briefly, but this age may indicate a stuck startup worth inspecting.";
+    }
+    return "The run is booting and holding the dataset lock. That is expected while the worker starts.";
+  }
+  if (normalized === "queued") {
+    return "The run is queued and already owns the dataset lock, so no competing analysis can start until it advances or is cancelled.";
+  }
+  if (normalized === "running") {
+    return "The run is actively using the dataset, so starting another analysis would create competing work.";
+  }
+  if (isUncertainRunStatus(normalized)) {
+    return "The run state needs reconciliation, so the dataset remains blocked until the backend confirms whether the lock can be released.";
+  }
+  return "The active run still holds the dataset lock, so no new analysis was started.";
+}
+
+function renderBusyDatasetConflict(details: {
+  datasetId?: string;
+  runId: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+  dashboardUrl?: string;
+}) {
+  const startedAt = formatIsoTimestamp(details.createdAt);
+  const updatedAt = formatIsoTimestamp(details.updatedAt);
+  const startedAge = formatRelativeAge(details.createdAt);
+  const updatedAge = formatRelativeAge(details.updatedAt);
+  const lines = [
+    details.datasetId
+      ? `Blocked: ${details.datasetId} is already busy.`
+      : "Blocked: dataset is already busy.",
+    "",
+    `Active run: ${details.runId}`,
+    `Status: ${details.status}`,
+  ];
+  if (startedAt) {
+    lines.push(`Started: ${startedAt}${startedAge ? ` (${startedAge})` : ""}`);
+  }
+  if (updatedAt) {
+    lines.push(`Last update: ${updatedAt}${updatedAge ? ` (${updatedAge})` : ""}`);
+  }
+  lines.push(
+    "",
+    "No new run was started.",
+    explainBlockingRunStatus(details.status, details.updatedAt),
+    "",
+    "Next steps:",
+    `- Inspect now: \`research debug run ${details.runId}\``,
+  );
+  if (details.dashboardUrl) {
+    lines.push(`- Open dashboard: ${details.dashboardUrl}`);
+  }
+  lines.push("- Wait for the active run to finish, or cancel it if you confirm it is stuck.");
+  return lines.join("\n");
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -505,15 +589,15 @@ function summarizeBusyDatasetConflict(error: RemoteRequestError) {
   }
   const runId = typeof first.id === "string" ? first.id : "unknown";
   const status = typeof first.status === "string" ? first.status : "running";
-  return [
-    "Blocked: dataset is already busy.",
-    `Active run: ${runId}`,
-    `Status: ${status}`,
-    "",
-    "No new run was started.",
-    `Check it: research debug run ${runId}`,
-    `Dashboard: ${dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId)}`,
-  ].join("\n");
+  const createdAt = typeof first.createdAt === "string" ? first.createdAt : undefined;
+  const updatedAt = typeof first.updatedAt === "string" ? first.updatedAt : createdAt;
+  return renderBusyDatasetConflict({
+    runId,
+    status,
+    createdAt,
+    updatedAt,
+    dashboardUrl: dashboardRunUrl(DEFAULT_WEB_ORIGIN, runId),
+  });
 }
 
 function summarizeRemoteFailure(error: RemoteRequestError) {
@@ -878,15 +962,14 @@ async function maybeHandleBusyDatasetBeforePlanning(input: string, initialSessio
   if (!active) {
     return null;
   }
-  return [
-    `Blocked: ${datasetId} is already busy.`,
-    `Active run: ${active.id}`,
-    `Status: ${active.status}`,
-    "",
-    "Starting a duplicate analysis is not allowed while that run holds the dataset.",
-    `Check it: research debug run ${active.id}`,
-    "Next: wait for it to finish, inspect it, or cancel it before starting a new analysis.",
-  ].join("\n");
+  return renderBusyDatasetConflict({
+    datasetId,
+    runId: active.id,
+    status: active.status,
+    createdAt: active.createdAt,
+    updatedAt: active.updatedAt,
+    dashboardUrl: active.dashboardUrl ?? dashboardRunUrl(active.origin, active.id),
+  });
 }
 
 async function maybeHandleStuckRunQuestion(input: string, initialSession: SessionRecord | null) {

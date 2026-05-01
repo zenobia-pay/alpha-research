@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import test from "node:test";
 
 import {
@@ -7,7 +9,7 @@ import {
   type AgentMessage,
   type AgentRuntimeDeps,
 } from "../src/agent.js";
-import type { SessionRecord } from "../src/config.js";
+import { RUNS_PATH, type SessionRecord } from "../src/config.js";
 import { buildRunDebugBundle } from "../src/debug.js";
 import { RemoteRequestError } from "../src/remote.js";
 
@@ -452,7 +454,7 @@ test("busy dataset conflict returns blocking run guidance", async () => {
     },
     async startRun() {
       throw new RemoteRequestError(
-        'Remote request failed (409) for /api/cli/datasets/busy-dataset/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-blocking","status":"running"}]}',
+        'Remote request failed (409) for /api/cli/datasets/busy-dataset/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-blocking","status":"running","createdAt":"2026-05-01T19:40:00.000Z","updatedAt":"2026-05-01T19:44:00.000Z"}]}',
         409,
         "/api/cli/datasets/busy-dataset/runs",
       );
@@ -473,8 +475,61 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   const joined = messages.map((message) => message.content).join("\n");
   assert.match(joined, /Blocked: dataset is already busy/);
   assert.match(joined, /Active run: run-blocking/);
+  assert.match(joined, /Started: 2026-05-01T19:40:00.000Z/);
+  assert.match(joined, /Last update: 2026-05-01T19:44:00.000Z/);
   assert.match(joined, /No new run was started/);
+  assert.match(joined, /Next steps:/);
+  assert.match(joined, /Inspect now: `research debug run run-blocking`/);
   assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
+});
+
+test("prompt-mode busy dataset shortcut shows age, health, and clear actions", { concurrency: false }, async () => {
+  const datasetId = "enriched-tweets-busy-local";
+  const previousRuns = await readFile(RUNS_PATH, "utf8").catch(() => null);
+  try {
+    await mkdir(dirname(RUNS_PATH), { recursive: true });
+    await writeFile(RUNS_PATH, `${JSON.stringify([{
+      id: "run-local-blocker",
+      datasetId,
+      origin: session.origin,
+      status: "booting",
+      dashboardUrl: "https://dashboard.alpharesearch.nyc/?view=runs&runId=run-local-blocker#run-run-local-blocker",
+      createdAt: "2026-05-01T19:40:00.000Z",
+      updatedAt: "2026-05-01T19:44:00.000Z",
+      lastSeenAt: "2026-05-01T19:44:00.000Z",
+    }], null, 2)}\n`, "utf8");
+
+    const fakeClient = {
+      async respond() {
+        throw new Error("Busy dataset shortcut should return before remote planning.");
+      },
+    };
+    const deps: AgentRuntimeDeps = {
+      ...createDefaultAgentRuntimeDeps(),
+      createRemoteClient: () => fakeClient as never,
+      readSession: async () => session,
+    };
+    const { messages, emit } = collect();
+
+    await runAgentTurn(`Run a new analysis on ${datasetId}.`, session, emit, undefined, deps);
+
+    const final = messages.at(-1)?.content ?? "";
+    assert.match(final, new RegExp(`Blocked: ${datasetId} is already busy\\.`));
+    assert.match(final, /Status: booting/);
+    assert.match(final, /Started: 2026-05-01T19:40:00.000Z/);
+    assert.match(final, /Last update: 2026-05-01T19:44:00.000Z/);
+    assert.match(final, /holding the dataset lock/);
+    assert.match(final, /worth inspecting|expected while the worker starts/);
+    assert.match(final, /Inspect now: `research debug run run-local-blocker`/);
+    assert.match(final, /Open dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-local-blocker#run-run-local-blocker/);
+    assert.match(final, /Wait for the active run to finish, or cancel it if you confirm it is stuck\./);
+  } finally {
+    if (previousRuns === null) {
+      await rm(RUNS_PATH, { force: true }).catch(() => {});
+    } else {
+      await writeFile(RUNS_PATH, previousRuns, "utf8");
+    }
+  }
 });
 
 test("wait for run completion can time out deterministically", async () => {
