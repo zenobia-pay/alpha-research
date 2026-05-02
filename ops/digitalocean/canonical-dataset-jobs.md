@@ -18,6 +18,8 @@ Recommended cadence:
 - `canonical-expand`: daily at 04:00 UTC, after refresh finishes or after the refresh timeout expires.
 - `canonical-improve`: daily at 05:00 UTC, after expansion planning. The local cron entry should run `npm run canonical:improve` from this repository; that script starts one remote Codex run per ready canonical dataset and skips datasets with active runs.
 
+The local cron entry for expansion planning should run `npm run canonical:expand` from this repository; that script starts one remote run per ready canonical dataset and skips datasets with active runs.
+
 ## Required Inputs
 
 - Dataset id, for example `econ`.
