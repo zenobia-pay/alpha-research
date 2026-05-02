@@ -10,11 +10,13 @@ Each canonical dataset has two daily jobs:
 
 - `canonical-refresh`: fetch active public sources, normalize, validate, and publish dataset artifacts.
 - `canonical-expand`: reason over field coverage and propose source-registry changes.
+- `canonical-improve`: run a remote Codex analysis pass that inspects the dataset, searches the internet with Exa, classifies new candidate public sources, and sends Slack webhook alerts when a high-value source appears relevant but cannot be found, fetched, licensed, or accessed without credentials.
 
 Recommended cadence:
 
 - `canonical-refresh`: daily at 02:00 UTC.
 - `canonical-expand`: daily at 04:00 UTC, after refresh finishes or after the refresh timeout expires.
+- `canonical-improve`: daily at 05:00 UTC, after expansion planning. The local cron entry should run `npm run canonical:improve` from this repository; that script starts one remote Codex run per ready canonical dataset and skips datasets with active runs.
 
 ## Required Inputs
 
@@ -45,6 +47,15 @@ Every successful expansion run should publish:
   - `license_review`
   - `credential_required`
   - `reject`
+
+Every successful improvement run should publish:
+
+- `improvement_plan.md`
+- `improvement_result.json`
+- `candidate_sources.csv`
+- `exa_search_log.json`
+
+The remote runner must have `EXA_API_KEY` and `CANONICAL_DATASET_SLACK_WEBHOOK_URL` in its environment. These are worker secrets; prompts and artifacts must never include secret values.
 
 ## Deployment Notes
 

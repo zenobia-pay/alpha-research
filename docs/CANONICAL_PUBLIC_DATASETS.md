@@ -28,6 +28,14 @@ For every canonical dataset, schedule two jobs:
    - Produce `expansion_plan.md` and update `source_registry.plan.json`.
    - Do not ingest newly discovered sources automatically unless they are clearly public, stable, machine-fetchable, and compatible with the dataset license.
 
+3. `improve`
+   - Start one remote Codex run per ready canonical dataset using `npm run canonical:improve`.
+   - Inspect the mounted dataset, manifest, source registry, data dictionary, quality report, briefing, and previous improvement artifacts.
+   - Search the internet with Exa using the remote `EXA_API_KEY`.
+   - Classify newly discovered candidate sources as `active_fetchable`, `deferred_fetchable`, `license_review`, `credential_required`, `not_found`, or `reject`.
+   - Send a Slack webhook alert through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` for high-value `not_found`, `credential_required`, or license-review candidates that need human action.
+   - Produce `improvement_plan.md`, `improvement_result.json`, `candidate_sources.csv`, and `exa_search_log.json`.
+
 ## Canonical Dataset Catalog
 
 ### Econ (`econ`)
