@@ -2097,9 +2097,15 @@ test("vague dataset interesting request gives a concise briefing and focused cho
 
   assert.deepEqual(calls, ["listDatasets", "getDataset"]);
   const transcript = messages.map((message) => message.content).join("\n");
-  assert.match(transcript, /looks most useful for rate sensitivity/i);
-  assert.match(transcript, /Pick one next step: rate sensitivity, coverage quality, regional differences\./i);
+  assert.match(transcript, /quick dataset briefing first/i);
+  assert.match(transcript, /plausible fit for a first pass because it already looks structured for rate sensitivity/i);
+  assert.match(transcript, /Time range: 2018-01 to 2026-01; Geography: county-month panel; Income growth is missing in about 23% of county-months\./i);
+  assert.match(transcript, /rate sensitivity: how the headline metrics move when rates change\. Cost: one small read-only pass\./i);
+  assert.match(transcript, /coverage quality: missingness, completeness, and where the panel is thin\. Cost: one small read-only pass\./i);
+  assert.match(transcript, /regional differences: which places move differently from the national pattern\. Cost: one small read-only pass\./i);
+  assert.match(transcript, /Reply with one of those angles, or say `briefing only` if you just want the dataset summary\./i);
   assert.match(transcript, /I will not start a broad remote analysis until you choose the scope\./i);
+  assert.doesNotMatch(transcript, /Checking remote datasets|Found \d+ remote datasets|Inspecting dataset econ|Inspected remote dataset econ/i);
   assert.doesNotMatch(transcript, /deployment finishes|env turns ready|briefing\/profile/i);
 });
 

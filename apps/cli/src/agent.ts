@@ -2746,6 +2746,25 @@ function vagueInterestingDirections(detail: RemoteDatasetDetail) {
   return ["coverage quality", "time trends", "segment differences"];
 }
 
+function describeInterestingDirection(direction: string) {
+  switch (direction) {
+    case "rate sensitivity":
+      return "how the headline metrics move when rates change";
+    case "coverage quality":
+      return "missingness, completeness, and where the panel is thin";
+    case "regional differences":
+      return "which places move differently from the national pattern";
+    case "engagement drivers":
+      return "which signals line up with outsized engagement";
+    case "time trends":
+      return "how the core metrics shift over time";
+    case "segment differences":
+      return "which groups or slices diverge the most";
+    default:
+      return "a narrowly scoped read-only slice";
+  }
+}
+
 function summarizeInterestingDataset(detail: RemoteDatasetDetail) {
   const profile = detail.profile;
   const headerName = detail.name?.trim() || detail.id;
@@ -2767,9 +2786,12 @@ function summarizeInterestingDataset(detail: RemoteDatasetDetail) {
   const geographyLabel = geographyCoverage
     ? String(geographyCoverage.level ?? geographyCoverage.grain ?? geographyCoverage.summary ?? "").trim()
     : "";
-  const strongestAngle = vagueInterestingDirections(detail)[0] ?? "coverage quality";
+  const directions = vagueInterestingDirections(detail);
+  const strongestAngle = directions[0] ?? "coverage quality";
   const lines = [
-    `${headerName} looks most useful for ${strongestAngle}, but I would keep the first pass narrow.`,
+    "I can give you a quick dataset briefing first, then narrow into one question if you want.",
+    "",
+    `${headerName} is a plausible fit for a first pass because it already looks structured for ${strongestAngle}.`,
   ];
   if (sourceNames.length > 0) {
     lines.push(`- It combines ${sourceNames.join(", ")}${tableNames.length > 0 ? ` into ${tableNames.join(" and ")}` : ""}.`);
@@ -2781,9 +2803,14 @@ function summarizeInterestingDataset(detail: RemoteDatasetDetail) {
   if (limitationText) {
     lines.push(`- Main caution: ${limitationText}.`);
   }
-  const directions = vagueInterestingDirections(detail);
-  lines.push("", `Pick one next step: ${directions.join(", ") }.`);
-  lines.push("I can do a small read-only pass on one of those, but I will not start a broad remote analysis until you choose the scope.");
+  lines.push("");
+  lines.push("If you want to drill in, pick one read-only next step:");
+  for (const direction of directions) {
+    lines.push(`- ${direction}: ${describeInterestingDirection(direction)}. Cost: one small read-only pass.`);
+  }
+  lines.push("");
+  lines.push("Reply with one of those angles, or say `briefing only` if you just want the dataset summary.");
+  lines.push("I will not start a broad remote analysis until you choose the scope.");
   return lines.join("\n");
 }
 
@@ -2877,22 +2904,18 @@ async function maybeHandleVagueDatasetInterestingQuestion(
     return null;
   }
   const client = deps.createRemoteClient(initialSession);
-  emit({ role: "tool", content: "Checking remote datasets..." });
   const listed = await client.listDatasets().catch(() => null);
   if (!listed) {
     return null;
   }
-  emit({ role: "tool", content: `Found ${listed.datasets.length} remote datasets.` });
   const selected = listed.datasets.find((dataset) => matchesDatasetReference(dataset, reference));
   if (!selected) {
     return null;
   }
-  emit({ role: "tool", content: `Inspecting dataset ${selected.id}...` });
   const detail = await client.getDataset(selected.id).catch(() => null);
   if (!detail?.dataset) {
     return null;
   }
-  emit({ role: "tool", content: `Inspected remote dataset ${selected.id}.` });
   return summarizeInterestingDataset(detail.dataset);
 }
 

@@ -59,6 +59,9 @@ function wrapForStdout(line: string) {
 
 export function initialPromptModeStatus(prompt: string) {
   const lower = prompt.trim().toLowerCase();
+  if (/\bdataset\b/.test(lower) && /\binterest(?:ing)?\b/.test(lower) && /\banaly[sz]e\b/.test(lower)) {
+    return "Preparing a quick dataset briefing...";
+  }
   if (/\bhousing market\b/.test(lower) && /\b(trouble|crash|bad|risk|look into)\b/.test(lower)) {
     return "Needs your input: scope clarification.";
   }
