@@ -248,6 +248,8 @@ const AGENT_INSTRUCTIONS = [
   "Before creating a research environment, list remote datasets and reuse or extend an existing semantically matching research environment when one exists. Do not create duplicate environments for the same domain, source catalog, or hypothesis family.",
   "Use create_public_data_environment only for simple public-only environments. Do not use deploy_remote_dataset unless there is one uploaded/local source that only needs normalization.",
   "For environment creation, make a concrete acquisition plan in the remote prompt: public sources, private files, APIs, files to fetch, normalized output tables, manifest, and validation checks.",
+  "For fully specified dataset-build briefs that already name scope, time range, source families, validation checks, and requested artifacts, do not ask broad follow-up questions and do not inspect candidate datasets before launch unless readiness is genuinely unclear.",
+  "For those explicit build briefs, list remote datasets once, reuse or extend the best matching environment if it exists, then launch create_research_environment immediately with a concise justification, preserved validation requirements, and explicit artifact expectations.",
   "Prefer lightweight dataset queries before launching heavy transforms or analyses when the user is asking for examples, top records, or simple slices.",
   "Do not answer with generic numbered menus when you can inspect the user's actual datasets or runs and propose one concrete next action.",
   "When you start a remote run, do not wait for completion unless the user explicitly asks you to wait. Return immediately with the run id and dashboard link.",
@@ -609,16 +611,16 @@ function recommendationReason(topic: string, dataset: RemoteDatasetSummary) {
   const candidate = topicRecommendationTokens([dataset.id, dataset.name].join(" "));
   const overlap = candidate.filter((token) => requested.has(token));
   if (overlap.length > 0) {
-    return `name overlap: ${overlap.slice(0, 3).join(", ")}`;
+    return `matching topic terms: ${overlap.slice(0, 3).join(", ")}`;
   }
   if (["ready", "deployed"].includes((dataset.status ?? dataset.deploymentStatus ?? "").toLowerCase())) {
-    return "ready existing environment";
+    return "ready environment that can be extended";
   }
   return "available but weak topical signal";
 }
 
 function rankDatasetsForRecommendation(topic: string, datasets: RemoteDatasetSummary[], limit = 3) {
-  return datasets
+  const ranked = datasets
     .map((dataset) => ({
       dataset,
       score: recommendationMatchScore(topic, dataset),
@@ -627,8 +629,12 @@ function rankDatasetsForRecommendation(topic: string, datasets: RemoteDatasetSum
     .sort((left, right) =>
       right.score - left.score
       || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? ""))
-      || left.dataset.id.localeCompare(right.dataset.id))
-    .slice(0, Math.max(1, limit));
+      || left.dataset.id.localeCompare(right.dataset.id));
+  const meaningful = ranked.filter((entry) => entry.score > 0);
+  if (meaningful.length > 0) {
+    return meaningful.slice(0, Math.max(1, limit));
+  }
+  return ranked.slice(0, 1);
 }
 
 function formatDatasetShortlist(topic: string, datasets: RemoteDatasetSummary[], limit = 3) {
@@ -636,7 +642,7 @@ function formatDatasetShortlist(topic: string, datasets: RemoteDatasetSummary[],
   if (ranked.length === 0) return null;
   return ranked.map(({ dataset, score, reason }, index) => {
     const status = dataset.status ?? dataset.deploymentStatus ?? "unknown";
-    return `${index + 1}. ${dataset.id} (${status}, score ${score}) - ${reason}`;
+    return `${index + 1}. ${dataset.id} (${status}, score ${score}) — ${reason}`;
   }).join("\n");
 }
 
@@ -1180,6 +1186,17 @@ function inferExpectedArtifacts(
   return Array.from(labels);
 }
 
+function inferValidationChecks(prompt: string | undefined) {
+  const lower = (prompt ?? "").toLowerCase();
+  const checks: string[] = [];
+  if (lower.includes("source url")) checks.push("source URLs");
+  if (lower.includes("row count")) checks.push("row counts");
+  if (lower.includes("missingness")) checks.push("missingness");
+  if (lower.includes("join key")) checks.push("join keys");
+  if (lower.includes("temporal coverage")) checks.push("temporal coverage");
+  return checks;
+}
+
 function formatEnvironmentBuildSummary(args: {
   buildKind: "research environment" | "public-data environment";
   datasetId: string;
@@ -1192,18 +1209,23 @@ function formatEnvironmentBuildSummary(args: {
   const lines = [
     `Started ${args.buildKind} build for ${args.datasetName?.trim() || args.datasetId}.`,
     `Dataset: ${args.datasetId}`,
-    `Run: ${args.run.id}`,
+    `Run: ${args.run.id} (${normalizeAsyncRunStatus(args.run.status)})`,
   ];
   const plan = compactPromptLine(args.prompt);
   if (plan) {
     lines.push(`Plan: ${plan}`);
+  }
+  const validationChecks = inferValidationChecks(args.prompt);
+  if (validationChecks.length > 0) {
+    lines.push(`Validation preserved: ${validationChecks.join(", ")}.`);
   }
   const expectedArtifacts = inferExpectedArtifacts(args.artifacts, args.prompt);
   if (expectedArtifacts.length > 0) {
     lines.push(`Expected artifacts: ${expectedArtifacts.join("; ")}`);
   }
   lines.push(
-    `Status: ${formatStatusForHumans(args.run.status)}. Build is running in the background.`,
+    `Status: ${formatStatusForHumans(args.run.status)}. The build launched and will keep running in the background.`,
+    `Next: check \`research debug run ${args.run.id}\` or ask \`research show active runs\`.`,
     `Monitor: research debug run ${args.run.id}`,
     `Dashboard: ${dashboardRunUrl(args.origin, args.run.id)}`,
   );
@@ -1265,6 +1287,14 @@ function summarizeResolvedDataset(target: ResolvedDatasetTarget, purpose: string
     return `Using existing dataset ${label} for ${purpose} instead of unavailable duplicate ${target.requestedDatasetId}.`;
   }
   return `Using dataset ${label} for ${purpose}.`;
+}
+
+function explainEnvironmentSelection(target: ResolvedDatasetTarget) {
+  const label = target.datasetName ? `${target.datasetName} (${target.datasetId})` : target.datasetId;
+  if (target.reusedExisting && target.datasetId !== target.requestedDatasetId) {
+    return `Best existing base: ${label}. Reusing it so this build extends a ready environment instead of creating a duplicate dataset first.`;
+  }
+  return `Build target: ${label}. No stronger existing environment was selected for reuse.`;
 }
 
 function parseBusyDatasetConflict(error: RemoteRequestError) {
@@ -3549,6 +3579,16 @@ export function createToolRegistry(): ToolDefinition[] {
         const requestedDatasetId = String(input.datasetId);
         const existingDatasets = await client.listDatasets().catch(() => ({ datasets: [] }));
         const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, input, existingDatasets.datasets);
+        const matchedDataset = existingDatasets.datasets.find((dataset) => dataset.id === datasetId);
+        context.emit({
+          role: "tool",
+          content: explainEnvironmentSelection({
+            requestedDatasetId,
+            datasetId,
+            datasetName: matchedDataset?.name,
+            reusedExisting: datasetId !== requestedDatasetId,
+          }),
+        });
         const name = String(input.name);
         const prompt = String(input.prompt);
         const publicSources = Array.isArray(input.publicSources)
@@ -3658,6 +3698,16 @@ export function createToolRegistry(): ToolDefinition[] {
         const requestedDatasetId = String(input.datasetId);
         const existingDatasets = await client.listDatasets().catch(() => ({ datasets: [] }));
         const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, input, existingDatasets.datasets);
+        const matchedDataset = existingDatasets.datasets.find((dataset) => dataset.id === datasetId);
+        context.emit({
+          role: "tool",
+          content: explainEnvironmentSelection({
+            requestedDatasetId,
+            datasetId,
+            datasetName: matchedDataset?.name,
+            reusedExisting: datasetId !== requestedDatasetId,
+          }),
+        });
         if (datasetId !== requestedDatasetId) {
           context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of creating duplicate ${requestedDatasetId}.` });
         }
@@ -4868,10 +4918,6 @@ export async function runAgentTurn(
           data: result.data,
         }),
       });
-    }
-
-    if (functionCalls.length === 1 && functionCalls[0]?.name === "list_remote_datasets") {
-      emit({ role: "tool", content: "Reviewing remote datasets and drafting the next step..." });
     }
 
     const refreshedSession = await deps.readSession();

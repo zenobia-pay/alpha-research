@@ -177,7 +177,7 @@ function deriveAssistantStatus(text: string): TaskStatus {
 }
 
 function looksLikeProgress(text: string) {
-  return /\.\.\.$/u.test(text) || /^(Checking|Inspecting|Starting|Resolving|Creating|Preparing|Uploading|Finalizing|Deploying|Retrieving|Waiting|Dataset selected:|Planning run:)\b/u.test(text);
+  return /\.\.\.$/u.test(text) || /^(?:Checking|Inspecting|Starting|Resolving|Creating|Preparing|Uploading|Finalizing|Deploying|Retrieving|Waiting)\b|^(?:Dataset selected:|Planning run:)/u.test(text);
 }
 
 function extractRunId(text: string) {
