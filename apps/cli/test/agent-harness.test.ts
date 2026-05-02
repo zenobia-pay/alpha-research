@@ -1519,10 +1519,10 @@ test("run result retrieval includes selected run context and artifacts", async (
   }
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /Selected your most recent tracked run because it already completed\./);
-  assert.match(final, /Selected run: enriched-tweets/);
+  assert.match(final, /Selected the most recent completed run: enriched-tweets, completed /);
+  assert.match(final, /Why this run: Selected your most recent tracked run because it already completed\./);
   assert.match(final, /Artifacts/);
-  assert.match(final, /Retrieved successfully\./);
+  assert.match(final, /Next decisions/);
 });
 
 test("last run results select the latest completed run and explain newer active runs", async () => {
@@ -1598,11 +1598,12 @@ test("last run results select the latest completed run and explain newer active 
   }
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /Retrieved the latest finished results from your run history\./);
-  assert.match(final, /Selected run: enriched-tweets/);
+  assert.match(final, /Selected the most recent completed run: enriched-tweets, completed /);
   assert.match(final, /Why this run: Selected your most recent completed run because newer tracked runs are still in progress\./);
   assert.match(final, /Skipped newer in-progress runs: econ \(booting\), labor \(running\)\./);
   assert.match(final, /Summary/);
+  assert.match(final, /Open first: Remote Agent Summary — plain-language recap from the remote run\./);
+  assert.doesNotMatch(final, /Structured result is available in `result\.json`/);
   assert.doesNotMatch(final, /run-complete ·/);
 });
 

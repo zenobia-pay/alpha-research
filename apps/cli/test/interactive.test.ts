@@ -8,6 +8,7 @@ import {
   describeRunExpectation,
   describeRunPhase,
   formatRunLastUpdate,
+  summarizeCompletedResult,
   summarizePrompt,
 } from "../src/interactive.js";
 import type { InteractiveTaskState } from "../src/interactive-state.js";
@@ -191,6 +192,27 @@ test("currentWorkSummary compresses busy dataset locks into blocking run details
   ]);
 });
 
+test("summarizeCompletedResult extracts a compact retrieval card from the final answer", () => {
+  const result = summarizeCompletedResult([
+    "Selected the most recent completed run: enriched-tweets, completed May 1, 2026, 1:32 PM PDT (3 minutes ago).",
+    "Why this run: Selected your most recent completed run because newer tracked runs are still in progress.",
+    "",
+    "Summary",
+    "- Confirmed the dataset is loaded and summarized the latest findings.",
+    "",
+    "Artifacts",
+    "- Open first: summary.md — written summary you can read first.",
+    "- Also available: result.json (structured result data).",
+  ].join("\n"));
+
+  assert.deepEqual(result, {
+    headline: "Selected completed run: enriched-tweets, completed May 1, 2026, 1:32 PM PDT (3 minutes ago).",
+    why: "Selected your most recent completed run because newer tracked runs are still in progress.",
+    summary: "Confirmed the dataset is loaded and summarized the latest findings.",
+    artifacts: ["summary.md", "result.json"],
+  });
+});
+
 test("default composer placeholder still serves normal prompts", () => {
-  assert.equal(composerPlaceholder(session), "Ask about datasets, runs, or artifacts");
+  assert.equal(composerPlaceholder({ origin: "https://alpharesearch.nyc", accessToken: "token", createdAt: "2026-05-01T00:00:00.000Z" }), "Ask about datasets, runs, or artifacts");
 });

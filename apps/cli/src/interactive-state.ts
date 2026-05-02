@@ -140,7 +140,7 @@ export function buildLiveSummary(state: InteractiveTaskState) {
 }
 
 export function extractBlockedRunDetails(text: string): BlockedRunDetails | null {
-  if (!/Blocked: .*active dataset run|Blocked: .*already busy/u.test(text)) {
+  if (!/Blocked: .*active dataset run|Blocked: .*already busy|Blocked: .*already running/u.test(text)) {
     return null;
   }
 
@@ -318,7 +318,7 @@ function inferNextExpectedFromMessage(text: string) {
   if (isBlockedAssistantMessage(text)) {
     return /Recommended action:\s*wait\b/iu.test(text)
       ? "Wait for the blocking run to clear or inspect it if it stays stuck."
-      : "Choose a recovery action to unblock the request.";
+      : "A short user reply or user action to unblock the request.";
   }
   if (isWaitingForUserReply(text)) {
     return "A short user reply so RESEARCH can continue with the right scope.";
@@ -418,7 +418,7 @@ function extractBlockedDataset(text: string) {
 function deriveAssistantCurrentStep(text: string) {
   const blockedDataset = extractBlockedDataset(text);
   if (blockedDataset) {
-    if (/Blocked: .*active dataset run|Blocked: .*already busy/u.test(text)) {
+    if (/Blocked: .*active dataset run|Blocked: .*already busy|Blocked: .*already running/u.test(text)) {
       return `Recovery needed before ${blockedDataset.id} can start a new run.`;
     }
     return `Waiting for ${blockedDataset.id} to become ready.`;

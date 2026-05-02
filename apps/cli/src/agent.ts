@@ -1426,27 +1426,31 @@ async function maybeHandleLastRunResultsRequest(
     return lines.join("\n");
   }
   const lines = [
-    "Retrieved the latest finished results from your run history.",
-    "",
-    `Selected run: ${payload.run.datasetId}`,
-    `Completed: ${formatWhen(latestCompleted.terminalAt ?? latestCompleted.updatedAt)}`,
+    `Selected the most recent completed run: ${payload.run.datasetId}, completed ${formatWhen(latestCompleted.terminalAt ?? latestCompleted.updatedAt)}.`,
     `Why this run: ${reason.replace(/\.$/u, "")}.`,
   ];
   if (skippedActive.length > 0) {
     lines.push(`Skipped newer in-progress run${skippedActive.length === 1 ? "" : "s"}: ${skippedActive.map((run) => `${run.datasetId} (${formatStatusForHumans(run.status)})`).join(", ")}.`);
   }
-  if (previewText) {
-    lines.push("", "Summary", `- ${previewText}`);
-  }
-  if (structuredResult?.content && isRecord(structuredResult.content)) {
-    lines.push("", renderStructuredResult(structuredResult.content));
-  } else if (!previewText && preview) {
-    lines.push("", "Summary", `- ${compactPlainText(preview, 240)}`);
-  }
+  const structuredContent = structuredResult?.content && isRecord(structuredResult.content) ? structuredResult.content : null;
+  const changeSummary = summarizeCompletedRunChanges(preview, structuredContent, payload.run.datasetId);
+  lines.push("", "Summary", `- ${changeSummary}`);
   if (producedArtifacts.length > 0) {
-    lines.push("", "Artifacts", ...producedArtifacts.slice(0, 4).map((artifact) => `- ${artifactBullet(artifact)}`));
+    const artifactSummary = summarizeContinuityArtifacts(producedArtifacts);
+    const artifactLines = [
+      artifactSummary.primaryArtifact ? `- Open first: ${artifactSummary.primaryArtifact.label} — ${artifactSummary.primaryArtifact.description}.` : null,
+      artifactSummary.secondaryArtifacts.length > 0
+        ? `- Also available: ${artifactSummary.secondaryArtifacts.slice(0, 3).map((artifact) => `${artifact.label} (${artifact.description})`).join("; ")}.`
+        : null,
+    ].filter((line): line is string => Boolean(line));
+    if (artifactLines.length > 0) {
+      lines.push("", "Artifacts", ...artifactLines);
+    }
   }
-  lines.push("", "Retrieved successfully.");
+  const nextDecisions = suggestNextDecisions(payload.run.datasetId, structuredContent, producedArtifacts);
+  if (nextDecisions.length > 0) {
+    lines.push("", "Next decisions", ...nextDecisions.map((item) => `- ${item}`));
+  }
   return lines.join("\n");
 }
 

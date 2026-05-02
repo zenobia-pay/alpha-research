@@ -193,6 +193,51 @@ function summarizeRunActivity(run: TrackedRunRecord) {
   return summarizePrompt(latest, 100);
 }
 
+function collectSectionBullets(text: string, heading: string) {
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) return [] as string[];
+  const bullets: string[] = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const trimmed = lines[index]?.trim() ?? "";
+    if (!trimmed) continue;
+    if (!trimmed.startsWith("- ")) break;
+    bullets.push(trimmed.slice(2).trim());
+  }
+  return bullets;
+}
+
+export function summarizeCompletedResult(text: string) {
+  const selectedRun = text.match(/^Selected the most recent completed run:\s*([^,]+)(?:, completed .+)?\.$/imu)?.[1]?.trim()
+    ?? text.match(/^Selected run:\s*(.+)$/imu)?.[1]?.trim()
+    ?? text.match(/^- ([^(]+?) \([^)]+\) completed successfully\.$/imu)?.[1]?.trim()
+    ?? null;
+  const completedAt = text.match(/^Selected the most recent completed run:\s*[^,]+, completed (.+)\.$/imu)?.[1]?.trim()
+    ?? text.match(/^Completed:\s*(.+)$/imu)?.[1]?.trim()
+    ?? text.match(/completed ([^.]+)\.$/iu)?.[1]?.trim()
+    ?? null;
+  const why = text.match(/^Why this run:\s*(.+)$/imu)?.[1]?.trim()
+    ?? collectSectionBullets(text, "Latest finished result").find((line) => line.startsWith("Why this result:"))?.replace(/^Why this result:\s*/u, "")
+    ?? null;
+  const summary = collectSectionBullets(text, "Summary")[0]
+    ?? collectSectionBullets(text, "What changed")[0]
+    ?? null;
+  const artifacts = collectSectionBullets(text, "Artifacts")
+    .map((line) => line.replace(/^(Open first|Also available):\s*/u, "").split(/[—(]/u)[0]?.trim() ?? "")
+    .filter(Boolean)
+    .slice(0, 3);
+
+  if (!selectedRun && !summary && !why) {
+    return null;
+  }
+
+  const headline = selectedRun
+    ? `Selected completed run: ${selectedRun}${completedAt ? `, completed ${completedAt.replace(/\.$/u, "")}` : ""}.`
+    : "Selected the latest completed run.";
+
+  return { headline, why, summary, artifacts };
+}
+
 export function currentWorkSummary(taskState: InteractiveTaskState) {
   const blockedDetails = taskState.lastResult ? extractBlockedRunDetails(taskState.lastResult) : null;
   if (taskState.status === "blocked" && blockedDetails) {
@@ -459,7 +504,19 @@ function TaskSummary({
           {blockedDetails.recommendedAction ? <Text>{`Recommended action: ${blockedDetails.recommendedAction.replace("_", " ")}`}</Text> : null}
         </Box>
       ) : null}
-      {taskState.lastResult && taskState.status === "done" ? <Text>{`Last result: ${taskState.lastResult}`}</Text> : null}
+      {taskState.lastResult && taskState.status === "done" ? (() => {
+        const resultSummary = summarizeCompletedResult(taskState.lastResult);
+        if (!resultSummary) return null;
+        return (
+          <Box flexDirection="column" marginTop={1}>
+            <Text bold>Result</Text>
+            <Text>{resultSummary.headline}</Text>
+            {resultSummary.why ? <Text>{`Why this run: ${resultSummary.why}`}</Text> : null}
+            {resultSummary.summary ? <Text>{`Summary: ${resultSummary.summary}`}</Text> : null}
+            {resultSummary.artifacts.length > 0 ? <Text>{`Artifacts: ${resultSummary.artifacts.join(", ")}`}</Text> : null}
+          </Box>
+        );
+      })() : null}
       {taskState.nextExpectedOutput && !workSummary && !blockedDetails ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
       {workSummary ? (
         <Box flexDirection="column" marginTop={1}>
