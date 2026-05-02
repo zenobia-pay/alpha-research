@@ -491,27 +491,37 @@ function chooseRecommendedInventoryDataset(cards: InventoryDatasetCard[]) {
 }
 
 function renderInventoryDatasetLine(card: InventoryDatasetCard) {
-  const detail = card.detail ? `; ${card.detail}` : "";
-  return `- ${card.name} (${card.kind}) — ${card.purpose}. ${card.action}; ${card.readiness}${detail}. id: ${card.id}`;
+  const meta = [card.kind, card.readiness, card.detail].filter((value): value is string => Boolean(value)).join(", ");
+  return `- ${card.name} [${card.id}] — ${meta} — ${card.purpose}`;
 }
 
 function formatDatasetInventoryResponse(
   localInstances: DatasetInstanceSummary[],
   remoteDatasets: RemoteDatasetSummary[],
+  includeHidden = false,
 ) {
   const cards = [
     ...localInstances.map(localInventoryCard),
     ...remoteDatasets.map(remoteInventoryCard),
   ].sort(inventorySort);
-  const readyChoices = cards.filter((card) => card.ready && !card.noisy);
-  const otherChoices = cards.filter((card) => !readyChoices.includes(card));
-  const recommendation = chooseRecommendedInventoryDataset(readyChoices.length > 0 ? readyChoices : cards);
+  const visibleCards = includeHidden ? cards : cards.filter((card) => !card.noisy);
+  const hiddenCount = cards.length - visibleCards.length;
+  const readyChoices = visibleCards.filter((card) => card.ready);
+  const otherChoices = visibleCards.filter((card) => !card.ready);
+  const recommendationPool = readyChoices.length > 0 ? readyChoices : (visibleCards.length > 0 ? visibleCards : cards);
+  const recommendation = chooseRecommendedInventoryDataset(recommendationPool);
+  const shownOtherChoices = otherChoices.slice(0, 4);
+  const omittedOtherChoices = otherChoices.length - shownOtherChoices.length;
+  const readyCount = cards.filter((card) => card.ready).length;
   const lines: string[] = [];
+
+  lines.push(`${localInstances.length} local / ${remoteDatasets.length} remote / ${readyCount} ready now`);
 
   if (recommendation) {
     lines.push(
-      `Best starting point: ${recommendation.name} (${recommendation.kind}) — ${recommendation.purpose}. Next step: ${recommendation.action} with dataset id \`${recommendation.id}\`.`,
+      `Best starting point: ${recommendation.name} [${recommendation.id}] (${recommendation.kind})`,
     );
+    lines.push(`Next: describe or analyze \`${recommendation.id}\`.`);
   }
 
   if (readyChoices.length > 0) {
@@ -525,15 +535,19 @@ function formatDatasetInventoryResponse(
 
   if (otherChoices.length > 0) {
     lines.push("", "Other datasets");
-    for (const card of otherChoices) {
+    for (const card of shownOtherChoices) {
       lines.push(renderInventoryDatasetLine(card));
+    }
+    if (omittedOtherChoices > 0) {
+      lines.push(`- ${omittedOtherChoices} more dataset${omittedOtherChoices === 1 ? "" : "s"}. Ask \`show all datasets\` to expand this list.`);
     }
   }
 
-  lines.push(
-    "",
-    "Why these groups: `Ready now` means you can use the dataset immediately from this CLI. `Other datasets` are still being prepared, are drafts, or look like test/noise datasets.",
-  );
+  if (hiddenCount > 0 && !includeHidden) {
+    lines.push("", `Hidden ${hiddenCount} likely test or temporary datasets. Ask \`show all datasets\` to include them.`);
+  }
+
+  lines.push("", "Done. Ask about any dataset by name or id, or press `/` for commands.");
   return lines.join("\n");
 }
 
@@ -2367,10 +2381,11 @@ async function maybeHandleDatasetInventory(input: string, initialSession: Sessio
   const localInstances = await deps.listLocalDatasets().catch(() => []);
   const client = deps.createRemoteClient(initialSession);
   const remoteDatasets = await client.listDatasets().then((payload) => payload.datasets).catch(() => []);
+  const includeHidden = wantsAllDatasets(input);
   return {
     localCount: localInstances.length,
     remoteCount: remoteDatasets.length,
-    response: formatDatasetInventoryResponse(localInstances, remoteDatasets),
+    response: formatDatasetInventoryResponse(localInstances, remoteDatasets, includeHidden),
   };
 }
 

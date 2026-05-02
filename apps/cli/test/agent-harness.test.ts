@@ -303,18 +303,19 @@ test("dataset inventory is recommendation-first, name-first, and de-emphasizes n
   assert.equal(messages[2]?.content, "Checking remote datasets...");
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /^Best starting point: County Economics \(local\)/);
-  assert.match(final, /Next step: use locally with dataset id `county-economics`/);
+  assert.match(final, /^2 local \/ 5 remote \/ 4 ready now/);
+  assert.match(final, /Best starting point: County Economics \[county-economics\] \(local\)/);
+  assert.match(final, /Next: describe or analyze `county-economics`\./);
   assert.match(final, /Ready now/);
-  assert.match(final, /County Economics \(local\) — county-level economics for regional trend comparisons\./);
-  assert.match(final, /Enriched Tweets \(remote\) — tweet archive for social\/content analysis\./);
-  assert.match(final, /id: county-economics/);
-  assert.match(final, /id: enriched-tweets/);
+  assert.match(final, /County Economics \[county-economics\] — local, ready to use, 4 rows — county-level economics for regional trend comparisons/);
+  assert.match(final, /Enriched Tweets \[enriched-tweets\] — remote, ready to use, deployed — tweet archive for social\/content analysis/);
   assert.match(final, /Other datasets/);
-  assert.match(final, /Mixed Smoke Test \(remote\).*query remotely; ready to use; deployed\./);
-  assert.match(final, /Unemployment vs Home Values 2019–2024 \(remote\).*not ready yet; still being prepared\./);
-  assert.match(final, /Upload Test \(remote\).*uploaded but not queryable yet\./);
-  assert.match(final, /enriched_tweets_parquet_dataset \(remote\).*still a draft\./);
+  assert.match(final, /Unemployment vs Home Values 2019–2024 \[econ\] — remote, still being prepared — housing market and home-value analysis/);
+  assert.match(final, /enriched_tweets_parquet_dataset \[dataset\] — remote, still a draft — general research dataset/);
+  assert.match(final, /Hidden 2 likely test or temporary datasets\. Ask `show all datasets` to include them\./);
+  assert.match(final, /Done\. Ask about any dataset by name or id, or press `\/` for commands\./);
+  assert.doesNotMatch(final, /Mixed Smoke Test/);
+  assert.doesNotMatch(final, /Upload Test/);
 });
 
 test("dataset selection from topic uses dataset metadata and asks one focused follow-up", async () => {
