@@ -84,7 +84,7 @@ export async function runIngest(args: string[], logger: (message: string) => voi
 export async function uploadFileToPresignedUrl(filePath: string, uploadUrl: string, logger: (message: string) => void = console.log) {
   const metadata = await stat(filePath);
   const sizeBytes = metadata.size;
-  logger(`Uploading ${basename(filePath)} (${formatBytes(sizeBytes)} total). This may take a few minutes for large files.`);
+  logger(`Uploading ${basename(filePath)} (${formatBytes(sizeBytes)} total). Deployment will start after the upload finishes.`);
   const startedAt = Date.now();
   let uploadedBytes = 0;
   let lastEmittedAt = 0;
@@ -115,7 +115,7 @@ export async function uploadFileToPresignedUrl(filePath: string, uploadUrl: stri
   };
   const heartbeat = setInterval(() => {
     if (Date.now() - lastHeartbeatAt >= 15000 && uploadedBytes < sizeBytes) {
-      logger(`Still uploading ${basename(filePath)}... ${formatBytes(uploadedBytes)} of ${formatBytes(sizeBytes)} transferred.`);
+      logger(`Still uploading ${basename(filePath)}. ${formatBytes(uploadedBytes)} of ${formatBytes(sizeBytes)} transferred. Deployment is queued next.`);
       lastHeartbeatAt = Date.now();
     }
   }, 5000);
@@ -145,7 +145,7 @@ export async function uploadFileToPresignedUrl(filePath: string, uploadUrl: stri
     clearInterval(heartbeat);
   }
   reportProgress(true);
-  logger(`Upload complete for ${basename(filePath)} in ${formatDuration((Date.now() - startedAt) / 1000)}.`);
+  logger(`Finished uploading ${basename(filePath)} in ${formatDuration((Date.now() - startedAt) / 1000)}. Verifying the source so deployment can start.`);
   return sizeBytes;
 }
 
@@ -162,11 +162,12 @@ function formatBytes(value: number) {
   return `${size.toFixed(digits)} ${units[index]}`;
 }
 
-function formatDuration(seconds: number) {
+export function formatDuration(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) return "under 1s";
   if (seconds < 60) return `${Math.max(1, Math.round(seconds))}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
+  const roundedSeconds = Math.max(1, Math.round(seconds));
+  const minutes = Math.floor(roundedSeconds / 60);
+  const remainingSeconds = roundedSeconds % 60;
   if (minutes < 60) {
     return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
   }

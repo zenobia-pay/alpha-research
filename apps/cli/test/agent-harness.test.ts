@@ -2537,17 +2537,19 @@ test("uploaded dataset deployment flow uses user-facing stage updates and upload
     );
 
     const joinedMessages = messages.map((message) => message.content).join("\n");
-    assert.match(joinedMessages, new RegExp(`Using local file ${datasetPath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
+    assert.match(joinedMessages, /Using local file Enriched Tweets\.csv\./);
+    assert.match(joinedMessages, new RegExp(`Path: ${datasetPath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
     assert.match(joinedMessages, /Inspecting Enriched Tweets\.csv/);
     assert.match(joinedMessages, /Checked the file structure for Enriched Tweets\.csv/);
     assert.match(joinedMessages, /Created dataset Enriched Tweets \(dataset id: enriched-tweets\)\./);
     assert.match(joinedMessages, /Upload target ready for Enriched Tweets\.csv\./);
+    assert.match(joinedMessages, /Deployment will start after the upload finishes\./);
     assert.match(joinedMessages, /Upload progress: 100%/);
-    assert.match(joinedMessages, /Finished uploading Enriched Tweets\.csv\./);
+    assert.match(joinedMessages, /Finished uploading Enriched Tweets\.csv.*Verifying the source so deployment can start\./);
     assert.match(joinedMessages, /Source upload verified for dataset enriched-tweets\./);
     assert.match(joinedMessages, /Deployment started for dataset enriched-tweets\. Run: run-deploy\. Status: booting\./);
     assert.match(joinedMessages, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-upload&runId=run-deploy#run-run-deploy/);
-    assert.doesNotMatch(joinedMessages, /profile_local_dataset|Registered remote dataset/);
+    assert.doesNotMatch(joinedMessages, /profile_local_dataset|Registered remote dataset|upload_local_file/);
   } finally {
     globalThis.fetch = originalFetch;
     await rm(tempDir, { recursive: true, force: true });

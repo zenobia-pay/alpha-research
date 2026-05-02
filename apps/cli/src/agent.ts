@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 
 import { getInstanceBootstrap, listInstanceBundles, type DatasetInstanceSummary } from "@rprend/alpha-storage";
 
-import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, type SessionRecord } from "./config.js";
+import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
 import {
   RemoteApiClient,
@@ -1420,8 +1420,18 @@ function summarizeExpectedArtifacts(input: Record<string, unknown>) {
 
 function progressHeartbeat(toolName: string, input: Record<string, unknown>, elapsedSeconds: number) {
   const datasetId = typeof input.datasetId === "string" && input.datasetId.trim() ? input.datasetId.trim() : "the dataset";
+  const inputPath = typeof input.inputPath === "string" && input.inputPath.trim() ? basename(input.inputPath.trim()) : "the file";
   if (toolName === "inspect_remote_dataset") {
     return `Still inspecting ${datasetId} for schema, time coverage, and geography fields (${elapsedSeconds}s elapsed).`;
+  }
+  if (toolName === "request_dataset_source_upload") {
+    return `Still preparing the upload for ${datasetId}. Deployment will start after the file is uploaded (${elapsedSeconds}s elapsed).`;
+  }
+  if (toolName === "upload_local_file") {
+    return `Still uploading ${inputPath}. Deployment will start automatically after the upload finishes (${elapsedSeconds}s elapsed).`;
+  }
+  if (toolName === "complete_dataset_source_upload") {
+    return `Still verifying the uploaded source for ${datasetId} so deployment can start (${elapsedSeconds}s elapsed).`;
   }
   if (toolName === "create_research_environment" || toolName === "create_public_data_environment") {
     return `Still preparing the ${datasetId} environment and checking whether the dataset volume is free (${elapsedSeconds}s elapsed).`;
@@ -2964,7 +2974,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const ingestFlags = inferDatasetIngestFlags(resolvedPath);
         const metadata = await stat(resolvedPath);
         return {
-          summary: `Using local file ${resolvedPath}.`,
+          summary: `Using local file ${basename(resolvedPath)}.\nPath: ${resolvedPath}`,
           data: {
             ok: true,
             inputPath: resolvedPath,
@@ -3540,8 +3550,15 @@ export function createToolRegistry(): ToolDefinition[] {
             updatedAt: deployment.run.updatedAt,
           });
         }
+        const runId = deployment.run?.id;
+        const terminalSessionUrl = context.session && context.sessionId && runId
+          ? dashboardTerminalSessionUrl(context.session.origin, context.sessionId, runId)
+          : null;
         return {
-          summary: `Deployment started for dataset ${datasetId}.${deployment.run ? ` Run: ${deployment.run.id}.` : ""}${deployment.deployment.status ? ` Status: ${deployment.deployment.status}.` : ""}`,
+          summary: [
+            `Deployment started for dataset ${datasetId}.${deployment.run ? ` Run: ${deployment.run.id}.` : ""}${deployment.deployment.status ? ` Status: ${deployment.deployment.status}.` : ""}`,
+            terminalSessionUrl ? `Terminal session: ${terminalSessionUrl}` : null,
+          ].filter(Boolean).join("\n"),
           data: deployment,
         };
       },

@@ -31,6 +31,13 @@ test("prompt mode treats dataset briefing prompts as dataset inspection work", (
   );
 });
 
+test("prompt mode treats dataset creation prompts as immediate creation work", () => {
+  assert.equal(
+    initialPromptModeStatus("Create a dataset from /tmp/enriched_tweets.parquet, name it Enriched Tweets, and deploy it."),
+    "Starting dataset creation...",
+  );
+});
+
 test("direct cli execution resolves relative entry paths", () => {
   assert.equal(isDirectCliExecution("apps/cli/src/index.ts"), true);
 });

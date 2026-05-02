@@ -44,7 +44,12 @@ function wrapForStdout(line: string) {
   let remaining = line;
   while (remaining.length > width) {
     const breakAt = remaining.lastIndexOf(" ", width);
-    const splitIndex = breakAt > 0 ? breakAt : width;
+    const slashBreakAt = Math.max(remaining.lastIndexOf("/", width), remaining.lastIndexOf("\\", width));
+    const splitIndex = breakAt > 0
+      ? breakAt
+      : slashBreakAt > 0
+        ? slashBreakAt + 1
+        : width;
     wrapped.push(remaining.slice(0, splitIndex).trimEnd());
     remaining = remaining.slice(splitIndex).trimStart();
   }
@@ -54,6 +59,9 @@ function wrapForStdout(line: string) {
 
 export function initialPromptModeStatus(prompt: string) {
   const lower = prompt.trim().toLowerCase();
+  if (/\bcreate\b|\bupload\b|\bimport\b|\bdeploy\b/.test(lower)) {
+    return "Starting dataset creation...";
+  }
   if (/\bwhat does\b|\bmeaning\b|\bmean\b|\bfield\b|\bschema\b/.test(lower)) {
     return "Checking dataset metadata...";
   }
@@ -62,9 +70,6 @@ export function initialPromptModeStatus(prompt: string) {
   }
   if (/\bdataset\b|\bsource\b|\bcoverage\b|\bquality\b|\blimitation\b/.test(lower)) {
     return "Inspecting dataset details...";
-  }
-  if (/\bcreate\b|\bupload\b|\bimport\b|\bdeploy\b/.test(lower)) {
-    return "Preparing dataset workflow...";
   }
   if (/\banaly[sz]e\b|\bresearch\b|\bhypothesis\b|\bexperiment\b/.test(lower)) {
     return "Scoping the research task...";
