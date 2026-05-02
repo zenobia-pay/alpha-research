@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  currentWorkSummary,
   describeRunExpectation,
   describeRunPhase,
   formatRunLastUpdate,
   summarizePrompt,
 } from "../src/interactive.js";
+import type { InteractiveTaskState } from "../src/interactive-state.js";
 import type { TrackedRunRecord } from "../src/runs.js";
 
 function makeRun(overrides: Partial<TrackedRunRecord> = {}): TrackedRunRecord {
@@ -70,4 +72,55 @@ test("run last update clamps long event messages", () => {
   assert.match(summary, /Remote agent droplet/);
   assert.equal(summary.endsWith("..."), true);
   assert.ok(summary.length <= 120);
+});
+
+test("currentWorkSummary surfaces run ids and dashboard links without historical noise", () => {
+  const summary = currentWorkSummary({
+    goal: "run it",
+    status: "waiting",
+    statusLabel: "Run started",
+    currentStep: "Remote run started and is continuing in the background.",
+    lastResult: null,
+    nextExpectedOutput: "Run status updates plus artifacts like a manifest, validation report, or briefing.",
+    planSteps: [],
+    activity: [],
+    focusRunId: "run_123456789",
+    focusRunUrl: "https://dashboard.alpharesearch.nyc/runs/run_123456789",
+    selectedDatasetId: "enriched-tweets",
+    selectedDatasetState: "ready",
+    startedAt: null,
+  } satisfies InteractiveTaskState);
+
+  assert.equal(summary?.title, "Current run");
+  assert.deepEqual(summary?.lines.slice(0, 4), [
+    "Run id: run_123456789",
+    "Dataset: enriched-tweets",
+    "Status: waiting · Run started",
+    "Dashboard: https://dashboard.alpharesearch.nyc/runs/run_123456789",
+  ]);
+});
+
+test("currentWorkSummary surfaces blocked dataset readiness before a run exists", () => {
+  const summary = currentWorkSummary({
+    goal: "run it",
+    status: "blocked",
+    statusLabel: "Waiting on dataset readiness",
+    currentStep: "Waiting for enriched-tweets to become ready.",
+    lastResult: null,
+    nextExpectedOutput: "Wait for the dataset to become ready, then rerun the same prompt.",
+    planSteps: [],
+    activity: [],
+    focusRunId: null,
+    focusRunUrl: null,
+    selectedDatasetId: "enriched-tweets",
+    selectedDatasetState: "uploading",
+    startedAt: null,
+  } satisfies InteractiveTaskState);
+
+  assert.equal(summary?.title, "Current work");
+  assert.deepEqual(summary?.lines, [
+    "Dataset: enriched-tweets (uploading)",
+    "State: Waiting for enriched-tweets to become ready.",
+    "Next: Wait for the dataset to become ready, then rerun the same prompt.",
+  ]);
 });

@@ -27,6 +27,21 @@ test("orientation prompts start with a compact orientation-specific pending stat
   assert.deepEqual(state.planSteps, []);
 });
 
+test("fully specified run-start prompts begin with run-oriented expectations", () => {
+  const state = beginInteractiveTask(
+    "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
+  );
+
+  assert.equal(state.currentStep, "Checking whether the named dataset is ready for this run.");
+  assert.equal(state.selectedDatasetId, "enriched-tweets");
+  assert.match(state.nextExpectedOutput ?? "", /run id and dashboard link|concrete block/i);
+  assert.deepEqual(state.planSteps, [
+    "Check the named dataset",
+    "Verify readiness or explain the block",
+    "Start the run or hand off the next action",
+  ]);
+});
+
 test("run command noise is excluded from the visible progress story", () => {
   let state = beginInteractiveTask("build the dataset");
   state = applyAgentMessageToTaskState(state, {
@@ -60,7 +75,27 @@ test("started run summaries become waiting state with a focused run", () => {
 
   assert.equal(state.status, "waiting");
   assert.equal(state.focusRunId, "run-symphony-econ-build");
+  assert.equal(state.focusRunUrl, "https://dashboard.example/runs/run-symphony-econ-build");
   assert.match(state.nextExpectedOutput ?? "", /artifacts/i);
+});
+
+test("dataset readiness blocks are surfaced as first-class blocked state", () => {
+  const state = applyAgentMessageToTaskState(beginInteractiveTask("Using enriched-tweets, run the viral tweet analysis."), {
+    role: "assistant",
+    content: [
+      "I accepted the experiment design, but I did not start the run because `enriched-tweets` is uploading.",
+      "Dataset: enriched-tweets",
+      "State: uploading",
+      "Next: wait for the dataset to finish uploading/deploying, then rerun the same prompt.",
+    ].join("\n"),
+  });
+
+  assert.equal(state.status, "blocked");
+  assert.equal(state.statusLabel, "Waiting on dataset readiness");
+  assert.equal(state.selectedDatasetId, "enriched-tweets");
+  assert.equal(state.selectedDatasetState, "uploading");
+  assert.equal(state.currentStep, "Waiting for enriched-tweets to become ready.");
+  assert.match(state.nextExpectedOutput ?? "", /wait for the dataset to become ready/i);
 });
 
 test("final assistant answers do not get duplicated into recent progress", () => {

@@ -133,6 +133,34 @@ export function formatRunLastUpdate(run: TrackedRunRecord, maxLength = 120) {
   return summarizePrompt(latest, maxLength);
 }
 
+export function currentWorkSummary(taskState: InteractiveTaskState) {
+  if (taskState.focusRunId) {
+    return {
+      title: "Current run",
+      lines: [
+        `Run id: ${taskState.focusRunId}`,
+        taskState.selectedDatasetId ? `Dataset: ${taskState.selectedDatasetId}` : null,
+        `Status: ${formatTaskStatus(taskState.status)}${taskState.statusLabel ? ` · ${taskState.statusLabel}` : ""}`,
+        taskState.focusRunUrl ? `Dashboard: ${taskState.focusRunUrl}` : null,
+        taskState.nextExpectedOutput ? `Next: ${taskState.nextExpectedOutput}` : null,
+      ].filter((line): line is string => Boolean(line)),
+    };
+  }
+
+  if (taskState.selectedDatasetId && (taskState.status === "blocked" || taskState.status === "working" || taskState.status === "waiting")) {
+    return {
+      title: "Current work",
+      lines: [
+        `Dataset: ${taskState.selectedDatasetId}${taskState.selectedDatasetState ? ` (${taskState.selectedDatasetState})` : ""}`,
+        taskState.currentStep ? `State: ${taskState.currentStep}` : null,
+        taskState.nextExpectedOutput ? `Next: ${taskState.nextExpectedOutput}` : null,
+      ].filter((line): line is string => Boolean(line)),
+    };
+  }
+
+  return null;
+}
+
 export function runPanelSummary(runs: TrackedRunRecord[], focusRunId: string | null = null) {
   const { focused, background } = splitTrackedRuns(runs, focusRunId);
   const visible = [focused, ...background].filter((item): item is TrackedRunRecord => Boolean(item)).slice(0, 3);
@@ -329,8 +357,9 @@ function TaskSummary({
   conversationState: AgentConversationState;
 }) {
   const composerText = useAuiState((state) => state.composer.text);
-  const preview = composerText.trim().length > 0 ? composerText : taskState.goal;
+  const preview = composerText.trim().length > 0 ? composerText : summarizePrompt(taskState.goal ?? "", 140);
   const resolvedDataset = conversationState.datasetContext?.lastResolvedDataset;
+  const workSummary = currentWorkSummary(taskState);
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
@@ -340,17 +369,22 @@ function TaskSummary({
       {resolvedDataset ? <Text color="cyan">{`Context: ${resolvedDataset.id} (${resolvedDataset.scope} · ${resolvedDataset.state})`}</Text> : null}
       {preview ? (
         <Box flexDirection="column" marginTop={1}>
-          <Text bold>Goal</Text>
-          {wrapText(preview, Math.max(24, width - 6)).map((line, index) => (
+          <Text bold>Request</Text>
+          {wrapText(preview, Math.max(24, width - 6)).slice(0, 3).map((line, index) => (
             <Text key={index}>{line}</Text>
           ))}
         </Box>
       ) : null}
       {taskState.currentStep && taskState.status !== "blocked" ? <Text>{`${taskState.status === "done" ? "Last step" : "Current step"}: ${taskState.currentStep}`}</Text> : null}
-      {taskState.lastResult ? <Text>{`Last result: ${taskState.lastResult}`}</Text> : null}
-      {taskState.nextExpectedOutput ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
-      {!taskState.focusRunId && (taskState.status === "waiting" || taskState.status === "blocked") ? (
-        <Text color="gray">Run state: no remote run has started for this thread yet.</Text>
+      {taskState.lastResult && taskState.status === "done" ? <Text>{`Last result: ${taskState.lastResult}`}</Text> : null}
+      {taskState.nextExpectedOutput && !workSummary ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
+      {workSummary ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text bold>{workSummary.title}</Text>
+          {workSummary.lines.map((line) => (
+            <Text key={line}>{line}</Text>
+          ))}
+        </Box>
       ) : null}
       {taskState.planSteps.length > 0 ? (
         <Box flexDirection="column" marginTop={1}>
@@ -419,19 +453,21 @@ function RunStatusPanel({
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
-      <Text bold>Active runs</Text>
+      <Text bold>Current run</Text>
       {focused ? (
         <>
-          <Text bold>Current run</Text>
-          <Text color={runStatusColor(focused.status)}>{summarizeRunLine(focused)}</Text>
+          <Text>{`Run id: ${focused.id}`}</Text>
+          <Text>{`Dataset: ${focused.datasetId}`}</Text>
+          <Text color={runStatusColor(focused.status)}>{`Status: ${focused.status} · ${describeRunPhase(focused.status).label}`}</Text>
+          <Text color="cyan">{`Dashboard: ${focused.dashboardUrl ?? "not available"}`}</Text>
           <Text color="gray">{describeRunPhase(focused.status).detail}</Text>
+          <Text color="gray">{describeRunExpectation(focused)}</Text>
           <Text color="gray">{formatRunLastUpdate(focused)}</Text>
         </>
       ) : <Text>No active runs.</Text>}
       {focused && background.length > 0 ? (
         <>
-          <Text bold>{background.length === 1 ? "1 other active run" : `${background.length} other active runs`}</Text>
-          <Text color="gray">Hidden by default so this thread stays focused. Ask about active runs when you want the full list.</Text>
+          <Text color="gray">{background.length === 1 ? "1 other active run is hidden." : `${background.length} other active runs are hidden.`}</Text>
         </>
       ) : null}
     </Box>
@@ -458,6 +494,7 @@ function ResearchThread({
   const promptColor = taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
   const inputWidth = Math.max(20, columns - 4);
   const showIdleSummary = messageCount === 0 && !taskState.goal;
+  const showThreadMessages = showIdleSummary || taskState.status === "done" || messageCount > 1;
 
   return (
     <ThreadPrimitive.Root>
@@ -467,15 +504,17 @@ function ResearchThread({
         <TaskSummary taskState={taskState} width={columns} conversationState={conversationState} />
       )}
 
-      <ThreadPrimitive.Messages>
-        {({ message }) =>
-          message.role === "user" ? (
-            <UserMessage width={Math.max(20, columns - 1)} />
-          ) : (
-            <AssistantMessage />
-          )
-        }
-      </ThreadPrimitive.Messages>
+      {showThreadMessages ? (
+        <ThreadPrimitive.Messages>
+          {({ message }) =>
+            message.role === "user" ? (
+              <UserMessage width={Math.max(20, columns - 1)} />
+            ) : (
+              <AssistantMessage />
+            )
+          }
+        </ThreadPrimitive.Messages>
+      ) : null}
 
       <TaskActivityIndicator status={taskState.status} currentStep={taskState.currentStep} startedAt={taskState.startedAt} />
       {taskState.activity.length > 0
@@ -494,7 +533,7 @@ function ResearchThread({
       <Box flexDirection="column">
         <Text bold color={promptColor}>{messageCount > 0 ? (taskState.status === "done" ? "Reply" : "Reply in thread") : "Prompt"}</Text>
         <Text color="gray">
-          {taskState.status === "done" ? "Ready. Type another question and press Enter." : "Type a question and press Enter."}
+          {taskState.status === "done" ? "Ready. Type another question and press Enter." : "Type a follow-up or command and press Enter."}
         </Text>
         <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
           <Text color={promptColor}>{"> "}</Text>
