@@ -156,19 +156,19 @@ function inferNextExpectedFromMessage(text: string) {
   if (/Started .* run /u.test(text) || /Started research environment build/u.test(text) || /Queued /u.test(text)) {
     return "Run status updates plus artifacts like a manifest, validation report, or briefing.";
   }
-  if (/Blocked:/u.test(text) || /Sign in first/u.test(text)) {
+  if (isBlockedAssistantMessage(text)) {
     return "A user action to unblock the request.";
   }
-  if (/Waiting for your answer/u.test(text) || /Reply with /u.test(text) || /Which geography matters most/u.test(text)) {
+  if (isWaitingForUserReply(text)) {
     return "A short user reply so RESEARCH can continue with the right scope.";
   }
   return null;
 }
 
 function deriveAssistantStatus(text: string): TaskStatus {
-  if (/Blocked:|Sign in first|need the absolute path|I need /u.test(text)) return "blocked";
+  if (isBlockedAssistantMessage(text)) return "blocked";
   if (/Started .* run |Started research environment build|Queued |Cancelled run /u.test(text)) return "waiting";
-  if (/Waiting for your answer/u.test(text) || /Reply with /u.test(text) || /Which geography matters most/u.test(text)) return "waiting";
+  if (isWaitingForUserReply(text)) return "waiting";
   return "done";
 }
 
@@ -179,6 +179,18 @@ function looksLikeProgress(text: string) {
 function extractRunId(text: string) {
   const match = text.match(/\brun[-\w]*/u);
   return match?.[0] ?? null;
+}
+
+function isBlockedAssistantMessage(text: string) {
+  return /Blocked:|Sign in first/u.test(text);
+}
+
+function isWaitingForUserReply(text: string) {
+  return /Waiting for your answer/u.test(text)
+    || /Reply with /u.test(text)
+    || /Which geography matters most/u.test(text)
+    || /I can help with that, but I need 2 things first:/u.test(text)
+    || /No upload is needed\./u.test(text);
 }
 
 function appendUnique(items: string[], item: string) {

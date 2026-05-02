@@ -189,6 +189,24 @@ function ActivityIndicator() {
   );
 }
 
+function TaskActivityIndicator({ status }: { status: InteractiveTaskState["status"] }) {
+  if (status === "waiting") {
+    return (
+      <Box>
+        <Text color="green">· waiting for your reply</Text>
+      </Box>
+    );
+  }
+  if (status === "blocked") {
+    return (
+      <Box>
+        <Text color="red">· blocked</Text>
+      </Box>
+    );
+  }
+  return <ActivityIndicator />;
+}
+
 function TaskSummary({ taskState, width }: { taskState: InteractiveTaskState; width: number }) {
   const composerText = useAuiState((state) => state.composer.text);
   const preview = composerText.trim().length > 0 ? composerText : taskState.goal;
@@ -262,7 +280,8 @@ function ResearchThread({
 }) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
-  const borderColor = isRunning ? "yellow" : "gray";
+  const borderColor = taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "gray";
+  const promptColor = taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "gray";
   const inputWidth = Math.max(20, columns - 4);
 
   return (
@@ -285,7 +304,7 @@ function ResearchThread({
         }
       </ThreadPrimitive.Messages>
 
-      <ActivityIndicator />
+      <TaskActivityIndicator status={taskState.status} />
       {taskState.activity.length > 0 ? (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
           <Text bold>Recent progress</Text>
@@ -297,7 +316,7 @@ function ResearchThread({
       <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} />
 
       <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
-        <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
+        <Text color={promptColor}>{"> "}</Text>
         <ComposerPrimitive.Input submitOnEnter placeholder="ask RESEARCH" autoFocus />
       </Box>
     </ThreadPrimitive.Root>

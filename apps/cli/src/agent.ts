@@ -2043,17 +2043,16 @@ function maybeHandleCsvImportHowTo(input: string) {
     return null;
   }
   return [
-    "I need 2 things to import your file into RESEARCH:",
+    "I can help with that, but I need 2 things first:",
     "",
     "- Absolute file path",
     "- One-line description of what is in the file",
     "",
-    "Example:",
-    "`/Users/ryanprendergast/Desktop/support_tickets.csv`",
-    "`customer support tickets with timestamps, categories, priorities, and resolution status`",
+    "Example description: `CSV of customer support tickets`",
     "",
-    "What happens next: I will inspect the file, infer the schema, choose a dataset name/id with you if needed, and prepare it for research.",
-    "One line is enough for the description. If you are not sure how to get the path, drag the file into Terminal or copy it from Finder.",
+    "Next: I will inspect the file, infer the schema, choose a dataset name with you if needed, normalize it, and get it ready for research.",
+    "Reply with the absolute path and one-line description. No upload is needed.",
+    "Tip: drag the file into Terminal to paste the path.",
   ].join("\n");
 }
 

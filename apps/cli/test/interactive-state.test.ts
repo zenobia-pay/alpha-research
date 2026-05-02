@@ -72,6 +72,23 @@ test("clarifying assistant replies keep the task in waiting state", () => {
   assert.match(state.nextExpectedOutput ?? "", /short user reply/i);
 });
 
+test("file import clarification is treated as waiting for user input", () => {
+  const state = applyAgentMessageToTaskState(beginInteractiveTask("I have a CSV of customer support tickets on my desktop. How do I turn it into something I can research here?"), {
+    role: "assistant",
+    content: [
+      "I can help with that, but I need 2 things first:",
+      "",
+      "- Absolute file path",
+      "- One-line description of what is in the file",
+      "",
+      "Reply with the absolute path and one-line description. No upload is needed.",
+    ].join("\n"),
+  });
+
+  assert.equal(state.status, "waiting");
+  assert.match(state.nextExpectedOutput ?? "", /short user reply/i);
+});
+
 test("tracked runs are split into current and background groups", () => {
   const runs = [
     {

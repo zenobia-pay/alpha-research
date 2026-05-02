@@ -179,15 +179,16 @@ test("file import how-to asks for path before ingesting", async () => {
   );
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /I need 2 things to import your file/i);
+  assert.match(final, /I can help with that, but I need 2 things first:/i);
   assert.match(final, /absolute file path/i);
   assert.match(final, /one-line description/i);
-  assert.match(final, /One line is enough/i);
+  assert.match(final, /Reply with the absolute path and one-line description\./i);
   assert.match(final, /infer the schema/i);
-  assert.match(final, /dataset name\/id/i);
-  assert.match(final, /prepare it for research/i);
-  assert.match(final, /\/Users\/ryanprendergast\/Desktop\/support_tickets\.csv/i);
-  assert.match(final, /copy it from Finder/i);
+  assert.match(final, /dataset name with you if needed/i);
+  assert.match(final, /get it ready for research/i);
+  assert.match(final, /Example description: `CSV of customer support tickets`/i);
+  assert.match(final, /No upload is needed\./i);
+  assert.match(final, /drag the file into Terminal to paste the path/i);
   assert.doesNotMatch(final, /register the dataset|upload it|deploy it/i);
   assert.doesNotMatch(final, /help narrow it down/i);
   assert.doesNotMatch(final, /Started|run-[a-z0-9-]+|Dashboard:/i);
@@ -218,9 +219,9 @@ test("journey P02 wording resolves locally without remote planning", async () =>
   const final = messages[0]?.content ?? "";
   assert.match(final, /absolute file path/i);
   assert.match(final, /one-line description/i);
-  assert.match(final, /What happens next:/i);
+  assert.match(final, /Next: I will inspect the file/i);
   assert.doesNotMatch(final, /RESEARCH turns your data into a dataset/i);
-  assert.doesNotMatch(final, /register|upload|deploy/i);
+  assert.doesNotMatch(final, /register|deploy/i);
 });
 
 test("vague housing risk request asks scope before costly work", async () => {
@@ -424,6 +425,28 @@ test("remote planning emits immediate progress before waiting on backend respons
   assert.match(messages[0]?.content ?? "", /Checking datasets/i);
   assert.equal(messages.at(-1)?.role, "assistant");
   assert.match(messages.at(-1)?.content ?? "", /Use dataset `econ`\./);
+});
+
+test("file-to-dataset onboarding asks only for path and description", async () => {
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "I have a CSV of customer support tickets on my desktop. How do I turn it into something I can research here?",
+    session,
+    emit,
+  );
+
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0]?.role, "assistant");
+  const final = messages[0]?.content ?? "";
+  assert.match(final, /I can help with that, but I need 2 things first:/i);
+  assert.match(final, /Absolute file path/i);
+  assert.match(final, /One-line description of what is in the file/i);
+  assert.match(final, /Example description: `CSV of customer support tickets`/i);
+  assert.match(final, /Reply with the absolute path and one-line description\./i);
+  assert.match(final, /No upload is needed\./i);
+  assert.doesNotMatch(final, /RESEARCH:/);
+  assert.doesNotMatch(final, /dataset name\/id/i);
 });
 
 test("dataset recommendation inventory includes ranked shortlist for the topic", async () => {
