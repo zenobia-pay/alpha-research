@@ -55,6 +55,23 @@ test("started run summaries become waiting state with a focused run", () => {
   assert.match(state.nextExpectedOutput ?? "", /artifacts/i);
 });
 
+test("clarifying assistant replies keep the task in waiting state", () => {
+  const state = applyAgentMessageToTaskState(beginInteractiveTask("Which dataset should I use for housing affordability?"), {
+    role: "assistant",
+    content: [
+      "Best match",
+      "- `econ` is the best first dataset for housing affordability.",
+      "",
+      "Waiting for your answer",
+      "- Reply with the geography level you care about most: nationwide, state, metro, county, or tract.",
+      "- If you do not care, I will default to nationwide.",
+    ].join("\n"),
+  });
+
+  assert.equal(state.status, "waiting");
+  assert.match(state.nextExpectedOutput ?? "", /short user reply/i);
+});
+
 test("tracked runs are split into current and background groups", () => {
   const runs = [
     {

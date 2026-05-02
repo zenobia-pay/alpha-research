@@ -67,9 +67,8 @@ export function initialPromptModeStatus(prompt: string) {
   return "Thinking...";
 }
 
-function printPromptModeLoading() {
+function printPromptModeHeader() {
   console.log("research");
-  console.log("· working...");
 }
 
 async function runPromptMode(prompt: string) {
@@ -79,7 +78,7 @@ async function runPromptMode(prompt: string) {
     printAgentMessage({ role: "assistant", content: localDirectResponse });
     return null;
   }
-  printPromptModeLoading();
+  printPromptModeHeader();
   const session = await readSession();
   printAgentMessage({ role: "tool", content: initialPromptModeStatus(prompt) });
   const conversationState = await runAgentTurn(prompt, session, printAgentMessage);

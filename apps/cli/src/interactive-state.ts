@@ -159,12 +159,16 @@ function inferNextExpectedFromMessage(text: string) {
   if (/Blocked:/u.test(text) || /Sign in first/u.test(text)) {
     return "A user action to unblock the request.";
   }
+  if (/Waiting for your answer/u.test(text) || /Reply with /u.test(text) || /Which geography matters most/u.test(text)) {
+    return "A short user reply so RESEARCH can continue with the right scope.";
+  }
   return null;
 }
 
 function deriveAssistantStatus(text: string): TaskStatus {
   if (/Blocked:|Sign in first|need the absolute path|I need /u.test(text)) return "blocked";
   if (/Started .* run |Started research environment build|Queued |Cancelled run /u.test(text)) return "waiting";
+  if (/Waiting for your answer/u.test(text) || /Reply with /u.test(text) || /Which geography matters most/u.test(text)) return "waiting";
   return "done";
 }
 

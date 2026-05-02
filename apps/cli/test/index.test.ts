@@ -16,3 +16,10 @@ test("prompt mode shows immediate run-status feedback for run inspection questio
     "Checking run state...",
   );
 });
+
+test("prompt mode treats dataset-choice prompts as dataset inspection work", () => {
+  assert.equal(
+    initialPromptModeStatus("I want to study housing affordability. Which dataset should I use?"),
+    "Inspecting dataset details...",
+  );
+});

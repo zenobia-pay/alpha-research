@@ -2179,6 +2179,15 @@ function summarizeDatasetEvidence(dataset: RemoteDatasetSummary | RemoteDatasetD
   return evidence.slice(0, 3);
 }
 
+function summarizeDatasetTradeoff(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const evidence = summarizeDatasetEvidence(dataset);
+  if (evidence.length > 0) {
+    return evidence.join(", ");
+  }
+  const status = (dataset.status ?? dataset.deploymentStatus ?? "available").toLowerCase();
+  return `available in RESEARCH (${status})`;
+}
+
 function extractRequestedDatasetReference(input: string) {
   const datasetMention = input.match(/\b(?:the\s+)?([a-z0-9][a-z0-9_-]*)\s+dataset\b/iu);
   if (datasetMention?.[1]) {
@@ -2308,26 +2317,28 @@ async function maybeHandleDatasetSelectionFromTopic(
     : `${primary.name || primary.id} is the closest current match by dataset metadata and availability in RESEARCH.`;
 
   const lines = [
-    "Primary dataset",
-    `- Start with \`${primary.id}\`${primary.name && primary.name !== primary.id ? ` (${primary.name})` : ""}.`,
+    "Best match",
+    `- \`${primary.id}\`${primary.name && primary.name !== primary.id ? ` (${primary.name})` : ""} is the best first dataset for housing affordability.`,
     "",
-    "Why",
+    "Why this fits",
     `- ${primaryWhy}`,
-    `- Status: ${(primary.status ?? primary.deploymentStatus ?? "unknown").toLowerCase() === "ready" ? "ready to inspect or analyze now" : primary.status ?? primary.deploymentStatus ?? "available"}.`,
+    `- ${primary.id} can be sliced by geography, which is why I need to know whether you care most about nationwide, state, metro, county, or tract analysis.`,
   ];
   if (supplements.length > 0) {
-    lines.push("", "Optional supplements");
+    lines.push("", "Other plausible options");
     for (const entry of supplements) {
-      const supplementEvidence = summarizeDatasetEvidence(entry.dataset);
       lines.push(
-        `- \`${entry.dataset.id}\`${entry.dataset.name && entry.dataset.name !== entry.dataset.id ? ` (${entry.dataset.name})` : ""}: ${supplementEvidence[0] ?? "another plausible supporting dataset if you need a different angle"}.`,
+        `- \`${entry.dataset.id}\`${entry.dataset.name && entry.dataset.name !== entry.dataset.id ? ` (${entry.dataset.name})` : ""}: ${summarizeDatasetTradeoff(entry.dataset)}.`,
       );
     }
+  } else {
+    lines.push("", "Why I am not listing several equal choices", `- I do not see another ready dataset that matches housing affordability as directly as \`${primary.id}\`.`);
   }
   lines.push(
     "",
-    "Need from you",
-    "- Which geography matters most: nationwide, state, metro, county, or tract?",
+    "Waiting for your answer",
+    "- Reply with the geography level you care about most: nationwide, state, metro, county, or tract.",
+    "- If you do not care, I will default to nationwide.",
   );
   return lines.join("\n");
 }
