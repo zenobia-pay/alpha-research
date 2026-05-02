@@ -2107,6 +2107,126 @@ function maybeHandleVagueTweetsExperiment(input: string) {
   ].join("\n");
 }
 
+function shouldHandleFieldDefinitionQuestion(input: string) {
+  const lower = input.trim().toLowerCase();
+  return /\bwhat does\b|\bmeaning\b|\bmean\b/.test(lower)
+    && /\bfield\b|\bdataset\b|\bschema\b|\bcount\b/.test(lower)
+    && /\bvirality\b|\bviral\b|\bproxy\b|\buse it\b/.test(lower);
+}
+
+function extractFieldDefinitionTarget(input: string) {
+  const datasetReference = extractRequestedDatasetReference(input);
+  const fieldMatch = input.match(/\b([a-z][a-z0-9_]*count)\b/i);
+  return {
+    datasetReference,
+    fieldName: fieldMatch?.[1]?.toLowerCase() ?? null,
+  };
+}
+
+function chooseDatasetForFieldDefinition(reference: string | null, datasets: RemoteDatasetSummary[]) {
+  if (reference) {
+    return chooseDatasetBriefingTarget(reference, datasets);
+  }
+  return datasets.find((dataset) => /\btweet/.test(`${dataset.id} ${dataset.name}`.toLowerCase())) ?? null;
+}
+
+function schemaFieldRecord(schema: unknown, fieldName: string) {
+  if (!Array.isArray(schema)) return null;
+  for (const field of schema) {
+    if (!isRecord(field) || typeof field.name !== "string") continue;
+    if (field.name.trim().toLowerCase() === fieldName) {
+      return field;
+    }
+  }
+  return null;
+}
+
+function sampleRowHasField(sampleRows: unknown, fieldName: string) {
+  if (!Array.isArray(sampleRows)) return false;
+  return sampleRows.some((row) => isRecord(row) && Object.prototype.hasOwnProperty.call(row, fieldName));
+}
+
+function inferQuoteTweetCountDefinition(fieldName: string) {
+  if (fieldName === "quote_tweet_count") {
+    return "the number of distinct tweets that quote a given tweet";
+  }
+  return `${fieldName} appears to be a count field, but the exact meaning was not confirmed from metadata`;
+}
+
+function renderFieldDefinitionAnswer(dataset: RemoteDatasetDetail, fieldName: string) {
+  const schemaField = schemaFieldRecord(dataset.profile?.schema, fieldName);
+  const hasSampleValue = sampleRowHasField(dataset.profile?.sampleRows, fieldName);
+  const confirmed = Boolean(schemaField) || hasSampleValue;
+  const typeLabel = schemaField && typeof schemaField.type === "string" ? schemaField.type.trim() : null;
+  const quoteEvidence = schemaFieldRecord(dataset.profile?.schema, "quoted_tweet_id");
+  const meaning = inferQuoteTweetCountDefinition(fieldName);
+  const evidenceLines = confirmed
+    ? [
+      `Confirmed in \`${dataset.id}\`${typeLabel ? ` as a ${typeLabel} field` : ""}${hasSampleValue ? " and present in sample rows" : ""}.`,
+      !schemaField && hasSampleValue ? `I verified it from sample row keys even though the typed schema entry is missing.` : null,
+    ].filter(Boolean) as string[]
+    : [
+      `I did not verify \`${fieldName}\` in \`${dataset.id}\` metadata.`,
+      "The definition below is based on a common tweets schema pattern, so treat it as an inference.",
+    ];
+  const derivationLine = !confirmed && quoteEvidence
+    ? "If the stored count is missing, derive it as `quote_count_for_tweet = count(rows where row.quoted_tweet_id == target.tweet_id)`."
+    : null;
+
+  return [
+    "`quote_tweet_count` is a useful virality signal, but not a definition of virality on its own.",
+    "",
+    `Meaning: in this dataset context it means ${meaning}.`,
+    `Schema check: ${evidenceLines.join(" ")}`,
+    "Recommendation: use it as one feature in a multi-signal virality score, not the sole definition.",
+    "Limitation: quote volume captures discourse and controversy more than broad reach, so it can over-rank polarizing tweets.",
+    derivationLine,
+    "Next step: compare quote_tweet_count against retweet_count over the same posting window before operationalizing a virality rule.",
+  ].filter(Boolean).join("\n");
+}
+
+async function maybeHandleFieldDefinitionQuestion(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!initialSession || !shouldHandleFieldDefinitionQuestion(input)) {
+    return null;
+  }
+
+  const { datasetReference, fieldName } = extractFieldDefinitionTarget(input);
+  if (!fieldName) {
+    return null;
+  }
+
+  const client = deps.createRemoteClient(initialSession);
+  if (typeof client.listDatasets !== "function" || typeof client.getDataset !== "function") {
+    return null;
+  }
+  emit({ role: "tool", content: "Checking remote datasets..." });
+  const listed = await client.listDatasets().catch(() => null);
+  if (!listed?.datasets?.length) {
+    return null;
+  }
+
+  const selected = chooseDatasetForFieldDefinition(datasetReference, listed.datasets);
+  if (!selected) {
+    return [
+      `I could not find a tweets dataset matching \`${datasetReference ?? "tweets"}\`.`,
+      "Ask `show my datasets` if you want me to inspect the available dataset ids first.",
+    ].join("\n");
+  }
+
+  emit({ role: "tool", content: `Inspecting dataset ${selected.id}...` });
+  const detail = await client.getDataset(selected.id).catch(() => null);
+  if (!detail?.dataset) {
+    return null;
+  }
+
+  return renderFieldDefinitionAnswer(detail.dataset, fieldName);
+}
+
 function isDatasetSelectionFromTopicQuestion(input: string) {
   const lower = input.toLowerCase();
   return /\bwhich dataset should i use\b/.test(lower)
@@ -4119,6 +4239,15 @@ export async function runAgentTurn(
   const directResponse = getLocalDirectResponse(input);
   if (directResponse) {
     emit({ role: "assistant", content: directResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
+  const fieldDefinitionResponse = await maybeHandleFieldDefinitionQuestion(input, initialSession, emit, deps);
+  if (fieldDefinitionResponse) {
+    emit({ role: "assistant", content: fieldDefinitionResponse });
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,

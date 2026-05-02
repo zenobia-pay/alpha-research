@@ -1881,6 +1881,71 @@ test("field-definition prompt instructions enforce concise verdict-first answers
   assert.match(capturedInstructions, /do not use vague labels like 'typical'/i);
 });
 
+test("field-definition questions use verified dataset metadata when available", async () => {
+  const calls: string[] = [];
+  const fakeClient = {
+    async respond() {
+      throw new Error("Verified field-definition questions should be answered from dataset metadata without remote planning.");
+    },
+    async listDatasets() {
+      calls.push("listDatasets");
+      return {
+        datasets: [
+          { id: "enriched-tweets", name: "Enriched Tweets", status: "ready" },
+        ],
+      };
+    },
+    async getDataset(datasetId: string) {
+      calls.push("getDataset");
+      assert.equal(datasetId, "enriched-tweets");
+      return {
+        dataset: {
+          id: "enriched-tweets",
+          name: "Enriched Tweets",
+          status: "ready",
+          profile: {
+            datasetId: "enriched-tweets",
+            schema: [
+              { name: "tweet_id", type: "string" },
+              { name: "quote_tweet_count", type: "number" },
+              { name: "quoted_tweet_id", type: "string" },
+              { name: "retweet_count", type: "number" },
+            ],
+            sampleRows: [
+              { tweet_id: "t-1", quote_tweet_count: 42, retweet_count: 9 },
+            ],
+            notes: "Quote tweet counts come from the normalized engagement fields.",
+          },
+        },
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "In the tweets dataset, what does quote_tweet_count mean and can I use it to define virality?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.deepEqual(calls, ["listDatasets", "getDataset"]);
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Checking remote datasets/i);
+  assert.match(joined, /Inspecting dataset enriched-tweets/i);
+  assert.match(joined, /Confirmed in `enriched-tweets` as a number field and present in sample rows\./i);
+  assert.match(joined, /not a definition of virality on its own/i);
+  assert.match(joined, /use it as one feature in a multi-signal virality score, not the sole definition/i);
+  assert.match(joined, /compare quote_tweet_count against retweet_count over the same posting window/i);
+  assert.doesNotMatch(joined, /Schema evidence\s*- If stored:/i);
+});
+
 test("vague dataset interesting request gives a concise briefing and focused choice without starting a run", async () => {
   const calls: string[] = [];
   const fakeClient = {

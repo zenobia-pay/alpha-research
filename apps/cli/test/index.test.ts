@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { initialPromptModeStatus } from "../src/index.js";
+import { initialPromptModeStatus, isDirectCliExecution } from "../src/index.js";
 
 test("prompt mode shows immediate metadata status for field-definition questions", () => {
   assert.equal(
@@ -29,4 +29,8 @@ test("prompt mode treats dataset briefing prompts as dataset inspection work", (
     initialPromptModeStatus("Describe the econ dataset for me."),
     "Inspecting dataset details...",
   );
+});
+
+test("direct cli execution resolves relative entry paths", () => {
+  assert.equal(isDirectCliExecution("apps/cli/src/index.ts"), true);
 });

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import React from "react";
 import { render } from "ink";
@@ -181,9 +182,11 @@ async function runPromptMode(prompt: string) {
   return conversationState;
 }
 
-function isDirectCliExecution() {
-  const entryPath = process.argv[1];
-  return Boolean(entryPath && fileURLToPath(import.meta.url) === entryPath);
+export function isDirectCliExecution(argvEntry = process.argv[1]) {
+  if (!argvEntry) {
+    return false;
+  }
+  return fileURLToPath(import.meta.url) === resolve(argvEntry);
 }
 
 async function exitPromptModeProcess() {
