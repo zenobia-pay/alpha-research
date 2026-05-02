@@ -69,6 +69,8 @@ function wrapForStdout(line: string) {
 export function initialPromptModeStatus(prompt: string) {
   const lower = prompt.trim().toLowerCase();
   const datasetReference = extractPromptDatasetReference(prompt);
+  const isReadinessCheck = /\b(can i trust|trust enough|usable right now|use it for|ready for|readiness|fix it first)\b/.test(lower)
+    && /\bdataset\b/.test(lower);
   if (
     /\b(private|local)\b/.test(lower)
     && /\b(csv|tsv|parquet|jsonl?|spreadsheet|export|file)\b/.test(lower)
@@ -109,6 +111,11 @@ export function initialPromptModeStatus(prompt: string) {
     return "Checking run state...";
   }
   if (/\bdataset\b|\bsource\b|\bcoverage\b|\bquality\b|\blimitation\b|\btrust\b|\btrustworthy\b|\bprovenance\b|\bwhat'?s inside\b|\bwhere it came from\b|\bunderstand\b/.test(lower)) {
+    if (isReadinessCheck) {
+      return datasetReference
+        ? `Readiness check for ${datasetReference}: trust, coverage, join keys, missingness, fix-first verdict...`
+        : "Readiness check: trust, coverage, join keys, missingness, fix-first verdict...";
+    }
     return datasetReference
       ? `Inspecting ${datasetReference}: sources, schema, coverage, quality, limitations...`
       : "Inspecting dataset: sources, schema, coverage, quality, limitations...";
@@ -143,6 +150,9 @@ function promptModeKickoffMessage(prompt: string) {
     && /\bdataset\b/i.test(prompt)
     && /\b(trust|trustworthy|provenance|source|sources|quality|limitation|limitations|what'?s inside|where it came from|understand)\b/i.test(prompt)
   ) {
+    if (/\b(can i trust|trust enough|usable right now|use it for|ready for|readiness|fix it first)\b/i.test(prompt)) {
+      return `Readiness check, not analysis: assess whether ${datasetReference} is usable now, what evidence supports that, and what must be fixed first.`;
+    }
     return `Request understood: brief ${datasetReference} with sources, schema, coverage, quality checks, limitations, and trust signals.`;
   }
   const datasetMatch = prompt.match(/\busing\s+the\s+([a-z0-9][a-z0-9_-]*)\s+dataset\b/i)
@@ -182,7 +192,7 @@ function formatPromptModeMessage(message: AgentMessage, previousMessages: AgentM
     if (shortlistMatch) {
       return {
         ...message,
-        content: `Dataset match: ${shortlistMatch[2]} is the best remote match for "${shortlistMatch[1]}". ${shortlistMatch[4]}.`,
+        content: `Dataset selected: ${shortlistMatch[2]} is the best match for "${shortlistMatch[1]}". Checking its saved profile and readiness evidence now.`,
       };
     }
     if (content.startsWith("Top matches for ")) {
@@ -224,6 +234,11 @@ function formatPromptModeMessage(message: AgentMessage, previousMessages: AgentM
     }
   }
   return message;
+}
+
+function hasSubstantivePromptModeVerdict(messages: AgentMessage[]) {
+  const latestAssistant = [...messages].reverse().find((message) => message.role === "assistant")?.content ?? "";
+  return /\b(Readiness & Trust|Short answer:|Usable now|Fix first|Dataset Briefing:|Overview:)\b/u.test(latestAssistant);
 }
 
 function parseStartedDatasetBriefingRun(messages: AgentMessage[]) {
@@ -330,7 +345,7 @@ async function runPromptMode(prompt: string) {
   emit({ role: "tool", content: promptModeKickoffMessage(prompt) ?? initialPromptModeStatus(prompt) });
   const conversationState = await runAgentTurn(prompt, session, emit);
   const startedBriefing = session ? parseStartedDatasetBriefingRun(messages) : null;
-  if (session && startedBriefing) {
+  if (session && startedBriefing && !hasSubstantivePromptModeVerdict(messages)) {
     await watchPromptModeDatasetBriefing(session, startedBriefing.runId, startedBriefing.datasetId);
   }
   return conversationState;

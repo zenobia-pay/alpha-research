@@ -130,21 +130,26 @@ function datasetBriefingPrompt(datasetId: string) {
   return [
     `Describe dataset ${datasetId}.`,
     "",
-    "Produce a durable documentation briefing for humans. Do not include query instructions, starter analyses, or suggestions for how to use agents; this is a dataset documentation task only.",
+    "Produce a durable documentation briefing for humans. Treat this as a readiness/trust check, not an analysis run. Do not include query instructions, starter analyses, or suggestions for how to use agents; this is a dataset documentation task only.",
     "",
     "Inspect the mounted dataset exhaustively before writing:",
     "- Mounted files and directory structure.",
     "- Manifest files, source registries, table catalogs, README files, data dictionaries, normalization reports, and QA reports.",
     "- Parquet, CSV, JSON, DuckDB, and other stored data formats.",
     "- Table schemas, column types, units, nullable/null-share fields when available, primary keys, join keys, grains, and sample rows.",
-    "- Source provenance, exact source URLs or API endpoints, direct/proxy/metadata-only status, license/access notes, fetch dates, row counts, and coverage.",
-    "- Native and normalized time scales, first/last observations, update cadences, geography levels, crosswalks, transformations, derived fields, QA checks, limitations, and known gaps.",
+    "- Source provenance, exact source URLs or API endpoints, direct/proxy/metadata-only status, license/access notes, fetch dates, row counts, freshness, and coverage.",
+    "- Native and normalized time scales, first/last observations, update cadences, geography levels, crosswalks, transformations, derived fields, QA checks, limitations, known gaps, and county/month panel coverage when relevant.",
     "",
     "Create these artifacts:",
     "1. Dataset Briefing — markdown document with these exact sections: Overview; Readiness & Trust; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps; Usable Next Steps.",
     "2. Dataset Profile — structured JSON backing data with summary, sources, tables, schemas/columns, timeCoverage, geographyCoverage, formats, transformations, quality, limitations, and generatedAt.",
     "",
-    "Readiness & Trust must explicitly state whether the dataset is usable right now, what evidence supports that judgment, and what would make it unsafe or premature to use.",
+    "Overview must start with the exact sentence `Readiness check, not analysis.` followed by a one-line verdict: `Verdict: usable now` or `Verdict: fix first`, plus the intended study grain if it is evident.",
+    "Readiness & Trust must explicitly state whether the dataset is usable right now, what evidence supports that judgment, what evidence is still missing, and what would make it unsafe or premature to use.",
+    "Data Inventory must name the actual inspected tables/files with row counts, primary grain, join keys, and which tables are central versus supporting.",
+    "Schemas must call out the columns most relevant to trust and joins, including nullable or sparse fields when known.",
+    "Time Coverage and Geography Coverage must report exact ranges plus completeness at the grain the data claims to support; when county-month use is plausible, state county coverage, month coverage, and whether the panel is complete enough.",
+    "Quality & Validation must separate known facts from inferred or unverified claims, and include missingness percentages or counts when available.",
     "Usable Next Steps must be limited to dataset-state actions such as inspect artifacts, fix missing sources, normalize a table, or run a clearly scoped analysis after approval; do not drift into generic research ideas.",
     "",
     "The briefing should be detailed enough that a reader can understand exactly what data exists, where it came from, what shape it is in, what caveats apply, and whether it is ready for research without opening the raw files.",
@@ -1687,12 +1692,16 @@ function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?
   if (typeof profile.briefingMarkdown === "string" && profile.briefingMarkdown.trim().length > 0) {
     lines.push(profile.briefingMarkdown.trim());
   } else {
+    const trust = formatUnknownValue(profile.quality) ?? profile.notes ?? "Saved dataset profile exists, but explicit trust notes are limited.";
+    const limitations = formatUnknownValue(profile.limitations);
+    const verdict = limitations ? "Verdict: fix first." : "Verdict: usable now.";
     lines.push(
+      "Readiness check, not analysis.",
+      "",
       `Dataset Briefing: ${dataset.name || dataset.id}`,
       "",
-      `Overview: ${dataset.name || dataset.id}${dataset.status ? ` (${dataset.status})` : ""}`,
+      `Overview: ${verdict} ${dataset.name || dataset.id}${dataset.status ? ` (${dataset.status})` : ""}`,
     );
-    const trust = formatUnknownValue(profile.quality) ?? profile.notes ?? "Saved dataset profile exists, but explicit trust notes are limited.";
     lines.push(`Readiness & Trust: ${trust}`);
     const inventory = formatUnknownValue(profile.tables) ?? formatUnknownValue(profile.schema);
     if (inventory) lines.push(`Data Inventory: ${inventory}`);
@@ -1710,7 +1719,6 @@ function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?
     if (transformations) lines.push(`Transformations & Derived Fields: ${transformations}`);
     const quality = formatUnknownValue(profile.quality);
     if (quality) lines.push(`Quality & Validation: ${quality}`);
-    const limitations = formatUnknownValue(profile.limitations);
     if (limitations) lines.push(`Limitations & Known Gaps: ${limitations}`);
   }
   const artifactNotes = [
@@ -2910,7 +2918,7 @@ function shouldHandleDatasetBriefingRequest(input: string) {
   if (/\b(analy[sz]e|analysis|hypothesis|experiment|trend|why|compare|correlation|predict)\b/.test(lower)) {
     return false;
   }
-  return /\b(describe|brief|briefing|document|documentation|profile|inventory|what is inside|what's inside|inspect|understand|trust|trustworthy|where it came from|provenance|source|sources|quality|limitation|limitations)\b/.test(lower);
+  return /\b(describe|brief|briefing|document|documentation|profile|inventory|what is inside|what's inside|inspect|understand|trust|trustworthy|where it came from|provenance|source|sources|quality|limitation|limitations|readiness|usable|fix it first)\b/.test(lower);
 }
 
 function chooseDatasetBriefingTarget(reference: string, datasets: RemoteDatasetSummary[]) {
@@ -3224,7 +3232,7 @@ async function maybeHandleDatasetBriefingRequest(
   if (typeof client.listDatasets !== "function") {
     return null;
   }
-  emit({ role: "tool", content: `Locating dataset ${reference} for a trust briefing...` });
+  emit({ role: "tool", content: `Locating dataset ${reference} for a readiness check...` });
   const listed = await client.listDatasets().catch(() => null);
   if (!listed) {
     return null;
@@ -3235,10 +3243,10 @@ async function maybeHandleDatasetBriefingRequest(
   }
   emit({
     role: "tool",
-    content: `Selected ${selected.id} for this briefing${selected.name?.trim() && selected.name.trim().toLowerCase() !== selected.id.toLowerCase() ? ` (${selected.name.trim()})` : ""}.`,
+    content: `Selected ${selected.id} for this readiness check${selected.name?.trim() && selected.name.trim().toLowerCase() !== selected.id.toLowerCase() ? ` (${selected.name.trim()})` : ""}.`,
   });
   if (typeof client.getDataset === "function") {
-    emit({ role: "tool", content: `Reading saved profile for ${selected.id}: sources, schema, coverage, quality, limitations...` });
+    emit({ role: "tool", content: `Reading saved profile for ${selected.id}: sources, tables, schema, coverage, join evidence, quality, limitations...` });
     const detail = await client.getDataset(selected.id).catch(() => null);
     if (detail?.dataset) {
       const savedProfile = formatDatasetProfileFallback(detail.dataset);
@@ -3253,7 +3261,7 @@ async function maybeHandleDatasetBriefingRequest(
     emit,
     deps,
   };
-  emit({ role: "tool", content: "Generating dataset briefing..." });
+  emit({ role: "tool", content: "No complete saved profile found. Starting a dataset readiness briefing..." });
   const result = await startDatasetBriefingRun(toolContext, { datasetId: selected.id });
   const resultData = isRecord(result.data) ? result.data : {};
   if (resultData.ok === false || resultData.reusedSavedProfile === true) {
@@ -3524,7 +3532,7 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
     case "inspect_remote_dataset":
       return `Inspecting dataset ${String(input.datasetId ?? "").trim() || ""}...`.trim();
     case "describe_remote_dataset":
-      return `Starting dataset briefing for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
+      return `Running readiness check for ${String(input.datasetId ?? "").trim() || "dataset"}: profile, coverage, joins, and trust evidence...`;
     case "list_tracked_runs":
       return "Checking run history...";
     case "get_run_results":

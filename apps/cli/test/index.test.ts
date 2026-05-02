@@ -54,10 +54,17 @@ test("prompt mode treats dataset briefing prompts as dataset inspection work", (
   );
 });
 
-test("prompt mode treats dataset trust prompts as dataset inspection work", () => {
+test("prompt mode treats dataset trust prompts as readiness checks", () => {
   assert.equal(
     initialPromptModeStatus("Before I use the econ dataset, help me understand what's inside it, where it came from, and whether I can trust it."),
-    "Inspecting econ: sources, schema, coverage, quality, limitations...",
+    "Readiness check for econ: trust, coverage, join keys, missingness, fix-first verdict...",
+  );
+});
+
+test("prompt mode surfaces a fix-first readiness label for trust-before-study prompts", () => {
+  assert.equal(
+    initialPromptModeStatus("Can I trust the econ dataset enough to use it for a county-month housing affordability study, or do we need to fix it first?"),
+    "Readiness check for econ: trust, coverage, join keys, missingness, fix-first verdict...",
   );
 });
 

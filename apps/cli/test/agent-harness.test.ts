@@ -781,17 +781,22 @@ test("dataset describe request starts briefing run with required artifacts", asy
   assert.match(startedPrompt, /Dataset Briefing/);
   assert.match(startedPrompt, /Dataset Profile/);
   assert.match(startedPrompt, /Overview; Readiness & Trust; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps; Usable Next Steps/);
+  assert.match(startedPrompt, /Treat this as a readiness\/trust check, not an analysis run/);
+  assert.match(startedPrompt, /Readiness check, not analysis\./);
+  assert.match(startedPrompt, /Verdict: usable now/);
   assert.match(startedPrompt, /whether the dataset is usable right now/);
   assert.match(startedPrompt, /what evidence supports that judgment/);
+  assert.match(startedPrompt, /what evidence is still missing/);
   assert.match(startedPrompt, /what would make it unsafe or premature to use/);
+  assert.match(startedPrompt, /row counts, primary grain, join keys/);
   assert.match(startedPrompt, /Do not include query instructions, starter analyses, or suggestions/);
   assert.doesNotMatch(startedPrompt, /Suggested follow-ups/);
 
   const final = messages.at(-1)?.content ?? "";
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Locating dataset econ for a trust briefing/);
-  assert.match(joined, /Selected econ for this briefing \(Economics\)/);
-  assert.match(joined, /Generating dataset briefing/);
+  assert.match(joined, /Locating dataset econ for a readiness check/);
+  assert.match(joined, /Selected econ for this readiness check \(Economics\)/);
+  assert.match(joined, /No complete saved profile found\. Starting a dataset readiness briefing/);
   assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
   assert.doesNotMatch(joined, /Top matches for/);
   assert.match(final, /Started dataset briefing run run-describe for econ/);
@@ -1228,8 +1233,10 @@ test("dataset trust briefing reuses saved profile before starting a new run", as
 
   assert.deepEqual(calls, ["listDatasets", "getDataset:econ"]);
   const transcript = messages.map((message) => message.content).join("\n");
-  assert.match(transcript, /Locating dataset econ for a trust briefing/i);
-  assert.match(transcript, /Reading saved profile for econ: sources, schema, coverage, quality, limitations/i);
+  assert.match(transcript, /Locating dataset econ for a readiness check/i);
+  assert.match(transcript, /Selected econ for this readiness check \(Economic Indicators\)/i);
+  assert.match(transcript, /Reading saved profile for econ: sources, tables, schema, coverage, join evidence, quality, limitations/i);
+  assert.match(transcript, /Readiness check, not analysis\./);
   assert.match(transcript, /Dataset Briefing: Economic Indicators/);
   assert.match(transcript, /Sources: FRED; BLS/);
   assert.match(transcript, /Time Coverage: start: 2010-01; end: 2026-03/);
