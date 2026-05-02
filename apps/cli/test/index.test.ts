@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { initialPromptModeStatus, isDirectCliExecution } from "../src/index.js";
+import { initialPromptModeStatus, isDirectCliExecution, shouldExitPromptMode } from "../src/index.js";
 
 test("prompt mode shows immediate metadata status for field-definition questions", () => {
   assert.equal(
@@ -54,4 +54,8 @@ test("prompt mode treats dataset creation prompts as immediate creation work", (
 
 test("direct cli execution resolves relative entry paths", () => {
   assert.equal(isDirectCliExecution("apps/cli/src/index.ts"), true);
+});
+
+test("prompt mode exits for the built cli entry", () => {
+  assert.equal(shouldExitPromptMode("apps/cli/dist/index.js"), true);
 });

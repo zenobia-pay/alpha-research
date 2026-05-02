@@ -259,8 +259,14 @@ export function isDirectCliExecution(argvEntry = process.argv[1]) {
   return fileURLToPath(import.meta.url) === resolve(argvEntry);
 }
 
+export function shouldExitPromptMode(argvEntry = process.argv[1]) {
+  if (!argvEntry) {
+    return false;
+  }
+  return isDirectCliExecution(argvEntry) || /(?:^|[/\\])dist[/\\]index\.js$/u.test(argvEntry);
+}
+
 async function exitPromptModeProcess() {
-  await new Promise<void>((resolve) => process.stdout.write("", () => resolve()));
   process.exit(process.exitCode ?? 0);
 }
 
@@ -272,7 +278,7 @@ export async function main() {
 
   if (promptFlag) {
     await runPromptMode(promptFlag);
-    if (isDirectCliExecution()) {
+    if (shouldExitPromptMode()) {
       await exitPromptModeProcess();
     }
     return;
@@ -301,7 +307,7 @@ export async function main() {
       throw new Error("Missing prompt text. Use `research prompt \"...\"` or `research --prompt \"...\"`.");
     }
     await runPromptMode(prompt);
-    if (isDirectCliExecution()) {
+    if (shouldExitPromptMode()) {
       await exitPromptModeProcess();
     }
     return;

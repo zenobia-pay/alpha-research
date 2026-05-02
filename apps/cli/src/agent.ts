@@ -499,8 +499,9 @@ function chooseRecommendedInventoryDataset(cards: InventoryDatasetCard[]) {
 }
 
 function renderInventoryDatasetLine(card: InventoryDatasetCard) {
-  const meta = [card.kind, card.readiness, card.detail].filter((value): value is string => Boolean(value)).join(", ");
-  return `- ${card.name} [${card.id}] — ${meta} — ${card.purpose}`;
+  const meta = [card.kind, card.readiness, card.detail].filter((value): value is string => Boolean(value)).join(" · ");
+  const purpose = card.purpose === "general research dataset" ? "" : ` · ${card.purpose}`;
+  return `- ${card.name} (${meta})${purpose}`;
 }
 
 function formatDatasetInventoryResponse(
@@ -523,13 +524,18 @@ function formatDatasetInventoryResponse(
   const readyCount = cards.filter((card) => card.ready).length;
   const lines: string[] = [];
 
-  lines.push(`${localInstances.length} local / ${remoteDatasets.length} remote / ${readyCount} ready now`);
+  lines.push(`Inventory: ${localInstances.length} local, ${remoteDatasets.length} remote, ${readyCount} ready now.`);
 
   if (recommendation) {
     lines.push(
-      `Best starting point: ${recommendation.name} [${recommendation.id}] (${recommendation.kind})`,
+      "",
+      "Recommended",
+      `- ${recommendation.name} (${recommendation.kind} · ${recommendation.readiness}${recommendation.detail ? ` · ${recommendation.detail}` : ""})`,
     );
-    lines.push(`Next: describe or analyze \`${recommendation.id}\`.`);
+    if (recommendation.purpose !== "general research dataset") {
+      lines.push(`  ${recommendation.purpose}`);
+    }
+    lines.push(`  Next: ask \`describe ${recommendation.id}\` to inspect it, or \`analyze ${recommendation.id}\` to start work.`);
   }
 
   if (readyChoices.length > 0) {
@@ -555,7 +561,11 @@ function formatDatasetInventoryResponse(
     lines.push("", `Hidden ${hiddenCount} likely test or temporary datasets. Ask \`show all datasets\` to include them.`);
   }
 
-  lines.push("", "Done. Ask about any dataset by name or id, or press `/` for commands.");
+  lines.push(
+    "",
+    "Legend: local = available in this CLI now. remote = ready on the hosted backend.",
+    "Done. Inventory complete and ready for your next command.",
+  );
   return lines.join("\n");
 }
 
