@@ -90,6 +90,58 @@ function printPromptModeHeader() {
   console.log("research");
 }
 
+function promptModeKickoffMessage(prompt: string) {
+  const datasetMatch = prompt.match(/\busing\s+the\s+([a-z0-9][a-z0-9_-]*)\s+dataset\b/i)
+    ?? prompt.match(/\busing\s+([a-z0-9][a-z0-9_-]*)\b/i);
+  const yearRangeMatch = prompt.match(/\bfrom\s+(\d{4})\s+(?:through|to)\s+(\d{4})\b/i);
+  const groupByMatch = prompt.match(/\bgroup by\s+([^.,;]+)\b/i);
+  const outputs = [
+    /\bcorrelation table\b/i.test(prompt) ? "correlation table" : null,
+    /\bscatter plot\b/i.test(prompt) ? "scatter plot" : null,
+    /\bmarkdown summary\b/i.test(prompt) ? "markdown summary" : null,
+  ].filter((value): value is string => value !== null);
+  if (!datasetMatch?.[1] || !yearRangeMatch || !groupByMatch || outputs.length === 0) {
+    return null;
+  }
+  return `Request understood: use ${datasetMatch[1]} to analyze the requested comparison from ${yearRangeMatch[1]} through ${yearRangeMatch[2]}, grouped by ${groupByMatch[1].trim()}, and return ${outputs.join(", ")}.`;
+}
+
+function formatPromptModeMessage(message: AgentMessage, previousMessages: AgentMessage[]) {
+  const content = message.content.trim();
+  if (!content) {
+    return null;
+  }
+  if (message.role === "tool") {
+    if (content === "Analyzing request...") {
+      return null;
+    }
+    if (/^Found \d+ remote datasets\.$/u.test(content)) {
+      return null;
+    }
+    const shortlistMatch = content.match(/^Found \d+ remote datasets\.\nTop matches for "([^"]+)":\n1\. ([^\s]+) \(([^)]+)\) [—-] ([^\n]+)(?:\n|$)/u);
+    if (shortlistMatch) {
+      return {
+        ...message,
+        content: `Dataset match: ${shortlistMatch[2]} is the best remote match for "${shortlistMatch[1]}". ${shortlistMatch[4]}.`,
+      };
+    }
+    if (content.startsWith("Top matches for ")) {
+      return null;
+    }
+    if (content.startsWith("Run startup: waiting for backend worker")) {
+      return {
+        ...message,
+        content: content.replace("Run startup:", "Still initializing:"),
+      };
+    }
+    const previousContent = previousMessages.at(-1)?.content.trim();
+    if (previousContent === content) {
+      return null;
+    }
+  }
+  return message;
+}
+
 function parseStartedDatasetBriefingRun(messages: AgentMessage[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const content = messages[index]?.content ?? "";
@@ -184,10 +236,14 @@ async function runPromptMode(prompt: string) {
   const session = await readSession();
   const messages: AgentMessage[] = [];
   const emit = (message: AgentMessage) => {
-    messages.push(message);
-    printAgentMessage(message);
+    const formatted = formatPromptModeMessage(message, messages);
+    if (!formatted) {
+      return;
+    }
+    messages.push(formatted);
+    printAgentMessage(formatted);
   };
-  emit({ role: "tool", content: initialPromptModeStatus(prompt) });
+  emit({ role: "tool", content: promptModeKickoffMessage(prompt) ?? initialPromptModeStatus(prompt) });
   const conversationState = await runAgentTurn(prompt, session, emit);
   const startedBriefing = session ? parseStartedDatasetBriefingRun(messages) : null;
   if (session && startedBriefing) {

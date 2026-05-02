@@ -565,7 +565,8 @@ test("async query run returns immediately with canonical dashboard and terminal 
 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Started query run run-123/);
-  assert.match(final, /Run: run-123 \(starting\)/);
+  assert.match(final, /Run: run-123/);
+  assert.match(final, /State: starting\. The backend worker is still initializing\./);
   assert.match(final, /research show active runs/);
   assert.match(final, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-123#run-run-123/);
   assert.doesNotMatch(final, /Terminal session:/);
@@ -674,7 +675,8 @@ test("dataset describe request starts briefing run with required artifacts", asy
   assert.doesNotMatch(joined, /Top matches for/);
   assert.match(final, /Started dataset briefing run run-describe for econ/);
   assert.match(final, /Expected artifacts: Dataset Briefing, Dataset Profile/);
-  assert.match(final, /Run: run-describe \(starting\)/);
+  assert.match(final, /Run: run-describe/);
+  assert.match(final, /State: starting\. The backend worker is still initializing\./);
   assert.match(final, /research show active runs/);
   assert.doesNotMatch(final, /Terminal session:/);
 });
@@ -772,7 +774,8 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
   assert.doesNotMatch(joinedMessages, /Running run_remote_transformation/);
   assert.doesNotMatch(joinedMessages, /Top matches for "enriched-tweets"/);
   assert.match(joinedMessages, /Started remote analysis on enriched-tweets/);
-  assert.match(joinedMessages, /Run: run-transform-viral \(queued\)/);
+  assert.match(joinedMessages, /Run: run-transform-viral/);
+  assert.match(joinedMessages, /State: queued\. The run is waiting for backend capacity\./);
   assert.match(joinedMessages, /Plan: top 0\.1% by `quote_tweet_count`, random sample 100, strict JSON labels for `hook_type`, `emotional_tone`, `controversy_level`, then produce a bar chart and 10 representative examples\./);
   assert.match(joinedMessages, /Warning: requested fields not verified in dataset metadata: `hook_type`, `emotional_tone`, `controversy_level`\. The run will need to confirm them at execution time\./);
   assert.match(joinedMessages, /Expected artifacts: bar chart, structured JSON results, representative examples/);

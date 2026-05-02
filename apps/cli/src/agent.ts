@@ -602,6 +602,9 @@ function recommendationMatchScore(topic: string, dataset: RemoteDatasetSummary) 
   if (requested.size === 0) return 0;
   const candidate = topicRecommendationTokens([dataset.id, dataset.name].join(" "));
   const overlap = candidate.filter((token) => requested.has(token));
+  if (overlap.length === 0) {
+    return 0;
+  }
   const readyBonus = ["ready", "deployed"].includes((dataset.status ?? dataset.deploymentStatus ?? "").toLowerCase()) ? 2 : 0;
   return overlap.length * 3 + readyBonus;
 }
@@ -1473,7 +1476,7 @@ function progressHeartbeat(toolName: string, input: Record<string, unknown>, ela
     return `Still preparing the ${datasetId} environment and checking whether the dataset volume is free (${elapsedSeconds}s elapsed).`;
   }
   if (ASYNC_RUN_START_TOOLS.has(toolName)) {
-    return `Still starting the remote run for ${datasetId} (${elapsedSeconds}s elapsed).`;
+    return `Run startup: waiting for backend worker on ${datasetId} (${elapsedSeconds}s elapsed).`;
   }
   return `Still running ${toolName} (${elapsedSeconds}s elapsed).`;
 }
@@ -2611,7 +2614,8 @@ async function maybeHandleSpecificViralTweetsExperiment(
   const summaryLines = [
     `Started remote analysis on ${result.run.datasetId}.`,
     `Dataset: ${result.run.datasetId}`,
-    `Run: ${result.run.id} (${normalizeAsyncRunStatus(result.run.status)})`,
+    `Run: ${result.run.id}`,
+    asyncRunStateLine(result.run.status),
     `Plan: top ${request.thresholdPercent}% by \`${request.metricField}\`, random sample ${request.sampleSize}, strict JSON labels for ${request.labelFields.map((field) => `\`${field}\``).join(", ")}, then produce ${request.wantsBarChart ? "a bar chart" : "analysis outputs"}${request.representativeExamples > 0 ? ` and ${request.representativeExamples} representative examples` : ""}.`,
     missingFields.length > 0
       ? `Warning: requested fields not verified in dataset metadata: ${missingFields.map((field) => `\`${field}\``).join(", ")}. The run will need to confirm them at execution time.`
@@ -3161,6 +3165,14 @@ function normalizeAsyncRunStatus(status: unknown) {
   return value || "queued";
 }
 
+function asyncRunStateLine(status: unknown) {
+  const normalized = normalizeAsyncRunStatus(status);
+  if (normalized === "queued") return "State: queued. The run is waiting for backend capacity.";
+  if (normalized === "starting") return "State: starting. The backend worker is still initializing.";
+  if (normalized === "running") return "State: running. The analysis is executing now.";
+  return `State: ${normalized}.`;
+}
+
 function artifactExpectationFromTitle(title: string) {
   const lower = title.toLowerCase();
   if (lower.includes("bar chart")) return "bar chart";
@@ -3203,6 +3215,7 @@ function asyncRunLaunchSummary(
   const datasetId = typeof run.datasetId === "string" ? run.datasetId : null;
   const status = normalizeAsyncRunStatus(run.status);
   const expectations = inferArtifactExpectations(toolName, resultData, result.summary);
+  const stateLine = asyncRunStateLine(status);
   const headline = (() => {
     switch (toolName) {
       case "run_remote_transformation":
@@ -3225,14 +3238,15 @@ function asyncRunLaunchSummary(
   })();
   const lines = [headline];
   if (runId) {
-    lines.push(`Run: ${runId} (${status})`);
+    lines.push(`Run: ${runId}`);
   }
-  lines.push("Next: the run will keep processing in the background. Follow it in the dashboard or ask `research show active runs`.");
+  lines.push(stateLine);
   if (expectations.length > 0) {
     lines.push(`Expected artifacts: ${expectations.join(", ")}.`);
   } else if (toolName === "describe_remote_dataset") {
     lines.push("Expected artifacts: Dataset Briefing, Dataset Profile.");
   }
+  lines.push("Next: the run will keep processing in the background. Follow it in the dashboard or ask `research show active runs`.");
   if (context.session && runId) {
     lines.push(`Dashboard: ${dashboardRunUrl(context.session.origin, runId)}`);
   }
