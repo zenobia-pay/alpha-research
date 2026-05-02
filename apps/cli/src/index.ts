@@ -69,6 +69,12 @@ function wrapForStdout(line: string) {
 export function initialPromptModeStatus(prompt: string) {
   const lower = prompt.trim().toLowerCase();
   const datasetReference = extractPromptDatasetReference(prompt);
+  if (
+    /\b(came back|back later|return later|returned later|recent work|my research work)\b/.test(lower)
+    && /\b(what happened|results?|artifacts?|status|progress|can i see|show me)\b/.test(lower)
+  ) {
+    return "Checking recent research work...";
+  }
   if (/\bwhich dataset should i use\b/.test(lower)) {
     return "Looking up candidate datasets...";
   }

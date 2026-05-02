@@ -1553,12 +1553,16 @@ test("continuity question returns compact lifecycle summary without tool chatter
 
   assert.equal(messages.some((message) => message.role === "tool"), false);
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /1 active, 1 completed, 1 blocked run/);
-  assert.match(final, /Most relevant result: enriched-tweets \(run-…eted\) finished successfully\./);
-  assert.match(final, /Best artifacts: summary\.md and result\.json\./);
-  assert.match(final, /Active\n- econ \(run-…tive\): Build county-month panel\./);
-  assert.match(final, /Blocked\n- housing \(run-…cked\): worker state needs reconciliation\./);
-  assert.match(final, /Best next step: wait on econ \(run-…tive\)/);
+  assert.match(final, /Your newest work is still running on econ, and your latest finished result is from enriched-tweets\./);
+  assert.match(final, /Recent run state: 1 active, 1 completed, 1 blocked\./);
+  assert.match(final, /Still running\n- econ \(run-…tive\) is running\./);
+  assert.match(final, /Why I am leading with this run: it is your newest tracked work, so it is the work still progressing\./);
+  assert.match(final, /Latest finished result\n- enriched-tweets \(run-…eted\) completed successfully\./);
+  assert.match(final, /Why this result: I picked enriched-tweets as the result to open because it is the newest completed run; econ is newer but still in progress\./);
+  assert.match(final, /Open first: summary\.md — written summary you can read first\./);
+  assert.match(final, /Also available: result\.json \(structured result data\)\./);
+  assert.match(final, /Other recent run state\n- housing \(run-…cked\) is blocked and needs worker-state reconciliation before new results will appear\./);
+  assert.match(final, /Best next step: wait on econ if you need the newest work, or open enriched-tweets and start with summary\.md\./);
   assert.doesNotMatch(final, /Running list_run_artifacts|Checking run history|Remote Agent Transcript|No produced artifacts found/);
 });
 

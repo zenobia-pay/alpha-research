@@ -748,27 +748,53 @@ function continuityArtifactLabel(artifact: { title?: string; type?: string }) {
   return title;
 }
 
+function continuityArtifactDescription(artifact: { title?: string; type?: string }) {
+  const title = typeof artifact.title === "string" && artifact.title.trim() ? artifact.title.trim() : artifact.type ?? "artifact";
+  if (artifact.type === "structured_result" || title === "result.json") return "structured result data";
+  if (artifact.type === "remote_agent_summary") return "plain-language recap from the remote run";
+  if (artifact.type === "remote_agent_transcript") return "full remote execution log";
+  if (title.endsWith(".md")) return "written summary you can read first";
+  if (title.endsWith(".csv")) return "data table you can inspect or export";
+  if (title.endsWith(".json")) return "machine-readable output";
+  return "saved run artifact";
+}
+
+function continuityArtifactPriority(artifact: { title?: string; type?: string }) {
+  const title = typeof artifact.title === "string" && artifact.title.trim() ? artifact.title.trim() : artifact.type ?? "artifact";
+  if (title.endsWith(".md")) return 0;
+  if (artifact.type === "remote_agent_summary") return 1;
+  if (artifact.type === "structured_result" || title === "result.json") return 2;
+  if (title.endsWith(".csv")) return 3;
+  if (artifact.type === "remote_agent_transcript") return 9;
+  return 4;
+}
+
 function summarizeContinuityArtifacts(artifacts: RemoteRunArtifact[]) {
   const produced = artifacts.filter(isProducedArtifact);
   if (produced.length === 0) {
     return {
       count: 0,
-      line: "No user-facing artifacts yet.",
-      bestArtifact: null as string | null,
+      primaryArtifact: null as { label: string; description: string } | null,
+      secondaryArtifacts: [] as Array<{ label: string; description: string }>,
     };
   }
-  const preferred = produced
-    .filter((artifact) => artifact.type !== "remote_agent_transcript" && artifact.type !== "remote_agent_session")
-    .map(continuityArtifactLabel);
-  const labels = [...new Set((preferred.length > 0 ? preferred : produced.map(continuityArtifactLabel)).filter(Boolean))];
-  const bestArtifact = labels[0] ?? null;
-  if (labels.length === 1) {
-    return { count: produced.length, line: `Best artifact: ${labels[0]}.`, bestArtifact };
+  const preferred = produced.filter((artifact) => artifact.type !== "remote_agent_transcript" && artifact.type !== "remote_agent_session");
+  const ranked = (preferred.length > 0 ? preferred : produced)
+    .slice()
+    .sort((left, right) => continuityArtifactPriority(left) - continuityArtifactPriority(right));
+  const unique: Array<{ label: string; description: string }> = [];
+  const seen = new Set<string>();
+  for (const artifact of ranked) {
+    const label = continuityArtifactLabel(artifact);
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    unique.push({ label, description: continuityArtifactDescription(artifact) });
   }
-  if (labels.length === 2) {
-    return { count: produced.length, line: `Best artifacts: ${labels[0]} and ${labels[1]}.`, bestArtifact };
-  }
-  return { count: produced.length, line: `Best artifacts: ${labels.slice(0, 3).join(", ")}.`, bestArtifact };
+  return {
+    count: produced.length,
+    primaryArtifact: unique[0] ?? null,
+    secondaryArtifacts: unique.slice(1),
+  };
 }
 
 function continuityLifecycle(run: TrackedRunRecord) {
@@ -781,11 +807,33 @@ function continuityLifecycle(run: TrackedRunRecord) {
 }
 
 function pickRelevantContinuityRun(runs: TrackedRunRecord[]) {
-  const completed = runs.find((run) => continuityLifecycle(run) === "completed");
-  if (completed) return completed;
   const active = runs.find((run) => continuityLifecycle(run) === "active");
   if (active) return active;
+  const completed = runs.find((run) => continuityLifecycle(run) === "completed");
+  if (completed) return completed;
   return runs[0] ?? null;
+}
+
+function summarizeGroupedRuns(runs: TrackedRunRecord[], limit = 2) {
+  const grouped = new Map<string, { datasetId: string; status: string; count: number }>();
+  for (const run of runs) {
+    const key = `${run.datasetId}::${run.status.toLowerCase()}`;
+    const current = grouped.get(key);
+    if (current) {
+      current.count += 1;
+      continue;
+    }
+    grouped.set(key, {
+      datasetId: run.datasetId,
+      status: run.status,
+      count: 1,
+    });
+  }
+  return [...grouped.values()]
+    .slice(0, limit)
+    .map((group) => group.count === 1
+      ? `${group.datasetId} ended ${formatStatusForHumans(group.status)}`
+      : `${group.count} ${group.datasetId} runs ended ${formatStatusForHumans(group.status)}`);
 }
 
 async function maybeHandleContinuityQuestion(
@@ -834,79 +882,96 @@ async function maybeHandleContinuityQuestion(
     blocked.length > 0 ? `${blocked.length} blocked` : null,
     failed.length > 0 ? `${failed.length} failed` : null,
   ].filter((value): value is string => Boolean(value));
-  lines.push(`I found ${topLineParts.join(", ")} run${runs.length === 1 ? "" : "s"} in your recent work.`);
+  const latestCompleted = completed[0] ?? null;
+  let latestCompletedResults: Awaited<ReturnType<RemoteApiClientType["getRunResults"]>> | null = relevantResults;
+  if (latestCompleted && latestCompleted.id !== relevant.id) {
+    latestCompletedResults = await client.getRunResults(latestCompleted.id).catch(() => null);
+  }
+  const latestCompletedPrompt = latestCompleted
+    ? summarizePromptForHumans(latestCompletedResults?.run.prompt ?? latestCompleted.prompt, latestCompleted.datasetId)
+    : null;
+  const activeRun = active[0] ?? null;
 
-  const relevantPrompt = summarizePromptForHumans(relevantResults?.run.prompt ?? relevant.prompt, relevant.datasetId);
-  if (continuityLifecycle(relevant) === "completed" && relevantResults) {
-    const artifactSummary = summarizeContinuityArtifacts(relevantResults.artifacts);
+  if (activeRun && latestCompleted) {
     lines.push(
-      "",
-      `Most relevant result: ${relevant.datasetId} (${shortenRunId(relevant.id)}) finished successfully.`,
-      `What it was doing: ${relevantPrompt}`,
-      artifactSummary.line,
-      `Open in dashboard: ${dashboardRunUrl(initialSession.origin, relevant.id)}`,
+      `Your newest work is still running on ${activeRun.datasetId}, and your latest finished result is from ${latestCompleted.datasetId}.`,
+      topLineParts.length > 0 ? `Recent run state: ${topLineParts.join(", ")}.` : "Recent run state is available.",
     );
-  } else if (continuityLifecycle(relevant) === "active") {
+  } else if (activeRun) {
     lines.push(
-      "",
-      `Most relevant run: ${relevant.datasetId} (${shortenRunId(relevant.id)}) is still ${formatStatusForHumans(relevant.status)}.`,
-      `What it is doing: ${relevantPrompt}`,
-      "No finished artifacts from that run yet.",
+      `Your newest tracked work is still running on ${activeRun.datasetId}.`,
+      topLineParts.length > 0 ? `Recent run state: ${topLineParts.join(", ")}.` : "Recent run state is available.",
     );
-  } else if (continuityLifecycle(relevant) === "blocked") {
+  } else if (latestCompleted) {
     lines.push(
-      "",
-      `Most relevant run: ${relevant.datasetId} (${shortenRunId(relevant.id)}) is blocked.`,
-      `What it was doing: ${relevantPrompt}`,
-      "The worker state needs reconciliation before new results will appear.",
+      `Your latest tracked work already finished on ${latestCompleted.datasetId}.`,
+      topLineParts.length > 0 ? `Recent run state: ${topLineParts.join(", ")}.` : "Recent run state is available.",
     );
   } else {
     lines.push(
-      "",
-      `Most relevant run: ${relevant.datasetId} (${shortenRunId(relevant.id)}) ended ${formatStatusForHumans(relevant.status)}.`,
-      `What it was doing: ${relevantPrompt}`,
-      "That run did not finish cleanly.",
+      `Your latest tracked work is ${relevant.datasetId}.`,
+      topLineParts.length > 0 ? `Recent run state: ${topLineParts.join(", ")}.` : "Recent run state is available.",
     );
   }
 
-  if (active.length > 0) {
-    lines.push("", "Active");
-    for (const run of active.slice(0, 2)) {
-      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): ${summarizePromptForHumans(run.prompt, run.datasetId)}`);
-    }
+  if (activeRun) {
+    lines.push(
+      "",
+      "Still running",
+      `- ${activeRun.datasetId} (${shortenRunId(activeRun.id)}) is ${formatStatusForHumans(activeRun.status)}.`,
+      `- What it is doing: ${summarizePromptForHumans(activeRun.prompt, activeRun.datasetId)}`,
+      `- Last update: ${formatWhen(activeRun.updatedAt)}`,
+      `- Why I am leading with this run: it is your newest tracked work, so it is the work still progressing.`,
+    );
   }
 
-  if (completed.length > 0) {
-    lines.push("", "Completed");
-    for (const run of completed.slice(0, 2)) {
-      if (run.id === relevant.id && relevantResults) {
-        const artifactSummary = summarizeContinuityArtifacts(relevantResults.artifacts);
-        lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): ${artifactSummary.bestArtifact ? `${artifactSummary.bestArtifact} available.` : "Finished with saved artifacts."}`);
-      } else {
-        lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): finished successfully.`);
-      }
+  if (latestCompleted && latestCompletedResults) {
+    const artifactSummary = summarizeContinuityArtifacts(latestCompletedResults.artifacts);
+    const reason = activeRun
+      ? `I picked ${latestCompleted.datasetId} as the result to open because it is the newest completed run; ${activeRun.datasetId} is newer but still in progress.`
+      : `I picked ${latestCompleted.datasetId} because it is your newest completed run.`;
+    lines.push(
+      "",
+      "Latest finished result",
+      `- ${latestCompleted.datasetId} (${shortenRunId(latestCompleted.id)}) completed successfully.`,
+      `- Why this result: ${reason}`,
+      `- What it did: ${latestCompletedPrompt}`,
+    );
+    if (artifactSummary.primaryArtifact) {
+      lines.push(`- Open first: ${artifactSummary.primaryArtifact.label} — ${artifactSummary.primaryArtifact.description}.`);
+    } else {
+      lines.push("- No saved user-facing artifacts were returned yet.");
     }
+    if (artifactSummary.secondaryArtifacts.length > 0) {
+      lines.push(`- Also available: ${artifactSummary.secondaryArtifacts.slice(0, 3).map((artifact) => `${artifact.label} (${artifact.description})`).join("; ")}.`);
+    }
+    lines.push(`- Dashboard: ${dashboardRunUrl(initialSession.origin, latestCompleted.id)}`);
   }
 
-  if (blocked.length > 0) {
-    lines.push("", "Blocked");
+  if (blocked.length > 0 || failed.length > 0 || completed.length > (latestCompleted ? 1 : 0) || active.length > (activeRun ? 1 : 0)) {
+    lines.push("", "Other recent run state");
+    for (const run of active.slice(activeRun ? 1 : 0, 2)) {
+      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}) is ${formatStatusForHumans(run.status)}.`);
+    }
     for (const run of blocked.slice(0, 2)) {
-      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): worker state needs reconciliation.`);
+      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}) is blocked and needs worker-state reconciliation before new results will appear.`);
+    }
+    for (const summary of summarizeGroupedRuns(failed, 2)) {
+      lines.push(`- ${summary}.`);
+    }
+    const extraCompleted = completed.filter((run) => run.id !== latestCompleted?.id).slice(0, 2);
+    for (const run of extraCompleted) {
+      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}) also completed successfully.`);
     }
   }
 
-  if (failed.length > 0) {
-    lines.push("", "Failed");
-    for (const run of failed.slice(0, 2)) {
-      lines.push(`- ${run.datasetId} (${shortenRunId(run.id)}): ${formatStatusForHumans(run.status)}.`);
-    }
-  }
-
-  if (active.length > 0) {
-    const nextRun = active[0]!;
-    lines.push("", `Best next step: wait on ${nextRun.datasetId} (${shortenRunId(nextRun.id)}) if you need that work, or ask for its status if you think it is stuck.`);
-  } else if (continuityLifecycle(relevant) === "completed") {
-    lines.push("", `Best next step: open the ${relevant.datasetId} run artifacts and inspect ${summarizeContinuityArtifacts(relevantResults?.artifacts ?? []).bestArtifact ?? "the saved outputs"}.`);
+  if (activeRun) {
+    const nextAction = latestCompletedResults && latestCompleted
+      ? `wait on ${activeRun.datasetId} if you need the newest work, or open ${latestCompleted.datasetId} and start with ${summarizeContinuityArtifacts(latestCompletedResults.artifacts).primaryArtifact?.label ?? "the saved outputs"}`
+      : `wait on ${activeRun.datasetId} if you need the newest work, or ask for its status if you think it is stuck`;
+    lines.push("", `Best next step: ${nextAction}.`);
+  } else if (latestCompleted && latestCompletedResults) {
+    lines.push("", `Best next step: open ${latestCompleted.datasetId} and start with ${summarizeContinuityArtifacts(latestCompletedResults.artifacts).primaryArtifact?.label ?? "the saved outputs"}.`);
   } else {
     lines.push("", `Best next step: inspect ${relevant.datasetId} (${shortenRunId(relevant.id)}) and decide whether to retry or resume it.`);
   }

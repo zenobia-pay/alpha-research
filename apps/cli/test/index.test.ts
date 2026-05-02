@@ -19,6 +19,13 @@ test("prompt mode shows immediate run-status feedback for run inspection questio
   );
 });
 
+test("prompt mode shows continuity-specific feedback for return-later questions", () => {
+  assert.equal(
+    initialPromptModeStatus("I came back later. What happened with my research work, and what results or artifacts can I see?"),
+    "Checking recent research work...",
+  );
+});
+
 test("prompt mode treats dataset-choice prompts as dataset inspection work", () => {
   assert.equal(
     initialPromptModeStatus("I want to study housing affordability. Which dataset should I use?"),
