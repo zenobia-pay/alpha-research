@@ -189,11 +189,20 @@ function ActivityIndicator() {
   );
 }
 
-function TaskActivityIndicator({ status }: { status: InteractiveTaskState["status"] }) {
+function TaskActivityIndicator({
+  status,
+  currentStep,
+}: {
+  status: InteractiveTaskState["status"];
+  currentStep: string | null;
+}) {
   if (status === "waiting") {
+    const waitingLabel = currentStep && /approval|choice/u.test(currentStep)
+      ? "· scoping experiment · waiting for your choice"
+      : "· waiting for your reply";
     return (
       <Box>
-        <Text color="green">· waiting for your reply</Text>
+        <Text color="green">{waitingLabel}</Text>
       </Box>
     );
   }
@@ -304,7 +313,7 @@ function ResearchThread({
         }
       </ThreadPrimitive.Messages>
 
-      <TaskActivityIndicator status={taskState.status} />
+      <TaskActivityIndicator status={taskState.status} currentStep={taskState.currentStep} />
       {taskState.activity.length > 0 ? (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
           <Text bold>Recent progress</Text>

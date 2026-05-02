@@ -152,7 +152,9 @@ function inferNextExpectedFromProgress(text: string) {
   if (/Planning run:/u.test(text)) return "A remote run kickoff that preserves the requested sampling, labeling, and output design.";
   if (/Starting dataset build/u.test(text)) return "A remote build run with artifact expectations.";
   if (/Inspecting dataset/u.test(text)) return "A dataset briefing or a readiness summary.";
-  if (/Waiting for your approval before starting a run\./u.test(text)) return "A short user reply so RESEARCH can continue with the agreed experiment scope.";
+  if (/Waiting for your approval before starting a run\./u.test(text) || /Waiting for your choice before starting a run\./u.test(text)) {
+    return "A short user reply so RESEARCH can continue with the agreed experiment scope.";
+  }
   return null;
 }
 
@@ -191,6 +193,8 @@ function isBlockedAssistantMessage(text: string) {
 
 function isWaitingForUserReply(text: string) {
   return /Waiting for your answer/u.test(text)
+    || /Waiting for your approval/u.test(text)
+    || /Waiting for your choice/u.test(text)
     || /Need one detail to finalize/u.test(text)
     || /Questions needed/u.test(text)
     || /Reply with /u.test(text)

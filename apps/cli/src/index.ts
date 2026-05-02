@@ -93,7 +93,7 @@ export function initialPromptModeStatus(prompt: string) {
       : "Inspecting dataset: sources, schema, coverage, quality, limitations...";
   }
   if (/\bviral tweets?\b|\bquote_tweet_count\b|\bstrict json\b|\brepresentative examples\b/.test(lower)) {
-    return "Planning dataset-backed research...";
+    return "Scoping experiment design...";
   }
   if (/\banaly[sz]e\b|\bresearch\b|\bhypothesis\b|\bexperiment\b/.test(lower)) {
     return "Planning dataset-backed research...";
@@ -161,6 +161,12 @@ function formatPromptModeMessage(message: AgentMessage, previousMessages: AgentM
       return {
         ...message,
         content: "Locating the requested dataset...",
+      };
+    }
+    if (content === "Waiting for your approval before starting a run.") {
+      return {
+        ...message,
+        content: "Scoping experiment design complete. Waiting for your choice before starting a run.",
       };
     }
     const previousContent = previousMessages.at(-1)?.content.trim();

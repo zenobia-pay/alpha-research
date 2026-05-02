@@ -48,7 +48,7 @@ test("prompt mode treats dataset trust prompts as dataset inspection work", () =
 test("prompt mode treats fully specified tweet experiments as immediate research work", () => {
   assert.equal(
     initialPromptModeStatus("Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples."),
-    "Planning dataset-backed research...",
+    "Scoping experiment design...",
   );
 });
 

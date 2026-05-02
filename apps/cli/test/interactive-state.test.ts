@@ -86,11 +86,11 @@ test("approval-waiting progress line keeps the task in waiting state", () => {
   });
   state = applyAgentMessageToTaskState(state, {
     role: "tool",
-    content: "Waiting for your approval before starting a run.",
+    content: "Scoping experiment design complete. Waiting for your choice before starting a run.",
   });
 
   assert.equal(state.status, "waiting");
-  assert.equal(state.currentStep, "Waiting for your approval before starting a run.");
+  assert.equal(state.currentStep, "Scoping experiment design complete. Waiting for your choice before starting a run.");
   assert.match(state.nextExpectedOutput ?? "", /short user reply/i);
 });
 

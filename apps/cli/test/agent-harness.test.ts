@@ -2145,7 +2145,7 @@ test("product planning: vague viral tweets request designs scoped experiment bef
   assert.match(joinedMessages, /Checking remote datasets/i);
   assert.match(joinedMessages, /Inspecting dataset enriched-tweets/i);
   assert.match(joinedMessages, /Before I start a remote run/i);
-  assert.match(joinedMessages, /Confirmed dataset: `enriched-tweets`/i);
+  assert.match(joinedMessages, /Dataset: `enriched-tweets` .*available in RESEARCH now/i);
   assert.match(joinedMessages, /it is present in RESEARCH and its metadata includes tweet engagement fields/i);
   assert.match(joinedMessages, /top 0\.1% by `quote_tweet_count`/i);
   assert.match(joinedMessages, /quote tweets usually capture stronger downstream spread and commentary/i);
@@ -2156,9 +2156,9 @@ test("product planning: vague viral tweets request designs scoped experiment bef
   assert.match(joinedMessages, /controversy_level/i);
   assert.match(joinedMessages, /Success looks like:/i);
   assert.match(joinedMessages, /Choose the virality rule/i);
-  assert.match(joinedMessages, /1\.\s+Top 0\.1% by `quote_tweet_count`/i);
-  assert.match(joinedMessages, /2\.\s+Top 0\.1% by `retweet_count`/i);
-  assert.match(joinedMessages, /3\.\s+Top 0\.1% by `favorite_count`/i);
+  assert.match(joinedMessages, /1\.\s+Top 0\.1% by `quote_tweet_count` - best if you care about tweets that triggered visible discussion/i);
+  assert.match(joinedMessages, /2\.\s+Top 0\.1% by `retweet_count` - best if you care about raw resharing spread/i);
+  assert.match(joinedMessages, /3\.\s+Top 0\.1% by `favorite_count` - best if you care about broad lightweight approval/i);
   assert.match(joinedMessages, /Waiting for your approval/i);
   assert.match(joinedMessages, /reply with 1, 2, or 3/i);
   assert.match(joinedMessages, /Waiting for your approval before starting a run\./i);

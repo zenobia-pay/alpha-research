@@ -2244,8 +2244,8 @@ function tweetDatasetLooksUsable(dataset: RemoteDatasetSummary | RemoteDatasetDe
 function formatViralTweetsExperimentProposal(dataset: RemoteDatasetSummary | RemoteDatasetDetail, wasVerified: boolean) {
   const label = `\`${dataset.id}\`${dataset.name && dataset.name !== dataset.id ? ` (${dataset.name})` : ""}`;
   const datasetLine = wasVerified
-    ? `Confirmed dataset: ${label}.`
-    : `Best available dataset: ${label}.`;
+    ? `Dataset: ${label} is available in RESEARCH now.`
+    : `Dataset: ${label} looks like the best current fit in RESEARCH.`;
   const datasetWhy = wasVerified
     ? "Why this dataset: it is present in RESEARCH and its metadata includes tweet engagement fields needed for a first-pass virality experiment."
     : "Why this dataset: it looks like the closest tweet dataset currently available in RESEARCH for an engagement-based virality experiment.";
@@ -2266,9 +2266,9 @@ function formatViralTweetsExperimentProposal(dataset: RemoteDatasetSummary | Rem
     "Outputs: a short summary, one bar chart per label, and 10 representative examples.",
     "",
     "Choose the virality rule",
-    "1. Top 0.1% by `quote_tweet_count`.",
-    "2. Top 0.1% by `retweet_count`.",
-    "3. Top 0.1% by `favorite_count`.",
+    "1. Top 0.1% by `quote_tweet_count` - best if you care about tweets that triggered visible discussion and response posts.",
+    "2. Top 0.1% by `retweet_count` - best if you care about raw resharing spread.",
+    "3. Top 0.1% by `favorite_count` - best if you care about broad lightweight approval rather than discussion.",
     "",
     "Waiting for your approval",
     "Reply with 1, 2, or 3 to start with that metric.",
