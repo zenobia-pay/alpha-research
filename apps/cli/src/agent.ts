@@ -3111,7 +3111,7 @@ async function maybeHandleBusyDatasetBeforePlanning(
 function summarizeTrackedRunWork(run: { datasetId: string; prompt?: string; lastEventMessage?: string }) {
   const latest = run.lastEventMessage?.trim();
   if (latest) {
-    return latest;
+    return summarizeRunEventForHumans(latest);
   }
   const firstPromptLine = run.prompt?.split("\n")[0]?.trim();
   if (!firstPromptLine) {
@@ -3123,6 +3123,16 @@ function summarizeTrackedRunWork(run: { datasetId: string; prompt?: string; last
   return firstPromptLine.endsWith(".") ? firstPromptLine : `${firstPromptLine}.`;
 }
 
+function summarizeRunEventForHumans(message: string) {
+  if (/Remote agent droplet .* launched in /i.test(message)) {
+    return "Worker started and is still getting ready.";
+  }
+  if (/mounted dataset grounding is mandatory/i.test(message)) {
+    return "Waiting for the dataset mount before analysis can start.";
+  }
+  return message.endsWith(".") ? message : `${message}.`;
+}
+
 function describeRunDiagnosis(status: string | undefined, minutesSinceUpdate: number | null) {
   const normalized = (status ?? "").toLowerCase();
   if (minutesSinceUpdate === null) {
@@ -3130,26 +3140,26 @@ function describeRunDiagnosis(status: string | undefined, minutesSinceUpdate: nu
   }
   if (normalized === "booting") {
     if (minutesSinceUpdate <= 2) {
-      return "The run is still booting and was updated recently, so it does not look stuck yet.";
+      return "Still booting. That is normal while the worker starts and mounts the dataset.";
     }
-    return "The run is still marked as booting and has not updated recently, so it may be stalled.";
+    return "Still booting, but it has gone quiet longer than expected, so it may be stalled.";
   }
   if (normalized === "queued") {
     if (minutesSinceUpdate <= 2) {
-      return "The run is still queued and was updated recently, so it does not look stuck yet.";
+      return "Still queued. That usually means the run is waiting for capacity.";
     }
-    return "The run is still queued and has not updated recently, so it may be waiting on capacity.";
+    return "Still queued with no recent progress, so it may be waiting on capacity.";
   }
   if (normalized === "running") {
     if (minutesSinceUpdate <= 2) {
-      return "The run is still running and was updated recently, so it does not look stuck yet.";
+      return "Still running. Recent updates suggest the worker is making progress.";
     }
-    return "The run is still marked as running but has not updated recently, so it may be stalled.";
+    return "Still running, but there have been no recent updates, so it may be stalled.";
   }
   if (minutesSinceUpdate <= 2) {
-    return `The run is still ${formatStatusForHumans(status)} and was updated recently, so it does not look stuck yet.`;
+    return `Still ${formatStatusForHumans(status)}. Recent updates suggest it is not stuck yet.`;
   }
-  return `The run is still ${formatStatusForHumans(status)} but has not updated recently, so it may be stalled.`;
+  return `Still ${formatStatusForHumans(status)}, but it has been quiet long enough that it may be stalled.`;
 }
 
 function formatHeartbeat(minutesSinceUpdate: number | null) {
@@ -3159,11 +3169,20 @@ function formatHeartbeat(minutesSinceUpdate: number | null) {
   return `${minutesSinceUpdate} minutes ago`;
 }
 
+function formatElapsedDuration(ms: number | null) {
+  if (ms === null || !Number.isFinite(ms)) return "unknown";
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+}
+
 function recommendedRunAction(runId: string, minutesSinceUpdate: number | null) {
-  if (minutesSinceUpdate === null || minutesSinceUpdate > 2) {
-    return `Next: run \`research debug run ${runId}\` now to inspect the latest remote state and events.`;
+  if (minutesSinceUpdate === null || minutesSinceUpdate >= 2) {
+    return `Next: run \`research debug run ${runId}\` now.`;
   }
-  return `Next: wait 1-2 minutes. If there is still no new update, run \`research debug run ${runId}\`.`;
+  return `Next: give it up to 2 minutes total. If there is still no new event, run \`research debug run ${runId}\`.`;
 }
 
 async function maybeHandleStuckRunQuestion(input: string, initialSession: SessionRecord | null, deps: AgentRuntimeDeps) {
@@ -3177,18 +3196,22 @@ async function maybeHandleStuckRunQuestion(input: string, initialSession: Sessio
     return "I do not see an active tracked run right now. Ask `show results from my last run` to inspect the latest completed one.";
   }
   const updated = active.updatedAt ? new Date(active.updatedAt).getTime() : NaN;
-  const minutes = Number.isFinite(updated) ? Math.max(0, Math.round((deps.now() - updated) / 60000)) : null;
+  const minutes = Number.isFinite(updated) ? Math.max(0, Math.floor((deps.now() - updated) / 60000)) : null;
+  const staleMs = Number.isFinite(updated) ? Math.max(0, deps.now() - updated) : null;
+  const exactUpdatedAt = active.updatedAt ? new Date(active.updatedAt).toISOString() : null;
+  const recentWork = summarizeTrackedRunWork(active);
   return [
     describeRunDiagnosis(active.status, minutes),
     "",
-    `What it is doing: ${summarizeTrackedRunWork(active)}`,
+    `Live status: ${formatStatusForHumans(active.status)} · no new event for ${formatElapsedDuration(staleMs)}.`,
+    `Last observed work: ${recentWork}`,
     "",
     recommendedRunAction(active.id, minutes),
     "",
-    `State: ${formatStatusForHumans(active.status)}`,
-    `Last update: ${formatHeartbeat(minutes)}`,
+    "Checked from your tracked run just now.",
+    exactUpdatedAt ? `Last update: ${exactUpdatedAt} (${formatHeartbeat(minutes)})` : `Last update: ${formatHeartbeat(minutes)}`,
     `Dataset: ${active.datasetId}`,
-    `Run ID: ${active.id}`,
+    `Debug: research debug run ${active.id}`,
   ].join("\n");
 }
 

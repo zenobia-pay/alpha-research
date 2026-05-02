@@ -157,6 +157,74 @@ test("prompt mode exits cleanly after local orientation response", async () => {
   assert.equal(stderr, "");
 });
 
+test("prompt mode exits cleanly after stuck-run local diagnosis", async () => {
+  const sessionDir = join(process.cwd(), ".tmp", "research-test-prompt-stuck-run");
+  const now = new Date();
+  const updatedAt = new Date(now.getTime() - 30_000).toISOString();
+  await mkdir(sessionDir, { recursive: true });
+  await writeFile(
+    join(sessionDir, "session.json"),
+    JSON.stringify(session),
+    "utf8",
+  );
+  await writeFile(
+    join(sessionDir, "runs.json"),
+    JSON.stringify([{
+      id: "run-prompt-stuck-1",
+      datasetId: "econ",
+      origin: session.origin,
+      status: "booting",
+      prompt: "Analyze housing risk trends.",
+      createdAt: updatedAt,
+      updatedAt,
+      lastSeenAt: updatedAt,
+      lastEventMessage: "Remote agent droplet ar-run-econ-707673 launched in nyc1 (s-8vcpu-16gb).",
+    }]),
+    "utf8",
+  );
+
+  const child = spawn(process.execPath, ["--import", "tsx", "apps/cli/src/index.ts", "--prompt", "My last run seems stuck. What’s happening?"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      RESEARCH_DISABLE_RUN_WATCHER: "1",
+      RESEARCH_SESSION_DIR: sessionDir,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+
+  const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error("stuck-run prompt mode did not exit cleanly"));
+    }, 4000);
+    child.on("exit", (code, signal) => {
+      clearTimeout(timeout);
+      resolve({ code, signal });
+    });
+  });
+
+  assert.equal(result.signal, null);
+  assert.equal(result.code, 0);
+  assert.match(stdout, /^research/m);
+  assert.match(stdout, /Checking run state/);
+  assert.match(stdout, /Live status: booting · no new event for/i);
+  assert.match(stdout, /Worker started and\s+is still getting ready\./);
+  assert.match(stdout, /Debug: research debug run\s+run-prompt-stuck-1/);
+  assert.equal(stderr, "");
+});
+
 test("file import how-to asks for path before ingesting", async () => {
   const fakeClient = {
     async respond() {
@@ -1774,10 +1842,12 @@ test("stuck run question explains fresh booting run in plain language", async ()
   await runAgentTurn("My last run seems stuck. What’s happening?", session, emit, undefined, deps);
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /does not look stuck yet/i);
-  assert.match(final, /Waiting for dataset enriched-tweets to be mounted/i);
-  assert.match(final, /wait 1-2 minutes/i);
-  assert.match(final, /research debug run run-fresh-1/);
+  assert.match(final, /Still booting\./i);
+  assert.match(final, /Live status: booting · no new event for 30s\./i);
+  assert.match(final, /Waiting for dataset enriched-tweets to be mounted so the run can start reading it\./i);
+  assert.match(final, /give it up to 2 minutes total/i);
+  assert.match(final, /Debug: research debug run run-fresh-1/i);
+  assert.match(final, /Last update: 2026-04-22T00:00:00\.000Z \(less than 1 minute ago\)/i);
   assert.doesNotMatch(final, /Mounted dataset grounding is mandatory/i);
 });
 
@@ -1805,8 +1875,9 @@ test("stuck run question escalates stale running run to debug now", async () => 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /may be stalled/i);
   assert.match(final, /Computing grouped aggregates\./i);
+  assert.match(final, /Live status: running · no new event for 5m\./i);
   assert.match(final, /run `research debug run run-stale-1` now/i);
-  assert.match(final, /Last update: 5 minutes ago/i);
+  assert.match(final, /Last update: 2026-04-22T00:00:00\.000Z \(5 minutes ago\)/i);
 });
 
 test("product planning: vague viral tweets request designs scoped experiment before running", async () => {
