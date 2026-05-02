@@ -33,6 +33,10 @@ export type BlockedRunDetails = {
   escalationHint: string | null;
 };
 
+export type AuthRecoveryDetails = {
+  originalRequest: string | null;
+};
+
 export function createIdleTaskState(): InteractiveTaskState {
   return {
     goal: null,
@@ -179,6 +183,15 @@ export function extractBlockedRunDetails(text: string): BlockedRunDetails | null
   };
 }
 
+export function extractAuthRecoveryDetails(text: string): AuthRecoveryDetails | null {
+  if (!/Sign in to view your remote datasets\./u.test(text) && !/Sign in first with `?\/login`?/u.test(text)) {
+    return null;
+  }
+
+  const originalRequest = text.match(/After you sign in, ask me again and I[’']ll pick up:\s*"([^"]+)"/u)?.[1]?.trim() ?? null;
+  return { originalRequest };
+}
+
 export function wrapText(text: string, width: number) {
   const safeWidth = Math.max(12, width);
   return text
@@ -309,6 +322,9 @@ function inferNextExpectedFromProgress(text: string) {
 }
 
 function inferNextExpectedFromMessage(text: string) {
+  if (extractAuthRecoveryDetails(text)) {
+    return "Sign in with `/login` or `research login`, then retry or resume the original request.";
+  }
   if (/Started .* run /u.test(text) || /Started research environment build/u.test(text) || /Queued /u.test(text)) {
     return "Run status updates plus artifacts like a manifest, validation report, or briefing.";
   }
@@ -327,6 +343,7 @@ function inferNextExpectedFromMessage(text: string) {
 }
 
 function deriveAssistantStatusLabel(text: string) {
+  if (extractAuthRecoveryDetails(text)) return "Sign-in required";
   if (/Started .* run |Started research environment build|Queued /u.test(text)) return "Run started";
   if (/I accepted the experiment design, but I did not start the run because /u.test(text)) return "Waiting on dataset readiness";
   if (isBlockedAssistantMessage(text)) return "Blocked";
@@ -336,6 +353,7 @@ function deriveAssistantStatusLabel(text: string) {
 }
 
 function deriveAssistantStatus(text: string): TaskStatus {
+  if (extractAuthRecoveryDetails(text)) return "blocked";
   if (/I accepted the experiment design, but I did not start the run because /u.test(text)) return "blocked";
   if (isBlockedAssistantMessage(text)) return "blocked";
   if (/Started .* run |Started research environment build|Queued |Cancelled run /u.test(text)) return "waiting";
@@ -362,6 +380,7 @@ function extractRunId(text: string) {
 
 function isBlockedAssistantMessage(text: string) {
   return /Blocked:|Blocked on |Sign in first/u.test(text)
+    || /Sign in to view your remote datasets\./u.test(text)
     || /No remote run has started yet\./u.test(text)
     || /I need the dataset id before I can launch anything/u.test(text);
 }
@@ -416,6 +435,9 @@ function extractBlockedDataset(text: string) {
 }
 
 function deriveAssistantCurrentStep(text: string) {
+  if (extractAuthRecoveryDetails(text)) {
+    return "Waiting for you to sign in so I can access remote datasets.";
+  }
   const blockedDataset = extractBlockedDataset(text);
   if (blockedDataset) {
     if (/Blocked: .*active dataset run|Blocked: .*already busy|Blocked: .*already running/u.test(text)) {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  authComposerPlaceholder,
   composerPlaceholder,
   describeRunFreshness,
   currentWorkSummary,
@@ -192,6 +193,36 @@ test("currentWorkSummary compresses busy dataset locks into blocking run details
   ]);
 });
 
+test("currentWorkSummary turns signed-out remote access into a login recovery card", () => {
+  const summary = currentWorkSummary({
+    goal: "Show my remote datasets.",
+    status: "blocked",
+    statusLabel: "Sign-in required",
+    currentStep: "Waiting for you to sign in so I can access remote datasets.",
+    lastResult: [
+      "Sign in to view your remote datasets.",
+      "",
+      "Next step: run `/login` in this chat or `research login` in another terminal.",
+      "After you sign in, ask me again and I’ll pick up: \"Show my remote datasets.\"",
+    ].join("\n"),
+    nextExpectedOutput: "Sign in with `/login` or `research login`, then retry or resume the original request.",
+    planSteps: [],
+    activity: [],
+    focusRunId: null,
+    focusRunUrl: null,
+    selectedDatasetId: null,
+    selectedDatasetState: null,
+    startedAt: null,
+  } satisfies InteractiveTaskState);
+
+  assert.equal(summary?.title, "Sign-in recovery");
+  assert.deepEqual(summary?.lines, [
+    "You are signed out.",
+    "Run `/login` here or `research login` in another terminal to continue.",
+    "Saved request: Show my remote datasets.",
+  ]);
+});
+
 test("summarizeCompletedResult extracts a compact retrieval card from the final answer", () => {
   const result = summarizeCompletedResult([
     "Selected the most recent completed run: enriched-tweets, completed May 1, 2026, 1:32 PM PDT (3 minutes ago).",
@@ -215,4 +246,8 @@ test("summarizeCompletedResult extracts a compact retrieval card from the final 
 
 test("default composer placeholder still serves normal prompts", () => {
   assert.equal(composerPlaceholder({ origin: "https://alpharesearch.nyc", accessToken: "token", createdAt: "2026-05-01T00:00:00.000Z" }), "Ask about datasets, runs, or artifacts");
+});
+
+test("auth composer placeholder points directly to login", () => {
+  assert.equal(authComposerPlaceholder(), "Type /login to sign in");
 });

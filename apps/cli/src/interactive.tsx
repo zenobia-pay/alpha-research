@@ -19,6 +19,7 @@ import {
   buildLiveSummary,
   cleanUiLine,
   createIdleTaskState,
+  extractAuthRecoveryDetails,
   extractBlockedRunDetails,
   splitTrackedRuns,
   wrapText,
@@ -38,6 +39,10 @@ export function composerPlaceholder(session: SessionRecord | null) {
 
 function blockedComposerPlaceholder() {
   return "Choose recovery: inspect, wait, cancel, or retry later";
+}
+
+export function authComposerPlaceholder() {
+  return "Type /login to sign in";
 }
 
 export function emptyStatePromptExamples() {
@@ -239,6 +244,17 @@ export function summarizeCompletedResult(text: string) {
 }
 
 export function currentWorkSummary(taskState: InteractiveTaskState) {
+  const authRecovery = taskState.lastResult ? extractAuthRecoveryDetails(taskState.lastResult) : null;
+  if (taskState.status === "blocked" && authRecovery) {
+    return {
+      title: "Sign-in recovery",
+      lines: [
+        "You are signed out.",
+        "Run `/login` here or `research login` in another terminal to continue.",
+        authRecovery.originalRequest ? `Saved request: ${authRecovery.originalRequest}` : null,
+      ].filter((line): line is string => Boolean(line)),
+    };
+  }
   const blockedDetails = taskState.lastResult ? extractBlockedRunDetails(taskState.lastResult) : null;
   if (taskState.status === "blocked" && blockedDetails) {
     return {
@@ -478,12 +494,14 @@ function TaskSummary({
   const preview = composerText.trim().length > 0 ? composerText : summarizePrompt(taskState.goal ?? "", 140);
   const resolvedDataset = conversationState.datasetContext?.lastResolvedDataset;
   const workSummary = currentWorkSummary(taskState);
+  const authRecovery = taskState.status === "blocked" && taskState.lastResult ? extractAuthRecoveryDetails(taskState.lastResult) : null;
   const blockedDetails = taskState.status === "blocked" && taskState.lastResult ? extractBlockedRunDetails(taskState.lastResult) : null;
   const blockedBannerColor = blockedDetails?.recommendedAction === "wait" ? "yellow" : "red";
+  const summaryBorderColor = authRecovery ? "yellow" : taskState.status === "blocked" ? blockedBannerColor : "green";
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={taskState.status === "blocked" ? blockedBannerColor : "green"} paddingX={1}>
-      <Text bold color={taskState.status === "blocked" ? blockedBannerColor : "green"}>research</Text>
+    <Box flexDirection="column" borderStyle="round" borderColor={summaryBorderColor} paddingX={1}>
+      <Text bold color={summaryBorderColor}>research</Text>
       <Text>{`Status: ${formatTaskStatus(taskState.status)}`}</Text>
       {taskState.statusLabel ? <Text color={statusBadgeColor(taskState.status)}>{`State: ${taskState.statusLabel}`}</Text> : null}
       {resolvedDataset ? <Text color="cyan">{`Context: ${resolvedDataset.id} (${resolvedDataset.scope} · ${resolvedDataset.state})`}</Text> : null}
@@ -496,6 +514,14 @@ function TaskSummary({
         </Box>
       ) : null}
       {taskState.currentStep && taskState.status !== "blocked" ? <Text>{`${taskState.status === "done" ? "Last step" : "Current step"}: ${taskState.currentStep}`}</Text> : null}
+      {authRecovery ? (
+        <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor="yellow" paddingX={1}>
+          <Text bold color="yellow">Sign in required</Text>
+          <Text>You are signed out, so I cannot access remote datasets yet.</Text>
+          <Text>Run `/login` here or `research login` in another terminal.</Text>
+          {authRecovery.originalRequest ? <Text>{`After sign-in, I can resume: ${authRecovery.originalRequest}`}</Text> : null}
+        </Box>
+      ) : null}
       {blockedDetails ? (
         <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor={blockedBannerColor} paddingX={1}>
           <Text bold color={blockedBannerColor}>Dataset locked by active run</Text>
@@ -526,7 +552,7 @@ function TaskSummary({
           ))}
         </Box>
       ) : null}
-      {blockedDetails ? (
+      {authRecovery ? null : blockedDetails ? (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Recovery actions</Text>
           <Text>{`1. Inspect now${blockedDetails.debugCommand ? `: ${blockedDetails.debugCommand}` : ""}`}</Text>
@@ -655,6 +681,7 @@ function ResearchThread({
   const promptColor = taskState.status === "blocked" ? "yellow" : taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
   const inputWidth = Math.max(20, columns - 4);
   const showIdleSummary = messageCount === 0 && !taskState.goal;
+  const authRecovery = taskState.status === "blocked" && taskState.lastResult ? extractAuthRecoveryDetails(taskState.lastResult) : null;
   const showThreadMessages = showIdleSummary || taskState.status === "done" || (messageCount > 1 && taskState.status !== "blocked");
 
   return (
@@ -679,6 +706,7 @@ function ResearchThread({
 
       <TaskActivityIndicator status={taskState.status} currentStep={taskState.currentStep} startedAt={taskState.startedAt} />
       {taskState.activity.length > 0
+      && !authRecovery
       && taskState.status !== "done"
       && taskState.status !== "blocked"
       && !taskState.activity.every((item) => item === taskState.lastResult)
@@ -690,7 +718,7 @@ function ResearchThread({
           ))}
         </Box>
       ) : null}
-      {!showIdleSummary && taskState.focusRunId ? <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} /> : null}
+      {!showIdleSummary && taskState.focusRunId && !authRecovery ? <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} /> : null}
 
       <Box flexDirection="column">
         <Text bold color={promptColor}>
@@ -698,14 +726,16 @@ function ResearchThread({
         </Text>
         <Text color="gray">
           {taskState.status === "blocked"
-            ? "Type `inspect`, `wait`, `cancel`, or `retry later`, then press Enter."
+            ? authRecovery
+              ? "Type `/login` to sign in, or sign in in another terminal and then retry your request."
+              : "Type `inspect`, `wait`, `cancel`, or `retry later`, then press Enter."
             : taskState.status === "done"
               ? "Ready. Type another question and press Enter."
               : "Type a follow-up or command and press Enter."}
         </Text>
         <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
           <Text color={promptColor}>{"> "}</Text>
-          <ComposerPrimitive.Input submitOnEnter placeholder={taskState.status === "blocked" ? blockedComposerPlaceholder() : composerPlaceholder(session)} autoFocus />
+          <ComposerPrimitive.Input submitOnEnter placeholder={taskState.status === "blocked" ? (authRecovery ? authComposerPlaceholder() : blockedComposerPlaceholder()) : composerPlaceholder(session)} autoFocus />
         </Box>
       </Box>
     </ThreadPrimitive.Root>

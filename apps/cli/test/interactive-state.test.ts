@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyAgentMessageToTaskState, beginInteractiveTask, buildLiveSummary, extractBlockedRunDetails, splitTrackedRuns, wrapText } from "../src/interactive-state.js";
+import { applyAgentMessageToTaskState, beginInteractiveTask, buildLiveSummary, extractAuthRecoveryDetails, extractBlockedRunDetails, splitTrackedRuns, wrapText } from "../src/interactive-state.js";
 
 test("interactive task plan and live summary stay scannable for long dataset builds", () => {
   const state = beginInteractiveTask(
@@ -224,6 +224,26 @@ test("mixed-source intake clarification is treated as blocked on user input", ()
 
   assert.equal(state.status, "blocked");
   assert.match(state.nextExpectedOutput ?? "", /user action to unblock|short user reply/i);
+});
+
+test("signed-out remote dataset replies become explicit auth recovery state", () => {
+  const state = applyAgentMessageToTaskState(beginInteractiveTask("Show my remote datasets."), {
+    role: "assistant",
+    content: [
+      "Sign in to view your remote datasets.",
+      "",
+      "Next step: run `/login` in this chat or `research login` in another terminal.",
+      "After you sign in, ask me again and I’ll pick up: \"Show my remote datasets.\"",
+    ].join("\n"),
+  });
+
+  assert.equal(state.status, "blocked");
+  assert.equal(state.statusLabel, "Sign-in required");
+  assert.equal(state.currentStep, "Waiting for you to sign in so I can access remote datasets.");
+  assert.match(state.nextExpectedOutput ?? "", /sign in with `\/login`|research login/i);
+  assert.deepEqual(extractAuthRecoveryDetails(state.lastResult ?? ""), {
+    originalRequest: "Show my remote datasets.",
+  });
 });
 
 test("single blocking follow-up stays blocked and states that no run has started", () => {
