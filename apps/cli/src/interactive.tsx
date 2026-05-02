@@ -119,6 +119,47 @@ export function describeRunPhase(status: string) {
   };
 }
 
+export function describeRunFreshness(updatedAt: string, now = Date.now()) {
+  const updatedMs = new Date(updatedAt).getTime();
+  if (!Number.isFinite(updatedMs)) {
+    return {
+      label: "Unknown",
+      color: "gray" as const,
+      detail: "No reliable heartbeat yet.",
+      age: "unknown",
+    };
+  }
+  const ageMs = Math.max(0, now - updatedMs);
+  const ageSeconds = Math.round(ageMs / 1000);
+  const age = ageSeconds < 60
+    ? `${ageSeconds}s ago`
+    : ageSeconds < 3600
+      ? `${Math.floor(ageSeconds / 60)}m ago`
+      : `${Math.floor(ageSeconds / 3600)}h ago`;
+  if (ageMs <= 2 * 60_000) {
+    return {
+      label: "Fresh",
+      color: "green" as const,
+      detail: "Healthy if another update arrives within 2 minutes.",
+      age,
+    };
+  }
+  if (ageMs < 5 * 60_000) {
+    return {
+      label: "Warm",
+      color: "yellow" as const,
+      detail: "Still within the normal wait window. Debug if it stays quiet past 5 minutes.",
+      age,
+    };
+  }
+  return {
+    label: "Stale",
+    color: "red" as const,
+    detail: "Quiet longer than expected. Inspect or debug now.",
+    age,
+  };
+}
+
 export function describeRunExpectation(run: TrackedRunRecord) {
   const prompt = (run.prompt ?? "").toLowerCase();
   const outputs = [];
@@ -136,6 +177,20 @@ export function formatRunLastUpdate(run: TrackedRunRecord, maxLength = 120) {
     return "No remote milestone yet. You can leave this open while the worker continues.";
   }
   return summarizePrompt(latest, maxLength);
+}
+
+function summarizeRunActivity(run: TrackedRunRecord) {
+  const latest = run.lastEventMessage?.trim();
+  if (!latest) {
+    return "No remote milestone yet.";
+  }
+  if (/Remote agent droplet .* launched in /i.test(latest)) {
+    return "Worker started and is still getting ready.";
+  }
+  if (/mounted dataset grounding is mandatory/i.test(latest)) {
+    return "Waiting for the dataset mount before analysis can start.";
+  }
+  return summarizePrompt(latest, 100);
 }
 
 export function currentWorkSummary(taskState: InteractiveTaskState) {
@@ -486,26 +541,37 @@ function RunStatusPanel({
   runs: TrackedRunRecord[];
   focusRunId: string | null;
 }) {
+  const [now, setNow] = useState(() => Date.now());
   const { focused, background } = useMemo(() => splitTrackedRuns(runs, focusRunId), [focusRunId, runs]);
-  const title = focused && background.length === 0 ? "Blocking run" : "Current run";
+
+  useEffect(() => {
+    if (!focused) return undefined;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [focused]);
+
+  const freshness = focused ? describeRunFreshness(focused.updatedAt, now) : null;
+  const phase = focused ? describeRunPhase(focused.status) : null;
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
-      <Text bold>{title}</Text>
+    <Box flexDirection="column" borderStyle="round" borderColor={freshness?.color ?? "gray"} paddingX={1}>
+      <Text bold>Active run</Text>
       {focused ? (
         <>
-          <Text>{`Run id: ${focused.id}`}</Text>
-          <Text>{`Dataset: ${focused.datasetId}`}</Text>
-          <Text color={runStatusColor(focused.status)}>{`Status: ${focused.status} · ${describeRunPhase(focused.status).label}`}</Text>
-          <Text color="gray">{focused.dashboardUrl ? "Use `inspect` to open the dashboard link." : "Dashboard: not available"}</Text>
-          <Text color="gray">{describeRunPhase(focused.status).detail}</Text>
-          <Text color="gray">{describeRunExpectation(focused)}</Text>
-          <Text color="gray">{formatRunLastUpdate(focused)}</Text>
+          <Text>{`${shortId(focused.id)} · ${focused.datasetId}`}</Text>
+          <Text color={runStatusColor(focused.status)}>{`State: ${phase?.label ?? focused.status} (${focused.status})`}</Text>
+          <Text color={freshness?.color}>{`Freshness: ${freshness?.label ?? "Unknown"} · last heartbeat ${freshness?.age ?? "unknown"}`}</Text>
+          <Text color="gray">{phase?.detail}</Text>
+          <Text color="gray">{`Current activity: ${summarizeRunActivity(focused)}`}</Text>
+          <Text color="gray">{freshness?.detail}</Text>
+          <Text color="gray">{focused.dashboardUrl ? "Actions: w wait · i inspect · d debug · c cancel" : "Actions: w wait · d debug · c cancel"}</Text>
         </>
       ) : <Text>No active runs.</Text>}
       {focused && background.length > 0 ? (
         <>
-          <Text color="gray">{background.length === 1 ? "1 other active run is hidden." : `${background.length} other active runs are hidden.`}</Text>
+          <Text color="gray">{background.length === 1 ? "1 other active run hidden." : `${background.length} other active runs hidden.`}</Text>
         </>
       ) : null}
     </Box>

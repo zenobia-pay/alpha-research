@@ -3761,11 +3761,40 @@ function formatElapsedDuration(ms: number | null) {
   return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
 }
 
-function recommendedRunAction(runId: string, minutesSinceUpdate: number | null) {
-  if (minutesSinceUpdate === null || minutesSinceUpdate >= 2) {
-    return `Next: run \`research debug run ${runId}\` now.`;
+function classifyRunFreshness(minutesSinceUpdate: number | null) {
+  if (minutesSinceUpdate === null) {
+    return {
+      label: "unknown",
+      summary: "No reliable heartbeat yet.",
+      threshold: "Wait for the first heartbeat before treating it as stuck.",
+    };
   }
-  return `Next: give it up to 2 minutes total. If there is still no new event, run \`research debug run ${runId}\`.`; 
+  if (minutesSinceUpdate <= 2) {
+    return {
+      label: "fresh",
+      summary: "Recent updates make this look healthy.",
+      threshold: "Healthy if another update arrives within 2 minutes.",
+    };
+  }
+  if (minutesSinceUpdate < 5) {
+    return {
+      label: "warm",
+      summary: "Still within the normal wait window, but worth watching.",
+      threshold: "Debug if it stays quiet past 5 minutes.",
+    };
+  }
+  return {
+    label: "stale",
+    summary: "Quiet longer than expected, so it may be stuck.",
+    threshold: "Debug now.",
+  };
+}
+
+function recommendedRunAction(runId: string, minutesSinceUpdate: number | null) {
+  if (minutesSinceUpdate === null || minutesSinceUpdate >= 5) {
+    return `Debug now: \`research debug run ${runId}\``;
+  }
+  return `Wait now: give it up to 5 minutes total, then run \`research debug run ${runId}\` if there is still no new event.`;
 }
 
 function asksForBlockedRunRecovery(lower: string) {
@@ -3828,6 +3857,7 @@ async function maybeHandleStuckRunQuestion(input: string, initialSession: Sessio
   const latestCompletedResults = latestCompleted
     ? await deps.createRemoteClient(initialSession).getRunResults(latestCompleted.id).catch(() => null)
     : null;
+  const freshness = classifyRunFreshness(minutes);
   const currentRunMeaning = active.status.toLowerCase() === "booting"
     ? "That means the job has started, but it is still getting the worker and dataset ready. I do not see a failure yet."
     : active.status.toLowerCase() === "running"
@@ -3839,22 +3869,26 @@ async function maybeHandleStuckRunQuestion(input: string, initialSession: Sessio
   return [
     describeRunDiagnosis(active.status, minutes),
     "",
-    "Current run",
+    "Active run",
+    `- Run: ${active.id}`,
     `- Dataset: ${active.datasetId}`,
     `- State: ${formatStatusForHumans(active.status)}`,
+    `- Freshness: ${freshness.label} · ${freshness.summary}`,
     `- Meaning: ${currentRunMeaning}`,
-    `- Current run artifacts: none yet`,
-    `- Last observed work: ${recentWork}`,
+    `- Last heartbeat: ${formatHeartbeat(minutes)}`,
+    `- Current activity: ${recentWork}`,
     `- Live status: ${formatStatusForHumans(active.status)} · no new event for ${formatElapsedDuration(staleMs)}.`,
+    `- Threshold: ${freshness.threshold}`,
     "",
     "Useful output so far",
     `- ${salvageLine}`,
     latestCompleted ? `- Latest completed run on this dataset: ${shortenRunId(latestCompleted.id)}.` : null,
     "",
-    "Recommended action",
-    `- ${recommendedRunAction(active.id, minutes).replace(/^Next:\s*/u, "")}`,
-    active.dashboardUrl ? `- Open dashboard: ${active.dashboardUrl}` : `- Open dashboard: ${dashboardRunUrl(active.origin, active.id)}`,
-    `- Debug now: research debug run ${active.id}`,
+    "Actions",
+    `- w wait: ${recommendedRunAction(active.id, minutes).replace(/^(?:Debug now|Wait now):\s*/u, "")}`,
+    active.dashboardUrl ? `- i inspect: ${active.dashboardUrl}` : `- i inspect: ${dashboardRunUrl(active.origin, active.id)}`,
+    `- d debug: research debug run ${active.id}`,
+    `- c cancel: research /cancel ${active.id}`,
     "",
     "Checked from your tracked run just now.",
     exactUpdatedAt ? `Last update: ${exactUpdatedAt} (${formatHeartbeat(minutes)})` : `Last update: ${formatHeartbeat(minutes)}`,

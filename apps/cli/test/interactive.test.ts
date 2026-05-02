@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   composerPlaceholder,
+  describeRunFreshness,
   currentWorkSummary,
   describeRunExpectation,
   describeRunPhase,
@@ -40,6 +41,36 @@ test("describeRunPhase distinguishes starting, running, and blocked states", () 
     label: "Blocked",
     detail: "Remote state is unclear. Inspect the run or retry later.",
   });
+});
+
+test("describeRunFreshness classifies fresh, warm, and stale heartbeats", () => {
+  assert.deepEqual(
+    describeRunFreshness("2026-05-01T20:00:00.000Z", new Date("2026-05-01T20:01:00.000Z").getTime()),
+    {
+      label: "Fresh",
+      color: "green",
+      detail: "Healthy if another update arrives within 2 minutes.",
+      age: "1m ago",
+    },
+  );
+  assert.deepEqual(
+    describeRunFreshness("2026-05-01T20:00:00.000Z", new Date("2026-05-01T20:03:00.000Z").getTime()),
+    {
+      label: "Warm",
+      color: "yellow",
+      detail: "Still within the normal wait window. Debug if it stays quiet past 5 minutes.",
+      age: "3m ago",
+    },
+  );
+  assert.deepEqual(
+    describeRunFreshness("2026-05-01T20:00:00.000Z", new Date("2026-05-01T20:06:00.000Z").getTime()),
+    {
+      label: "Stale",
+      color: "red",
+      detail: "Quiet longer than expected. Inspect or debug now.",
+      age: "6m ago",
+    },
+  );
 });
 
 test("summarizePrompt preserves readable task context without dumping the full prompt", () => {

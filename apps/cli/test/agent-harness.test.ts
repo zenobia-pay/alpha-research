@@ -327,7 +327,7 @@ test("prompt mode exits cleanly after stuck-run local diagnosis", async () => {
   assert.match(stdout, /Checking run state/);
   assert.match(stdout, /Live status: booting · no new event\s+for/i);
   assert.match(stdout, /Worker started and\s+is still getting ready\./);
-  assert.match(stdout, /Debug now: research debug run\s+run-prompt-stuck-1/);
+  assert.match(stdout, /d debug:\s+research debug run\s+run-prompt-stuck-1/i);
   assert.equal(stderr, "");
 });
 
@@ -2341,13 +2341,17 @@ test("stuck run question explains fresh booting run in plain language", async ()
 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Still booting\./i);
-  assert.match(final, /Current run/i);
+  assert.match(final, /Active run/i);
+  assert.match(final, /Run: run-fresh-1/i);
   assert.match(final, /Meaning: That means the job has started, but it is still getting the worker and dataset ready\. I do not see a failure yet\./i);
-  assert.match(final, /Current run artifacts: none yet/i);
+  assert.match(final, /Freshness: fresh · Recent updates make this look healthy\./i);
+  assert.match(final, /Last heartbeat: less than 1 minute ago/i);
   assert.match(final, /Live status: booting · no new event for 30s\./i);
-  assert.match(final, /Waiting for dataset enriched-tweets to be mounted so the run can start reading it\./i);
-  assert.match(final, /give it up to 2 minutes total/i);
-  assert.match(final, /Debug now: research debug run run-fresh-1/i);
+  assert.match(final, /Current activity: Waiting for dataset enriched-tweets to be mounted so the run can start reading it\./i);
+  assert.match(final, /Threshold: Healthy if another update arrives within 2 minutes\./i);
+  assert.match(final, /w wait: give it up to 5 minutes total/i);
+  assert.match(final, /d debug: research debug run run-fresh-1/i);
+  assert.match(final, /c cancel: research \/cancel run-fresh-1/i);
   assert.match(final, /Last update: 2026-04-22T00:00:00\.000Z \(less than 1 minute ago\)/i);
   assert.doesNotMatch(final, /Mounted dataset grounding is mandatory/i);
 });
@@ -2408,12 +2412,12 @@ test("blocked-or-failed recovery prompt stays focused on the current run and nex
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /^Still booting\./i);
   assert.match(final, /Meaning: That means the job has started, but it is still getting the worker and dataset ready\. I do not see a failure yet\./i);
-  assert.match(final, /Current run artifacts: none yet/i);
+  assert.match(final, /Freshness: fresh · Recent updates make this look healthy\./i);
   assert.match(final, /Useful output so far/i);
   assert.match(final, /open summary\.md first\. Also available: result\.json\./i);
   assert.match(final, /Latest completed run on this dataset: run-…ed-1\./i);
-  assert.match(final, /Recommended action/i);
-  assert.match(final, /Open dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-fresh-1#run-run-fresh-1/i);
+  assert.match(final, /Actions/i);
+  assert.match(final, /i inspect: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-fresh-1#run-run-fresh-1/i);
   assert.doesNotMatch(final, /Recent useful completed runs|mount paths|artifact counts|datasetId/i);
 });
 
@@ -2441,8 +2445,10 @@ test("stuck run question escalates stale running run to debug now", async () => 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /may be stalled/i);
   assert.match(final, /Computing grouped aggregates\./i);
+  assert.match(final, /Freshness: stale · Quiet longer than expected, so it may be stuck\./i);
   assert.match(final, /Live status: running · no new event for 5m\./i);
-  assert.match(final, /run `research debug run run-stale-1` now/i);
+  assert.match(final, /Threshold: Debug now\./i);
+  assert.match(final, /d debug: research debug run run-stale-1/i);
   assert.match(final, /Last update: 2026-04-22T00:00:00\.000Z \(5 minutes ago\)/i);
 });
 
