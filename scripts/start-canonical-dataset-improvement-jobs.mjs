@@ -104,9 +104,27 @@ async function api(session, path, options = {}) {
 
 const session = readSession()
 const promptTemplate = readFileSync(promptPath, 'utf8')
-const datasetPayload = await api(session, '/api/cli/datasets')
-const liveDatasets = new Map((datasetPayload.datasets ?? []).map((dataset) => [dataset.id, dataset]))
 const results = []
+
+let datasetPayload
+try {
+  datasetPayload = await api(session, '/api/cli/datasets')
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error)
+  for (const dataset of canonicalDatasets) {
+    results.push({
+      datasetId: dataset.id,
+      status: 'blocked_remote_unreachable',
+      origin: session.origin,
+      error: message,
+    })
+  }
+  console.log(JSON.stringify({ dryRun, results }, null, 2))
+  process.exitCode = 1
+  process.exit()
+}
+
+const liveDatasets = new Map((datasetPayload.datasets ?? []).map((dataset) => [dataset.id, dataset]))
 
 for (const dataset of canonicalDatasets) {
   const liveDataset = liveDatasets.get(dataset.id)
