@@ -802,6 +802,18 @@ function summarizeContinuityArtifacts(artifacts: RemoteRunArtifact[]) {
   };
 }
 
+function artifactLink(artifact: { url?: string }) {
+  return typeof artifact.url === "string" && artifact.url.trim() ? artifact.url.trim() : null;
+}
+
+function formatArtifactLine(artifact: RemoteRunArtifact) {
+  const label = continuityArtifactLabel(artifact);
+  const description = continuityArtifactDescription(artifact);
+  const link = artifactLink(artifact);
+  const sourceOfTruth = continuityArtifactPriority(artifact) === 0 ? " Source of truth for the written result." : "";
+  return `- ${label} — ${description}.${sourceOfTruth}${link ? ` Open: ${link}` : ""}`;
+}
+
 function continuityLifecycle(run: TrackedRunRecord) {
   if (!isTerminalRunStatus(run.status)) return "active" as const;
   if (isTerminalRunSuccessStatus(run.status)) return "completed" as const;
@@ -1159,6 +1171,86 @@ function renderArtifactPreview(artifacts: Array<{ title?: string; type?: string;
   return null;
 }
 
+function summarizeCompletedRunChanges(
+  preview: string | null,
+  structuredResult: Record<string, unknown> | null,
+  datasetId: string,
+) {
+  const previewText = preview ? previewMarkdownText(preview, 320) : null;
+  if (previewText) {
+    return previewText;
+  }
+  const summary = isRecord(structuredResult?.summary) ? structuredResult.summary : null;
+  const summaryDescription = typeof summary?.description === "string" ? compactPlainText(summary.description, 320) : null;
+  if (summaryDescription) {
+    return summaryDescription;
+  }
+  const rowCount = typeof structuredResult?.total_rows === "number" ? formatNumber(structuredResult.total_rows) : null;
+  const tables = Array.isArray(structuredResult?.tables) ? structuredResult.tables.filter(isRecord) : [];
+  if (rowCount || tables.length > 0) {
+    const tableNames = tables.slice(0, 2).map((table) => typeof table.path === "string" ? table.path : "table");
+    return `The run produced ${rowCount ? `${rowCount} rows of` : ""}${rowCount && tableNames.length > 0 ? " " : ""}${tableNames.length > 0 ? tableNames.join(" and ") : "saved output"} for ${datasetId}.`.replace(/\s+/gu, " ").trim();
+  }
+  return `The run finished and saved output artifacts for ${datasetId}.`;
+}
+
+function inferTrustCaveats(structuredResult: Record<string, unknown> | null, artifacts: RemoteRunArtifact[]) {
+  const caveats: string[] = [];
+  const quality = isRecord(structuredResult?.quality) ? structuredResult.quality : null;
+  const qcMetrics = isRecord(quality?.qcMetrics) ? quality.qcMetrics : null;
+  if (typeof qcMetrics?.missing_income_share === "number" && qcMetrics.missing_income_share > 0) {
+    caveats.push(`${Math.round(qcMetrics.missing_income_share * 100)}% of income coverage is missing.`);
+  }
+  if (typeof qcMetrics?.missing_mortgage_share === "number" && qcMetrics.missing_mortgage_share > 0) {
+    caveats.push(`${Math.round(qcMetrics.missing_mortgage_share * 100)}% of mortgage coverage is missing.`);
+  }
+  const limitations = isRecord(structuredResult?.limitations) ? structuredResult.limitations : null;
+  const deferredSources = Array.isArray(limitations?.deferredSources) ? limitations.deferredSources.filter(isRecord) : [];
+  if (deferredSources.length > 0) {
+    caveats.push(`Some requested sources were deferred: ${deferredSources.slice(0, 2).map((entry) => String(entry.id ?? "unknown")).join(", ")}.`);
+  }
+  const partialSources = Array.isArray(limitations?.partialSources) ? limitations.partialSources.filter(isRecord) : [];
+  if (partialSources.length > 0) {
+    caveats.push(`Some sources are only partial: ${partialSources.slice(0, 2).map((entry) => String(entry.id ?? "unknown")).join(", ")}.`);
+  }
+  if (!findStructuredResultArtifact(artifacts)) {
+    caveats.push("There is no structured result artifact, so trust should come from the written summary and underlying files rather than a machine-readable result bundle.");
+  }
+  if (caveats.length === 0) {
+    caveats.push("No explicit failure or coverage caveat is stored on the run. Trust is strongest if the written summary and primary artifact agree.");
+  }
+  return caveats.slice(0, 3);
+}
+
+function suggestNextDecisions(
+  datasetId: string,
+  structuredResult: Record<string, unknown> | null,
+  artifacts: RemoteRunArtifact[],
+) {
+  const decisions: string[] = [];
+  const primaryArtifact = summarizeContinuityArtifacts(artifacts).primaryArtifact;
+  if (primaryArtifact) {
+    decisions.push(`Use ${primaryArtifact.label} as the decision document, then decide whether this run already answers the question or needs one narrower follow-up.`);
+  }
+  const followUps = inferFollowUpSuggestions(datasetId, structuredResult);
+  for (const suggestion of followUps) {
+    decisions.push(suggestion);
+  }
+  const csvArtifact = artifacts.find((artifact) => continuityArtifactLabel(artifact).endsWith(".csv"));
+  if (csvArtifact) {
+    decisions.push(`Validate the key claim against ${continuityArtifactLabel(csvArtifact)} before sharing or acting on the result broadly.`);
+  }
+  return [...new Set(decisions)].slice(0, 3);
+}
+
+function asksForDecisionOrTrustSummary(lower: string) {
+  const asksForLatestCompletedWork = /\blast\b/.test(lower) && /\b(run|result|results|artifacts?)\b/.test(lower);
+  const asksForDecision = /\b(decision|what should i do next|next decision|next step)\b/.test(lower);
+  const asksForTrust = /\btrust|trustworthy\b/.test(lower);
+  const asksForChangeSummary = /\bwhat changed\b/.test(lower);
+  return asksForLatestCompletedWork && (asksForDecision || asksForTrust || asksForChangeSummary);
+}
+
 function formatAbsoluteTimestamp(value: string | undefined) {
   if (!value) return null;
   const date = new Date(value);
@@ -1258,6 +1350,35 @@ async function maybeHandleLastRunResultsRequest(
   const preview = renderArtifactPreview(producedArtifacts);
   const previewText = preview ? previewMarkdownText(preview) : null;
   const skippedActive = activeRuns.filter((run) => run.id !== latestCompleted.id).slice(0, 2);
+  if (asksForDecisionOrTrustSummary(lower)) {
+    const structuredContent = structuredResult?.content && isRecord(structuredResult.content) ? structuredResult.content : null;
+    const trustCaveats = inferTrustCaveats(structuredContent, producedArtifacts);
+    const nextDecisions = suggestNextDecisions(payload.run.datasetId, structuredContent, producedArtifacts);
+    const lines = [
+      activeRuns.length > 0
+        ? `I used your newest completed run on ${payload.run.datasetId} because newer tracked work is still in progress.`
+        : `I used your newest completed run on ${payload.run.datasetId}.`,
+      "",
+      "Selected run",
+      `- ${payload.run.datasetId} (${shortenRunId(latestCompleted.id)}) completed ${formatWhen(latestCompleted.terminalAt ?? latestCompleted.updatedAt)}.`,
+      `- Original request: ${summarizePromptForHumans(payload.run.prompt ?? latestCompleted.prompt, payload.run.datasetId)}`,
+      "",
+      "What changed",
+      `- ${summarizeCompletedRunChanges(preview, structuredContent, payload.run.datasetId)}`,
+    ];
+    if (skippedActive.length > 0) {
+      lines.push(`- Newer work still running: ${skippedActive.map((run) => `${run.datasetId} (${formatStatusForHumans(run.status)})`).join(", ")}.`);
+    }
+    if (producedArtifacts.length > 0) {
+      lines.push("", "Artifacts", ...producedArtifacts.slice(0, 5).map((artifact) => formatArtifactLine(artifact)));
+      lines.push(`- Run page: ${dashboardRunUrl(initialSession.origin, latestCompleted.id)}`);
+    }
+    lines.push("", "Trust / caveats", ...trustCaveats.map((item) => `- ${item}`));
+    if (nextDecisions.length > 0) {
+      lines.push("", "Next decisions", ...nextDecisions.map((item) => `- ${item}`));
+    }
+    return lines.join("\n");
+  }
   const lines = [
     "Retrieved the latest finished results from your run history.",
     "",

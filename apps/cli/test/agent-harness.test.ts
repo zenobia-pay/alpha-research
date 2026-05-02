@@ -1485,6 +1485,129 @@ test("last run results select the latest completed run and explain newer active 
   assert.doesNotMatch(final, /run-complete ·/);
 });
 
+test("last completed run decision summary explains changes, artifacts, trust, and next decisions", async () => {
+  const now = Date.now();
+  const trackedRuns = [
+    {
+      id: "run-active-1",
+      datasetId: "econ",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "running",
+      createdAt: new Date(now - 5 * 60_000).toISOString(),
+      updatedAt: new Date(now - 2 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 2 * 60_000).toISOString(),
+    },
+    {
+      id: "run-complete-decision",
+      datasetId: "econ",
+      origin: "https://dashboard.alpharesearch.nyc",
+      status: "ready",
+      prompt: "Compare county affordability against mortgage burden from 2019 through 2024 and return a summary, table, and chart.",
+      createdAt: new Date(now - 40 * 60_000).toISOString(),
+      updatedAt: new Date(now - 30 * 60_000).toISOString(),
+      lastSeenAt: new Date(now - 30 * 60_000).toISOString(),
+      terminalAt: new Date(now - 30 * 60_000).toISOString(),
+    },
+  ];
+  const fakeClient = {
+    async getRunResults(runId: string) {
+      assert.equal(runId, "run-complete-decision");
+      return {
+        run: {
+          id: runId,
+          datasetId: "econ",
+          status: "ready",
+          prompt: "Compare county affordability against mortgage burden from 2019 through 2024 and return a summary, table, and chart.",
+        },
+        metadata: { artifactSpec: [] },
+        events: [],
+        artifacts: [
+          {
+            id: "artifact-summary-md",
+            runId,
+            type: "markdown",
+            title: "summary.md",
+            url: "https://alpharesearch.nyc/runs/run-complete-decision/artifacts/summary-md",
+            content: "# Summary\nAffordability deteriorated in high-cost counties after 2021, with mortgage burden rising faster than incomes.",
+          },
+          {
+            id: "artifact-table",
+            runId,
+            type: "table",
+            title: "correlation_table.csv",
+            url: "https://alpharesearch.nyc/runs/run-complete-decision/artifacts/correlation-table",
+          },
+          {
+            id: "artifact-chart",
+            runId,
+            type: "image",
+            title: "scatter_2019to2024.png",
+            url: "https://alpharesearch.nyc/runs/run-complete-decision/artifacts/scatter",
+          },
+          {
+            id: "artifact-json",
+            runId,
+            type: "structured_result",
+            title: "result.json",
+            content: {
+              summary: {
+                description: "Affordability deteriorated in high-cost counties after 2021, with mortgage burden rising faster than incomes.",
+              },
+              tables: [{ path: "correlation_table.csv", rowCount: 128 }],
+              quality: {
+                qcMetrics: {
+                  missing_income_share: 0.08,
+                },
+              },
+              limitations: {
+                partialSources: [{ id: "mortgage_supplement" }],
+              },
+            },
+          },
+        ],
+      };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+    createToolRegistry,
+  };
+  const { messages, emit } = collect();
+
+  const originalEnv = process.env.RESEARCH_SESSION_DIR;
+  const sessionDir = await mkdtemp(join(tmpdir(), "research-last-run-decision-"));
+  process.env.RESEARCH_SESSION_DIR = sessionDir;
+  try {
+    await writeTrackedRuns(trackedRuns);
+    await runAgentTurn(
+      "The last run finished. Explain what changed, what artifacts I have, whether the result is trustworthy, and what decision I should make next.",
+      session,
+      emit,
+      undefined,
+      deps,
+    );
+  } finally {
+    process.env.RESEARCH_SESSION_DIR = originalEnv;
+  }
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /I used your newest completed run on econ because newer tracked work is still in progress\./);
+  assert.match(final, /Selected run/);
+  assert.match(final, /What changed/);
+  assert.match(final, /Affordability deteriorated in high-cost counties after 2021/);
+  assert.match(final, /Artifacts/);
+  assert.match(final, /summary\.md — written summary you can read first\./);
+  assert.match(final, /Source of truth for the written result\./);
+  assert.match(final, /Trust \/ caveats/);
+  assert.match(final, /8% of income coverage is missing\./);
+  assert.match(final, /Some sources are only partial: mortgage_supplement\./);
+  assert.match(final, /Next decisions/);
+  assert.match(final, /Use summary\.md as the decision document/);
+  assert.doesNotMatch(final, /Debug:/);
+});
+
 test("last run results report an in-progress latest run when nothing has completed", async () => {
   const now = Date.now();
   const trackedRuns = [

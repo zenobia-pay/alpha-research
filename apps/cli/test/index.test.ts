@@ -33,6 +33,13 @@ test("prompt mode shows continuity-specific feedback for return-later questions"
   );
 });
 
+test("prompt mode treats completed-run decision prompts as run-state retrieval", () => {
+  assert.equal(
+    initialPromptModeStatus("The last run finished. Explain what changed, what artifacts I have, whether the result is trustworthy, and what decision I should make next."),
+    "Checking run state...",
+  );
+});
+
 test("prompt mode treats dataset-choice prompts as dataset inspection work", () => {
   assert.equal(
     initialPromptModeStatus("I want to study housing affordability. Which dataset should I use?"),
