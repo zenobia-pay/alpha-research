@@ -9,6 +9,7 @@ import { runDebugCommand } from "./debug.js";
 import { parseCliArgs, parseFlags } from "./flags.js";
 import { InteractiveApp } from "./interactive.js";
 import { buildInstallPrompt, handleFixture, printUsage, runScriptedCommand } from "./local-tools.js";
+import { RemoteApiClient } from "./remote.js";
 import { login, readSession } from "./session.js";
 
 function enterAltScreen() {
@@ -32,6 +33,9 @@ function printAgentMessage(message: AgentMessage) {
 
 function wrapForStdout(line: string) {
   const width = Math.max(40, Number.isFinite(process.stdout.columns) ? (process.stdout.columns ?? 0) : 0);
+  if (/^Dashboard:\s+https?:\/\//.test(line)) {
+    return [line];
+  }
   if (line.length <= width) {
     return [line];
   }
@@ -71,6 +75,89 @@ function printPromptModeHeader() {
   console.log("research");
 }
 
+function parseStartedDatasetBriefingRun(messages: AgentMessage[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const content = messages[index]?.content ?? "";
+    const match = content.match(/Started dataset briefing run ([a-z0-9-]+) for ([a-z0-9_-]+)/i);
+    if (match) {
+      return { runId: match[1]!, datasetId: match[2]! };
+    }
+  }
+  return null;
+}
+
+function previewDatasetBriefingContent(artifacts: Array<{ title?: string; type?: string; content?: unknown }>) {
+  const preferred = artifacts.find((artifact) => artifact.title === "Dataset Briefing" && typeof artifact.content === "string")
+    ?? artifacts.find((artifact) => artifact.type === "markdown" && typeof artifact.content === "string")
+    ?? artifacts.find((artifact) => typeof artifact.content === "string" && artifact.title?.endsWith(".md"));
+  const content = typeof preferred?.content === "string" ? preferred.content.trim() : "";
+  return content || null;
+}
+
+async function watchPromptModeDatasetBriefing(session: SessionRecord, runId: string, datasetId: string) {
+  const client = new RemoteApiClient(session);
+  const timeoutMs = Number(process.env.RESEARCH_PROMPT_BRIEFING_WAIT_MS ?? "30000");
+  const pollMs = Number(process.env.RESEARCH_PROMPT_BRIEFING_POLL_MS ?? "5000");
+  const startedAt = Date.now();
+  let lastStatus = "";
+
+  printAgentMessage({ role: "tool", content: `Generating briefing for ${datasetId}...` });
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const payload = await client.getRunResults(runId).catch(() => null);
+    if (payload) {
+      const status = payload.run.status?.toLowerCase() ?? "unknown";
+      if (status !== lastStatus) {
+        lastStatus = status;
+        printAgentMessage({
+          role: "tool",
+          content: `Run ${runId} is ${status === "booting" ? "starting" : status}${payload.run.updatedAt ? ` · last update ${payload.run.updatedAt}` : ""}.`,
+        });
+      } else {
+        printAgentMessage({
+          role: "tool",
+          content: `Still generating briefing for ${datasetId}...`,
+        });
+      }
+      const preview = previewDatasetBriefingContent(payload.artifacts);
+      if (preview) {
+        printAgentMessage({ role: "assistant", content: preview });
+        return;
+      }
+      if (["ready", "completed", "succeeded"].includes(status)) {
+        printAgentMessage({
+          role: "assistant",
+          content: [
+            `Dataset briefing run ${runId} finished for ${datasetId}.`,
+            "The artifacts are ready on the run page, but the briefing body was not included in the CLI response.",
+            `Run: ${runId}`,
+          ].join("\n"),
+        });
+        return;
+      }
+      if (["failed", "error", "cancelled", "canceled", "worker_unreachable", "unknown"].includes(status)) {
+        printAgentMessage({
+          role: "assistant",
+          content: `Dataset briefing run ${runId} ended ${status}. Inspect it with \`research debug run ${runId}\`.`,
+        });
+        return;
+      }
+    } else {
+      printAgentMessage({ role: "tool", content: `Still generating briefing for ${datasetId}...` });
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+
+  printAgentMessage({
+    role: "assistant",
+    content: [
+      `Dataset briefing for ${datasetId} is still running in the background.`,
+      `Run: ${runId}`,
+      `Next: check \`research debug run ${runId}\` for live status or ask for the latest results once it finishes.`,
+    ].join("\n"),
+  });
+}
+
 async function runPromptMode(prompt: string) {
   const localDirectResponse = getLocalDirectResponse(prompt);
   if (localDirectResponse) {
@@ -80,8 +167,17 @@ async function runPromptMode(prompt: string) {
   }
   printPromptModeHeader();
   const session = await readSession();
-  printAgentMessage({ role: "tool", content: initialPromptModeStatus(prompt) });
-  const conversationState = await runAgentTurn(prompt, session, printAgentMessage);
+  const messages: AgentMessage[] = [];
+  const emit = (message: AgentMessage) => {
+    messages.push(message);
+    printAgentMessage(message);
+  };
+  emit({ role: "tool", content: initialPromptModeStatus(prompt) });
+  const conversationState = await runAgentTurn(prompt, session, emit);
+  const startedBriefing = session ? parseStartedDatasetBriefingRun(messages) : null;
+  if (session && startedBriefing) {
+    await watchPromptModeDatasetBriefing(session, startedBriefing.runId, startedBriefing.datasetId);
+  }
   return conversationState;
 }
 

@@ -2189,6 +2189,10 @@ function summarizeDatasetTradeoff(dataset: RemoteDatasetSummary | RemoteDatasetD
 }
 
 function extractRequestedDatasetReference(input: string) {
+  const explicitDescribe = input.match(/\b(?:describe|inspect|brief|profile|document)\s+(?:the\s+)?dataset\s+([a-z0-9][a-z0-9_-]*)(?:[.\s]|$)/iu);
+  if (explicitDescribe?.[1]) {
+    return explicitDescribe[1].toLowerCase();
+  }
   const datasetMention = input.match(/\b(?:the\s+)?([a-z0-9][a-z0-9_-]*)\s+dataset\b/iu);
   if (datasetMention?.[1]) {
     return datasetMention[1].toLowerCase();
@@ -2200,6 +2204,99 @@ function extractRequestedDatasetReference(input: string) {
 function matchesDatasetReference(dataset: RemoteDatasetSummary, reference: string) {
   const normalizedName = `${dataset.id} ${dataset.name}`.toLowerCase();
   return dataset.id.toLowerCase() === reference || normalizedName.includes(reference);
+}
+
+function shouldHandleDatasetBriefingRequest(input: string) {
+  const lower = input.trim().toLowerCase();
+  if (!/\bdataset\b/.test(lower) || !extractRequestedDatasetReference(input)) {
+    return false;
+  }
+  if (/\b(analy[sz]e|analysis|hypothesis|experiment|trend|why|compare|correlation|predict)\b/.test(lower)) {
+    return false;
+  }
+  return /\b(describe|brief|briefing|document|documentation|profile|inventory|what is inside|what's inside|inspect)\b/.test(lower);
+}
+
+function chooseDatasetBriefingTarget(reference: string, datasets: RemoteDatasetSummary[]) {
+  const normalized = reference.toLowerCase();
+  return datasets.find((dataset) => dataset.id.toLowerCase() === normalized)
+    ?? datasets.find((dataset) => dataset.name?.trim().toLowerCase() === normalized)
+    ?? datasets.find((dataset) => matchesDatasetReference(dataset, normalized))
+    ?? null;
+}
+
+async function startDatasetBriefingRun(
+  context: ToolExecutionContext,
+  input: Record<string, unknown>,
+): Promise<AgentToolResult> {
+  const client = createRemoteClient(context);
+  const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
+  const datasetId = target.datasetId;
+  context.emit({ role: "tool", content: summarizeResolvedDataset(target, "this briefing") });
+  let result;
+  try {
+    result = await withAuthRetry(context, () => client.startRun(
+      datasetId,
+      withMountedDatasetGroundingPrompt(datasetId, datasetBriefingPrompt(datasetId)),
+      {
+        type: "describe",
+        config: withStandardAnalysisResources({ describeDataset: true }, datasetId),
+        artifacts: [...DATASET_BRIEFING_ARTIFACTS],
+      },
+    ));
+  } catch (error) {
+    if (error instanceof RemoteRequestError) {
+      const conflict = parseBusyDatasetConflict(error);
+      if (conflict) {
+        const existing = typeof client.getDataset === "function"
+          ? await withAuthRetry(context, () => client.getDataset(datasetId).catch(() => null))
+          : null;
+        const fallback = existing?.dataset ? formatDatasetProfileFallback(existing.dataset, conflict) : null;
+        if (fallback) {
+          return {
+            summary: fallback,
+            data: {
+              ok: true,
+              reusedSavedProfile: true,
+              blockingRunId: conflict.runId,
+              dataset: existing?.dataset,
+            },
+          };
+        }
+        const summary = summarizeBusyDatasetConflict(error, {
+          target,
+          purpose: "this dataset briefing",
+          expectedArtifacts: DATASET_BRIEFING_ARTIFACTS.map((artifact) => artifact.title),
+        });
+        return {
+          summary: summary ?? [
+            `Blocked: ${datasetId} is already busy.`,
+            `Holding run: ${conflict.runId} (${conflict.status})`,
+            "A saved dataset briefing is not available yet.",
+            `Next: research debug run ${conflict.runId}`,
+          ].join("\n"),
+          data: { ok: false, reason: "dataset_busy", blockingRunId: conflict.runId },
+        };
+      }
+    }
+    throw error;
+  }
+  if (context.session) {
+    await trackRemoteRun({
+      id: result.run.id,
+      datasetId: result.run.datasetId,
+      origin: context.session.origin,
+      status: result.run.status,
+      prompt: result.run.prompt ?? datasetBriefingPrompt(datasetId),
+      createdAt: result.run.createdAt,
+      updatedAt: result.run.updatedAt,
+    });
+    spawnRunWatcher(result.run.id);
+  }
+  return {
+    summary: `Started dataset briefing run ${result.run.id} for ${datasetId}. Expected artifacts: Dataset Briefing, Dataset Profile. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+    data: result,
+  };
 }
 
 function takeStringList(value: unknown, limit = 3) {
@@ -2375,6 +2472,51 @@ async function maybeHandleVagueDatasetInterestingQuestion(
   }
   emit({ role: "tool", content: `Inspected remote dataset ${selected.id}.` });
   return summarizeInterestingDataset(detail.dataset);
+}
+
+async function maybeHandleDatasetBriefingRequest(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!initialSession || !shouldHandleDatasetBriefingRequest(input)) {
+    return null;
+  }
+  const reference = extractRequestedDatasetReference(input);
+  if (!reference) {
+    return null;
+  }
+  const client = deps.createRemoteClient(initialSession);
+  if (typeof client.listDatasets !== "function") {
+    return null;
+  }
+  emit({ role: "tool", content: "Searching datasets..." });
+  const listed = await client.listDatasets().catch(() => null);
+  if (!listed) {
+    return null;
+  }
+  const selected = chooseDatasetBriefingTarget(reference, listed.datasets);
+  if (!selected) {
+    return `I could not find a dataset matching \`${reference}\`. Ask \`show my datasets\` to inspect what is available.`;
+  }
+  emit({
+    role: "tool",
+    content: `Selected ${selected.id} for this briefing${selected.name?.trim() && selected.name.trim().toLowerCase() !== selected.id.toLowerCase() ? ` (${selected.name.trim()})` : ""}.`,
+  });
+  const toolContext: ToolExecutionContext = {
+    session: initialSession,
+    sessionId: null,
+    emit,
+    deps,
+  };
+  emit({ role: "tool", content: "Generating dataset briefing..." });
+  const result = await startDatasetBriefingRun(toolContext, { datasetId: selected.id });
+  const resultData = isRecord(result.data) ? result.data : {};
+  if (resultData.ok === false || resultData.reusedSavedProfile === true) {
+    return result.summary;
+  }
+  return asyncRunLaunchSummary("describe_remote_dataset", result, toolContext);
 }
 
 function shouldHandleDatasetInventory(input: string) {
@@ -3586,74 +3728,7 @@ export function createToolRegistry(): ToolDefinition[] {
         required: ["datasetId"],
       },
       async execute(context, input) {
-        const client = createRemoteClient(context);
-        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
-        const datasetId = target.datasetId;
-        context.emit({ role: "tool", content: summarizeResolvedDataset(target, "this briefing") });
-        let result;
-        try {
-          result = await withAuthRetry(context, () => client.startRun(
-            datasetId,
-            withMountedDatasetGroundingPrompt(datasetId, datasetBriefingPrompt(datasetId)),
-            {
-              type: "describe",
-              config: withStandardAnalysisResources({ describeDataset: true }, datasetId),
-              artifacts: [...DATASET_BRIEFING_ARTIFACTS],
-            },
-          ));
-        } catch (error) {
-          if (error instanceof RemoteRequestError) {
-            const conflict = parseBusyDatasetConflict(error);
-            if (conflict) {
-              const existing = typeof client.getDataset === "function"
-                ? await withAuthRetry(context, () => client.getDataset(datasetId).catch(() => null))
-                : null;
-              const fallback = existing?.dataset ? formatDatasetProfileFallback(existing.dataset, conflict) : null;
-              if (fallback) {
-                return {
-                  summary: fallback,
-                  data: {
-                    ok: true,
-                    reusedSavedProfile: true,
-                    blockingRunId: conflict.runId,
-                    dataset: existing?.dataset,
-                  },
-                };
-              }
-              const summary = summarizeBusyDatasetConflict(error, {
-                target,
-                purpose: "this dataset briefing",
-                expectedArtifacts: DATASET_BRIEFING_ARTIFACTS.map((artifact) => artifact.title),
-              });
-              return {
-                summary: summary ?? [
-                  `Blocked: ${datasetId} is already busy.`,
-                  `Holding run: ${conflict.runId} (${conflict.status})`,
-                  "A saved dataset briefing is not available yet.",
-                  `Next: research debug run ${conflict.runId}`,
-                ].join("\n"),
-                data: { ok: false, reason: "dataset_busy", blockingRunId: conflict.runId },
-              };
-            }
-          }
-          throw error;
-        }
-        if (context.session) {
-          await trackRemoteRun({
-            id: result.run.id,
-            datasetId: result.run.datasetId,
-            origin: context.session.origin,
-            status: result.run.status,
-            prompt: result.run.prompt ?? datasetBriefingPrompt(datasetId),
-            createdAt: result.run.createdAt,
-            updatedAt: result.run.updatedAt,
-          });
-          spawnRunWatcher(result.run.id);
-        }
-        return {
-          summary: `Started dataset briefing run ${result.run.id} for ${datasetId}. Expected artifacts: Dataset Briefing, Dataset Profile. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
-          data: result,
-        };
+        return startDatasetBriefingRun(context, input);
       },
     },
     {
@@ -4053,6 +4128,15 @@ export async function runAgentTurn(
   const vagueDatasetResponse = await maybeHandleVagueDatasetInterestingQuestion(input, initialSession, emit, deps);
   if (vagueDatasetResponse) {
     emit({ role: "assistant", content: vagueDatasetResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
+  const datasetBriefingResponse = await maybeHandleDatasetBriefingRequest(input, initialSession, emit, deps);
+  if (datasetBriefingResponse) {
+    emit({ role: "assistant", content: datasetBriefingResponse });
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,

@@ -23,3 +23,10 @@ test("prompt mode treats dataset-choice prompts as dataset inspection work", () 
     "Inspecting dataset details...",
   );
 });
+
+test("prompt mode treats dataset briefing prompts as dataset inspection work", () => {
+  assert.equal(
+    initialPromptModeStatus("Describe the econ dataset for me."),
+    "Inspecting dataset details...",
+  );
+});

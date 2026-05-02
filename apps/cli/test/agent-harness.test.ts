@@ -568,8 +568,10 @@ test("dataset describe request starts briefing run with required artifacts", asy
   let startedDatasetId = "";
   let startedPrompt = "";
   let startedOptions: Record<string, unknown> | undefined;
+  let respondCalled = false;
   const fakeClient = {
     async respond() {
+      respondCalled = true;
       return {
         sessionId: "terminal-session-describe",
         payload: {
@@ -614,6 +616,7 @@ test("dataset describe request starts briefing run with required artifacts", asy
 
   await runAgentTurn("describe dataset econ", session, emit, undefined, deps);
 
+  assert.equal(respondCalled, false);
   assert.equal(startedDatasetId, "econ");
   assert.equal(startedOptions?.type, "describe");
   assert.deepEqual(startedOptions?.artifacts, [
@@ -642,7 +645,12 @@ test("dataset describe request starts briefing run with required artifacts", asy
   assert.doesNotMatch(startedPrompt, /Suggested follow-ups/);
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(messages.map((message) => message.content).join("\n"), /Using dataset Economics \(econ\) for this briefing/);
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Searching datasets/);
+  assert.match(joined, /Selected econ for this briefing \(Economics\)/);
+  assert.match(joined, /Generating dataset briefing/);
+  assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
+  assert.doesNotMatch(joined, /Top matches for/);
   assert.match(final, /Started dataset briefing run run-describe for econ/);
   assert.match(final, /Expected artifacts: Dataset Briefing, Dataset Profile/);
   assert.match(final, /Run: run-describe \(starting\)/);
