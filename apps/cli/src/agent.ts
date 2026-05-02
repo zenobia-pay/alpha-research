@@ -2152,7 +2152,7 @@ function maybeHandleSignedOutRemoteDatasetRequest(input: string) {
   ].join("\n");
 }
 
-function isOrientationPrompt(input: string) {
+export function isOrientationPrompt(input: string) {
   const lower = input.trim().toLowerCase();
   if (/^(what can you help me do\??|help|what do you do\??)$/u.test(lower)) {
     return true;
@@ -2170,17 +2170,16 @@ function maybeHandleOrientation(input: string) {
   return [
     "RESEARCH is a dataset-backed research agent.",
     "",
-    "A dataset is the prepared data you can inspect, question, and run research on here.",
+    "Here are the main things I can do:",
     "",
-    "Type this first: `Show my datasets`",
+    "- `Show my datasets` to see what is ready to use.",
+    "- `Create a dataset from /full/path/to/file.csv` to turn a file into something researchable.",
+    "- `Describe the econ dataset` to inspect what is inside, where it came from, and whether it is trustworthy.",
+    "- `Analyze the econ dataset for housing affordability trends` to start a scoped research task.",
+    "- `Show my latest results` to reopen recent results and saved outputs.",
     "",
-    "`research login` only matters when you want me to open your account datasets or start cloud-backed research for you.",
-    "",
-    "Then try one of these:",
-    "- `Brief the econ dataset so I understand what is inside`",
-    "- `Create a dataset from /full/path/to/file.csv`",
-    "- `Plan an analysis for whether retention changed after launch`",
-    "- `Show the latest results from earlier work`",
+    "Best first step: start with `Show my datasets`.",
+    "Optional: use `/login` only when you want account datasets or cloud-backed runs.",
   ].join("\n");
 }
 

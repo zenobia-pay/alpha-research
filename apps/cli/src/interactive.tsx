@@ -263,6 +263,11 @@ function ActivityIndicator() {
   );
 }
 
+function formatTaskStatus(status: InteractiveTaskState["status"]) {
+  if (status === "done") return "ready";
+  return status;
+}
+
 function TaskActivityIndicator({
   status,
   currentStep,
@@ -287,6 +292,13 @@ function TaskActivityIndicator({
       </Box>
     );
   }
+  if (status === "done") {
+    return (
+      <Box>
+        <Text color="green">· ready for the next question</Text>
+      </Box>
+    );
+  }
   return <ActivityIndicator />;
 }
 
@@ -297,7 +309,7 @@ function TaskSummary({ taskState, width }: { taskState: InteractiveTaskState; wi
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
       <Text bold color="green">research</Text>
-      <Text>{`Status: ${taskState.status}`}</Text>
+      <Text>{`Status: ${formatTaskStatus(taskState.status)}`}</Text>
       {preview ? (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Goal</Text>
@@ -306,7 +318,7 @@ function TaskSummary({ taskState, width }: { taskState: InteractiveTaskState; wi
           ))}
         </Box>
       ) : null}
-      {taskState.currentStep ? <Text>{`Current step: ${taskState.currentStep}`}</Text> : null}
+      {taskState.currentStep ? <Text>{`${taskState.status === "done" ? "Last step" : "Current step"}: ${taskState.currentStep}`}</Text> : null}
       {taskState.lastResult ? <Text>{`Last result: ${taskState.lastResult}`}</Text> : null}
       {taskState.nextExpectedOutput ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
       {taskState.planSteps.length > 0 ? (
@@ -438,7 +450,7 @@ function ResearchThread({
       </ThreadPrimitive.Messages>
 
       <TaskActivityIndicator status={taskState.status} currentStep={taskState.currentStep} />
-      {taskState.activity.length > 0 ? (
+      {taskState.activity.length > 0 && taskState.status !== "done" ? (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
           <Text bold>Recent progress</Text>
           {taskState.activity.map((item) => (
@@ -449,8 +461,10 @@ function ResearchThread({
       {!showIdleSummary ? <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} /> : null}
 
       <Box flexDirection="column">
-        <Text bold color={promptColor}>Prompt</Text>
-        <Text color="gray">Type a question and press Enter.</Text>
+        <Text bold color={promptColor}>{taskState.status === "done" ? "Next question" : "Prompt"}</Text>
+        <Text color="gray">
+          {taskState.status === "done" ? "Ready. Type another question and press Enter." : "Type a question and press Enter."}
+        </Text>
         <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
           <Text color={promptColor}>{"> "}</Text>
           <ComposerPrimitive.Input submitOnEnter placeholder={composerPlaceholder(session)} autoFocus />

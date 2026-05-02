@@ -19,6 +19,14 @@ test("interactive task plan and live summary stay scannable for long dataset bui
   assert.match(state.nextExpectedOutput ?? "", /build run|scoped plan/i);
 });
 
+test("orientation prompts start with a compact orientation-specific pending state", () => {
+  const state = beginInteractiveTask("What can you help me do?");
+
+  assert.equal(state.currentStep, "Checking the main actions RESEARCH can help with.");
+  assert.equal(state.nextExpectedOutput, "A short orientation answer with the best first command to try.");
+  assert.deepEqual(state.planSteps, []);
+});
+
 test("run command noise is excluded from the visible progress story", () => {
   let state = beginInteractiveTask("build the dataset");
   state = applyAgentMessageToTaskState(state, {
@@ -53,6 +61,22 @@ test("started run summaries become waiting state with a focused run", () => {
   assert.equal(state.status, "waiting");
   assert.equal(state.focusRunId, "run-symphony-econ-build");
   assert.match(state.nextExpectedOutput ?? "", /artifacts/i);
+});
+
+test("final assistant answers do not get duplicated into recent progress", () => {
+  let state = beginInteractiveTask("What can you help me do?");
+  state = applyAgentMessageToTaskState(state, {
+    role: "tool",
+    content: "Checking the main actions RESEARCH can help with.",
+  });
+  state = applyAgentMessageToTaskState(state, {
+    role: "assistant",
+    content: "RESEARCH is a dataset-backed research agent.\n\nBest first step: start with `Show my datasets`.",
+  });
+
+  assert.deepEqual(state.activity, ["Checking the main actions RESEARCH can help with."]);
+  assert.equal(state.status, "done");
+  assert.match(buildLiveSummary(state), /Ready for your next question\./i);
 });
 
 test("clarifying assistant replies keep the task in waiting state", () => {

@@ -114,13 +114,14 @@ test("product orientation presents command center identities without tools", asy
   assert.equal(messages.length, 1);
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /dataset-backed research agent/i);
-  assert.match(final, /A dataset is the prepared data you can inspect, question, and run research on here\./i);
-  assert.match(final, /Type this first: `Show my datasets`/i);
-  assert.match(final, /research login.*only matters when you want me to open your account datasets or start cloud-backed research for you/i);
+  assert.match(final, /Here are the main things I can do:/i);
+  assert.match(final, /`Show my datasets` to see what is ready to use\./i);
+  assert.match(final, /Best first step: start with `Show my datasets`\./i);
+  assert.match(final, /Optional: use `\/login` only when you want account datasets or cloud-backed runs\./i);
   assert.match(final, /Create a dataset from \/full\/path\/to\/file\.csv/i);
-  assert.match(final, /Brief the econ dataset so I understand what is inside/i);
-  assert.match(final, /Plan an analysis for whether retention changed after launch/i);
-  assert.match(final, /Show the latest results from earlier work/i);
+  assert.match(final, /Describe the econ dataset/i);
+  assert.match(final, /Analyze the econ dataset for housing affordability trends/i);
+  assert.match(final, /Show my latest results/i);
   assert.doesNotMatch(final, /artifacts|labeling jobs|remote run|manifest-backed|mounted dataset|worker_unreachable|lifecycle|remote environments?|normalize/i);
 });
 
@@ -148,11 +149,9 @@ test("cold-start orientation prompt stays local and recommends first steps", asy
   assert.equal(messages.length, 1);
   const coldStart = messages.at(-1)?.content ?? "";
   assert.match(coldStart, /^RESEARCH is a dataset-backed research agent\./i);
-  assert.match(coldStart, /A dataset is the prepared data you can inspect, question, and run research on here\./i);
-  assert.match(coldStart, /Type this first: `Show my datasets`/i);
-  assert.match(coldStart, /`research login`/i);
-  assert.match(coldStart, /only matters when you want me to open your account datasets or start cloud-backed research for you/i);
-  assert.match(coldStart, /Brief the econ dataset/i);
+  assert.match(coldStart, /Best first step: start with `Show my datasets`\./i);
+  assert.match(coldStart, /Optional: use `\/login` only when you want account datasets or cloud-backed runs\./i);
+  assert.match(coldStart, /Describe the econ dataset/i);
   assert.doesNotMatch(coldStart, /datasets ls|local ls|env create|normalize|remote datasets|artifacts/u);
 });
 
@@ -193,7 +192,7 @@ test("prompt mode exits cleanly after local orientation response", async () => {
   assert.equal(result.code, 0);
   assert.match(stdout, /^research/m);
   assert.match(stdout, /dataset-backed research\s+agent/i);
-  assert.match(stdout, /Type this first: `Show my datasets`/i);
+  assert.match(stdout, /Best first step: start with `Show my[\s\S]*datasets`\./i);
   assert.match(stdout, /Show my datasets/);
   assert.doesNotMatch(stdout, /working\.\.\.|Thinking\.\.\./);
   assert.equal(stderr, "");

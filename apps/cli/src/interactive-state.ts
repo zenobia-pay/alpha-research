@@ -29,13 +29,14 @@ export function createIdleTaskState(): InteractiveTaskState {
 
 export function beginInteractiveTask(prompt: string): InteractiveTaskState {
   const recoveryFlow = inferRecoveryFlow(prompt);
+  const orientationFlow = inferOrientationFlow(prompt);
   return {
     goal: prompt,
     status: "working",
-    currentStep: recoveryFlow?.currentStep ?? "Understanding the request and checking relevant datasets.",
+    currentStep: orientationFlow?.currentStep ?? recoveryFlow?.currentStep ?? "Understanding the request and checking relevant datasets.",
     lastResult: null,
-    nextExpectedOutput: recoveryFlow?.nextExpectedOutput ?? inferNextExpectedOutput(prompt),
-    planSteps: recoveryFlow?.planSteps ?? inferPlanSteps(prompt),
+    nextExpectedOutput: orientationFlow?.nextExpectedOutput ?? recoveryFlow?.nextExpectedOutput ?? inferNextExpectedOutput(prompt),
+    planSteps: orientationFlow?.planSteps ?? recoveryFlow?.planSteps ?? inferPlanSteps(prompt),
     activity: [],
     focusRunId: null,
   };
@@ -55,7 +56,7 @@ export function applyAgentMessageToTaskState(
 
   const next = {
     ...state,
-    activity: appendUnique(state.activity, cleaned),
+    activity: message.role === "assistant" ? state.activity : appendUnique(state.activity, cleaned),
   };
 
   if (message.role === "assistant") {
@@ -89,7 +90,7 @@ export function applyAgentMessageToTaskState(
 }
 
 export function buildLiveSummary(state: InteractiveTaskState) {
-  const lines = ["Working on your request."];
+  const lines = [state.status === "done" ? "Ready for your next question." : "Working on your request."];
   if (state.currentStep) lines.push(`Current step: ${state.currentStep}`);
   if (state.lastResult) lines.push(`Last result: ${state.lastResult}`);
   if (state.nextExpectedOutput) lines.push(`Next expected output: ${state.nextExpectedOutput}`);
@@ -124,6 +125,9 @@ export function isHiddenRunNoise(text: string) {
 
 function inferPlanSteps(prompt: string) {
   const lower = prompt.toLowerCase();
+  if (isOrientationPrompt(lower)) {
+    return [];
+  }
   if (isRecoveryPrompt(lower)) {
     return [
       "Check active work",
@@ -151,6 +155,9 @@ function inferPlanSteps(prompt: string) {
 
 function inferNextExpectedOutput(prompt: string) {
   const lower = prompt.toLowerCase();
+  if (isOrientationPrompt(lower)) {
+    return "A short orientation answer with the best first command to try.";
+  }
   if (isRecoveryPrompt(lower)) {
     return "A plain-language diagnosis, any useful outputs, and the best next step.";
   }
@@ -169,6 +176,18 @@ function inferRecoveryFlow(prompt: string) {
     currentStep: "Checking active work, useful outputs, and the safest next step.",
     nextExpectedOutput: "A plain-language diagnosis, any useful outputs, and the best next step.",
     planSteps: inferPlanSteps(prompt),
+  };
+}
+
+function inferOrientationFlow(prompt: string) {
+  const lower = prompt.toLowerCase();
+  if (!isOrientationPrompt(lower)) {
+    return null;
+  }
+  return {
+    currentStep: "Checking the main actions RESEARCH can help with.",
+    nextExpectedOutput: "A short orientation answer with the best first command to try.",
+    planSteps: [] as string[],
   };
 }
 
@@ -237,6 +256,16 @@ function isRecoveryPrompt(lower: string) {
   const asksAboutBlockedWork = /\b(blocked|stuck|failed|failure|what is happening|what happened|status|progress)\b/u.test(lower);
   const asksForHelp = /\b(what should i do next|do next|next step|recover|recovery|anything useful|useful was produced|artifacts?)\b/u.test(lower);
   return asksAboutBlockedWork && asksForHelp;
+}
+
+function isOrientationPrompt(lower: string) {
+  if (/^(what can you help me do\??|help|what do you do\??)$/u.test(lower.trim())) {
+    return true;
+  }
+  if (/\b(just opened|what is this|what should i type first|where should i start|how do i start)\b/u.test(lower)) {
+    return true;
+  }
+  return /\bhow\b.*\b(start|begin)\b/u.test(lower) && /\bresearch\b/u.test(lower);
 }
 
 function appendUnique(items: string[], item: string) {
