@@ -1685,6 +1685,58 @@ test("prompt-mode busy dataset shortcut shows age, health, and clear actions", {
   }
 });
 
+test("prompt-mode busy dataset shortcut uses backend active runs before planning", async () => {
+  let respondCalls = 0;
+  const fakeClient = {
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "enriched-tweets", name: "enriched-tweets", status: "uploading" },
+          { id: "dataset", name: "dataset", status: "created" },
+        ],
+      };
+    },
+    async listRuns(datasetId?: string) {
+      assert.equal(datasetId, "enriched-tweets");
+      return {
+        runs: [
+          {
+            id: "run-remote-blocker",
+            datasetId: "enriched-tweets",
+            status: "running",
+            createdAt: "2026-05-01T19:40:00.000Z",
+            updatedAt: "2026-05-01T19:44:00.000Z",
+            prompt: "Analyze engagement patterns in enriched tweets.",
+          },
+        ],
+      };
+    },
+    async respond() {
+      respondCalls += 1;
+      throw new Error("Prompt-mode busy dataset shortcut should return before remote planning.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+    readTrackedRuns: async () => [],
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Run a new analysis on enriched-tweets.", session, emit, undefined, deps);
+
+  assert.equal(respondCalls, 0);
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /Blocked: enriched-tweets is already busy\./);
+  assert.match(final, /Active run: run-remote-blocker/);
+  assert.match(final, /Status: running/);
+  assert.match(final, /No new run was started\./);
+  assert.match(final, /Current work: Analyze engagement patterns in enriched tweets\./);
+  assert.match(final, /Inspect now: `research debug run run-remote-blocker`/);
+  assert.match(final, /Open dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-remote-blocker#run-run-remote-blocker/);
+});
+
 test("wait for run completion can time out deterministically", async () => {
   const fakeClient = {
     async respond(body: Record<string, unknown>) {

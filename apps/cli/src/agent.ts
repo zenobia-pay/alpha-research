@@ -3089,10 +3089,37 @@ async function maybeHandleBusyDatasetBeforePlanning(
   if (!initialSession || !/\b(new analysis|run.*analysis|start.*analysis)\b/.test(lower)) {
     return null;
   }
-  const datasetId = extractDatasetIdFromNewAnalysis(input);
-  if (!datasetId) {
+  const requestedDatasetId = extractDatasetIdFromNewAnalysis(input);
+  if (!requestedDatasetId) {
     return null;
   }
+  const client = deps.createRemoteClient(initialSession);
+  const remoteDatasets = typeof client.listDatasets === "function"
+    ? await client.listDatasets().catch(() => null)
+    : null;
+  const matchedDataset = remoteDatasets
+    ? chooseDatasetBriefingTarget(requestedDatasetId, remoteDatasets.datasets)
+    : null;
+  const datasetId = matchedDataset?.id ?? requestedDatasetId;
+
+  const remoteRuns = typeof client.listRuns === "function"
+    ? await client.listRuns(datasetId).catch(() => null)
+    : null;
+  const remoteActive = remoteRuns?.runs.find((run) => !isTerminalRunStatus(run.status));
+  if (remoteActive) {
+    return [
+      renderBusyDatasetConflict({
+        datasetId,
+        runId: remoteActive.id,
+        status: remoteActive.status,
+        createdAt: remoteActive.createdAt,
+        updatedAt: remoteActive.updatedAt,
+        dashboardUrl: dashboardRunUrl(initialSession.origin, remoteActive.id),
+      }),
+      remoteActive.prompt?.trim() ? `Current work: ${remoteActive.prompt.trim()}` : null,
+    ].filter(Boolean).join("\n");
+  }
+
   const runs = await deps.readTrackedRuns().catch(() => []);
   const active = runs.find((run) => run.datasetId === datasetId && !run.terminalAt && !isTerminalRunStatus(run.status));
   if (!active) {
