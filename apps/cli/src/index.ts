@@ -71,6 +71,9 @@ export function initialPromptModeStatus(prompt: string) {
   const datasetReference = extractPromptDatasetReference(prompt);
   const isReadinessCheck = /\b(can i trust|trust enough|usable right now|use it for|ready for|readiness|fix it first)\b/.test(lower)
     && /\bdataset\b/.test(lower);
+  if (/\b(run|do|perform|whatever)\b/.test(lower) && /\banalysis|research\b/.test(lower) && /\ball my data\b/.test(lower) && /\bbusiness opportunit(?:y|ies)\b/.test(lower)) {
+    return "Needs your approval: scope a bounded study before any remote work.";
+  }
   if (
     /\b(private|local)\b/.test(lower)
     && /\b(csv|tsv|parquet|jsonl?|spreadsheet|export|file)\b/.test(lower)
@@ -134,6 +137,14 @@ function printPromptModeHeader() {
 }
 
 function promptModeKickoffMessage(prompt: string) {
+  if (
+    /\b(run|do|perform|whatever)\b/i.test(prompt)
+    && /\banalysis|research\b/i.test(prompt)
+    && /\ball my data\b/i.test(prompt)
+    && /\bbusiness opportunit(?:y|ies)\b/i.test(prompt)
+  ) {
+    return "Request understood: broad business-opportunity research needs a bounded study and your approval before I spend remote time.";
+  }
   const datasetReference = extractPromptDatasetReference(prompt);
   const viralTweetsMatch = prompt.match(/\busing\s+([a-z0-9][a-z0-9_-]*)\b/i);
   if (

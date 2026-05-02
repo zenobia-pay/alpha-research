@@ -2343,6 +2343,30 @@ function maybeHandleVagueMarketQuestion(input: string) {
   ].join("\n");
 }
 
+function shouldHandleAmbiguousBusinessOpportunityResearch(input: string) {
+  const lower = input.toLowerCase();
+  const asksForBroadAnalysis = /\b(run|do|perform|whatever)\b/.test(lower) && /\banalysis|research\b/.test(lower);
+  const asksForAllData = /\ball my data\b/.test(lower);
+  const asksForBusinessOpportunity = /\bbusiness opportunit(?:y|ies)\b/.test(lower);
+  return asksForBroadAnalysis && asksForAllData && asksForBusinessOpportunity;
+}
+
+function formatAmbiguousBusinessOpportunityProposal() {
+  return [
+    "That request is too broad to launch as-is, so I am not starting a remote run on all of your data.",
+    "",
+    "Recommended default scope",
+    "- Study: a first-pass business-opportunity scan.",
+    "- Boundaries: use at most 2 ready datasets, rank the top 3 opportunities, and stop after one read-only pass.",
+    "- Output if approved: a short memo with the datasets used, why they were chosen, the top opportunities, and the next artifact I would build.",
+    "- Expected remote work: one scoped pass, roughly 10 to 15 minutes once approved.",
+    "",
+    "Decision",
+    "Reply `approve default` to let me shortlist the datasets and run that bounded scan.",
+    "Optional refinement: reply with one business objective instead, like `revenue growth`, `cost reduction`, or `retention`.",
+  ].join("\n");
+}
+
 function shouldHandleVagueTweetsExperiment(input: string) {
   const lower = input.toLowerCase();
   if (!/\btweets?\b/.test(lower) || !/\bviral|virality\b/.test(lower) || !/\b(experiment|run|analy[sz]e|look into)\b/.test(lower)) {
@@ -5020,6 +5044,15 @@ export async function runAgentTurn(
   const directResponse = getLocalDirectResponse(input);
   if (directResponse) {
     emit({ role: "assistant", content: directResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
+  if (shouldHandleAmbiguousBusinessOpportunityResearch(input)) {
+    emit({ role: "assistant", content: formatAmbiguousBusinessOpportunityProposal() });
+    emit({ role: "tool", content: "Waiting for your approval before starting a run." });
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,

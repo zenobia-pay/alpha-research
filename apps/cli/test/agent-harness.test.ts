@@ -58,6 +58,44 @@ test("signed-out composer placeholder is contextual", () => {
   assert.equal(composerPlaceholder(session), "Ask about datasets, runs, or artifacts");
 });
 
+test("broad business-opportunity prompts stop at a scoped approval gate before any inventory or run work", async () => {
+  const fakeClient = {
+    async listDatasets() {
+      throw new Error("Broad ambiguous requests should not inventory datasets before approval.");
+    },
+    async listRuns() {
+      throw new Error("Broad ambiguous requests should not inspect run history before approval.");
+    },
+    async respond() {
+      throw new Error("Broad ambiguous requests should be handled locally before remote planning.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Run whatever analysis you think is best on all my data and tell me the biggest business opportunities.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const joinedMessages = messages.map((message) => message.content).join("\n");
+  assert.match(joinedMessages, /too broad to launch as-is/i);
+  assert.match(joinedMessages, /I am not starting a remote run on all of your data/i);
+  assert.match(joinedMessages, /use at most 2 ready datasets, rank the top 3 opportunities, and stop after one read-only pass/i);
+  assert.match(joinedMessages, /Output if approved: a short memo/i);
+  assert.match(joinedMessages, /Expected remote work: one scoped pass, roughly 10 to 15 minutes once approved/i);
+  assert.match(joinedMessages, /Reply `approve default` to let me shortlist the datasets and run that bounded scan/i);
+  assert.match(joinedMessages, /Waiting for your approval before starting a run\./i);
+  assert.doesNotMatch(joinedMessages, /Checking remote datasets|Loaded run history|Found \d+ remote datasets|Starting remote/i);
+});
+
 test("product orientation presents command center identities without tools", async () => {
   const fakeClient = {
     async respond() {

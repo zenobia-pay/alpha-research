@@ -47,6 +47,13 @@ test("prompt mode shows an explicit input-needed state for vague housing risk qu
   );
 });
 
+test("prompt mode shows an approval gate immediately for broad all-data opportunity requests", () => {
+  assert.equal(
+    initialPromptModeStatus("Run whatever analysis you think is best on all my data and tell me the biggest business opportunities."),
+    "Needs your approval: scope a bounded study before any remote work.",
+  );
+});
+
 test("prompt mode treats dataset briefing prompts as dataset inspection work", () => {
   assert.equal(
     initialPromptModeStatus("Describe the econ dataset for me."),
