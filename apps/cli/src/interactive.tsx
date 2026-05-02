@@ -271,9 +271,11 @@ function formatTaskStatus(status: InteractiveTaskState["status"]) {
 function TaskActivityIndicator({
   status,
   currentStep,
+  startedAt,
 }: {
   status: InteractiveTaskState["status"];
   currentStep: string | null;
+  startedAt: number | null;
 }) {
   if (status === "waiting") {
     const waitingLabel = currentStep && /approval|choice/u.test(currentStep)
@@ -299,17 +301,35 @@ function TaskActivityIndicator({
       </Box>
     );
   }
+  if (status === "working") {
+    const elapsed = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : null;
+    return (
+      <Box>
+        <Text color="yellow">{`· working${elapsed !== null ? ` · ${elapsed}s elapsed` : ""}${currentStep ? ` · ${currentStep}` : ""}`}</Text>
+      </Box>
+    );
+  }
   return <ActivityIndicator />;
 }
 
-function TaskSummary({ taskState, width }: { taskState: InteractiveTaskState; width: number }) {
+function TaskSummary({
+  taskState,
+  width,
+  conversationState,
+}: {
+  taskState: InteractiveTaskState;
+  width: number;
+  conversationState: AgentConversationState;
+}) {
   const composerText = useAuiState((state) => state.composer.text);
   const preview = composerText.trim().length > 0 ? composerText : taskState.goal;
+  const resolvedDataset = conversationState.datasetContext?.lastResolvedDataset;
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
       <Text bold color="green">research</Text>
       <Text>{`Status: ${formatTaskStatus(taskState.status)}`}</Text>
+      {resolvedDataset ? <Text color="cyan">{`Context: ${resolvedDataset.id} (${resolvedDataset.scope} · ${resolvedDataset.state})`}</Text> : null}
       {preview ? (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Goal</Text>
@@ -399,13 +419,8 @@ function RunStatusPanel({
       ) : <Text>No active runs.</Text>}
       {background.length > 0 ? (
         <>
-          <Text bold>{focused ? "Background runs" : "Other active runs"}</Text>
-          <Text color="gray">These are from earlier work unless a new run is started for this request.</Text>
-          {background.slice(0, 2).map((run) => (
-            <Text key={run.id} color={runStatusColor(run.status)}>
-              {summarizeRunLine(run)}
-            </Text>
-          ))}
+          <Text bold>{background.length === 1 ? "1 other active run" : `${background.length} other active runs`}</Text>
+          <Text color="gray">Hidden by default so this thread stays focused. Ask about active runs when you want the full list.</Text>
         </>
       ) : null}
     </Box>
@@ -417,11 +432,13 @@ function ResearchThread({
   taskState,
   session,
   startupComplete,
+  conversationState,
 }: {
   trackedRuns: TrackedRunRecord[];
   taskState: InteractiveTaskState;
   session: SessionRecord | null;
   startupComplete: boolean;
+  conversationState: AgentConversationState;
 }) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
@@ -436,7 +453,7 @@ function ResearchThread({
       {showIdleSummary ? (
         <IdleSummary session={session} runs={trackedRuns} startupComplete={startupComplete} width={columns} />
       ) : (
-        <TaskSummary taskState={taskState} width={columns} />
+        <TaskSummary taskState={taskState} width={columns} conversationState={conversationState} />
       )}
 
       <ThreadPrimitive.Messages>
@@ -449,7 +466,7 @@ function ResearchThread({
         }
       </ThreadPrimitive.Messages>
 
-      <TaskActivityIndicator status={taskState.status} currentStep={taskState.currentStep} />
+      <TaskActivityIndicator status={taskState.status} currentStep={taskState.currentStep} startedAt={taskState.startedAt} />
       {taskState.activity.length > 0 && taskState.status !== "done" ? (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
           <Text bold>Recent progress</Text>
@@ -461,7 +478,7 @@ function ResearchThread({
       {!showIdleSummary ? <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} /> : null}
 
       <Box flexDirection="column">
-        <Text bold color={promptColor}>{taskState.status === "done" ? "Next question" : "Prompt"}</Text>
+        <Text bold color={promptColor}>{messageCount > 0 ? (taskState.status === "done" ? "Reply" : "Reply in thread") : "Prompt"}</Text>
         <Text color="gray">
           {taskState.status === "done" ? "Ready. Type another question and press Enter." : "Type a question and press Enter."}
         </Text>
@@ -606,7 +623,7 @@ function createResearchAdapter({
             });
             setSession(nextSession);
             sessionRef.current = nextSession;
-            const resetState = { sessionId: null, previousResponseId: null };
+            const resetState = { sessionId: null, previousResponseId: null, datasetContext: null };
             conversationStateRef.current = resetState;
             setConversationState(resetState);
             emit({ role: "assistant", content: `signed in to ${nextSession.origin}` });
@@ -622,7 +639,7 @@ function createResearchAdapter({
         await clearSession();
         setSession(null);
         sessionRef.current = null;
-        const resetState = { sessionId: null, previousResponseId: null };
+        const resetState = { sessionId: null, previousResponseId: null, datasetContext: null };
         conversationStateRef.current = resetState;
         setConversationState(resetState);
         setTaskState(createIdleTaskState());
@@ -732,6 +749,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const [conversationState, setConversationStateState] = useState<AgentConversationState>({
     sessionId: null,
     previousResponseId: null,
+    datasetContext: null,
   });
   const sessionRef = useRef<SessionRecord | null>(null);
   const conversationStateRef = useRef<AgentConversationState>(conversationState);
@@ -793,6 +811,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
           taskState={taskState}
           session={session}
           startupComplete={startupComplete}
+          conversationState={conversationState}
         />
         <RunPoller session={session} setTrackedRuns={setTrackedRuns} />
       </Box>

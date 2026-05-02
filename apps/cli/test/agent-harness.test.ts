@@ -469,6 +469,62 @@ test("dataset inventory is recommendation-first, name-first, and de-emphasizes n
   assert.doesNotMatch(final, /Upload Test/);
 });
 
+test("dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching", async () => {
+  const fakeClient = {
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "tweets", name: "Tweets", status: "ready" },
+          { id: "enriched-tweets", name: "Enriched Tweets", status: "ready" },
+        ],
+      };
+    },
+    async getDataset(datasetId: string) {
+      if (datasetId !== "tweets") {
+        throw new Error(`Expected the follow-up to resolve to tweets, got ${datasetId}`);
+      }
+      return {
+        dataset: {
+          id: "tweets",
+          name: "Tweets",
+          status: "ready",
+          profile: {
+            briefingMarkdown: [
+              "Readiness check, not analysis.",
+              "Verdict: usable now",
+              "",
+              "Overview",
+              "Local tweet archive normalized for inspection.",
+            ].join("\n"),
+            briefingArtifactId: "artifact-tweets-briefing",
+            profileArtifactId: "artifact-tweets-profile",
+          },
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-tweets-followup" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+    listLocalDatasets: async () => [],
+  };
+  const firstTurn = collect();
+  const inventoryState = await runAgentTurn("What datasets do I have?", session, firstTurn.emit, undefined, deps);
+  const secondTurn = collect();
+
+  await runAgentTurn("Describe the tweets dataset.", session, secondTurn.emit, inventoryState, deps);
+
+  const joined = secondTurn.messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Locating dataset tweets for a readiness check/);
+  assert.match(joined, /Selected tweets for this readiness check/i);
+  assert.match(joined, /Readiness check, not analysis\./);
+  assert.doesNotMatch(joined, /enriched-tweets/);
+});
+
 test("dataset selection from topic uses dataset metadata and asks one focused follow-up", async () => {
   let respondCalled = false;
   const fakeClient = {

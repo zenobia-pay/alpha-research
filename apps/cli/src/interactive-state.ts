@@ -12,6 +12,7 @@ export type InteractiveTaskState = {
   planSteps: string[];
   activity: string[];
   focusRunId: string | null;
+  startedAt: number | null;
 };
 
 export function createIdleTaskState(): InteractiveTaskState {
@@ -24,6 +25,7 @@ export function createIdleTaskState(): InteractiveTaskState {
     planSteps: [],
     activity: [],
     focusRunId: null,
+    startedAt: null,
   };
 }
 
@@ -39,6 +41,7 @@ export function beginInteractiveTask(prompt: string): InteractiveTaskState {
     planSteps: orientationFlow?.planSteps ?? recoveryFlow?.planSteps ?? inferPlanSteps(prompt),
     activity: [],
     focusRunId: null,
+    startedAt: Date.now(),
   };
 }
 

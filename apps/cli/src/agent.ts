@@ -48,6 +48,20 @@ export type ToolExecutionContext = {
 export type AgentConversationState = {
   sessionId: string | null;
   previousResponseId: string | null;
+  datasetContext?: DatasetConversationContext | null;
+};
+
+type DatasetConversationEntry = {
+  id: string;
+  name: string;
+  scope: "local" | "remote";
+  state: "ready" | "building" | "deployable" | "draft";
+  description?: string | null;
+};
+
+type DatasetConversationContext = {
+  inventory: DatasetConversationEntry[];
+  lastResolvedDataset?: DatasetConversationEntry | null;
 };
 
 export type ToolDefinition = {
@@ -572,6 +586,28 @@ function formatDatasetInventoryResponse(
     "Done. Inventory complete and ready for your next command.",
   );
   return lines.join("\n");
+}
+
+function buildDatasetConversationInventory(
+  localInstances: DatasetInstanceSummary[],
+  remoteDatasets: RemoteDatasetSummary[],
+) {
+  return [
+    ...localInstances.map((instance) => ({
+      id: instance.datasetId,
+      name: instance.displayName || instance.productName || instance.datasetId,
+      scope: "local" as const,
+      state: "ready" as const,
+      description: instance.description?.trim() || null,
+    })),
+    ...remoteDatasets.map((dataset) => ({
+      id: dataset.id,
+      name: dataset.name?.trim() || dataset.id,
+      scope: "remote" as const,
+      state: normalizeRemoteDatasetState(dataset),
+      description: null,
+    })),
+  ];
 }
 
 function reusableEnvironmentTokens(value: string) {
@@ -3073,6 +3109,70 @@ function chooseDatasetBriefingTarget(reference: string, datasets: RemoteDatasetS
     ?? null;
 }
 
+function chooseDatasetFromConversationContext(
+  reference: string,
+  context: DatasetConversationContext | null | undefined,
+) {
+  if (!context?.inventory?.length) {
+    return null;
+  }
+  const normalized = reference.trim().toLowerCase();
+  const exactMatches = context.inventory.filter((dataset) =>
+    dataset.id.trim().toLowerCase() === normalized || dataset.name.trim().toLowerCase() === normalized);
+  if (exactMatches.length === 1) {
+    return { match: exactMatches[0] ?? null, ambiguous: false };
+  }
+  if (exactMatches.length > 1) {
+    const localExact = exactMatches.filter((dataset) => dataset.scope === "local");
+    if (localExact.length === 1) {
+      return { match: localExact[0] ?? null, ambiguous: false };
+    }
+    return { match: null, ambiguous: true };
+  }
+  const fuzzyMatches = context.inventory.filter((dataset) =>
+    `${dataset.id} ${dataset.name}`.toLowerCase().includes(normalized));
+  if (fuzzyMatches.length === 1) {
+    return { match: fuzzyMatches[0] ?? null, ambiguous: false };
+  }
+  return { match: null, ambiguous: fuzzyMatches.length > 1 };
+}
+
+function formatDatasetDisambiguation(reference: string, candidates: DatasetConversationEntry[]) {
+  const lines = [
+    `I found more than one dataset that could match \`${reference}\`.`,
+    "",
+    "Reply with one exact id:",
+  ];
+  for (const candidate of candidates) {
+    lines.push(`- \`${candidate.id}\` (${candidate.scope} · ${candidate.state})${candidate.name !== candidate.id ? ` — ${candidate.name}` : ""}`);
+  }
+  return lines.join("\n");
+}
+
+function summarizeLocalDatasetSelection(dataset: DatasetConversationEntry) {
+  return `Dataset selected: ${dataset.id} (local, ${dataset.state}). Reading the local dataset summary now.`;
+}
+
+function describeLocalDataset(instance: DatasetInstanceSummary, bootstrap: Awaited<ReturnType<typeof getInstanceBootstrap>>) {
+  const sampleIds = bootstrap.sampleRecords
+    .map((record) => record.id)
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .slice(0, 3);
+  const lines = [
+    `Dataset selected: \`${instance.datasetId}\` from your local inventory.`,
+    "",
+    `Overview: ${instance.displayName || instance.productName || instance.datasetId} is a local dataset available in this CLI now.`,
+    `Readiness: usable now for local inspection. It contains ${formatNumber(instance.recordCount)} records in ${bootstrap.layout === "sharded" ? "sharded" : "bundle"} storage.`,
+    `Description: ${instance.description?.trim() || "No local description was saved."}`,
+    `Dataset id: \`${instance.datasetId}\`. Scope: local.`,
+    `Text search: ${bootstrap.supportsTextSearch ? "available" : "not configured"}. Shards: ${formatNumber(bootstrap.shardCount)}.`,
+    `Storage profile: ${bootstrap.storageProfile ?? "default"}.`,
+    sampleIds.length > 0 ? `Sample record ids: ${sampleIds.map((value) => `\`${value}\``).join(", ")}.` : "Sample record ids: none saved in the local bootstrap.",
+    "Next: ask me to inspect fields, sample records, or help deploy this dataset to the hosted backend if you want a cloud-backed run.",
+  ];
+  return lines.join("\n");
+}
+
 async function startDatasetBriefingRun(
   context: ToolExecutionContext,
   input: Record<string, unknown>,
@@ -3364,6 +3464,7 @@ async function maybeHandleDatasetBriefingRequest(
   initialSession: SessionRecord | null,
   emit: (message: AgentMessage) => void,
   deps: AgentRuntimeDeps,
+  conversationState?: AgentConversationState,
 ) {
   if (!initialSession || !shouldHandleDatasetBriefingRequest(input)) {
     return null;
@@ -3376,12 +3477,31 @@ async function maybeHandleDatasetBriefingRequest(
   if (typeof client.listDatasets !== "function") {
     return null;
   }
+  const contextualSelection = chooseDatasetFromConversationContext(reference, conversationState?.datasetContext);
+  if (contextualSelection?.ambiguous) {
+    return formatDatasetDisambiguation(reference, (conversationState?.datasetContext?.inventory ?? []).filter((dataset) =>
+      `${dataset.id} ${dataset.name}`.toLowerCase().includes(reference.toLowerCase())));
+  }
+  if (contextualSelection?.match?.scope === "local") {
+    const localDatasets = await deps.listLocalDatasets().catch(() => []);
+    const localMatch = localDatasets.find((dataset) => dataset.datasetId === contextualSelection.match?.id);
+    if (localMatch) {
+      emit({ role: "tool", content: summarizeLocalDatasetSelection(contextualSelection.match) });
+      const bootstrap = await getInstanceBootstrap(DEFAULT_INSTANCE_ROOT, localMatch.id);
+      return {
+        summary: describeLocalDataset(localMatch, bootstrap),
+        resolvedDataset: contextualSelection.match,
+      };
+    }
+  }
   emit({ role: "tool", content: `Locating dataset ${reference} for a readiness check...` });
   const listed = await client.listDatasets().catch(() => null);
   if (!listed) {
     return null;
   }
-  const selected = chooseDatasetBriefingTarget(reference, listed.datasets);
+  const selected = contextualSelection?.match?.scope === "remote"
+    ? listed.datasets.find((dataset) => dataset.id === contextualSelection.match?.id) ?? chooseDatasetBriefingTarget(reference, listed.datasets)
+    : chooseDatasetBriefingTarget(reference, listed.datasets);
   if (!selected) {
     return `I could not find a dataset matching \`${reference}\`. Ask \`show my datasets\` to inspect what is available.`;
   }
@@ -3395,7 +3515,16 @@ async function maybeHandleDatasetBriefingRequest(
     if (detail?.dataset) {
       const savedProfile = formatDatasetProfileFallback(detail.dataset);
       if (savedProfile) {
-        return savedProfile;
+        return {
+          summary: savedProfile,
+          resolvedDataset: {
+            id: selected.id,
+            name: selected.name?.trim() || selected.id,
+            scope: "remote" as const,
+            state: normalizeRemoteDatasetState(selected),
+            description: null,
+          },
+        };
       }
     }
   }
@@ -3409,9 +3538,27 @@ async function maybeHandleDatasetBriefingRequest(
   const result = await startDatasetBriefingRun(toolContext, { datasetId: selected.id });
   const resultData = isRecord(result.data) ? result.data : {};
   if (resultData.ok === false || resultData.reusedSavedProfile === true) {
-    return result.summary;
+    return {
+      summary: result.summary,
+      resolvedDataset: {
+        id: selected.id,
+        name: selected.name?.trim() || selected.id,
+        scope: "remote" as const,
+        state: normalizeRemoteDatasetState(selected),
+        description: null,
+      },
+    };
   }
-  return asyncRunLaunchSummary("describe_remote_dataset", result, toolContext);
+  return {
+    summary: asyncRunLaunchSummary("describe_remote_dataset", result, toolContext),
+    resolvedDataset: {
+      id: selected.id,
+      name: selected.name?.trim() || selected.id,
+      scope: "remote" as const,
+      state: normalizeRemoteDatasetState(selected),
+      description: null,
+    },
+  };
 }
 
 function shouldHandleDatasetInventory(input: string) {
@@ -3434,6 +3581,7 @@ async function maybeHandleDatasetInventory(input: string, initialSession: Sessio
     localCount: localInstances.length,
     remoteCount: remoteDatasets.length,
     response: formatDatasetInventoryResponse(localInstances, remoteDatasets, includeHidden),
+    inventory: buildDatasetConversationInventory(localInstances, remoteDatasets),
   };
 }
 
@@ -5158,6 +5306,10 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      datasetContext: {
+        inventory: datasetInventoryResponse.inventory,
+        lastResolvedDataset: null,
+      },
     };
   }
 
@@ -5216,12 +5368,19 @@ export async function runAgentTurn(
     };
   }
 
-  const datasetBriefingResponse = await maybeHandleDatasetBriefingRequest(input, initialSession, emit, deps);
+  const datasetBriefingResponse = await maybeHandleDatasetBriefingRequest(input, initialSession, emit, deps, conversationState);
   if (datasetBriefingResponse) {
-    emit({ role: "assistant", content: datasetBriefingResponse });
+    const responseText = typeof datasetBriefingResponse === "string" ? datasetBriefingResponse : datasetBriefingResponse.summary;
+    emit({ role: "assistant", content: responseText });
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      datasetContext: typeof datasetBriefingResponse === "string"
+        ? conversationState?.datasetContext ?? null
+        : {
+          inventory: conversationState?.datasetContext?.inventory ?? [],
+          lastResolvedDataset: datasetBriefingResponse.resolvedDataset ?? null,
+        },
     };
   }
 
@@ -5235,11 +5394,12 @@ export async function runAgentTurn(
     if (/Need one detail to finalize|Questions needed|Waiting for your answer/u.test(localRunResponse)) {
       emit({ role: "tool", content: "Waiting for your reply so I can finalize the dataset recommendation." });
     }
-    return {
-      sessionId: conversationState?.sessionId ?? null,
-      previousResponseId: conversationState?.previousResponseId ?? null,
-    };
-  }
+      return {
+        sessionId: conversationState?.sessionId ?? null,
+        previousResponseId: conversationState?.previousResponseId ?? null,
+        datasetContext: conversationState?.datasetContext ?? null,
+      };
+    }
 
   if (looksLikeIncompleteTask(input)) {
     emit({
@@ -5249,6 +5409,7 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      datasetContext: conversationState?.datasetContext ?? null,
     };
   }
 
@@ -5283,6 +5444,7 @@ export async function runAgentTurn(
     return {
       sessionId: context.sessionId,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      datasetContext: conversationState?.datasetContext ?? null,
     };
   }
 
@@ -5296,6 +5458,7 @@ export async function runAgentTurn(
       return {
         sessionId: context.sessionId,
         previousResponseId: conversationState?.previousResponseId ?? null,
+        datasetContext: conversationState?.datasetContext ?? null,
       };
     }
   }
@@ -5318,6 +5481,7 @@ export async function runAgentTurn(
     return {
       sessionId: context.sessionId,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      datasetContext: conversationState?.datasetContext ?? null,
     };
   }
 
@@ -5353,6 +5517,7 @@ export async function runAgentTurn(
       return {
         sessionId: context.sessionId,
         previousResponseId: conversationState?.previousResponseId ?? null,
+        datasetContext: conversationState?.datasetContext ?? null,
       };
     }
     throw error;
@@ -5385,6 +5550,7 @@ export async function runAgentTurn(
       return {
         sessionId: context.sessionId,
         previousResponseId: conversationState?.previousResponseId ?? null,
+        datasetContext: conversationState?.datasetContext ?? null,
       };
     }
 
@@ -5433,6 +5599,7 @@ export async function runAgentTurn(
           return {
             sessionId: context.sessionId,
             previousResponseId: conversationState?.previousResponseId ?? null,
+            datasetContext: conversationState?.datasetContext ?? null,
           };
         }
         throw error;
@@ -5463,6 +5630,7 @@ export async function runAgentTurn(
           return {
             sessionId: context.sessionId,
             previousResponseId: conversationState?.previousResponseId ?? null,
+            datasetContext: conversationState?.datasetContext ?? null,
           };
         }
         if (resultData.reusedSavedProfile === true) {
@@ -5502,6 +5670,7 @@ export async function runAgentTurn(
         return {
           sessionId: context.sessionId,
           previousResponseId: conversationState?.previousResponseId ?? null,
+          datasetContext: conversationState?.datasetContext ?? null,
         };
       }
       if (ASYNC_RUN_START_TOOLS.has(tool.name) && exposeWaitTool) {
@@ -5540,6 +5709,7 @@ export async function runAgentTurn(
       return {
         sessionId: context.sessionId,
         previousResponseId: conversationState?.previousResponseId ?? null,
+        datasetContext: conversationState?.datasetContext ?? null,
       };
     }
 
@@ -5570,6 +5740,7 @@ export async function runAgentTurn(
   return {
     sessionId: context.sessionId,
     previousResponseId: conversationState?.previousResponseId ?? null,
+    datasetContext: conversationState?.datasetContext ?? null,
   };
 }
 
