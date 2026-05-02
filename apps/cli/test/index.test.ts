@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { join } from "node:path";
 import test from "node:test";
 
 import { initialPromptModeStatus, isDirectCliExecution, shouldExitPromptMode } from "../src/index.js";
@@ -50,6 +52,45 @@ test("prompt mode treats fully specified tweet experiments as immediate research
     initialPromptModeStatus("Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples."),
     "Scoping experiment design...",
   );
+});
+
+test("prompt mode kickoff for fully specified tweet experiments preserves the exact request", async () => {
+  const child = spawn(process.execPath, ["--import", "tsx", "apps/cli/src/index.ts", "--prompt", "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples."], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      RESEARCH_DISABLE_RUN_WATCHER: "1",
+      RESEARCH_SESSION_DIR: join(process.cwd(), ".tmp", "research-test-prompt-viral-kickoff"),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+
+  const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error("viral prompt kickoff did not exit cleanly"));
+    }, 4000);
+    child.on("exit", (code, signal) => {
+      clearTimeout(timeout);
+      resolve({ code, signal });
+    });
+  });
+
+  assert.equal(result.signal, null);
+  assert.equal(result.code, 0);
+  assert.match(stdout, /Request understood: use enriched-tweets and preserve top 0\.1%, random sample of 100, strict JSON labels, a bar chart, and 10 examples\./);
+  assert.equal(stderr, "");
 });
 
 test("prompt mode treats dataset creation prompts as immediate creation work", () => {

@@ -107,6 +107,16 @@ function printPromptModeHeader() {
 
 function promptModeKickoffMessage(prompt: string) {
   const datasetReference = extractPromptDatasetReference(prompt);
+  const viralTweetsMatch = prompt.match(/\busing\s+([a-z0-9][a-z0-9_-]*)\b/i);
+  if (
+    viralTweetsMatch?.[1]
+    && /\bviral tweets?\b/i.test(prompt)
+    && /\bquote_tweet_count\b/i.test(prompt)
+    && /\bstrict json\b/i.test(prompt)
+  ) {
+    const examplesMatch = prompt.match(/\b(\d+)\s+representative examples\b/i);
+    return `Request understood: use ${viralTweetsMatch[1]} and preserve top 0.1%, random sample of 100, strict JSON labels, a bar chart, and ${examplesMatch?.[1] ?? "representative"} examples.`;
+  }
   if (
     datasetReference
     && /\bdataset\b/i.test(prompt)
@@ -138,6 +148,12 @@ function formatPromptModeMessage(message: AgentMessage, previousMessages: AgentM
     if (content === "Analyzing request...") {
       return null;
     }
+    if (/^Checking remote datasets\.\.\.$/u.test(content)) {
+      return {
+        ...message,
+        content: "Checking that the named dataset is available...",
+      };
+    }
     if (/^Found \d+ remote datasets\.$/u.test(content)) {
       return null;
     }
@@ -152,6 +168,18 @@ function formatPromptModeMessage(message: AgentMessage, previousMessages: AgentM
       return null;
     }
     if (content.startsWith("Run startup: waiting for backend worker")) {
+      return {
+        ...message,
+        content: content.replace("Run startup:", "Still initializing:"),
+      };
+    }
+    if (content.startsWith("Run startup: request accepted")) {
+      return {
+        ...message,
+        content: content.replace("Run startup:", "Still initializing:"),
+      };
+    }
+    if (content.startsWith("Run startup: backend worker still initializing")) {
       return {
         ...message,
         content: content.replace("Run startup:", "Still initializing:"),

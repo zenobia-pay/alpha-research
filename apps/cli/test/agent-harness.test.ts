@@ -651,7 +651,7 @@ test("async query run returns immediately with canonical dashboard and terminal 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Started query run run-123/);
   assert.match(final, /Run: run-123/);
-  assert.match(final, /State: starting\. The backend worker is still initializing\./);
+  assert.match(final, /State: starting\. The backend worker is initializing now\./);
   assert.match(final, /research show active runs/);
   assert.match(final, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-123#run-run-123/);
   assert.doesNotMatch(final, /Terminal session:/);
@@ -761,7 +761,7 @@ test("dataset describe request starts briefing run with required artifacts", asy
   assert.match(final, /Started dataset briefing run run-describe for econ/);
   assert.match(final, /Expected artifacts: Dataset Briefing, Dataset Profile/);
   assert.match(final, /Run: run-describe/);
-  assert.match(final, /State: starting\. The backend worker is still initializing\./);
+  assert.match(final, /State: starting\. The backend worker is initializing now\./);
   assert.match(final, /research show active runs/);
   assert.doesNotMatch(final, /Terminal session:/);
 });
@@ -851,8 +851,8 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
 
   const joinedMessages = messages.map((message) => message.content).join("\n");
   assert.match(joinedMessages, /Checking remote datasets/);
-  assert.match(joinedMessages, /Dataset selected: enriched-tweets \(ready\)\./);
-  assert.match(joinedMessages, /Planning run: sample 100 viral tweets, label strict JSON, build a bar chart, and return 10 examples\./);
+  assert.match(joinedMessages, /Using enriched-tweets \(ready\)\. Exact dataset match found in RESEARCH\./);
+  assert.match(joinedMessages, /Preserving request: top 0\.1% by `quote_tweet_count`, random sample 100, strict JSON labels for `hook_type`, `emotional_tone`, `controversy_level`, bar chart, and 10 representative examples\./);
   assert.match(joinedMessages, /Inspecting dataset enriched-tweets/);
   assert.match(joinedMessages, /Field check: missing `hook_type`, `emotional_tone`, `controversy_level`\. I will warn in the run summary if those fields are unavailable\./);
   assert.match(joinedMessages, /Starting remote analysis for enriched-tweets/);
@@ -860,10 +860,11 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
   assert.doesNotMatch(joinedMessages, /Top matches for "enriched-tweets"/);
   assert.match(joinedMessages, /Started remote analysis on enriched-tweets/);
   assert.match(joinedMessages, /Run: run-transform-viral/);
-  assert.match(joinedMessages, /State: queued\. The run is waiting for backend capacity\./);
-  assert.match(joinedMessages, /Plan: top 0\.1% by `quote_tweet_count`, random sample 100, strict JSON labels for `hook_type`, `emotional_tone`, `controversy_level`, then produce a bar chart and 10 representative examples\./);
+  assert.match(joinedMessages, /State: queued\. The request is accepted and waiting for backend capacity\./);
+  assert.match(joinedMessages, /Preserved request: top 0\.1% by `quote_tweet_count`, random sample 100, strict JSON labels for `hook_type`, `emotional_tone`, `controversy_level`, then produce a bar chart and 10 representative examples\./);
   assert.match(joinedMessages, /Warning: requested fields not verified in dataset metadata: `hook_type`, `emotional_tone`, `controversy_level`\. The run will need to confirm them at execution time\./);
   assert.match(joinedMessages, /Expected artifacts: bar chart, structured JSON results, representative examples/);
+  assert.match(joinedMessages, /Handoff: this CLI launch is complete and the run will keep processing in the background\./);
   assert.match(joinedMessages, /research show active runs/);
   assert.match(joinedMessages, /Dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-transform-viral#run-run-transform-viral/);
   assert.doesNotMatch(joinedMessages, /Terminal session:/);
@@ -905,10 +906,10 @@ test("specific viral tweets experiment blocks clearly when the named dataset is 
   assert.deepEqual(calls, ["listDatasets"]);
   const final = messages.at(-1)?.content ?? "";
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Dataset selected: enriched-tweets \(uploading\)\./);
-  assert.match(joined, /Planning run: sample 100 viral tweets, label strict JSON, build a bar chart, and return 10 examples\./);
+  assert.match(joined, /Using enriched-tweets \(uploading\)\. Exact dataset match found in RESEARCH\./);
+  assert.match(joined, /Preserving request: top 0\.1% by `quote_tweet_count`, random sample 100, strict JSON labels for `hook_type`, `emotional_tone`, `controversy_level`, bar chart, and 10 representative examples\./);
   assert.match(final, /I accepted the experiment design, but I did not start the run because `enriched-tweets` is uploading\./i);
-  assert.match(final, /Planned work once it is ready: filter the top 0\.1% by `quote_tweet_count`/i);
+  assert.match(final, /Preserved plan once it is ready: top 0\.1% by `quote_tweet_count`/i);
   assert.match(final, /wait for the dataset to finish uploading\/deploying, then rerun the same prompt/i);
 });
 

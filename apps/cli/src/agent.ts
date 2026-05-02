@@ -1570,7 +1570,10 @@ function progressHeartbeat(toolName: string, input: Record<string, unknown>, ela
     return `Still preparing the ${datasetId} environment and checking whether the dataset volume is free (${elapsedSeconds}s elapsed).`;
   }
   if (ASYNC_RUN_START_TOOLS.has(toolName)) {
-    return `Run startup: waiting for backend worker on ${datasetId} (${elapsedSeconds}s elapsed).`;
+    if (elapsedSeconds < 12) {
+      return `Run startup: request accepted for ${datasetId}; waiting for backend worker (${elapsedSeconds}s elapsed).`;
+    }
+    return `Run startup: backend worker still initializing for ${datasetId} (${elapsedSeconds}s elapsed).`;
   }
   return `Still running ${toolName} (${elapsedSeconds}s elapsed).`;
 }
@@ -2638,7 +2641,7 @@ function remoteDatasetFieldNames(dataset: RemoteDatasetDetail) {
 function datasetSelectionProgressLine(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
   const lifecycle = formatDatasetLifecycleLabel(dataset.status, dataset.deploymentStatus);
   const detail = lifecycle === "ready to use" ? "ready" : lifecycle;
-  return `Dataset selected: ${dataset.id} (${detail}).`;
+  return `Using ${dataset.id} (${detail}). Exact dataset match found in RESEARCH.`;
 }
 
 function buildSpecificViralTweetsRunPrompt(request: SpecificViralTweetsRequest) {
@@ -2687,7 +2690,10 @@ async function maybeHandleSpecificViralTweetsExperiment(
   }
 
   emit({ role: "tool", content: datasetSelectionProgressLine(selected) });
-  emit({ role: "tool", content: `Planning run: sample ${request.sampleSize} viral tweets, label strict JSON, build ${request.wantsBarChart ? "a bar chart" : "outputs"}, and return ${request.representativeExamples} examples.` });
+  emit({
+    role: "tool",
+    content: `Preserving request: top ${request.thresholdPercent}% by \`${request.metricField}\`, random sample ${request.sampleSize}, strict JSON labels for ${request.labelFields.map((field) => `\`${field}\``).join(", ")}, ${request.wantsBarChart ? "bar chart" : "analysis output"}${request.representativeExamples > 0 ? `, and ${request.representativeExamples} representative examples` : ""}.`,
+  });
 
   const ready = normalizeRemoteDatasetState(selected) === "ready";
   if (!ready) {
@@ -2695,7 +2701,7 @@ async function maybeHandleSpecificViralTweetsExperiment(
       `I accepted the experiment design, but I did not start the run because \`${selected.id}\` is ${formatDatasetLifecycleLabel(selected.status, selected.deploymentStatus)}.`,
       `Dataset: ${selected.id}`,
       `State: ${selected.status ?? selected.deploymentStatus ?? "unknown"}`,
-      "Planned work once it is ready: filter the top 0.1% by `quote_tweet_count`, randomly sample 100 tweets, label strict JSON for `hook_type`, `emotional_tone`, and `controversy_level`, then produce a bar chart and 10 representative examples.",
+      `Preserved plan once it is ready: top ${request.thresholdPercent}% by \`${request.metricField}\`, random sample ${request.sampleSize}, strict JSON labels for ${request.labelFields.map((field) => `\`${field}\``).join(", ")}, ${request.wantsBarChart ? "bar chart" : "analysis output"}${request.representativeExamples > 0 ? `, and ${request.representativeExamples} representative examples` : ""}.`,
       "Next: wait for the dataset to finish uploading/deploying, then rerun the same prompt.",
     ].join("\n");
   }
@@ -2772,12 +2778,13 @@ async function maybeHandleSpecificViralTweetsExperiment(
     `Dataset: ${result.run.datasetId}`,
     `Run: ${result.run.id}`,
     asyncRunStateLine(result.run.status),
-    `Plan: top ${request.thresholdPercent}% by \`${request.metricField}\`, random sample ${request.sampleSize}, strict JSON labels for ${request.labelFields.map((field) => `\`${field}\``).join(", ")}, then produce ${request.wantsBarChart ? "a bar chart" : "analysis outputs"}${request.representativeExamples > 0 ? ` and ${request.representativeExamples} representative examples` : ""}.`,
+    `Preserved request: top ${request.thresholdPercent}% by \`${request.metricField}\`, random sample ${request.sampleSize}, strict JSON labels for ${request.labelFields.map((field) => `\`${field}\``).join(", ")}, then produce ${request.wantsBarChart ? "a bar chart" : "analysis outputs"}${request.representativeExamples > 0 ? ` and ${request.representativeExamples} representative examples` : ""}.`,
     missingFields.length > 0
       ? `Warning: requested fields not verified in dataset metadata: ${missingFields.map((field) => `\`${field}\``).join(", ")}. The run will need to confirm them at execution time.`
       : "Field check: the requested metric and label fields were verified in dataset metadata before launch.",
     "Expected artifacts: bar chart, structured JSON results, representative examples.",
-    "Next: the run will keep processing in the background. Follow it in the dashboard or ask `research show active runs`.",
+    "Handoff: this CLI launch is complete and the run will keep processing in the background.",
+    "Next: follow it in the dashboard or ask `research show active runs`.",
     `Dashboard: ${dashboardRunUrl(initialSession.origin, result.run.id)}`,
   ];
   return summaryLines.join("\n");
@@ -3397,8 +3404,8 @@ function normalizeAsyncRunStatus(status: unknown) {
 
 function asyncRunStateLine(status: unknown) {
   const normalized = normalizeAsyncRunStatus(status);
-  if (normalized === "queued") return "State: queued. The run is waiting for backend capacity.";
-  if (normalized === "starting") return "State: starting. The backend worker is still initializing.";
+  if (normalized === "queued") return "State: queued. The request is accepted and waiting for backend capacity.";
+  if (normalized === "starting") return "State: starting. The backend worker is initializing now.";
   if (normalized === "running") return "State: running. The analysis is executing now.";
   return `State: ${normalized}.`;
 }
