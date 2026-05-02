@@ -24,6 +24,13 @@ test("prompt mode treats dataset-choice prompts as dataset inspection work", () 
   );
 });
 
+test("prompt mode shows an explicit input-needed state for vague housing risk questions", () => {
+  assert.equal(
+    initialPromptModeStatus("Can you look into whether the housing market is in trouble?"),
+    "Needs your input: scope clarification.",
+  );
+});
+
 test("prompt mode treats dataset briefing prompts as dataset inspection work", () => {
   assert.equal(
     initialPromptModeStatus("Describe the econ dataset for me."),

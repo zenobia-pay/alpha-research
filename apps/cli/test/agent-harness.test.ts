@@ -240,17 +240,15 @@ test("vague housing risk request asks scope before costly work", async () => {
   await runAgentTurn("Can you look into whether the housing market is in trouble?", session, emit, undefined, deps);
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /smallest scope decision/i);
+  assert.match(final, /Waiting for your answer/i);
+  assert.match(final, /Start with one scope choice/i);
   assert.match(final, /U\.S\. housing market/i);
   assert.match(final, /specific metro\/region/i);
-  assert.match(final, /quick current-state read/i);
-  assert.match(final, /deeper risk analysis/i);
-  assert.match(final, /affordability stress/i);
-  assert.match(final, /price decline risk/i);
-  assert.match(final, /credit stress/i);
+  assert.match(final, /U\.S\., quick read\./i);
   assert.match(final, /affordability/i);
-  assert.match(final, /mortgage rates/i);
-  assert.match(final, /price\/rent divergence/i);
+  assert.match(final, /inventory/i);
+  assert.doesNotMatch(final, /Depth:/i);
+  assert.doesNotMatch(final, /Meaning of `in trouble`/i);
   assert.doesNotMatch(final, /Started|Queued|Dashboard:/i);
 });
 

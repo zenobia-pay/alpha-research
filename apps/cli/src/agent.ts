@@ -2077,13 +2077,12 @@ function maybeHandleVagueMarketQuestion(input: string) {
     return null;
   }
   return [
-    "Before I start research, pick the smallest scope decision so I do not launch a broad housing-market build.",
+    "Waiting for your answer",
     "",
-    "- Market: U.S. housing market or a specific metro/region?",
-    "- Depth: quick current-state read or deeper risk analysis?",
-    "- Meaning of `in trouble`: affordability stress, price decline risk, weak demand/inventory imbalance, or credit stress?",
+    "Start with one scope choice: U.S. housing market or a specific metro/region?",
     "",
-    "Once you choose, I can assess the right signals: affordability, prices, inventory, mortgage rates, delinquencies, employment, regional differences, and price/rent divergence over the time period that matters.",
+    "If you want a default, reply: `U.S., quick read.`",
+    "After that, I will define the right trouble signals for that scope, usually starting with affordability and inventory before going deeper.",
   ].join("\n");
 }
 
