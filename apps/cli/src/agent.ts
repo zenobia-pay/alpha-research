@@ -1940,28 +1940,33 @@ function maybeHandleSignedOutRemoteDatasetRequest(input: string) {
   ].join("\n");
 }
 
-function maybeHandleOrientation(input: string) {
+function isOrientationPrompt(input: string) {
   const lower = input.trim().toLowerCase();
-  if (!(
-    /^(what can you help me do\??|help|what do you do\??)$/u.test(lower)
-    || (
-      /\b(just opened|what is this|what should i type first|where should i start|how do i start)\b/u.test(lower)
-      && /\bresearch\b/u.test(lower)
-    )
-  )) {
+  if (/^(what can you help me do\??|help|what do you do\??)$/u.test(lower)) {
+    return true;
+  }
+  if (/\b(just opened|what is this|what should i type first|where should i start|how do i start)\b/u.test(lower)) {
+    return true;
+  }
+  return /\bhow\b.*\b(start|begin)\b/u.test(lower) && /\bresearch\b/u.test(lower);
+}
+
+function maybeHandleOrientation(input: string) {
+  if (!isOrientationPrompt(input)) {
     return null;
   }
   return [
-    "RESEARCH helps you turn a file or dataset into research you can inspect, run, and review.",
+    "RESEARCH is a dataset-backed research agent.",
     "",
-    "Start here:",
-    "- `Show my datasets`",
+    "A dataset is the prepared data you can inspect, question, and run research on here.",
     "",
-    "`research login` is optional when you want me to access your account datasets or start remote work.",
+    "Type this first: `Show my datasets`",
     "",
-    "Try one of these next:",
-    "- `Create a dataset from a file on my computer`",
+    "`research login` only matters when you want me to open your account datasets or start cloud-backed research for you.",
+    "",
+    "Then try one of these:",
     "- `Brief the econ dataset so I understand what is inside`",
+    "- `Create a dataset from /full/path/to/file.csv`",
     "- `Plan an analysis for whether retention changed after launch`",
     "- `Show the latest results from earlier work`",
   ].join("\n");

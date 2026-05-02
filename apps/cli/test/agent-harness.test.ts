@@ -75,15 +75,15 @@ test("product orientation presents command center identities without tools", asy
 
   assert.equal(messages.length, 1);
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /turn a file or dataset into research/i);
-  assert.match(final, /Start here:/i);
-  assert.match(final, /Show my datasets/i);
-  assert.match(final, /research login.*optional/i);
-  assert.match(final, /Create a dataset from a file on my computer/i);
+  assert.match(final, /dataset-backed research agent/i);
+  assert.match(final, /A dataset is the prepared data you can inspect, question, and run research on here\./i);
+  assert.match(final, /Type this first: `Show my datasets`/i);
+  assert.match(final, /research login.*only matters when you want me to open your account datasets or start cloud-backed research for you/i);
+  assert.match(final, /Create a dataset from \/full\/path\/to\/file\.csv/i);
   assert.match(final, /Brief the econ dataset so I understand what is inside/i);
   assert.match(final, /Plan an analysis for whether retention changed after launch/i);
   assert.match(final, /Show the latest results from earlier work/i);
-  assert.doesNotMatch(final, /dataset-backed|artifacts|labeling jobs|experiments|last run|remote run|manifest-backed|mounted dataset|worker_unreachable|lifecycle|remote environments?|normalize/i);
+  assert.doesNotMatch(final, /artifacts|labeling jobs|remote run|manifest-backed|mounted dataset|worker_unreachable|lifecycle|remote environments?|normalize/i);
 });
 
 test("cold-start orientation prompt stays local and recommends first steps", async () => {
@@ -109,15 +109,17 @@ test("cold-start orientation prompt stays local and recommends first steps", asy
 
   assert.equal(messages.length, 1);
   const coldStart = messages.at(-1)?.content ?? "";
-  assert.match(coldStart, /^RESEARCH helps you turn a file or dataset into research/i);
+  assert.match(coldStart, /^RESEARCH is a dataset-backed research agent\./i);
+  assert.match(coldStart, /A dataset is the prepared data you can inspect, question, and run research on here\./i);
+  assert.match(coldStart, /Type this first: `Show my datasets`/i);
   assert.match(coldStart, /`research login`/i);
-  assert.match(coldStart, /optional when you want me to access your account datasets or start remote work/i);
-  assert.match(coldStart, /Show my datasets/i);
+  assert.match(coldStart, /only matters when you want me to open your account datasets or start cloud-backed research for you/i);
+  assert.match(coldStart, /Brief the econ dataset/i);
   assert.doesNotMatch(coldStart, /datasets ls|local ls|env create|normalize|remote datasets|artifacts/u);
 });
 
 test("prompt mode exits cleanly after local orientation response", async () => {
-  const child = spawn(process.execPath, ["--import", "tsx", "apps/cli/src/index.ts", "--prompt", "What can you help me do?"], {
+  const child = spawn(process.execPath, ["--import", "tsx", "apps/cli/src/index.ts", "--prompt", "I just opened research. What is this, and what should I type first?"], {
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -152,6 +154,8 @@ test("prompt mode exits cleanly after local orientation response", async () => {
   assert.equal(result.signal, null);
   assert.equal(result.code, 0);
   assert.match(stdout, /^research/m);
+  assert.match(stdout, /dataset-backed research\s+agent/i);
+  assert.match(stdout, /Type this first: `Show my datasets`/i);
   assert.match(stdout, /Show my datasets/);
   assert.doesNotMatch(stdout, /working\.\.\.|Thinking\.\.\./);
   assert.equal(stderr, "");
