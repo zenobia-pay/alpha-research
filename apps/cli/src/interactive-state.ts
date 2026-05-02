@@ -214,7 +214,7 @@ function extractRunId(text: string) {
 }
 
 function isBlockedAssistantMessage(text: string) {
-  return /Blocked:|Sign in first/u.test(text);
+  return /Blocked:|Blocked on |Sign in first/u.test(text);
 }
 
 function isWaitingForUserReply(text: string) {
@@ -226,8 +226,10 @@ function isWaitingForUserReply(text: string) {
     || /Reply with /u.test(text)
     || /Reply with one choice:/u.test(text)
     || /Send path \+ one-line description/u.test(text)
+    || /Send these inputs in one reply:/u.test(text)
     || /Which geography matters most/u.test(text)
     || /I can help with that, but I need 2 things first:/u.test(text)
+    || /source-of-truth details before I build anything/u.test(text)
     || /No upload is needed\./u.test(text);
 }
 

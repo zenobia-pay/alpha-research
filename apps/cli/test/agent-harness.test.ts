@@ -302,6 +302,42 @@ test("journey P02 wording resolves locally without remote planning", async () =>
   assert.doesNotMatch(final, /register|deploy/i);
 });
 
+test("mixed-source intake asks for all sources and approval before any build", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new Error("Mixed-source intake should not start remote planning before required source-of-truth details exist.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "I have a private CSV export of support tickets, a public product changelog, and some API docs. I want one research dataset that lets me study whether launches increase ticket volume and resolution time. What do you need before you build it?",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.equal(messages.length, 1);
+  const final = messages[0]?.content ?? "";
+  assert.match(final, /Blocked on source-of-truth details before I build anything\./i);
+  assert.match(final, /private ticket export: absolute file path to the csv/i);
+  assert.match(final, /public launch history: changelog url or local file path/i);
+  assert.match(final, /api source: docs url/i);
+  assert.match(final, /api constraints: auth method, rate limits/i);
+  assert.match(final, /study shape: desired grain and time range/i);
+  assert.match(final, /key fields: ticket created\/resolved\/status fields, launch date field/i);
+  assert.match(final, /approval: say `approved to build` when you want me to start/i);
+  assert.match(final, /I am not starting a dataset build yet\./i);
+  assert.doesNotMatch(final, /infer the schema|normalize it|get it ready for research/i);
+  assert.doesNotMatch(final, /Started|run-[a-z0-9-]+|Dashboard:/i);
+});
+
 test("vague housing risk request asks scope before costly work", async () => {
   const fakeClient = {
     async respond() {

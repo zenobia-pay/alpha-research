@@ -70,6 +70,15 @@ export function initialPromptModeStatus(prompt: string) {
   const lower = prompt.trim().toLowerCase();
   const datasetReference = extractPromptDatasetReference(prompt);
   if (
+    /\b(private|local)\b/.test(lower)
+    && /\b(csv|tsv|parquet|jsonl?|spreadsheet|export|file)\b/.test(lower)
+    && /\b(public|changelog|release notes?)\b/.test(lower)
+    && /\bapi\b/.test(lower)
+    && /\bdocs?\b/.test(lower)
+  ) {
+    return "Waiting for source-of-truth details before any dataset build can start.";
+  }
+  if (
     /\b(came back|back later|return later|returned later|recent work|my research work)\b/.test(lower)
     && /\b(what happened|results?|artifacts?|status|progress|can i see|show me)\b/.test(lower)
   ) {

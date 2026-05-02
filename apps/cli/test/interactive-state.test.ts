@@ -131,6 +131,25 @@ test("file import clarification is treated as waiting for user input", () => {
   assert.match(state.nextExpectedOutput ?? "", /short user reply/i);
 });
 
+test("mixed-source intake clarification is treated as blocked on user input", () => {
+  const state = applyAgentMessageToTaskState(beginInteractiveTask("I have a private CSV export of support tickets, a public product changelog, and some API docs. What do you need before you build it?"), {
+    role: "assistant",
+    content: [
+      "Blocked on source-of-truth details before I build anything.",
+      "",
+      "Send these inputs in one reply:",
+      "",
+      "- Private ticket export: absolute file path to the CSV.",
+      "- Public launch history: changelog URL or local file path.",
+      "- API source: docs URL and whether the data is public, token-based, or otherwise restricted.",
+      "- Approval: say `approved to build` when you want me to start.",
+    ].join("\n"),
+  });
+
+  assert.equal(state.status, "blocked");
+  assert.match(state.nextExpectedOutput ?? "", /user action to unblock|short user reply/i);
+});
+
 test("tracked runs are split into current and background groups", () => {
   const runs = [
     {

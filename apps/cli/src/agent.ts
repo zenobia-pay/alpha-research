@@ -2057,6 +2057,7 @@ function maybeHandleOrientation(input: string) {
 
 export function getLocalDirectResponse(input: string) {
   return maybeHandleOrientation(input)
+    ?? maybeHandleMixedSourceDatasetIntake(input)
     ?? maybeHandleCsvImportHowTo(input)
     ?? maybeHandleVagueMarketQuestion(input);
 }
@@ -2275,6 +2276,47 @@ function maybeHandleCsvImportHowTo(input: string) {
     "Next: I will inspect the file, infer the schema, normalize it, and get it ready for research.",
     "Reply with the absolute path to the local file and a one-line description. No upload is needed.",
     "Tip: drag the file into Terminal to paste the path.",
+  ].join("\n");
+}
+
+function maybeHandleMixedSourceDatasetIntake(input: string) {
+  const lower = input.toLowerCase();
+  const mentionsDatasetBuildIntent = /\b(build|create|make|ingest|import|dataset)\b/.test(lower)
+    || /\bwhat do you need before\b/.test(lower);
+  const mentionsPrivateFile = /\b(private|local)\b/.test(lower)
+    && /\b(csv|tsv|parquet|jsonl?|spreadsheet|export|file)\b/.test(lower);
+  const mentionsPublicSource = /\b(public|changelog|release notes?)\b/.test(lower);
+  const mentionsApiSource = /\bapi\b/.test(lower) && /\bdocs?\b/.test(lower);
+
+  if (!mentionsDatasetBuildIntent || !mentionsPrivateFile || !mentionsPublicSource || !mentionsApiSource) {
+    return null;
+  }
+
+  return [
+    "Blocked on source-of-truth details before I build anything.",
+    "",
+    "You described a mixed-source intake, so I need the private file, the public source, the API source, and your approval before work can begin.",
+    "",
+    "Send these inputs in one reply:",
+    "",
+    "- Private ticket export: absolute file path to the CSV.",
+    "- Public launch history: changelog URL or local file path.",
+    "- API source: docs URL and whether the data is public, token-based, or otherwise restricted.",
+    "- API constraints: auth method, rate limits, and any endpoints I should or should not use.",
+    "- Study shape: desired grain and time range.",
+    "- Key fields: ticket created/resolved/status fields, launch date field, and how you want ticket volume and resolution time defined.",
+    "- Approval: say `approved to build` when you want me to start.",
+    "",
+    "I am not starting a dataset build yet. Once those source-of-truth details are in place, I can map the sources, explain the build plan, and then start the dataset work.",
+    "",
+    "Reply template:",
+    "`csv: /absolute/path/to/tickets.csv`",
+    "`changelog: https://...`",
+    "`api docs: https://...`",
+    "`api auth: public docs only | bearer token | other constraint`",
+    "`grain/time range: ...`",
+    "`key fields: created_at, resolved_at, launch_date, ...`",
+    "`approval: approved to build`",
   ].join("\n");
 }
 
