@@ -2185,10 +2185,12 @@ function maybeHandleCsvImportHowTo(input: string) {
     "- Absolute file path",
     "- One-line description of what is in the file",
     "",
-    "Example description: `CSV of customer support tickets`",
+    "Send path + one-line description:",
     "",
-    "Next: I will inspect the file, infer the schema, choose a dataset name with you if needed, normalize it, and get it ready for research.",
-    "Reply with the absolute path and one-line description. No upload is needed.",
+    "`/absolute/path/to/local-file.csv` + `CSV of customer support tickets`",
+    "",
+    "Next: I will inspect the file, infer the schema, normalize it, and get it ready for research.",
+    "Reply with the absolute path to the local file and a one-line description. No upload is needed.",
     "Tip: drag the file into Terminal to paste the path.",
   ].join("\n");
 }

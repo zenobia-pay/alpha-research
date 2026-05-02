@@ -254,13 +254,16 @@ test("file import how-to asks for path before ingesting", async () => {
   assert.match(final, /I can help with that, but I need 2 things first:/i);
   assert.match(final, /absolute file path/i);
   assert.match(final, /one-line description/i);
-  assert.match(final, /Reply with the absolute path and one-line description\./i);
+  assert.match(final, /Send path \+ one-line description:/i);
+  assert.match(final, /absolute path to the local file/i);
   assert.match(final, /infer the schema/i);
-  assert.match(final, /dataset name with you if needed/i);
+  assert.match(final, /normalize it/i);
   assert.match(final, /get it ready for research/i);
-  assert.match(final, /Example description: `CSV of customer support tickets`/i);
+  assert.match(final, /\/absolute\/path\/to\/local-file\.csv/i);
+  assert.match(final, /CSV of customer support tickets/i);
   assert.match(final, /No upload is needed\./i);
   assert.match(final, /drag the file into Terminal to paste the path/i);
+  assert.doesNotMatch(final, /dataset name with you if needed/i);
   assert.doesNotMatch(final, /register the dataset|upload it|deploy it/i);
   assert.doesNotMatch(final, /help narrow it down/i);
   assert.doesNotMatch(final, /Started|run-[a-z0-9-]+|Dashboard:/i);
@@ -292,6 +295,9 @@ test("journey P02 wording resolves locally without remote planning", async () =>
   assert.match(final, /absolute file path/i);
   assert.match(final, /one-line description/i);
   assert.match(final, /Next: I will inspect the file/i);
+  assert.match(final, /Send path \+ one-line description:/i);
+  assert.match(final, /absolute path to the local file/i);
+  assert.doesNotMatch(final, /choose a dataset name/i);
   assert.doesNotMatch(final, /RESEARCH turns your data into a dataset/i);
   assert.doesNotMatch(final, /register|deploy/i);
 });
@@ -512,11 +518,13 @@ test("file-to-dataset onboarding asks only for path and description", async () =
   assert.match(final, /I can help with that, but I need 2 things first:/i);
   assert.match(final, /Absolute file path/i);
   assert.match(final, /One-line description of what is in the file/i);
-  assert.match(final, /Example description: `CSV of customer support tickets`/i);
-  assert.match(final, /Reply with the absolute path and one-line description\./i);
+  assert.match(final, /Send path \+ one-line description:/i);
+  assert.match(final, /\/absolute\/path\/to\/local-file\.csv/i);
+  assert.match(final, /CSV of customer support tickets/i);
+  assert.match(final, /Reply with the absolute path to the local file and a one-line description\./i);
   assert.match(final, /No upload is needed\./i);
   assert.doesNotMatch(final, /RESEARCH:/);
-  assert.doesNotMatch(final, /dataset name\/id/i);
+  assert.doesNotMatch(final, /dataset name\/id|choose a dataset name/i);
 });
 
 test("dataset recommendation inventory includes ranked shortlist for the topic", async () => {

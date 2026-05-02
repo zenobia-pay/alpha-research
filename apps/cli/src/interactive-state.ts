@@ -192,6 +192,7 @@ function isBlockedAssistantMessage(text: string) {
 function isWaitingForUserReply(text: string) {
   return /Waiting for your answer/u.test(text)
     || /Reply with /u.test(text)
+    || /Send path \+ one-line description/u.test(text)
     || /Which geography matters most/u.test(text)
     || /I can help with that, but I need 2 things first:/u.test(text)
     || /No upload is needed\./u.test(text);

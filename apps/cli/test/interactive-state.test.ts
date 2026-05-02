@@ -118,7 +118,11 @@ test("file import clarification is treated as waiting for user input", () => {
       "- Absolute file path",
       "- One-line description of what is in the file",
       "",
-      "Reply with the absolute path and one-line description. No upload is needed.",
+      "Send path + one-line description:",
+      "",
+      "`/absolute/path/to/local-file.csv` + `CSV of customer support tickets`",
+      "",
+      "Reply with the absolute path to the local file and a one-line description. No upload is needed.",
     ].join("\n"),
   });
 
