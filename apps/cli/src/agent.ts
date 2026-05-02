@@ -1847,8 +1847,7 @@ function maybeHandleOrientation(input: string) {
 export function getLocalDirectResponse(input: string) {
   return maybeHandleOrientation(input)
     ?? maybeHandleCsvImportHowTo(input)
-    ?? maybeHandleVagueMarketQuestion(input)
-    ?? maybeHandleVagueTweetsExperiment(input);
+    ?? maybeHandleVagueMarketQuestion(input);
 }
 
 function shouldHandleDatasetInventoryLegacy(input: string) {
@@ -2082,38 +2081,96 @@ function maybeHandleVagueMarketQuestion(input: string) {
   ].join("\n");
 }
 
-function maybeHandleVagueTweetsExperiment(input: string) {
+function shouldHandleVagueTweetsExperiment(input: string) {
   const lower = input.toLowerCase();
   if (!/\btweets?\b/.test(lower) || !/\bviral|virality\b/.test(lower) || !/\b(experiment|run|analy[sz]e|look into)\b/.test(lower)) {
-    return null;
+    return false;
   }
   if (/\btop\s*0\.1%|quote_tweet_count|sample\s+100|strict json\b/.test(lower)) {
-    return null;
+    return false;
   }
+  return true;
+}
+
+function tweetDatasetLooksUsable(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const metadata = datasetMetadataText(dataset);
+  return /\btweet/.test(metadata) && /\bquote_tweet_count\b/.test(metadata);
+}
+
+function formatViralTweetsExperimentProposal(dataset: RemoteDatasetSummary | RemoteDatasetDetail, wasVerified: boolean) {
+  const label = `\`${dataset.id}\`${dataset.name && dataset.name !== dataset.id ? ` (${dataset.name})` : ""}`;
+  const datasetLine = wasVerified
+    ? `Confirmed dataset: ${label}.`
+    : `Best available dataset: ${label}.`;
+  const datasetWhy = wasVerified
+    ? "Why this dataset: it is present in RESEARCH and its metadata includes tweet engagement fields needed for a first-pass virality experiment."
+    : "Why this dataset: it looks like the closest tweet dataset currently available in RESEARCH for an engagement-based virality experiment.";
   return [
     "Before I start a remote run, here is the experiment I recommend.",
     "",
-    "Dataset",
-    "Proposed dataset: `enriched-tweets`.",
-    "Use `enriched-tweets`.",
-    "Fallback: if it is not in your workspace, I can help you choose or build a tweets dataset with text, timestamps, authors, and engagement fields.",
+    "Plan",
+    datasetLine,
+    datasetWhy,
+    "Success looks like: a short report that explains which tweet patterns show up most often in the viral sample, with charts and concrete examples.",
     "",
     "Definition",
-    "Outcome: treat viral tweets as the top 0.1% by `quote_tweet_count`.",
+    "Default metric: top 0.1% by `quote_tweet_count`.",
+    "Why this metric: quote tweets usually capture stronger downstream spread and commentary than likes alone, so it is a useful first viral proxy.",
     "Sample: label 100 tweets from the viral set.",
+    "Why 100: it is enough for a first-pass pattern read without paying for a much larger labeling job up front.",
     "Labels: `hook_type`, `emotional_tone`, `controversy_level`.",
-    "Outputs: a short summary, visualizations, and representative examples.",
+    "Outputs: a short summary, one bar chart per label, and 10 representative examples.",
     "",
-    "Choose one virality definition:",
+    "Choose the virality rule",
     "1. Top 0.1% by `quote_tweet_count`.",
     "2. Top 0.1% by `retweet_count`.",
     "3. Top 0.1% by `favorite_count`.",
     "",
-    "Approval",
-    "Proceed with this default design? Reply with 1, 2, or 3 and I will use that virality definition.",
-    "Optional changes: choose a different virality metric or sample size before I start.",
-    "Next: once you confirm, I will start the run with that scope.",
+    "Waiting for your approval",
+    "Reply with 1, 2, or 3 to start with that metric.",
+    "Optional override: tell me a different sample size or ask for a control group before I launch anything.",
   ].join("\n");
+}
+
+async function maybeHandleVagueTweetsExperiment(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!initialSession || !shouldHandleVagueTweetsExperiment(input)) {
+    return null;
+  }
+  const client = deps.createRemoteClient(initialSession);
+  emit({ role: "tool", content: "Checking remote datasets..." });
+  const listed = await client.listDatasets().catch(() => null);
+  if (!listed) {
+    return [
+      "Before I start a remote run, I need to confirm which tweets dataset is available in RESEARCH.",
+      "",
+      "Reply with the dataset you want me to use, or ask me to show tweet datasets first.",
+    ].join("\n");
+  }
+  emit({ role: "tool", content: `Found ${listed.datasets.length} remote datasets.` });
+  const selected = chooseDatasetBriefingTarget("enriched-tweets", listed.datasets)
+    ?? listed.datasets.find((dataset) => tweetDatasetLooksUsable(dataset))
+    ?? listed.datasets.find((dataset) => /\btweet/.test(datasetMetadataText(dataset)))
+    ?? null;
+  if (!selected) {
+    return [
+      "I did not find a usable tweets dataset in RESEARCH, so I should not launch this experiment yet.",
+      "",
+      "Next: ask me to show datasets or help build a tweets dataset with text, timestamps, authors, and engagement fields.",
+    ].join("\n");
+  }
+  emit({ role: "tool", content: `Inspecting dataset ${selected.id}...` });
+  const detail = await client.getDataset(selected.id).catch(() => null);
+  if (detail?.dataset) {
+    emit({ role: "tool", content: `Confirmed dataset ${selected.id} for tweet analysis.` });
+    return formatViralTweetsExperimentProposal(detail.dataset, true);
+  }
+  emit({ role: "tool", content: `Using dataset inventory evidence for ${selected.id}.` });
+  return formatViralTweetsExperimentProposal(selected, false);
 }
 
 function shouldHandleFieldDefinitionQuestion(input: string) {
@@ -4264,6 +4321,16 @@ export async function runAgentTurn(
   const fieldDefinitionResponse = await maybeHandleFieldDefinitionQuestion(input, initialSession, emit, deps);
   if (fieldDefinitionResponse) {
     emit({ role: "assistant", content: fieldDefinitionResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
+  const vagueTweetsResponse = await maybeHandleVagueTweetsExperiment(input, initialSession, emit, deps);
+  if (vagueTweetsResponse) {
+    emit({ role: "assistant", content: vagueTweetsResponse });
+    emit({ role: "tool", content: "Waiting for your approval before starting a run." });
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,

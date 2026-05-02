@@ -72,6 +72,27 @@ test("clarifying assistant replies keep the task in waiting state", () => {
   assert.match(state.nextExpectedOutput ?? "", /short user reply/i);
 });
 
+test("approval-waiting progress line keeps the task in waiting state", () => {
+  let state = beginInteractiveTask("What types of tweets go viral?");
+  state = applyAgentMessageToTaskState(state, {
+    role: "assistant",
+    content: [
+      "Before I start a remote run, here is the experiment I recommend.",
+      "",
+      "Waiting for your approval",
+      "Reply with 1, 2, or 3 to start with that metric.",
+    ].join("\n"),
+  });
+  state = applyAgentMessageToTaskState(state, {
+    role: "tool",
+    content: "Waiting for your approval before starting a run.",
+  });
+
+  assert.equal(state.status, "waiting");
+  assert.equal(state.currentStep, "Waiting for your approval before starting a run.");
+  assert.match(state.nextExpectedOutput ?? "", /short user reply/i);
+});
+
 test("file import clarification is treated as waiting for user input", () => {
   const state = applyAgentMessageToTaskState(beginInteractiveTask("I have a CSV of customer support tickets on my desktop. How do I turn it into something I can research here?"), {
     role: "assistant",

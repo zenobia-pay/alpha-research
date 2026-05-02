@@ -1817,6 +1817,12 @@ test("product planning: vague viral tweets request designs scoped experiment bef
         },
       };
     },
+    async listDatasets() {
+      calls.push("listDatasets");
+      return {
+        datasets: [{ id: "enriched-tweets", name: "Enriched Tweets", status: "ready", deploymentStatus: "ready" }],
+      };
+    },
     async startRun() {
       calls.push("startRun");
       throw new Error("Vague planning request should not start a run before confirmation.");
@@ -1841,22 +1847,29 @@ test("product planning: vague viral tweets request designs scoped experiment bef
     deps,
   );
 
-  assert.deepEqual(calls, []);
+  assert.deepEqual(calls, ["listDatasets", "getDataset"]);
   const joinedMessages = messages.map((message) => message.content).join("\n");
   assert.doesNotMatch(joinedMessages, /Starting remote run/i);
+  assert.match(joinedMessages, /Checking remote datasets/i);
+  assert.match(joinedMessages, /Inspecting dataset enriched-tweets/i);
   assert.match(joinedMessages, /Before I start a remote run/i);
-  assert.match(joinedMessages, /Proposed dataset: `enriched-tweets`/i);
-  assert.match(joinedMessages, /assuming it has tweet text, timestamps, and engagement fields/i);
+  assert.match(joinedMessages, /Confirmed dataset: `enriched-tweets`/i);
+  assert.match(joinedMessages, /it is present in RESEARCH and its metadata includes tweet engagement fields/i);
   assert.match(joinedMessages, /top 0\.1% by `quote_tweet_count`/i);
-  assert.match(joinedMessages, /sample 100 tweets/i);
+  assert.match(joinedMessages, /quote tweets usually capture stronger downstream spread and commentary/i);
+  assert.match(joinedMessages, /Why 100: it is enough for a first-pass pattern read/i);
+  assert.match(joinedMessages, /Sample: label 100 tweets/i);
   assert.match(joinedMessages, /hook_type/i);
   assert.match(joinedMessages, /emotional_tone/i);
   assert.match(joinedMessages, /controversy_level/i);
-  assert.match(joinedMessages, /Choose one virality definition/i);
+  assert.match(joinedMessages, /Success looks like:/i);
+  assert.match(joinedMessages, /Choose the virality rule/i);
   assert.match(joinedMessages, /1\.\s+Top 0\.1% by `quote_tweet_count`/i);
   assert.match(joinedMessages, /2\.\s+Top 0\.1% by `retweet_count`/i);
   assert.match(joinedMessages, /3\.\s+Top 0\.1% by `favorite_count`/i);
+  assert.match(joinedMessages, /Waiting for your approval/i);
   assert.match(joinedMessages, /reply with 1, 2, or 3/i);
+  assert.match(joinedMessages, /Waiting for your approval before starting a run\./i);
 });
 
 test("field-definition prompt instructions enforce concise verdict-first answers", async () => {
