@@ -75,6 +75,12 @@ export function initialPromptModeStatus(prompt: string) {
   ) {
     return "Checking recent research work...";
   }
+  if (
+    /\b(blocked|stuck|failed|failure|what is happening|what happened|status|progress)\b/.test(lower)
+    && /\b(do next|next step|recover|recovery|anything useful|useful was produced|artifacts?)\b/.test(lower)
+  ) {
+    return "Checking active work, useful outputs, and the best next step...";
+  }
   if (/\bwhich dataset should i use\b/.test(lower)) {
     return "Looking up candidate datasets...";
   }

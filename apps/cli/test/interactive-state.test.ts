@@ -163,3 +163,18 @@ test("wrapped prompt lines avoid single-character composer style clipping", () =
   assert.equal(lines.every((line) => line.length <= 20), true);
   assert.equal(lines.length > 1, true);
 });
+
+test("recovery prompts start with a diagnosis-oriented task summary", () => {
+  const state = beginInteractiveTask(
+    "Something seems blocked or failed. Tell me what is happening, whether anything useful was produced, and what I should do next.",
+  );
+
+  assert.equal(state.currentStep, "Checking active work, useful outputs, and the safest next step.");
+  assert.equal(state.nextExpectedOutput, "A plain-language diagnosis, any useful outputs, and the best next step.");
+  assert.deepEqual(state.planSteps, [
+    "Check active work",
+    "Look for useful outputs",
+    "Separate facts from uncertainty",
+    "Recommend the next recovery step",
+  ]);
+});

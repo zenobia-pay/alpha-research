@@ -19,6 +19,13 @@ test("prompt mode shows immediate run-status feedback for run inspection questio
   );
 });
 
+test("prompt mode shows immediate recovery feedback for blocked-or-failed work questions", () => {
+  assert.equal(
+    initialPromptModeStatus("Something seems blocked or failed. Tell me what is happening, whether anything useful was produced, and what I should do next."),
+    "Checking active work, useful outputs, and the best next step...",
+  );
+});
+
 test("prompt mode shows continuity-specific feedback for return-later questions", () => {
   assert.equal(
     initialPromptModeStatus("I came back later. What happened with my research work, and what results or artifacts can I see?"),
@@ -96,7 +103,7 @@ test("prompt mode kickoff for fully specified tweet experiments preserves the ex
 
   assert.equal(result.signal, null);
   assert.equal(result.code, 0);
-  assert.match(stdout, /Request understood: use enriched-tweets and preserve top 0\.1%, random sample of 100, strict JSON labels, a bar chart, and 10 examples\./);
+  assert.match(stdout, /Request understood: use\s+enriched-tweets and preserve top 0\.1%,\s+random sample of 100, strict JSON\s+labels, a bar chart, and 10 examples\./);
   assert.equal(stderr, "");
 });
 

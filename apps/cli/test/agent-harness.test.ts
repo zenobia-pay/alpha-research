@@ -223,9 +223,9 @@ test("prompt mode exits cleanly after stuck-run local diagnosis", async () => {
   assert.equal(result.code, 0);
   assert.match(stdout, /^research/m);
   assert.match(stdout, /Checking run state/);
-  assert.match(stdout, /Live status: booting · no new event for/i);
+  assert.match(stdout, /Live status: booting · no new event\s+for/i);
   assert.match(stdout, /Worker started and\s+is still getting ready\./);
-  assert.match(stdout, /Debug: research debug run\s+run-prompt-stuck-1/);
+  assert.match(stdout, /Debug now: research debug run\s+run-prompt-stuck-1/);
   assert.equal(stderr, "");
 });
 
@@ -2018,12 +2018,80 @@ test("stuck run question explains fresh booting run in plain language", async ()
 
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Still booting\./i);
+  assert.match(final, /Current run/i);
+  assert.match(final, /Meaning: That means the job has started, but it is still getting the worker and dataset ready\. I do not see a failure yet\./i);
+  assert.match(final, /Current run artifacts: none yet/i);
   assert.match(final, /Live status: booting · no new event for 30s\./i);
   assert.match(final, /Waiting for dataset enriched-tweets to be mounted so the run can start reading it\./i);
   assert.match(final, /give it up to 2 minutes total/i);
-  assert.match(final, /Debug: research debug run run-fresh-1/i);
+  assert.match(final, /Debug now: research debug run run-fresh-1/i);
   assert.match(final, /Last update: 2026-04-22T00:00:00\.000Z \(less than 1 minute ago\)/i);
   assert.doesNotMatch(final, /Mounted dataset grounding is mandatory/i);
+});
+
+test("blocked-or-failed recovery prompt stays focused on the current run and next action", async () => {
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    readSession: async () => session,
+    readTrackedRuns: async () => [
+      {
+        id: "run-fresh-1",
+        datasetId: "enriched-tweets",
+        origin: session.origin,
+        status: "booting",
+        prompt: "Mounted dataset grounding is mandatory for dataset `enriched-tweets`.\nBefore doing analysis, read the mount.",
+        createdAt: "2026-04-22T00:00:00.000Z",
+        updatedAt: "2026-04-22T00:00:00.000Z",
+        lastSeenAt: "2026-04-22T00:00:00.000Z",
+        dashboardUrl: "https://dashboard.alpharesearch.nyc/?view=runs&runId=run-fresh-1#run-run-fresh-1",
+      },
+      {
+        id: "run-finished-1",
+        datasetId: "enriched-tweets",
+        origin: session.origin,
+        status: "completed",
+        prompt: "Return a summary.",
+        createdAt: "2026-04-21T23:00:00.000Z",
+        updatedAt: "2026-04-21T23:04:00.000Z",
+        lastSeenAt: "2026-04-21T23:04:00.000Z",
+        terminalAt: "2026-04-21T23:04:00.000Z",
+      },
+    ],
+    createRemoteClient: () => ({
+      async getRunResults() {
+        return {
+          run: { id: "run-finished-1", datasetId: "enriched-tweets", status: "completed", prompt: "Return a summary." },
+          metadata: null,
+          events: [],
+          artifacts: [
+            { id: "artifact-summary", runId: "run-finished-1", type: "markdown", title: "summary.md" },
+            { id: "artifact-result", runId: "run-finished-1", type: "structured_result", title: "result.json", content: { ok: true } },
+          ],
+        };
+      },
+    }) as never,
+    now: () => new Date("2026-04-22T00:00:30.000Z").getTime(),
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Something seems blocked or failed. Tell me what is happening, whether anything useful was produced, and what I should do next.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /^Still booting\./i);
+  assert.match(final, /Meaning: That means the job has started, but it is still getting the worker and dataset ready\. I do not see a failure yet\./i);
+  assert.match(final, /Current run artifacts: none yet/i);
+  assert.match(final, /Useful output so far/i);
+  assert.match(final, /open summary\.md first\. Also available: result\.json\./i);
+  assert.match(final, /Latest completed run on this dataset: run-…ed-1\./i);
+  assert.match(final, /Recommended action/i);
+  assert.match(final, /Open dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-fresh-1#run-run-fresh-1/i);
+  assert.doesNotMatch(final, /Recent useful completed runs|mount paths|artifact counts|datasetId/i);
 });
 
 test("stuck run question escalates stale running run to debug now", async () => {

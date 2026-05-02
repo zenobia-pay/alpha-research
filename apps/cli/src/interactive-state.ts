@@ -28,13 +28,14 @@ export function createIdleTaskState(): InteractiveTaskState {
 }
 
 export function beginInteractiveTask(prompt: string): InteractiveTaskState {
+  const recoveryFlow = inferRecoveryFlow(prompt);
   return {
     goal: prompt,
     status: "working",
-    currentStep: "Understanding the request and checking relevant datasets.",
+    currentStep: recoveryFlow?.currentStep ?? "Understanding the request and checking relevant datasets.",
     lastResult: null,
-    nextExpectedOutput: inferNextExpectedOutput(prompt),
-    planSteps: inferPlanSteps(prompt),
+    nextExpectedOutput: recoveryFlow?.nextExpectedOutput ?? inferNextExpectedOutput(prompt),
+    planSteps: recoveryFlow?.planSteps ?? inferPlanSteps(prompt),
     activity: [],
     focusRunId: null,
   };
@@ -68,7 +69,9 @@ export function applyAgentMessageToTaskState(
   }
 
   if (looksLikeProgress(cleaned)) {
-    const progressStatus = /^Waiting\b/u.test(cleaned) ? "waiting" : "working";
+    const progressStatus = /^Waiting\b/u.test(cleaned) || /Waiting for your (?:approval|choice|reply)\b/u.test(cleaned)
+      ? "waiting"
+      : "working";
     return {
       ...next,
       status: progressStatus,
@@ -121,6 +124,14 @@ export function isHiddenRunNoise(text: string) {
 
 function inferPlanSteps(prompt: string) {
   const lower = prompt.toLowerCase();
+  if (isRecoveryPrompt(lower)) {
+    return [
+      "Check active work",
+      "Look for useful outputs",
+      "Separate facts from uncertainty",
+      "Recommend the next recovery step",
+    ];
+  }
   if (/\b(dataset|manifest|data dictionary|missingness|row counts|join keys?|temporal coverage)\b/u.test(lower)) {
     return [
       "Discover candidate sources",
@@ -140,10 +151,25 @@ function inferPlanSteps(prompt: string) {
 
 function inferNextExpectedOutput(prompt: string) {
   const lower = prompt.toLowerCase();
+  if (isRecoveryPrompt(lower)) {
+    return "A plain-language diagnosis, any useful outputs, and the best next step.";
+  }
   if (/\b(dataset|build|manifest|data dictionary)\b/u.test(lower)) {
     return "A build run or scoped plan with expected artifacts.";
   }
   return "A concise result or a focused follow-up question.";
+}
+
+function inferRecoveryFlow(prompt: string) {
+  const lower = prompt.toLowerCase();
+  if (!isRecoveryPrompt(lower)) {
+    return null;
+  }
+  return {
+    currentStep: "Checking active work, useful outputs, and the safest next step.",
+    nextExpectedOutput: "A plain-language diagnosis, any useful outputs, and the best next step.",
+    planSteps: inferPlanSteps(prompt),
+  };
 }
 
 function inferNextExpectedFromProgress(text: string) {
@@ -179,7 +205,7 @@ function deriveAssistantStatus(text: string): TaskStatus {
 }
 
 function looksLikeProgress(text: string) {
-  return /\.\.\.$/u.test(text) || /^(?:Checking|Inspecting|Starting|Resolving|Creating|Preparing|Uploading|Finalizing|Deploying|Retrieving|Waiting)\b|^(?:Dataset selected:|Planning run:)/u.test(text);
+  return /\.\.\.$/u.test(text) || /^(?:Checking|Inspecting|Starting|Resolving|Creating|Preparing|Uploading|Finalizing|Deploying|Retrieving|Waiting|Scoping)\b|^(?:Dataset selected:|Planning run:)/u.test(text);
 }
 
 function extractRunId(text: string) {
@@ -203,6 +229,12 @@ function isWaitingForUserReply(text: string) {
     || /Which geography matters most/u.test(text)
     || /I can help with that, but I need 2 things first:/u.test(text)
     || /No upload is needed\./u.test(text);
+}
+
+function isRecoveryPrompt(lower: string) {
+  const asksAboutBlockedWork = /\b(blocked|stuck|failed|failure|what is happening|what happened|status|progress)\b/u.test(lower);
+  const asksForHelp = /\b(what should i do next|do next|next step|recover|recovery|anything useful|useful was produced|artifacts?)\b/u.test(lower);
+  return asksAboutBlockedWork && asksForHelp;
 }
 
 function appendUnique(items: string[], item: string) {

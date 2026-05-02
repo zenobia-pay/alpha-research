@@ -3377,37 +3377,100 @@ function recommendedRunAction(runId: string, minutesSinceUpdate: number | null) 
   if (minutesSinceUpdate === null || minutesSinceUpdate >= 2) {
     return `Next: run \`research debug run ${runId}\` now.`;
   }
-  return `Next: give it up to 2 minutes total. If there is still no new event, run \`research debug run ${runId}\`.`;
+  return `Next: give it up to 2 minutes total. If there is still no new event, run \`research debug run ${runId}\`.`; 
+}
+
+function asksForBlockedRunRecovery(lower: string) {
+  const asksAboutSpecificStuckRun = /\blast run\b.*\b(stuck|happening|progress|status)\b/u.test(lower);
+  if (asksAboutSpecificStuckRun) {
+    return true;
+  }
+  const asksAboutBlockedOrFailedState = /\b(blocked|stuck|failed|failure)\b/u.test(lower);
+  const asksForRecovery = /\b(what should i do next|do next|next step|recover|recovery|anything useful|useful was produced|artifacts?|what is happening|what happened|status|progress)\b/u.test(lower);
+  return asksAboutBlockedOrFailedState && asksForRecovery;
+}
+
+function latestSuccessfulRunForDataset(runs: TrackedRunRecord[], datasetId: string, activeRunId: string) {
+  return runs.find((run) =>
+    run.id !== activeRunId
+    && run.datasetId === datasetId
+    && continuityLifecycle(run) === "completed");
+}
+
+function formatRecoveryArtifactHint(payload: Awaited<ReturnType<RemoteApiClientType["getRunResults"]>> | null) {
+  if (!payload) {
+    return "There are no saved outputs from that completed run yet.";
+  }
+  const artifactSummary = summarizeContinuityArtifacts(payload.artifacts);
+  if (!artifactSummary.primaryArtifact) {
+    return "There are no saved outputs from that completed run yet.";
+  }
+  const extras = artifactSummary.secondaryArtifacts.slice(0, 2);
+  if (extras.length === 0) {
+    return `If you need something now, open ${artifactSummary.primaryArtifact.label} from the latest completed run.`;
+  }
+  return `If you need something now, open ${artifactSummary.primaryArtifact.label} first. Also available: ${extras.map((artifact) => artifact.label).join(", ")}.`;
 }
 
 async function maybeHandleStuckRunQuestion(input: string, initialSession: SessionRecord | null, deps: AgentRuntimeDeps) {
   const lower = input.toLowerCase();
-  if (!initialSession || !/\blast run\b/.test(lower) || !/\b(stuck|happening|progress|status)\b/.test(lower)) {
+  if (!initialSession || !asksForBlockedRunRecovery(lower)) {
     return null;
   }
   const runs = await deps.readTrackedRuns().catch(() => []);
   const active = runs.find((run) => !run.terminalAt && !isTerminalRunStatus(run.status));
   if (!active) {
-    return "I do not see an active tracked run right now. Ask `show results from my last run` to inspect the latest completed one.";
+    const latestCompleted = runs.find((run) => continuityLifecycle(run) === "completed") ?? null;
+    if (!latestCompleted) {
+      return "I do not see an active run or a finished result yet. Ask me to show datasets, start a run, or inspect the latest debug bundle.";
+    }
+    return [
+      "I do not see an active run right now.",
+      "",
+      `Latest finished work: ${latestCompleted.datasetId} (${shortenRunId(latestCompleted.id)}) completed successfully.`,
+      `Next: ask \`show results from my last run\` to inspect the saved outputs.`,
+    ].join("\n");
   }
   const updated = active.updatedAt ? new Date(active.updatedAt).getTime() : NaN;
   const minutes = Number.isFinite(updated) ? Math.max(0, Math.floor((deps.now() - updated) / 60000)) : null;
   const staleMs = Number.isFinite(updated) ? Math.max(0, deps.now() - updated) : null;
   const exactUpdatedAt = active.updatedAt ? new Date(active.updatedAt).toISOString() : null;
   const recentWork = summarizeTrackedRunWork(active);
+  const latestCompleted = latestSuccessfulRunForDataset(runs, active.datasetId, active.id);
+  const latestCompletedResults = latestCompleted
+    ? await deps.createRemoteClient(initialSession).getRunResults(latestCompleted.id).catch(() => null)
+    : null;
+  const currentRunMeaning = active.status.toLowerCase() === "booting"
+    ? "That means the job has started, but it is still getting the worker and dataset ready. I do not see a failure yet."
+    : active.status.toLowerCase() === "running"
+      ? "That means the job is in progress. It is not finished yet."
+      : `That means the job is still ${formatStatusForHumans(active.status)}.`;
+  const salvageLine = latestCompleted
+    ? formatRecoveryArtifactHint(latestCompletedResults)
+    : "I do not see a newer finished run you can use as a fallback.";
   return [
     describeRunDiagnosis(active.status, minutes),
     "",
-    `Live status: ${formatStatusForHumans(active.status)} · no new event for ${formatElapsedDuration(staleMs)}.`,
-    `Last observed work: ${recentWork}`,
+    "Current run",
+    `- Dataset: ${active.datasetId}`,
+    `- State: ${formatStatusForHumans(active.status)}`,
+    `- Meaning: ${currentRunMeaning}`,
+    `- Current run artifacts: none yet`,
+    `- Last observed work: ${recentWork}`,
+    `- Live status: ${formatStatusForHumans(active.status)} · no new event for ${formatElapsedDuration(staleMs)}.`,
     "",
-    recommendedRunAction(active.id, minutes),
+    "Useful output so far",
+    `- ${salvageLine}`,
+    latestCompleted ? `- Latest completed run on this dataset: ${shortenRunId(latestCompleted.id)}.` : null,
+    "",
+    "Recommended action",
+    `- ${recommendedRunAction(active.id, minutes).replace(/^Next:\s*/u, "")}`,
+    active.dashboardUrl ? `- Open dashboard: ${active.dashboardUrl}` : `- Open dashboard: ${dashboardRunUrl(active.origin, active.id)}`,
+    `- Debug now: research debug run ${active.id}`,
     "",
     "Checked from your tracked run just now.",
     exactUpdatedAt ? `Last update: ${exactUpdatedAt} (${formatHeartbeat(minutes)})` : `Last update: ${formatHeartbeat(minutes)}`,
-    `Dataset: ${active.datasetId}`,
-    `Debug: research debug run ${active.id}`,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 function progressLabel(toolName: string, input: Record<string, unknown>) {
