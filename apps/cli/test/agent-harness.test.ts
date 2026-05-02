@@ -460,15 +460,19 @@ test("dataset selection from topic uses dataset metadata and asks one focused fo
 
   assert.equal(messages[0]?.role, "tool");
   assert.match(messages[0]?.content ?? "", /Looking up candidate datasets/i);
-  const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /Best match/i);
+  assert.equal(messages.at(-1)?.role, "tool");
+  assert.match(messages.at(-1)?.content ?? "", /Waiting for your reply so I can finalize the dataset recommendation/i);
+  const final = messages.at(-2)?.content ?? "";
+  assert.match(final, /Need one detail to finalize/i);
+  assert.match(final, /Best existing dataset/i);
   assert.match(final, /`econ`/i);
+  assert.match(final, /Plain-English description:/i);
   assert.match(final, /ACS\/Census coverage|HUD affordability benchmarks|housing market rent\/home value series/i);
-  assert.match(final, /which is why I need to know whether you care most about nationwide, state, metro, county, or tract analysis/i);
-  assert.match(final, /Other plausible options|Why I am not listing several equal choices/i);
-  assert.match(final, /Waiting for your answer/i);
-  assert.match(final, /Reply with the geography level/i);
-  assert.match(final, /If you do not care, I will default to nationwide/i);
+  assert.match(final, /Other candidates I checked/i);
+  assert.match(final, /What's missing/i);
+  assert.match(final, /Questions needed/i);
+  assert.match(final, /Reply with one choice:/i);
+  assert.match(final, /reply `1` and I will default to nationwide/i);
   assert.doesNotMatch(final, /ready to inspect or analyze now/i);
   assert.doesNotMatch(final, /reuse one|create one|provision/i);
   assert.equal(respondCalled, false);
@@ -586,10 +590,10 @@ test("dataset recommendation inventory includes ranked shortlist for the topic",
   );
 
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Best match/);
+  assert.match(joined, /Need one detail to finalize/);
   assert.match(joined, /econ-housing/);
   assert.match(joined, /housing affordability/);
-  assert.match(joined, /Reply with the geography level you care about most/);
+  assert.match(joined, /Reply with one choice:/);
 });
 
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {

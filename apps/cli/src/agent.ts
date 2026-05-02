@@ -2513,6 +2513,56 @@ function summarizeDatasetTradeoff(dataset: RemoteDatasetSummary | RemoteDatasetD
   return `available in RESEARCH (${status})`;
 }
 
+function firstProfileNoteSentence(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const profile = "profile" in dataset && isRecord(dataset.profile) ? dataset.profile : null;
+  const notes = typeof profile?.notes === "string" ? profile.notes.trim() : "";
+  if (!notes) return null;
+  const sentence = notes.split(/(?<=[.!?])\s+/u)[0]?.trim() ?? "";
+  return sentence || null;
+}
+
+function datasetCoverageSummary(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const profile = "profile" in dataset && isRecord(dataset.profile) ? dataset.profile : null;
+  if (!profile) return null;
+  const timeCoverage = isRecord(profile.timeCoverage) ? profile.timeCoverage as Record<string, unknown> : null;
+  const geographyCoverage = isRecord(profile.geographyCoverage) ? profile.geographyCoverage as Record<string, unknown> : null;
+  const timeRange = [timeCoverage?.start, timeCoverage?.end]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" to ");
+  const geography = [geographyCoverage?.level, geographyCoverage?.grain, geographyCoverage?.summary]
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0)
+    ?.trim();
+  const parts = [
+    geography ? `geography: ${geography}` : "",
+    timeRange ? `time: ${timeRange}` : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join("; ") : null;
+}
+
+function describeDatasetForRecommendation(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const note = firstProfileNoteSentence(dataset);
+  if (note) return note;
+  const evidence = summarizeDatasetEvidence(dataset);
+  if (evidence.length > 0) {
+    return `${dataset.name || dataset.id} covers ${evidence.join(", ")}.`;
+  }
+  return `${dataset.name || dataset.id} is available in RESEARCH, but its profile does not yet expose topic-specific detail.`;
+}
+
+function rankGapSummary(dataset: RemoteDatasetSummary | RemoteDatasetDetail, topScore: number, score: number) {
+  const status = (dataset.status ?? dataset.deploymentStatus ?? "").toLowerCase();
+  if (status && status !== "ready") {
+    return `not ready yet (${status})`;
+  }
+  if (score <= 0) {
+    return "metadata does not clearly connect it to housing affordability";
+  }
+  if (score < topScore) {
+    return "looks adjacent, but the metadata is less directly tied to affordability measures than the top match";
+  }
+  return "another strong match";
+}
+
 function extractRequestedDatasetReference(input: string) {
   const explicitDescribe = input.match(/\b(?:describe|inspect|brief|profile|document)\s+(?:the\s+)?dataset\s+([a-z0-9][a-z0-9_-]*)(?:[.\s]|$)/iu);
   if (explicitDescribe?.[1]) {
@@ -2963,33 +3013,47 @@ async function maybeHandleDatasetSelectionFromTopic(
     .filter((entry) => entry.score >= Math.max(2, (ranked[0]?.score ?? 0) - 2))
     .slice(0, 2);
   const evidence = summarizeDatasetEvidence(primary);
+  const primaryDescription = describeDatasetForRecommendation(primary);
+  const primaryCoverage = datasetCoverageSummary(primary);
   const primaryWhy = evidence.length > 0
     ? `${primary.name || primary.id} is the strongest current match because its metadata points to ${evidence.join(", ")}.`
     : `${primary.name || primary.id} is the closest current match by dataset metadata and availability in RESEARCH.`;
 
   const lines = [
-    "Best match",
-    `- \`${primary.id}\`${primary.name && primary.name !== primary.id ? ` (${primary.name})` : ""} is the best first dataset for housing affordability.`,
+    "Need one detail to finalize",
+    `- Start with \`${primary.id}\`${primary.name && primary.name !== primary.id ? ` (${primary.name})` : ""}. It is the best current base for housing-affordability research in RESEARCH.`,
     "",
-    "Why this fits",
+    "Best existing dataset",
+    `- Plain-English description: ${primaryDescription}`,
+    ...(primaryCoverage ? [`- Coverage snapshot: ${primaryCoverage}.`] : []),
+    "",
+    "Why it wins",
     `- ${primaryWhy}`,
-    `- ${primary.id} can be sliced by geography, which is why I need to know whether you care most about nationwide, state, metro, county, or tract analysis.`,
+    "- Housing affordability usually depends on the exact geography and the signal you care about most: rent burden, home-price-to-income, or a broader cost-pressure proxy.",
+    `- ${primary.id} is the best starting point because it already looks like a reusable base rather than a net-new build.`,
   ];
-  if (supplements.length > 0) {
-    lines.push("", "Other plausible options");
-    for (const entry of supplements) {
+  if (ranked.length > 1) {
+    lines.push("", "Other candidates I checked");
+    for (const entry of ranked.slice(1, 3)) {
+      const description = describeDatasetForRecommendation(entry.dataset);
+      const gap = rankGapSummary(entry.dataset, ranked[0]?.score ?? entry.score, entry.score);
       lines.push(
-        `- \`${entry.dataset.id}\`${entry.dataset.name && entry.dataset.name !== entry.dataset.id ? ` (${entry.dataset.name})` : ""}: ${summarizeDatasetTradeoff(entry.dataset)}.`,
+        `- \`${entry.dataset.id}\`${entry.dataset.name && entry.dataset.name !== entry.dataset.id ? ` (${entry.dataset.name})` : ""}: ${description} Why not first: ${gap}.`,
       );
     }
   } else {
-    lines.push("", "Why I am not listing several equal choices", `- I do not see another ready dataset that matches housing affordability as directly as \`${primary.id}\`.`);
+    lines.push("", "Other candidates I checked", `- I only found one strong match. I do not see another ready dataset that maps to housing affordability as directly as \`${primary.id}\`.`);
   }
   lines.push(
     "",
-    "Waiting for your answer",
-    "- Reply with the geography level you care about most: nationwide, state, metro, county, or tract.",
-    "- If you do not care, I will default to nationwide.",
+    "What's missing",
+    "- I still need your target geography before I can tell you whether this dataset is already sufficient or whether it needs extension for your version of affordability.",
+    "- After that answer, I can decide whether to use the existing dataset as-is, inspect one narrower alternative, or recommend a focused build extension.",
+    "",
+    "Questions needed",
+    "- Which geography matters most?",
+    "- Reply with one choice: `1 nationwide`, `2 state`, `3 metro`, `4 county`, or `5 tract`.",
+    "- If you do not care, reply `1` and I will default to nationwide.",
   );
   return lines.join("\n");
 }
@@ -4815,6 +4879,9 @@ export async function runAgentTurn(
     ?? await maybeHandleBusyDatasetBeforePlanning(input, initialSession, resolvedDeps);
   if (localRunResponse) {
     emit({ role: "assistant", content: localRunResponse });
+    if (/Need one detail to finalize|Questions needed|Waiting for your answer/u.test(localRunResponse)) {
+      emit({ role: "tool", content: "Waiting for your reply so I can finalize the dataset recommendation." });
+    }
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,

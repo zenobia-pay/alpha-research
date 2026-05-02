@@ -191,7 +191,10 @@ function isBlockedAssistantMessage(text: string) {
 
 function isWaitingForUserReply(text: string) {
   return /Waiting for your answer/u.test(text)
+    || /Need one detail to finalize/u.test(text)
+    || /Questions needed/u.test(text)
     || /Reply with /u.test(text)
+    || /Reply with one choice:/u.test(text)
     || /Send path \+ one-line description/u.test(text)
     || /Which geography matters most/u.test(text)
     || /I can help with that, but I need 2 things first:/u.test(text)

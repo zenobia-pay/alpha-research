@@ -59,6 +59,9 @@ function wrapForStdout(line: string) {
 
 export function initialPromptModeStatus(prompt: string) {
   const lower = prompt.trim().toLowerCase();
+  if (/\bwhich dataset should i use\b/.test(lower)) {
+    return "Looking up candidate datasets...";
+  }
   if (/\bdataset\b/.test(lower) && /\binterest(?:ing)?\b/.test(lower) && /\banaly[sz]e\b/.test(lower)) {
     return "Preparing a quick dataset briefing...";
   }

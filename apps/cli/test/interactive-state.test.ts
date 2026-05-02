@@ -59,12 +59,13 @@ test("clarifying assistant replies keep the task in waiting state", () => {
   const state = applyAgentMessageToTaskState(beginInteractiveTask("Which dataset should I use for housing affordability?"), {
     role: "assistant",
     content: [
-      "Best match",
-      "- `econ` is the best first dataset for housing affordability.",
+      "Need one detail to finalize",
+      "- Start with `econ` (Econ). It is the best current base for housing-affordability research in RESEARCH.",
       "",
-      "Waiting for your answer",
-      "- Reply with the geography level you care about most: nationwide, state, metro, county, or tract.",
-      "- If you do not care, I will default to nationwide.",
+      "Questions needed",
+      "- Which geography matters most?",
+      "- Reply with one choice: `1 nationwide`, `2 state`, `3 metro`, `4 county`, or `5 tract`.",
+      "- If you do not care, reply `1` and I will default to nationwide.",
     ].join("\n"),
   });
 
