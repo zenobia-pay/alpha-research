@@ -1684,22 +1684,33 @@ function summarizeBusyDatasetConflict(
     updatedAt: conflict.updatedAt,
     dashboardUrl: dashboardRunUrl(DEFAULT_WEB_ORIGIN, conflict.runId),
   });
+  const startedWhen = formatWhen(conflict.createdAt);
+  const updatedWhen = formatWhen(conflict.updatedAt);
+  const isBooting = conflict.status.trim().toLowerCase() === "booting";
+  const currentWork = conflict.prompt ? conflict.prompt.slice(0, 140) : null;
   const lines = [
-    `Blocked: ${purpose} is waiting on an active dataset run.`,
-    `An analysis is already running${conflict.datasetId ? ` on ${conflict.datasetId}` : " on this dataset"}.`,
+    `Blocked: ${purpose} is already running on ${conflict.datasetId ?? "this dataset"}.`,
+    `Blocking dataset: ${conflict.datasetId ?? options?.target?.datasetId ?? "unknown"}`,
     options?.target ? summarizeResolvedDataset(options.target, purpose) : null,
-    `Active run: ${conflict.runId}`,
-    `State: ${conflict.status}`,
-    conflict.prompt ? `Current work: ${conflict.prompt.slice(0, 140)}` : null,
+    `Blocking run: ${conflict.runId}`,
+    `Status: ${conflict.status}`,
+    `Started: ${startedWhen}`,
+    `Last update: ${updatedWhen}`,
+    currentWork ? `Current work: ${currentWork}` : null,
     "",
-    "I did not start a duplicate run because that active run still holds the dataset volume.",
+    "No new run was started.",
+    "I did not start a duplicate run because the active run still holds the dataset lock.",
     options?.expectedArtifacts?.length
       ? `Expected artifacts once the run finishes: ${options.expectedArtifacts.join(", ")}.`
       : null,
+    `Recommended action: ${isBooting ? "wait" : "inspect"}`,
+    `Wait first: ${isBooting ? "booting usually clears within a couple of minutes if the worker starts normally." : "short waits are reasonable if the run is still receiving updates."}`,
+    `Escalate if: ${isBooting ? "it stays booting for more than 5 minutes or stops receiving updates." : "it stops receiving updates or looks stuck for more than 10 minutes."}`,
+    `Inspect now: research debug run ${conflict.runId}`,
+    `Retry later: rerun this request after ${conflict.runId} finishes or is cancelled.`,
     `When it finishes, ask: show results from ${conflict.runId}`,
-    `Inspect in CLI: research debug run ${conflict.runId}`,
     "",
-    lockSummary,
+    lockSummary.split("\n").find((line) => /^Dashboard:/u.test(line)) ?? null,
   ];
   return lines.filter(Boolean).join("\n");
 }

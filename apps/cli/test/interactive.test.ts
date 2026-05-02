@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  composerPlaceholder,
   currentWorkSummary,
   describeRunExpectation,
   describeRunPhase,
@@ -123,4 +124,42 @@ test("currentWorkSummary surfaces blocked dataset readiness before a run exists"
     "State: Waiting for enriched-tweets to become ready.",
     "Next: Wait for the dataset to become ready, then rerun the same prompt.",
   ]);
+});
+
+test("currentWorkSummary compresses busy dataset locks into blocking run details", () => {
+  const summary = currentWorkSummary({
+    goal: "run it",
+    status: "blocked",
+    statusLabel: "Blocked",
+    currentStep: "Recovery needed before enriched-tweets can start a new run.",
+    lastResult: [
+      "Blocked: this run is already running on enriched-tweets.",
+      "Blocking dataset: enriched-tweets",
+      "Blocking run: b00a2860-bf2d-474a-aec2-eaddc4bb704d",
+      "Status: booting",
+      "Expected delay: booting usually clears within a couple of minutes if the worker starts normally.",
+      "Escalate if: it stays booting for more than 5 minutes or stops receiving updates.",
+    ].join("\n"),
+    nextExpectedOutput: "Wait for the blocking run to clear or inspect it if it stays stuck.",
+    planSteps: [],
+    activity: [],
+    focusRunId: "b00a2860-bf2d-474a-aec2-eaddc4bb704d",
+    focusRunUrl: "https://dashboard.alpharesearch.nyc/runs/run_123456789",
+    selectedDatasetId: "enriched-tweets",
+    selectedDatasetState: "booting",
+    startedAt: null,
+  } satisfies InteractiveTaskState);
+
+  assert.equal(summary?.title, "Blocking run");
+  assert.deepEqual(summary?.lines, [
+    "Dataset: enriched-tweets",
+    "Run id: b00a2860-bf2d-474a-aec2-eaddc4bb704d",
+    "Status: booting",
+    "Expected delay: booting usually clears within a couple of minutes if the worker starts normally.",
+    "Escalate if: it stays booting for more than 5 minutes or stops receiving updates.",
+  ]);
+});
+
+test("default composer placeholder still serves normal prompts", () => {
+  assert.equal(composerPlaceholder(session), "Ask about datasets, runs, or artifacts");
 });

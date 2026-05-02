@@ -19,6 +19,20 @@ export type InteractiveTaskState = {
   startedAt: number | null;
 };
 
+export type BlockedRunDetails = {
+  datasetId: string | null;
+  runId: string | null;
+  runStatus: string | null;
+  startedAt: string | null;
+  lastUpdatedAt: string | null;
+  debugCommand: string | null;
+  dashboardUrl: string | null;
+  currentWork: string | null;
+  recommendedAction: "wait" | "inspect" | "cancel" | "retry_later" | null;
+  expectedDelay: string | null;
+  escalationHint: string | null;
+};
+
 export function createIdleTaskState(): InteractiveTaskState {
   return {
     goal: null,
@@ -123,6 +137,46 @@ export function buildLiveSummary(state: InteractiveTaskState) {
   if (state.lastResult) lines.push(`Last result: ${state.lastResult}`);
   if (state.nextExpectedOutput) lines.push(`Next expected output: ${state.nextExpectedOutput}`);
   return lines.join("\n");
+}
+
+export function extractBlockedRunDetails(text: string): BlockedRunDetails | null {
+  if (!/Blocked: .*active dataset run|Blocked: .*already busy/u.test(text)) {
+    return null;
+  }
+
+  const datasetMatch = text.match(/(?:already running on|already busy\.\s*Blocking dataset:|Dataset:\s*)([a-z0-9][a-z0-9_-]*)/iu);
+  const runMatch = text.match(/(?:Blocking run|Active run):\s*([a-z0-9-]{8,})/iu);
+  const statusMatch = text.match(/(?:Status|State):\s*([a-z_]+)/iu);
+  const startedMatch = text.match(/Started:\s*([0-9TZ:.-]+)/iu);
+  const updatedMatch = text.match(/Last update:\s*([0-9TZ:.-]+)/iu);
+  const debugMatch = text.match(/research debug run\s+([a-z0-9-]{8,})/iu);
+  const dashboardUrl = extractDashboardUrl(text);
+  const currentWorkMatch = text.match(/Current work:\s*(.+?)(?=(?:\n[A-Z][a-z]+:|\n\n|\s(?:Recommended action|Inspect now|Open dashboard|Wait first|Cancel it|Retry later):))/isu);
+  const recommendedAction = /Recommended action:\s*wait\b/iu.test(text)
+    ? "wait"
+    : /Recommended action:\s*inspect\b/iu.test(text)
+      ? "inspect"
+      : /Recommended action:\s*cancel\b/iu.test(text)
+        ? "cancel"
+        : /Recommended action:\s*retry later\b/iu.test(text)
+          ? "retry_later"
+          : null;
+  const expectedDelayMatch = text.match(/Expected delay:\s*(.+)/iu);
+  const escalationMatch = text.match(/Escalate if:\s*(.+)/iu);
+
+  return {
+    datasetId: datasetMatch?.[1] ?? null,
+    runId: runMatch?.[1] ?? debugMatch?.[1] ?? null,
+    runStatus: statusMatch?.[1]?.toLowerCase() ?? null,
+    startedAt: startedMatch?.[1] ?? null,
+    lastUpdatedAt: updatedMatch?.[1] ?? null,
+    debugCommand: debugMatch?.[0] ?? null,
+    dashboardUrl,
+    currentWork: currentWorkMatch?.[1] ? cleanUiLine(currentWorkMatch[1]) : null,
+    recommendedAction,
+    expectedDelay: expectedDelayMatch?.[1] ? cleanUiLine(expectedDelayMatch[1]) : null,
+    escalationHint: escalationMatch?.[1] ? cleanUiLine(escalationMatch[1]) : null,
+  };
 }
 
 export function wrapText(text: string, width: number) {
@@ -262,7 +316,9 @@ function inferNextExpectedFromMessage(text: string) {
     return "Wait for the dataset to become ready, then rerun the same prompt.";
   }
   if (isBlockedAssistantMessage(text)) {
-    return "A user action to unblock the request.";
+    return /Recommended action:\s*wait\b/iu.test(text)
+      ? "Wait for the blocking run to clear or inspect it if it stays stuck."
+      : "Choose a recovery action to unblock the request.";
   }
   if (isWaitingForUserReply(text)) {
     return "A short user reply so RESEARCH can continue with the right scope.";
@@ -352,12 +408,19 @@ function extractBlockedDataset(text: string) {
   if (firstLineMatch?.[1] && firstLineMatch?.[2]) {
     return { id: firstLineMatch[1], state: firstLineMatch[2] };
   }
+  const blockedRun = extractBlockedRunDetails(text);
+  if (blockedRun?.datasetId) {
+    return { id: blockedRun.datasetId, state: blockedRun.runStatus ?? "busy" };
+  }
   return null;
 }
 
 function deriveAssistantCurrentStep(text: string) {
   const blockedDataset = extractBlockedDataset(text);
   if (blockedDataset) {
+    if (/Blocked: .*active dataset run|Blocked: .*already busy/u.test(text)) {
+      return `Recovery needed before ${blockedDataset.id} can start a new run.`;
+    }
     return `Waiting for ${blockedDataset.id} to become ready.`;
   }
   if (/Started .* run |Started research environment build|Queued /u.test(text)) {

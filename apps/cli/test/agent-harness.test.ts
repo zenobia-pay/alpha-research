@@ -1247,10 +1247,11 @@ test("busy dataset conflict explains active run and emits heartbeat while waitin
     const joined = messages.map((message) => message.content).join("\n");
     assert.match(joined, /Expected artifacts: Correlation table; Scatter plot; Markdown summary\./);
     assert.match(joined, /Still preparing the econ environment and checking whether the dataset volume is free/i);
-    assert.match(joined, /An analysis is already running on econ\./);
+    assert.match(joined, /Blocked: this request is already running on econ\./);
     assert.match(joined, /I did not start a duplicate run/i);
-    assert.match(joined, /Open dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-busy#run-run-busy/);
-    assert.match(joined, /Inspect in CLI: research debug run run-busy/);
+    assert.match(joined, /Recommended action: wait/);
+    assert.match(joined, /Escalate if: it stays booting for more than 5 minutes or stops receiving updates\./);
+    assert.match(joined, /Inspect now: research debug run run-busy/);
   } finally {
     if (originalHeartbeat === undefined) {
       delete process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS;
@@ -2021,19 +2022,17 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   await runAgentTurn("run analysis on busy dataset", session, emit, undefined, deps);
 
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Blocked: .* is waiting on an active dataset run/);
+  assert.match(joined, /Blocked: this query is already running on this dataset\./);
   assert.match(joined, /Using dataset busy-dataset for /);
-  assert.match(joined, /Active run: run-blocking/);
-  assert.match(joined, /An analysis is already running on this dataset\./);
+  assert.match(joined, /Blocking run: run-blocking/);
   assert.match(joined, /I did not start a duplicate run/);
-  assert.match(joined, /Started: 2026-05-01T19:40:00.000Z/);
-  assert.match(joined, /Last update: 2026-05-01T19:44:00.000Z/);
+  assert.match(joined, /Started: May 1, 2026,/);
+  assert.match(joined, /Last update: May 1, 2026,/);
   assert.match(joined, /No new run was started/);
-  assert.match(joined, /Next steps:/);
-  assert.match(joined, /Inspect now: `research debug run run-blocking`/);
-  assert.match(joined, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-blocking#run-run-blocking/);
+  assert.match(joined, /Recommended action: inspect/);
+  assert.match(joined, /Wait first: short waits are reasonable if the run is still receiving updates\./);
+  assert.match(joined, /Inspect now: research debug run run-blocking/);
   assert.match(joined, /When it finishes, ask: show results from run-blocking/);
-  assert.match(joined, /Inspect in CLI: research debug run run-blocking/);
 });
 
 test("dataset describe conflict keeps guidance anchored on briefing artifacts", async () => {
@@ -2077,10 +2076,10 @@ test("dataset describe conflict keeps guidance anchored on briefing artifacts", 
 
   const joined = messages.map((message) => message.content).join("\n");
   assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
-  assert.match(joined, /Blocked: this dataset briefing is waiting on an active dataset run/);
+  assert.match(joined, /Blocked: this dataset briefing is already running on this dataset\./);
   assert.match(joined, /Expected artifacts once the run finishes: Dataset Briefing, Dataset Profile/);
   assert.match(joined, /When it finishes, ask: show results from run-briefing/);
-  assert.match(joined, /Inspect in CLI: research debug run run-briefing/);
+  assert.match(joined, /Inspect now: research debug run run-briefing/);
 });
 
 test("prompt-mode busy dataset shortcut shows age, health, and clear actions", { concurrency: false }, async () => {

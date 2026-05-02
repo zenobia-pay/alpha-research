@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyAgentMessageToTaskState, beginInteractiveTask, buildLiveSummary, splitTrackedRuns, wrapText } from "../src/interactive-state.js";
+import { applyAgentMessageToTaskState, beginInteractiveTask, buildLiveSummary, extractBlockedRunDetails, splitTrackedRuns, wrapText } from "../src/interactive-state.js";
 
 test("interactive task plan and live summary stay scannable for long dataset builds", () => {
   const state = beginInteractiveTask(
@@ -243,6 +243,38 @@ test("single blocking follow-up stays blocked and states that no run has started
   assert.equal(state.status, "blocked");
   assert.equal(state.statusLabel, "Blocked");
   assert.match(state.nextExpectedOutput ?? "", /user action to unblock/i);
+});
+
+test("busy dataset recovery message becomes a recovery-first blocked state", () => {
+  const message = [
+    "Blocked: this run is already running on enriched-tweets.",
+    "Blocking dataset: enriched-tweets",
+    "Blocking run: b00a2860-bf2d-474a-aec2-eaddc4bb704d",
+    "Status: booting",
+    "Started: May 1, 2026, 4:45 PM PDT (1 minute ago)",
+    "Last update: May 1, 2026, 4:45 PM PDT (1 minute ago)",
+    "Current work: Label 100 viral tweets and produce a bar chart.",
+    "",
+    "No new run was started.",
+    "Recommended action: wait",
+    "Wait first: booting usually clears within a couple of minutes if the worker starts normally.",
+    "Escalate if: it stays booting for more than 5 minutes or stops receiving updates.",
+    "Inspect now: research debug run b00a2860-bf2d-474a-aec2-eaddc4bb704d",
+    "Retry later: rerun this request after b00a2860-bf2d-474a-aec2-eaddc4bb704d finishes or is cancelled.",
+  ].join("\n");
+
+  const state = applyAgentMessageToTaskState(beginInteractiveTask("Run a new analysis on enriched-tweets."), {
+    role: "assistant",
+    content: message,
+  });
+  const details = extractBlockedRunDetails(message);
+
+  assert.equal(state.status, "blocked");
+  assert.equal(state.currentStep, "Recovery needed before enriched-tweets can start a new run.");
+  assert.match(state.nextExpectedOutput ?? "", /wait for the blocking run to clear|inspect it if it stays stuck/i);
+  assert.equal(details?.runId, "b00a2860-bf2d-474a-aec2-eaddc4bb704d");
+  assert.equal(details?.recommendedAction, "wait");
+  assert.match(details?.escalationHint ?? "", /more than 5 minutes/i);
 });
 
 test("tracked runs are split into current and background groups", () => {

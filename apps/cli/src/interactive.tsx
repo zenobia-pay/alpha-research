@@ -19,6 +19,7 @@ import {
   buildLiveSummary,
   cleanUiLine,
   createIdleTaskState,
+  extractBlockedRunDetails,
   splitTrackedRuns,
   wrapText,
   type InteractiveTaskState,
@@ -33,6 +34,10 @@ type InteractiveAppProps = {
 
 export function composerPlaceholder(session: SessionRecord | null) {
   return session ? "Ask about datasets, runs, or artifacts" : "Ask about datasets, runs, or sign-in";
+}
+
+function blockedComposerPlaceholder() {
+  return "Choose recovery: inspect, wait, cancel, or retry later";
 }
 
 export function emptyStatePromptExamples() {
@@ -134,6 +139,19 @@ export function formatRunLastUpdate(run: TrackedRunRecord, maxLength = 120) {
 }
 
 export function currentWorkSummary(taskState: InteractiveTaskState) {
+  const blockedDetails = taskState.lastResult ? extractBlockedRunDetails(taskState.lastResult) : null;
+  if (taskState.status === "blocked" && blockedDetails) {
+    return {
+      title: "Blocking run",
+      lines: [
+        blockedDetails.datasetId ? `Dataset: ${blockedDetails.datasetId}` : null,
+        blockedDetails.runId ? `Run id: ${blockedDetails.runId}` : null,
+        blockedDetails.runStatus ? `Status: ${blockedDetails.runStatus}` : null,
+        blockedDetails.expectedDelay ? `Expected delay: ${blockedDetails.expectedDelay}` : null,
+        blockedDetails.escalationHint ? `Escalate if: ${blockedDetails.escalationHint}` : null,
+      ].filter((line): line is string => Boolean(line)),
+    };
+  }
   if (taskState.focusRunId) {
     return {
       title: "Current run",
@@ -360,10 +378,12 @@ function TaskSummary({
   const preview = composerText.trim().length > 0 ? composerText : summarizePrompt(taskState.goal ?? "", 140);
   const resolvedDataset = conversationState.datasetContext?.lastResolvedDataset;
   const workSummary = currentWorkSummary(taskState);
+  const blockedDetails = taskState.status === "blocked" && taskState.lastResult ? extractBlockedRunDetails(taskState.lastResult) : null;
+  const blockedBannerColor = blockedDetails?.recommendedAction === "wait" ? "yellow" : "red";
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
-      <Text bold color="green">research</Text>
+    <Box flexDirection="column" borderStyle="round" borderColor={taskState.status === "blocked" ? blockedBannerColor : "green"} paddingX={1}>
+      <Text bold color={taskState.status === "blocked" ? blockedBannerColor : "green"}>research</Text>
       <Text>{`Status: ${formatTaskStatus(taskState.status)}`}</Text>
       {taskState.statusLabel ? <Text color={statusBadgeColor(taskState.status)}>{`State: ${taskState.statusLabel}`}</Text> : null}
       {resolvedDataset ? <Text color="cyan">{`Context: ${resolvedDataset.id} (${resolvedDataset.scope} · ${resolvedDataset.state})`}</Text> : null}
@@ -376,8 +396,16 @@ function TaskSummary({
         </Box>
       ) : null}
       {taskState.currentStep && taskState.status !== "blocked" ? <Text>{`${taskState.status === "done" ? "Last step" : "Current step"}: ${taskState.currentStep}`}</Text> : null}
+      {blockedDetails ? (
+        <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor={blockedBannerColor} paddingX={1}>
+          <Text bold color={blockedBannerColor}>Dataset locked by active run</Text>
+          <Text>{`No new run was started for ${blockedDetails.datasetId ?? taskState.selectedDatasetId ?? "this dataset"}.`}</Text>
+          {blockedDetails.currentWork ? <Text>{`Current work: ${blockedDetails.currentWork}`}</Text> : null}
+          {blockedDetails.recommendedAction ? <Text>{`Recommended action: ${blockedDetails.recommendedAction.replace("_", " ")}`}</Text> : null}
+        </Box>
+      ) : null}
       {taskState.lastResult && taskState.status === "done" ? <Text>{`Last result: ${taskState.lastResult}`}</Text> : null}
-      {taskState.nextExpectedOutput && !workSummary ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
+      {taskState.nextExpectedOutput && !workSummary && !blockedDetails ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
       {workSummary ? (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>{workSummary.title}</Text>
@@ -386,7 +414,16 @@ function TaskSummary({
           ))}
         </Box>
       ) : null}
-      {taskState.planSteps.length > 0 ? (
+      {blockedDetails ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text bold>Recovery actions</Text>
+          <Text>{`1. Inspect now${blockedDetails.debugCommand ? `: ${blockedDetails.debugCommand}` : ""}`}</Text>
+          <Text>{`2. Wait${blockedDetails.expectedDelay ? `: ${blockedDetails.expectedDelay}` : ": this is normal while the worker starts."}`}</Text>
+          <Text>{`3. Cancel: stop the blocking run if it is truly stuck.`}</Text>
+          <Text>4. Retry later: rerun this request after the lock clears.</Text>
+          {blockedDetails.dashboardUrl ? <Text color="gray">Dashboard link available after inspect.</Text> : null}
+        </Box>
+      ) : taskState.planSteps.length > 0 ? (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Plan</Text>
           {taskState.planSteps.map((step, index) => (
@@ -450,16 +487,17 @@ function RunStatusPanel({
   focusRunId: string | null;
 }) {
   const { focused, background } = useMemo(() => splitTrackedRuns(runs, focusRunId), [focusRunId, runs]);
+  const title = focused && background.length === 0 ? "Blocking run" : "Current run";
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
-      <Text bold>Current run</Text>
+      <Text bold>{title}</Text>
       {focused ? (
         <>
           <Text>{`Run id: ${focused.id}`}</Text>
           <Text>{`Dataset: ${focused.datasetId}`}</Text>
           <Text color={runStatusColor(focused.status)}>{`Status: ${focused.status} · ${describeRunPhase(focused.status).label}`}</Text>
-          <Text color="cyan">{`Dashboard: ${focused.dashboardUrl ?? "not available"}`}</Text>
+          <Text color="gray">{focused.dashboardUrl ? "Use `inspect` to open the dashboard link." : "Dashboard: not available"}</Text>
           <Text color="gray">{describeRunPhase(focused.status).detail}</Text>
           <Text color="gray">{describeRunExpectation(focused)}</Text>
           <Text color="gray">{formatRunLastUpdate(focused)}</Text>
@@ -490,11 +528,11 @@ function ResearchThread({
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
   const messageCount = useAuiState((state) => state.thread.messages.length);
-  const borderColor = taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
-  const promptColor = taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
+  const borderColor = taskState.status === "blocked" ? "gray" : taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
+  const promptColor = taskState.status === "blocked" ? "yellow" : taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
   const inputWidth = Math.max(20, columns - 4);
   const showIdleSummary = messageCount === 0 && !taskState.goal;
-  const showThreadMessages = showIdleSummary || taskState.status === "done" || messageCount > 1;
+  const showThreadMessages = showIdleSummary || taskState.status === "done" || (messageCount > 1 && taskState.status !== "blocked");
 
   return (
     <ThreadPrimitive.Root>
@@ -519,6 +557,7 @@ function ResearchThread({
       <TaskActivityIndicator status={taskState.status} currentStep={taskState.currentStep} startedAt={taskState.startedAt} />
       {taskState.activity.length > 0
       && taskState.status !== "done"
+      && taskState.status !== "blocked"
       && !taskState.activity.every((item) => item === taskState.lastResult)
       && !(taskState.status !== "working" && taskState.activity.length === 1) ? (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
@@ -531,13 +570,19 @@ function ResearchThread({
       {!showIdleSummary && taskState.focusRunId ? <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} /> : null}
 
       <Box flexDirection="column">
-        <Text bold color={promptColor}>{messageCount > 0 ? (taskState.status === "done" ? "Reply" : "Reply in thread") : "Prompt"}</Text>
+        <Text bold color={promptColor}>
+          {taskState.status === "blocked" ? "Recovery reply" : messageCount > 0 ? (taskState.status === "done" ? "Reply" : "Reply in thread") : "Prompt"}
+        </Text>
         <Text color="gray">
-          {taskState.status === "done" ? "Ready. Type another question and press Enter." : "Type a follow-up or command and press Enter."}
+          {taskState.status === "blocked"
+            ? "Type `inspect`, `wait`, `cancel`, or `retry later`, then press Enter."
+            : taskState.status === "done"
+              ? "Ready. Type another question and press Enter."
+              : "Type a follow-up or command and press Enter."}
         </Text>
         <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
           <Text color={promptColor}>{"> "}</Text>
-          <ComposerPrimitive.Input submitOnEnter placeholder={composerPlaceholder(session)} autoFocus />
+          <ComposerPrimitive.Input submitOnEnter placeholder={taskState.status === "blocked" ? blockedComposerPlaceholder() : composerPlaceholder(session)} autoFocus />
         </Box>
       </Box>
     </ThreadPrimitive.Root>
