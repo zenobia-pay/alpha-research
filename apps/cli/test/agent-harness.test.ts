@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { spawn } from "node:child_process";
 import test from "node:test";
 
 import {
@@ -74,18 +75,14 @@ test("product orientation presents command center identities without tools", asy
 
   assert.equal(messages.length, 1);
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /turn files and datasets into research/i);
+  assert.match(final, /turn a file or dataset into research/i);
   assert.match(final, /Start here:/i);
   assert.match(final, /Show my datasets/i);
-  assert.match(final, /research login/i);
-  assert.match(final, /Create a dataset from \/absolute\/path\/customers\.csv/i);
-  assert.match(final, /inspect what each one contains/i);
-  assert.match(final, /Brief a dataset before you trust or analyze it/i);
-  assert.match(final, /Plan or run an analysis for a specific question/i);
-  assert.match(final, /latest results or saved files from earlier work/i);
-  assert.match(final, /Show my latest analysis results/i);
-  assert.match(final, /what data do i already have ready to use/i);
-  assert.match(final, /brief the econ dataset/i);
+  assert.match(final, /research login.*optional/i);
+  assert.match(final, /Create a dataset from a file on my computer/i);
+  assert.match(final, /Brief the econ dataset so I understand what is inside/i);
+  assert.match(final, /Plan an analysis for whether retention changed after launch/i);
+  assert.match(final, /Show the latest results from earlier work/i);
   assert.doesNotMatch(final, /dataset-backed|artifacts|labeling jobs|experiments|last run|remote run|manifest-backed|mounted dataset|worker_unreachable|lifecycle|remote environments?|normalize/i);
 });
 
@@ -112,11 +109,52 @@ test("cold-start orientation prompt stays local and recommends first steps", asy
 
   assert.equal(messages.length, 1);
   const coldStart = messages.at(-1)?.content ?? "";
-  assert.match(coldStart, /^RESEARCH helps you turn files and datasets into research/i);
+  assert.match(coldStart, /^RESEARCH helps you turn a file or dataset into research/i);
   assert.match(coldStart, /`research login`/i);
-  assert.match(coldStart, /so I can see your datasets and start research runs for you/i);
-  assert.match(coldStart, /What data do I already have ready to use/i);
+  assert.match(coldStart, /optional when you want me to access your account datasets or start remote work/i);
+  assert.match(coldStart, /Show my datasets/i);
   assert.doesNotMatch(coldStart, /datasets ls|local ls|env create|normalize|remote datasets|artifacts/u);
+});
+
+test("prompt mode exits cleanly after local orientation response", async () => {
+  const child = spawn(process.execPath, ["--import", "tsx", "apps/cli/src/index.ts", "--prompt", "What can you help me do?"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      RESEARCH_DISABLE_RUN_WATCHER: "1",
+      RESEARCH_SESSION_DIR: join(process.cwd(), ".tmp", "research-test-prompt-exit"),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+
+  const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error("prompt mode did not exit cleanly"));
+    }, 4000);
+    child.on("exit", (code, signal) => {
+      clearTimeout(timeout);
+      resolve({ code, signal });
+    });
+  });
+
+  assert.equal(result.signal, null);
+  assert.equal(result.code, 0);
+  assert.match(stdout, /^research/m);
+  assert.match(stdout, /Show my datasets/);
+  assert.doesNotMatch(stdout, /working\.\.\.|Thinking\.\.\./);
+  assert.equal(stderr, "");
 });
 
 test("file import how-to asks for path before ingesting", async () => {

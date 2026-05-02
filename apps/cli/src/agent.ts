@@ -1805,26 +1805,26 @@ function maybeHandleOrientation(input: string) {
     return null;
   }
   return [
-    "RESEARCH helps you turn files and datasets into research you can inspect, run, and review.",
+    "RESEARCH helps you turn a file or dataset into research you can inspect, run, and review.",
     "",
     "Start here:",
-    "- `research login` so I can see your datasets and start research runs for you",
     "- `Show my datasets`",
     "",
-    "I can help you:",
-    "- Create a dataset from /absolute/path/customers.csv",
-    "- List datasets and inspect what each one contains",
-    "- Brief a dataset before you trust or analyze it",
-    "- Plan or run an analysis for a specific question",
-    "- Show the latest results or saved files from earlier work",
+    "`research login` is optional when you want me to access your account datasets or start remote work.",
     "",
-    "Other useful prompts:",
-    "- What data do I already have ready to use?",
-    "- Brief the sales dataset",
-    "- Brief the econ dataset",
-    "- Test whether retention changed after launch",
-    "- Show my latest analysis results",
+    "Try one of these next:",
+    "- `Create a dataset from a file on my computer`",
+    "- `Brief the econ dataset so I understand what is inside`",
+    "- `Plan an analysis for whether retention changed after launch`",
+    "- `Show the latest results from earlier work`",
   ].join("\n");
+}
+
+export function getLocalDirectResponse(input: string) {
+  return maybeHandleOrientation(input)
+    ?? maybeHandleCsvImportHowTo(input)
+    ?? maybeHandleVagueMarketQuestion(input)
+    ?? maybeHandleVagueTweetsExperiment(input);
 }
 
 function shouldHandleDatasetInventoryLegacy(input: string) {
@@ -4015,10 +4015,7 @@ export async function runAgentTurn(
     };
   }
 
-  const directResponse = maybeHandleOrientation(input)
-    ?? maybeHandleCsvImportHowTo(input)
-    ?? maybeHandleVagueMarketQuestion(input)
-    ?? maybeHandleVagueTweetsExperiment(input);
+  const directResponse = getLocalDirectResponse(input);
   if (directResponse) {
     emit({ role: "assistant", content: directResponse });
     return {

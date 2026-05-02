@@ -4,7 +4,7 @@ import React from "react";
 import { render } from "ink";
 
 import { DEFAULT_INSTALL_COMMAND, type SessionRecord } from "./config.js";
-import { type AgentMessage, runAgentTurn } from "./agent.js";
+import { getLocalDirectResponse, type AgentMessage, runAgentTurn } from "./agent.js";
 import { runDebugCommand } from "./debug.js";
 import { parseCliArgs, parseFlags } from "./flags.js";
 import { InteractiveApp } from "./interactive.js";
@@ -73,11 +73,27 @@ function printPromptModeLoading() {
 }
 
 async function runPromptMode(prompt: string) {
+  const localDirectResponse = getLocalDirectResponse(prompt);
+  if (localDirectResponse) {
+    console.log("research");
+    printAgentMessage({ role: "assistant", content: localDirectResponse });
+    return null;
+  }
   printPromptModeLoading();
   const session = await readSession();
   printAgentMessage({ role: "tool", content: initialPromptModeStatus(prompt) });
   const conversationState = await runAgentTurn(prompt, session, printAgentMessage);
   return conversationState;
+}
+
+function isDirectCliExecution() {
+  const entryPath = process.argv[1];
+  return Boolean(entryPath && fileURLToPath(import.meta.url) === entryPath);
+}
+
+async function exitPromptModeProcess() {
+  await new Promise<void>((resolve) => process.stdout.write("", () => resolve()));
+  process.exit(process.exitCode ?? 0);
 }
 
 export async function main() {
@@ -88,6 +104,9 @@ export async function main() {
 
   if (promptFlag) {
     await runPromptMode(promptFlag);
+    if (isDirectCliExecution()) {
+      await exitPromptModeProcess();
+    }
     return;
   }
 
@@ -114,6 +133,9 @@ export async function main() {
       throw new Error("Missing prompt text. Use `research prompt \"...\"` or `research --prompt \"...\"`.");
     }
     await runPromptMode(prompt);
+    if (isDirectCliExecution()) {
+      await exitPromptModeProcess();
+    }
     return;
   }
 
@@ -166,8 +188,7 @@ export async function main() {
   process.exitCode = 1;
 }
 
-const entryPath = process.argv[1];
-if (entryPath && fileURLToPath(import.meta.url) === entryPath) {
+if (isDirectCliExecution()) {
   main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
