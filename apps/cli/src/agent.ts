@@ -935,8 +935,53 @@ function inferFollowUpSuggestions(
   return [...new Set(suggestions)].slice(0, 3);
 }
 
+function compactPlainText(value: string, maxLength = 220) {
+  const normalized = value.replace(/\s+/gu, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function previewMarkdownText(value: string, maxLength = 260) {
+  const cleaned = value
+    .split("\n")
+    .map((line) => line.replace(/^[#>*`\-\d.\s]+/u, "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return cleaned ? compactPlainText(cleaned, maxLength) : null;
+}
+
+function formatResultValue(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? formatNumber(value) : String(value);
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  return null;
+}
+
+function formatTableCoverage(table: Record<string, unknown>) {
+  const timeStart = formatResultValue(table.timeStart);
+  const timeEnd = formatResultValue(table.timeEnd);
+  const frequency = formatResultValue(table.frequency);
+  const parts = [timeStart && timeEnd ? `${timeStart} to ${timeEnd}` : timeStart ?? timeEnd, frequency].filter((value): value is string => Boolean(value));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 function renderStructuredResult(result: Record<string, unknown>) {
   const lines: string[] = [];
+  const summary = isRecord(result.summary) ? result.summary : null;
+  const summaryDescription = typeof summary?.description === "string" ? compactPlainText(summary.description, 220) : null;
+  const summaryDataset = typeof summary?.dataset === "string" ? summary.dataset : null;
+  const summaryStage = typeof summary?.stage === "string" ? summary.stage : null;
+  if (summaryDescription) {
+    lines.push("Summary", `- ${summaryDescription}`);
+    if (summaryDataset || summaryStage) {
+      lines.push(`- Scope: ${[summaryDataset, summaryStage].filter(Boolean).join(" · ")}`);
+    }
+  }
   const rowCount = typeof result.total_rows === "number" ? formatNumber(result.total_rows) : null;
   const distinctTweetIds = typeof result.distinct_tweet_ids === "number" ? formatNumber(result.distinct_tweet_ids) : null;
   const duplicateRows = typeof result.duplicate_tweet_rows === "number" ? formatNumber(result.duplicate_tweet_rows) : null;
@@ -969,8 +1014,55 @@ function renderStructuredResult(result: Record<string, unknown>) {
       lines.push(`- ${line}`);
     }
   }
+  const sources = isRecord(result.sources) ? result.sources : null;
+  if (sources) {
+    const total = typeof sources.total === "number" ? formatNumber(sources.total) : null;
+    const statusCounts = isRecord(sources.statusCounts) ? sources.statusCounts : null;
+    const qualityBits: string[] = [];
+    if (total) qualityBits.push(`${total} sources`);
+    if (typeof statusCounts?.ready === "number") qualityBits.push(`${formatNumber(statusCounts.ready)} ready`);
+    if (typeof statusCounts?.partial === "number" && statusCounts.partial > 0) qualityBits.push(`${formatNumber(statusCounts.partial)} partial`);
+    if (typeof statusCounts?.deferred === "number" && statusCounts.deferred > 0) qualityBits.push(`${formatNumber(statusCounts.deferred)} deferred`);
+    if (qualityBits.length > 0) {
+      lines.push("", "Coverage", `- ${qualityBits.join(" · ")}`);
+    }
+  }
+  const tables = Array.isArray(result.tables) ? result.tables.filter(isRecord) : [];
+  if (tables.length > 0) {
+    lines.push("", "Key tables");
+    for (const table of tables.slice(0, 3)) {
+      const path = typeof table.path === "string" ? table.path : "table";
+      const rowCountValue = typeof table.rowCount === "number" ? `${formatNumber(table.rowCount)} rows` : null;
+      const coverage = formatTableCoverage(table);
+      const geoCount = typeof table.geoCount === "number" ? `${formatNumber(table.geoCount)} geographies` : null;
+      const details = [rowCountValue, coverage, geoCount].filter((value): value is string => Boolean(value));
+      lines.push(`- ${path}${details.length > 0 ? `: ${details.join(" · ")}` : ""}`);
+    }
+  }
+  const quality = isRecord(result.quality) ? result.quality : null;
+  const qcMetrics = isRecord(quality?.qcMetrics) ? quality.qcMetrics : null;
+  const qualityNotes: string[] = [];
+  if (typeof qcMetrics?.total_counties === "number") qualityNotes.push(`${formatNumber(qcMetrics.total_counties)} counties`);
+  if (typeof qcMetrics?.total_months === "number") qualityNotes.push(`${formatNumber(qcMetrics.total_months)} months`);
+  if (typeof qcMetrics?.missing_income_share === "number") qualityNotes.push(`${Math.round(qcMetrics.missing_income_share * 100)}% missing income coverage`);
+  if (typeof qcMetrics?.missing_mortgage_share === "number") qualityNotes.push(`${Math.round(qcMetrics.missing_mortgage_share * 100)}% missing mortgage coverage`);
+  if (qualityNotes.length > 0) {
+    lines.push("", "Quality", `- ${qualityNotes.join(" · ")}`);
+  }
+  const limitations = isRecord(result.limitations) ? result.limitations : null;
+  const deferredSources = Array.isArray(limitations?.deferredSources) ? limitations.deferredSources.filter(isRecord) : [];
+  const partialSources = Array.isArray(limitations?.partialSources) ? limitations.partialSources.filter(isRecord) : [];
+  if (deferredSources.length > 0 || partialSources.length > 0) {
+    lines.push("", "Limitations");
+    if (deferredSources.length > 0) {
+      lines.push(`- Deferred sources: ${deferredSources.slice(0, 2).map((entry) => String(entry.id ?? "unknown")).join(", ")}`);
+    }
+    if (partialSources.length > 0) {
+      lines.push(`- Partial sources: ${partialSources.slice(0, 2).map((entry) => String(entry.id ?? "unknown")).join(", ")}`);
+    }
+  }
   if (lines.length === 0) {
-    lines.push("Structured result", `- ${JSON.stringify(result)}`);
+    lines.push("Summary", "- Structured result is available in `result.json`.");
   }
   return lines.join("\n");
 }
@@ -1030,14 +1122,6 @@ function chooseLastRunForResults(runs: TrackedRunRecord[]) {
   return { latestTracked, latestCompleted, latestFailed, activeRuns };
 }
 
-function renderRecentRunList(label: string, runs: TrackedRunRecord[]) {
-  if (runs.length === 0) return null;
-  return [
-    label,
-    ...runs.map((run) => `- ${run.datasetId} — ${formatStatusForHumans(run.status)} — updated ${formatWhen(run.updatedAt)}`),
-  ].join("\n");
-}
-
 async function maybeHandleLastRunResultsRequest(
   input: string,
   initialSession: SessionRecord | null,
@@ -1065,8 +1149,8 @@ async function maybeHandleLastRunResultsRequest(
         `Status: ${formatStatusForHumans(latestTracked.status)}`,
         `Last update: ${formatWhen(latestTracked.updatedAt)}`,
       ];
-      if (latestTracked.prompt) lines.push(`Request: ${latestTracked.prompt.split("\n")[0]?.slice(0, 160)}`);
-      lines.push("", `Debug: research debug run ${latestTracked.id}`);
+      if (latestTracked.prompt) lines.push(`What it is doing: ${compactPromptLine(latestTracked.prompt)}`);
+      lines.push("", "No saved result or artifact is available from that run yet.");
       return lines.join("\n");
     }
     if (latestFailed) {
@@ -1077,7 +1161,7 @@ async function maybeHandleLastRunResultsRequest(
         `Status: ${formatStatusForHumans(latestFailed.status)}`,
         `Last update: ${formatWhen(latestFailed.updatedAt)}`,
         "",
-        `Debug: research debug run ${latestFailed.id}`,
+        "That run needs inspection or a retry before it can produce a usable result.",
       ].join("\n");
     }
     return "I found tracked runs, but none has completed successfully yet.";
@@ -1092,30 +1176,30 @@ async function maybeHandleLastRunResultsRequest(
   const producedArtifacts = payload.artifacts.filter(isProducedArtifact);
   const structuredResult = findStructuredResultArtifact(producedArtifacts);
   const preview = renderArtifactPreview(producedArtifacts);
+  const previewText = preview ? previewMarkdownText(preview) : null;
+  const skippedActive = activeRuns.filter((run) => run.id !== latestCompleted.id).slice(0, 2);
   const lines = [
-    reason,
+    "Retrieved the latest finished results from your run history.",
     "",
     `Selected run: ${payload.run.datasetId}`,
     `Completed: ${formatWhen(latestCompleted.terminalAt ?? latestCompleted.updatedAt)}`,
+    `Why this run: ${reason.replace(/\.$/u, "")}.`,
   ];
-  if (payload.run.prompt?.trim()) {
-    lines.push(`Request: ${payload.run.prompt.trim().split("\n")[0]?.slice(0, 160)}`);
+  if (skippedActive.length > 0) {
+    lines.push(`Skipped newer in-progress run${skippedActive.length === 1 ? "" : "s"}: ${skippedActive.map((run) => `${run.datasetId} (${formatStatusForHumans(run.status)})`).join(", ")}.`);
+  }
+  if (previewText) {
+    lines.push("", "Summary", `- ${previewText}`);
   }
   if (structuredResult?.content && isRecord(structuredResult.content)) {
     lines.push("", renderStructuredResult(structuredResult.content));
-  } else if (preview) {
-    lines.push("", "Result preview", preview);
+  } else if (!previewText && preview) {
+    lines.push("", "Summary", `- ${compactPlainText(preview, 240)}`);
   }
   if (producedArtifacts.length > 0) {
-    lines.push("", "Artifacts", ...producedArtifacts.map((artifact) => `- ${artifactBullet(artifact)}`));
+    lines.push("", "Artifacts", ...producedArtifacts.slice(0, 4).map((artifact) => `- ${artifactBullet(artifact)}`));
   }
-  const otherCompleted = runs.filter((run) => run.id !== latestCompleted.id && isTerminalRunSuccessStatus(run.status)).slice(0, 2);
-  const alsoActive = activeRuns.filter((run) => run.id !== latestCompleted.id).slice(0, 2);
-  const activeList = renderRecentRunList("Also active", alsoActive);
-  const completedList = renderRecentRunList("Other recent completed runs", otherCompleted);
-  if (activeList) lines.push("", activeList);
-  if (completedList) lines.push("", completedList);
-  lines.push("", `Debug: research debug run ${latestCompleted.id}`);
+  lines.push("", "Retrieved successfully.");
   return lines.join("\n");
 }
 

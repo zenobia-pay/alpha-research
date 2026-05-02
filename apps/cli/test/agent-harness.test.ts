@@ -1132,8 +1132,8 @@ test("run result retrieval includes selected run context and artifacts", async (
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /Selected your most recent tracked run because it already completed\./);
   assert.match(final, /Selected run: enriched-tweets/);
-  assert.match(final, /Request: Quick sanity check\./);
   assert.match(final, /Artifacts/);
+  assert.match(final, /Retrieved successfully\./);
 });
 
 test("last run results select the latest completed run and explain newer active runs", async () => {
@@ -1209,10 +1209,11 @@ test("last run results select the latest completed run and explain newer active 
   }
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /Selected your most recent completed run because newer tracked runs are still in progress\./);
+  assert.match(final, /Retrieved the latest finished results from your run history\./);
   assert.match(final, /Selected run: enriched-tweets/);
-  assert.match(final, /Result preview/);
-  assert.match(final, /Also active/);
+  assert.match(final, /Why this run: Selected your most recent completed run because newer tracked runs are still in progress\./);
+  assert.match(final, /Skipped newer in-progress runs: econ \(booting\), labor \(running\)\./);
+  assert.match(final, /Summary/);
   assert.doesNotMatch(final, /run-complete ·/);
 });
 
@@ -1251,7 +1252,7 @@ test("last run results report an in-progress latest run when nothing has complet
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /still in progress, so there are no finished results to show yet/);
   assert.match(final, /Selected run: econ/);
-  assert.match(final, /Debug: research debug run run-active/);
+  assert.match(final, /No saved result or artifact is available from that run yet\./);
 });
 
 test("last run results report a failed latest run when nothing completed successfully", async () => {
@@ -1289,7 +1290,7 @@ test("last run results report a failed latest run when nothing completed success
   const final = messages.at(-1)?.content ?? "";
   assert.match(final, /did not complete successfully/);
   assert.match(final, /Selected run: housing/);
-  assert.match(final, /Debug: research debug run run-failed/);
+  assert.match(final, /needs inspection or a retry/);
 });
 
 test("continuity question returns compact lifecycle summary without tool chatter", async () => {
