@@ -35,6 +35,14 @@ export function composerPlaceholder(session: SessionRecord | null) {
   return session ? "Ask about datasets, runs, or artifacts" : "Ask about datasets, runs, or sign-in";
 }
 
+export function emptyStatePromptExamples() {
+  return [
+    "Show my datasets so I can see what is ready to use.",
+    "Create a dataset from /full/path/to/file.csv.",
+    "Show the latest run and its artifacts.",
+  ];
+}
+
 function shortId(value: string, size = 8) {
   return value.length > size ? value.slice(0, size) : value;
 }
@@ -64,8 +72,74 @@ function runStatusColor(status: string) {
 
 function summarizeRunLine(run: TrackedRunRecord) {
   const latest = run.lastEventMessage?.trim();
-  const suffix = latest ? ` · ${latest}` : run.prompt ? ` · ${run.prompt}` : "";
+  const suffix = latest ? ` · ${latest}` : run.prompt ? ` · ${summarizePrompt(run.prompt, 80)}` : "";
   return `${shortId(run.id)}  ${run.datasetId}  ${run.status}${suffix}`;
+}
+
+export function summarizePrompt(prompt: string, maxLength = 96) {
+  const cleaned = cleanUiLine(prompt);
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+export function describeRunPhase(status: string) {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "booting" || normalized === "queued") {
+    return {
+      label: "Starting",
+      detail: "Accepted and provisioning the remote worker for this run.",
+    };
+  }
+  if (normalized === "running") {
+    return {
+      label: "Running",
+      detail: "Worker is active and still processing the request.",
+    };
+  }
+  if (normalized === "ready" || normalized === "completed" || normalized === "succeeded") {
+    return {
+      label: "Complete",
+      detail: "The run finished and artifacts should be available.",
+    };
+  }
+  if (normalized === "failed" || normalized === "error" || normalized === "worker_unreachable") {
+    return {
+      label: "Blocked",
+      detail: "Remote state is unclear. Inspect the run or retry later.",
+    };
+  }
+  return {
+    label: "Needs attention",
+    detail: "Check the run for the latest status and next step.",
+  };
+}
+
+export function describeRunExpectation(run: TrackedRunRecord) {
+  const prompt = (run.prompt ?? "").toLowerCase();
+  const outputs = [];
+  if (/strict json|json/u.test(prompt)) outputs.push("structured JSON");
+  if (/chart|bar chart|plot|graph/u.test(prompt)) outputs.push("chart");
+  if (/examples?/u.test(prompt)) outputs.push("examples");
+  if (/label/u.test(prompt)) outputs.push("labels");
+  if (outputs.length === 0) outputs.push("briefing");
+  return `Expected outputs: ${outputs.join(", ")}.`;
+}
+
+export function formatRunLastUpdate(run: TrackedRunRecord, maxLength = 120) {
+  const latest = run.lastEventMessage?.trim();
+  if (!latest) {
+    return "No remote milestone yet. You can leave this open while the worker continues.";
+  }
+  return summarizePrompt(latest, maxLength);
+}
+
+export function runPanelSummary(runs: TrackedRunRecord[], focusRunId: string | null = null) {
+  const { focused, background } = splitTrackedRuns(runs, focusRunId);
+  const visible = [focused, ...background].filter((item): item is TrackedRunRecord => Boolean(item)).slice(0, 3);
+  if (visible.length === 0) {
+    return ["No active runs."];
+  }
+  return visible.map((run) => summarizeRunLine(run));
 }
 
 async function pollTrackedRuns(
@@ -247,6 +321,50 @@ function TaskSummary({ taskState, width }: { taskState: InteractiveTaskState; wi
   );
 }
 
+function IdleSummary({
+  session,
+  runs,
+  startupComplete,
+  width,
+}: {
+  session: SessionRecord | null;
+  runs: TrackedRunRecord[];
+  startupComplete: boolean;
+  width: number;
+}) {
+  const activeRunLines = runPanelSummary(runs);
+  const examples = emptyStatePromptExamples();
+
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1}>
+      <Text bold color="blue">research</Text>
+      <Text>Dataset-backed research agent for choosing, building, inspecting, and running research on datasets.</Text>
+      <Text color={startupComplete ? "gray" : "yellow"}>
+        {startupComplete ? "Waiting for your prompt." : "Starting up and checking for active runs..."}
+      </Text>
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Active runs</Text>
+        {activeRunLines.map((line) => (
+          <Text key={line}>{line}</Text>
+        ))}
+      </Box>
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Try one of these</Text>
+        {examples.map((example) => (
+          <Text key={example}>{`- ${example}`}</Text>
+        ))}
+      </Box>
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Input</Text>
+        {wrapText("Type a question and press Enter. Use /login when you need account datasets or cloud-backed runs.", Math.max(24, width - 6)).map((line, index) => (
+          <Text key={`${line}-${index}`}>{line}</Text>
+        ))}
+        {!session ? <Text color="gray">Signed out locally. You can still ask local dataset and run questions.</Text> : null}
+      </Box>
+    </Box>
+  );
+}
+
 function RunStatusPanel({
   runs,
   focusRunId,
@@ -255,16 +373,18 @@ function RunStatusPanel({
   focusRunId: string | null;
 }) {
   const { focused, background } = useMemo(() => splitTrackedRuns(runs, focusRunId), [focusRunId, runs]);
-  if (!focused && background.length === 0) return null;
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
+      <Text bold>Active runs</Text>
       {focused ? (
         <>
           <Text bold>Current run</Text>
           <Text color={runStatusColor(focused.status)}>{summarizeRunLine(focused)}</Text>
+          <Text color="gray">{describeRunPhase(focused.status).detail}</Text>
+          <Text color="gray">{formatRunLastUpdate(focused)}</Text>
         </>
-      ) : null}
+      ) : <Text>No active runs.</Text>}
       {background.length > 0 ? (
         <>
           <Text bold>{focused ? "Background runs" : "Other active runs"}</Text>
@@ -283,25 +403,29 @@ function RunStatusPanel({
 function ResearchThread({
   trackedRuns,
   taskState,
+  session,
+  startupComplete,
 }: {
   trackedRuns: TrackedRunRecord[];
   taskState: InteractiveTaskState;
+  session: SessionRecord | null;
+  startupComplete: boolean;
 }) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
-  const borderColor = taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "gray";
-  const promptColor = taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "gray";
+  const messageCount = useAuiState((state) => state.thread.messages.length);
+  const borderColor = taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
+  const promptColor = taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
   const inputWidth = Math.max(20, columns - 4);
+  const showIdleSummary = messageCount === 0 && !taskState.goal;
 
   return (
     <ThreadPrimitive.Root>
-      <ThreadPrimitive.Empty>
-        <Box flexDirection="column">
-          <TaskSummary taskState={taskState} width={columns} />
-        </Box>
-      </ThreadPrimitive.Empty>
-
-      <TaskSummary taskState={taskState} width={columns} />
+      {showIdleSummary ? (
+        <IdleSummary session={session} runs={trackedRuns} startupComplete={startupComplete} width={columns} />
+      ) : (
+        <TaskSummary taskState={taskState} width={columns} />
+      )}
 
       <ThreadPrimitive.Messages>
         {({ message }) =>
@@ -322,11 +446,15 @@ function ResearchThread({
           ))}
         </Box>
       ) : null}
-      <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} />
+      {!showIdleSummary ? <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} /> : null}
 
-      <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
-        <Text color={promptColor}>{"> "}</Text>
-        <ComposerPrimitive.Input submitOnEnter placeholder="ask RESEARCH" autoFocus />
+      <Box flexDirection="column">
+        <Text bold color={promptColor}>Prompt</Text>
+        <Text color="gray">Type a question and press Enter.</Text>
+        <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
+          <Text color={promptColor}>{"> "}</Text>
+          <ComposerPrimitive.Input submitOnEnter placeholder={composerPlaceholder(session)} autoFocus />
+        </Box>
       </Box>
     </ThreadPrimitive.Root>
   );
@@ -586,6 +714,7 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const [session, setSessionState] = useState<SessionRecord | null>(null);
   const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
   const [taskState, setTaskState] = useState<InteractiveTaskState>(createIdleTaskState());
+  const [startupComplete, setStartupComplete] = useState(false);
   const [conversationState, setConversationStateState] = useState<AgentConversationState>({
     sessionId: null,
     previousResponseId: null,
@@ -613,9 +742,13 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   });
 
   useEffect(() => {
-    void readSession().then(setSession);
-    void readTrackedRuns().then((runs) => {
-      setTrackedRuns(runs);
+    void Promise.all([
+      readSession().then(setSession),
+      readTrackedRuns().then((runs) => {
+        setTrackedRuns(runs);
+      }),
+    ]).finally(() => {
+      setStartupComplete(true);
     });
   }, []);
 
@@ -641,7 +774,12 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <Box flexDirection="column">
-        <ResearchThread trackedRuns={trackedRuns} taskState={taskState} />
+        <ResearchThread
+          trackedRuns={trackedRuns}
+          taskState={taskState}
+          session={session}
+          startupComplete={startupComplete}
+        />
         <RunPoller session={session} setTrackedRuns={setTrackedRuns} />
       </Box>
     </AssistantRuntimeProvider>
