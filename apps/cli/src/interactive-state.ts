@@ -6,6 +6,7 @@ export type TaskStatus = "ready" | "working" | "waiting" | "blocked" | "done";
 export type InteractiveTaskState = {
   goal: string | null;
   status: TaskStatus;
+  statusLabel: string | null;
   currentStep: string | null;
   lastResult: string | null;
   nextExpectedOutput: string | null;
@@ -19,6 +20,7 @@ export function createIdleTaskState(): InteractiveTaskState {
   return {
     goal: null,
     status: "ready",
+    statusLabel: null,
     currentStep: null,
     lastResult: null,
     nextExpectedOutput: null,
@@ -35,6 +37,7 @@ export function beginInteractiveTask(prompt: string): InteractiveTaskState {
   return {
     goal: prompt,
     status: "working",
+    statusLabel: null,
     currentStep: orientationFlow?.currentStep ?? recoveryFlow?.currentStep ?? "Understanding the request and checking relevant datasets.",
     lastResult: null,
     nextExpectedOutput: orientationFlow?.nextExpectedOutput ?? recoveryFlow?.nextExpectedOutput ?? inferNextExpectedOutput(prompt),
@@ -66,6 +69,7 @@ export function applyAgentMessageToTaskState(
     return {
       ...next,
       status: deriveAssistantStatus(cleaned),
+      statusLabel: deriveAssistantStatusLabel(cleaned),
       lastResult: cleaned,
       focusRunId: extractRunId(cleaned) ?? next.focusRunId,
       nextExpectedOutput: inferNextExpectedFromMessage(cleaned) ?? next.nextExpectedOutput,
@@ -79,6 +83,7 @@ export function applyAgentMessageToTaskState(
     return {
       ...next,
       status: progressStatus,
+      statusLabel: deriveProgressStatusLabel(cleaned, progressStatus),
       currentStep: cleaned,
       nextExpectedOutput: inferNextExpectedFromProgress(cleaned) ?? next.nextExpectedOutput,
     };
@@ -219,11 +224,27 @@ function inferNextExpectedFromMessage(text: string) {
   return null;
 }
 
+function deriveAssistantStatusLabel(text: string) {
+  if (/Started .* run |Started research environment build|Queued /u.test(text)) return "Run started";
+  if (isBlockedAssistantMessage(text)) return "Blocked";
+  if (/Before I start a remote run/u.test(text) || /Waiting for your approval/u.test(text)) return "Proposal";
+  if (isWaitingForUserReply(text)) return "Waiting for input";
+  return null;
+}
+
 function deriveAssistantStatus(text: string): TaskStatus {
   if (isBlockedAssistantMessage(text)) return "blocked";
   if (/Started .* run |Started research environment build|Queued |Cancelled run /u.test(text)) return "waiting";
   if (isWaitingForUserReply(text)) return "waiting";
   return "done";
+}
+
+function deriveProgressStatusLabel(text: string, status: TaskStatus) {
+  if (status === "waiting") {
+    if (/starting a run/u.test(text)) return "Waiting for approval";
+    return "Waiting for input";
+  }
+  return null;
 }
 
 function looksLikeProgress(text: string) {
@@ -236,13 +257,16 @@ function extractRunId(text: string) {
 }
 
 function isBlockedAssistantMessage(text: string) {
-  return /Blocked:|Blocked on |Sign in first/u.test(text);
+  return /Blocked:|Blocked on |Sign in first/u.test(text)
+    || /No remote run has started yet\./u.test(text)
+    || /I need the dataset id before I can launch anything/u.test(text);
 }
 
 function isWaitingForUserReply(text: string) {
   return /Waiting for your answer/u.test(text)
     || /Waiting for your approval/u.test(text)
     || /Waiting for your choice/u.test(text)
+    || /Waiting for input/u.test(text)
     || /Need one detail to finalize/u.test(text)
     || /Questions needed/u.test(text)
     || /Reply with /u.test(text)
@@ -252,7 +276,8 @@ function isWaitingForUserReply(text: string) {
     || /Which geography matters most/u.test(text)
     || /I can help with that, but I need 2 things first:/u.test(text)
     || /source-of-truth details before I build anything/u.test(text)
-    || /No upload is needed\./u.test(text);
+    || /No upload is needed\./u.test(text)
+    || /No remote run has started yet\./u.test(text);
 }
 
 function isRecoveryPrompt(lower: string) {

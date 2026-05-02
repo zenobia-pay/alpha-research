@@ -114,8 +114,25 @@ test("approval-waiting progress line keeps the task in waiting state", () => {
   });
 
   assert.equal(state.status, "waiting");
+  assert.equal(state.statusLabel, "Waiting for approval");
   assert.equal(state.currentStep, "Scoping experiment design complete. Waiting for your choice before starting a run.");
   assert.match(state.nextExpectedOutput ?? "", /short user reply/i);
+});
+
+test("proposal replies stay visibly distinct from run-started states", () => {
+  const state = applyAgentMessageToTaskState(beginInteractiveTask("What types of tweets go viral?"), {
+    role: "assistant",
+    content: [
+      "Before I start a remote run, here is the experiment I recommend.",
+      "",
+      "Waiting for your approval",
+      "Reply with 1, 2, or 3 to start with that metric.",
+    ].join("\n"),
+  });
+
+  assert.equal(state.status, "waiting");
+  assert.equal(state.statusLabel, "Proposal");
+  assert.equal(state.focusRunId, null);
 });
 
 test("dataset-selected progress lines keep the user oriented on run kickoff", () => {
@@ -172,6 +189,25 @@ test("mixed-source intake clarification is treated as blocked on user input", ()
 
   assert.equal(state.status, "blocked");
   assert.match(state.nextExpectedOutput ?? "", /user action to unblock|short user reply/i);
+});
+
+test("single blocking follow-up stays blocked and states that no run has started", () => {
+  const state = applyAgentMessageToTaskState(beginInteractiveTask("Use quote_tweet_count and sample 100 tweets."), {
+    role: "assistant",
+    content: [
+      "I can use `quote_tweet_count` and sample 100 tweets. No remote run has started yet.",
+      "",
+      "Blocked on one setup detail",
+      "I need the dataset id before I can launch anything because RESEARCH runs against one mounted dataset at a time. The best current match is `enriched-tweets`.",
+      "",
+      "Next reply",
+      "Reply `use enriched-tweets` to use `enriched-tweets`, or send a different dataset id if you want another source.",
+    ].join("\n"),
+  });
+
+  assert.equal(state.status, "blocked");
+  assert.equal(state.statusLabel, "Blocked");
+  assert.match(state.nextExpectedOutput ?? "", /user action to unblock/i);
 });
 
 test("tracked runs are split into current and background groups", () => {

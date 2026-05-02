@@ -49,7 +49,17 @@ export type AgentConversationState = {
   sessionId: string | null;
   previousResponseId: string | null;
   datasetContext?: DatasetConversationContext | null;
+  pendingAction?: PendingConversationAction | null;
 };
+
+type PendingConversationAction =
+  | {
+    type: "viral-tweets-proposal";
+    suggestedDatasetId: string | null;
+    datasetVerified: boolean;
+    defaultMetricField: string;
+    defaultSampleSize: number;
+  };
 
 type DatasetConversationEntry = {
   id: string;
@@ -2571,6 +2581,31 @@ function formatViralTweetsExperimentProposal(dataset: RemoteDatasetSummary | Rem
     "Waiting for your approval",
     "Reply with 1, 2, or 3 to start with that metric.",
     "Optional override: tell me a different sample size or ask for a control group before I launch anything.",
+  ].join("\n");
+}
+
+function looksLikeViralTweetsProposalReply(input: string) {
+  const lower = input.toLowerCase();
+  return /\bquote_tweet_count\b/.test(lower)
+    || /\bsample\s+\d+\s+tweets?\b/.test(lower)
+    || /^(?:1|2|3)$/.test(lower.trim())
+    || /\bretweet_count\b/.test(lower)
+    || /\bfavorite_count\b/.test(lower);
+}
+
+function formatViralTweetsProposalFollowUp(pending: Extract<PendingConversationAction, { type: "viral-tweets-proposal" }>) {
+  const datasetLabel = pending.suggestedDatasetId ? `\`${pending.suggestedDatasetId}\`` : "the tweets dataset";
+  return [
+    `I can use \`${pending.defaultMetricField}\` and sample ${pending.defaultSampleSize} tweets. No remote run has started yet.`,
+    "",
+    "Blocked on one setup detail",
+    `I need the dataset id before I can launch anything because RESEARCH runs against one mounted dataset at a time.${pending.datasetVerified && pending.suggestedDatasetId ? ` The best current match is ${datasetLabel}.` : ""}`,
+    "",
+    "Next reply",
+    pending.suggestedDatasetId
+      ? `Reply \`use ${pending.suggestedDatasetId}\` to use ${datasetLabel}, or send a different dataset id if you want another source.`
+      : "Reply with the dataset id you want me to use, or ask me to show tweet datasets first.",
+    "After that, I will inspect the dataset metadata to confirm whether `quote_tweet_count` is already present or needs to be derived from quote relationships before I start the run.",
   ].join("\n");
 }
 
@@ -5296,6 +5331,19 @@ export async function runAgentTurn(
   deps: AgentRuntimeDeps = createDefaultAgentRuntimeDeps(),
 ): Promise<AgentConversationState> {
   const resolvedDeps = deps;
+  const pendingViralTweetsProposal = conversationState?.pendingAction?.type === "viral-tweets-proposal"
+    ? conversationState.pendingAction
+    : null;
+  if (pendingViralTweetsProposal && looksLikeViralTweetsProposalReply(input)) {
+    emit({ role: "assistant", content: formatViralTweetsProposalFollowUp(pendingViralTweetsProposal) });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+      datasetContext: conversationState?.datasetContext ?? null,
+      pendingAction: pendingViralTweetsProposal,
+    };
+  }
+
   const datasetInventoryResponse = await maybeHandleDatasetInventory(input, initialSession, resolvedDeps);
   if (datasetInventoryResponse) {
     emit({ role: "tool", content: "Checking local datasets..." });
@@ -5310,6 +5358,7 @@ export async function runAgentTurn(
         inventory: datasetInventoryResponse.inventory,
         lastResolvedDataset: null,
       },
+      pendingAction: null,
     };
   }
 
@@ -5319,6 +5368,7 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      pendingAction: null,
     };
   }
 
@@ -5328,6 +5378,7 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      pendingAction: null,
     };
   }
 
@@ -5337,6 +5388,7 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      pendingAction: null,
     };
   }
 
@@ -5356,6 +5408,13 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      pendingAction: {
+        type: "viral-tweets-proposal",
+        suggestedDatasetId: /`([^`]+)`/.exec(vagueTweetsResponse)?.[1] ?? null,
+        datasetVerified: /is available in RESEARCH now\./u.test(vagueTweetsResponse),
+        defaultMetricField: "quote_tweet_count",
+        defaultSampleSize: 100,
+      },
     };
   }
 
@@ -5365,6 +5424,7 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      pendingAction: null,
     };
   }
 
@@ -5381,6 +5441,7 @@ export async function runAgentTurn(
           inventory: conversationState?.datasetContext?.inventory ?? [],
           lastResolvedDataset: datasetBriefingResponse.resolvedDataset ?? null,
         },
+      pendingAction: null,
     };
   }
 
@@ -5398,6 +5459,7 @@ export async function runAgentTurn(
         sessionId: conversationState?.sessionId ?? null,
         previousResponseId: conversationState?.previousResponseId ?? null,
         datasetContext: conversationState?.datasetContext ?? null,
+        pendingAction: null,
       };
     }
 

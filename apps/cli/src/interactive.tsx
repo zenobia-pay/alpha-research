@@ -268,6 +268,13 @@ function formatTaskStatus(status: InteractiveTaskState["status"]) {
   return status;
 }
 
+function statusBadgeColor(status: InteractiveTaskState["status"]) {
+  if (status === "blocked") return "red";
+  if (status === "waiting") return "green";
+  if (status === "working") return "yellow";
+  return "blue";
+}
+
 function TaskActivityIndicator({
   status,
   currentStep,
@@ -329,6 +336,7 @@ function TaskSummary({
     <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
       <Text bold color="green">research</Text>
       <Text>{`Status: ${formatTaskStatus(taskState.status)}`}</Text>
+      {taskState.statusLabel ? <Text color={statusBadgeColor(taskState.status)}>{`State: ${taskState.statusLabel}`}</Text> : null}
       {resolvedDataset ? <Text color="cyan">{`Context: ${resolvedDataset.id} (${resolvedDataset.scope} · ${resolvedDataset.state})`}</Text> : null}
       {preview ? (
         <Box flexDirection="column" marginTop={1}>
@@ -338,9 +346,12 @@ function TaskSummary({
           ))}
         </Box>
       ) : null}
-      {taskState.currentStep ? <Text>{`${taskState.status === "done" ? "Last step" : "Current step"}: ${taskState.currentStep}`}</Text> : null}
+      {taskState.currentStep && taskState.status !== "blocked" ? <Text>{`${taskState.status === "done" ? "Last step" : "Current step"}: ${taskState.currentStep}`}</Text> : null}
       {taskState.lastResult ? <Text>{`Last result: ${taskState.lastResult}`}</Text> : null}
       {taskState.nextExpectedOutput ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
+      {!taskState.focusRunId && (taskState.status === "waiting" || taskState.status === "blocked") ? (
+        <Text color="gray">Run state: no remote run has started for this thread yet.</Text>
+      ) : null}
       {taskState.planSteps.length > 0 ? (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Plan</Text>
@@ -417,7 +428,7 @@ function RunStatusPanel({
           <Text color="gray">{formatRunLastUpdate(focused)}</Text>
         </>
       ) : <Text>No active runs.</Text>}
-      {background.length > 0 ? (
+      {focused && background.length > 0 ? (
         <>
           <Text bold>{background.length === 1 ? "1 other active run" : `${background.length} other active runs`}</Text>
           <Text color="gray">Hidden by default so this thread stays focused. Ask about active runs when you want the full list.</Text>
@@ -467,7 +478,10 @@ function ResearchThread({
       </ThreadPrimitive.Messages>
 
       <TaskActivityIndicator status={taskState.status} currentStep={taskState.currentStep} startedAt={taskState.startedAt} />
-      {taskState.activity.length > 0 && taskState.status !== "done" ? (
+      {taskState.activity.length > 0
+      && taskState.status !== "done"
+      && !taskState.activity.every((item) => item === taskState.lastResult)
+      && !(taskState.status !== "working" && taskState.activity.length === 1) ? (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
           <Text bold>Recent progress</Text>
           {taskState.activity.map((item) => (
@@ -475,7 +489,7 @@ function ResearchThread({
           ))}
         </Box>
       ) : null}
-      {!showIdleSummary ? <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} /> : null}
+      {!showIdleSummary && taskState.focusRunId ? <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} /> : null}
 
       <Box flexDirection="column">
         <Text bold color={promptColor}>{messageCount > 0 ? (taskState.status === "done" ? "Reply" : "Reply in thread") : "Prompt"}</Text>

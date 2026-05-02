@@ -96,6 +96,71 @@ test("broad business-opportunity prompts stop at a scoped approval gate before a
   assert.doesNotMatch(joinedMessages, /Checking remote datasets|Loaded run history|Found \d+ remote datasets|Starting remote/i);
 });
 
+test("viral tweets proposal follow-up asks for one blocking input and keeps the run unstarted", async () => {
+  const fakeClient = {
+    async listDatasets() {
+      return {
+        datasets: [
+          {
+            id: "enriched-tweets",
+            name: "Enriched Tweets",
+            status: "ready",
+            description: "Tweet engagement dataset with quote_tweet_count.",
+          },
+        ],
+      };
+    },
+    async getDataset() {
+      return {
+        dataset: {
+          id: "enriched-tweets",
+          name: "Enriched Tweets",
+          status: "ready",
+          description: "Tweet engagement dataset with quote_tweet_count.",
+        },
+      };
+    },
+    async startRun() {
+      throw new Error("Run should not start during the proposal clarification loop.");
+    },
+    async respond() {
+      throw new Error("Local viral-tweets flow should handle this without generic model fallback.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+
+  const firstTurn = collect();
+  const nextState = await runAgentTurn(
+    "What’s up with tweets? Can you run an experiment for me on what types of tweets go viral?",
+    session,
+    firstTurn.emit,
+    undefined,
+    deps,
+  );
+  const secondTurn = collect();
+  await runAgentTurn(
+    "Use quote_tweet_count and sample 100 tweets.",
+    session,
+    secondTurn.emit,
+    nextState,
+    deps,
+  );
+
+  const firstJoined = firstTurn.messages.map((message) => message.content).join("\n");
+  const secondJoined = secondTurn.messages.map((message) => message.content).join("\n");
+  assert.match(firstJoined, /Before I start a remote run, here is the experiment I recommend\./);
+  assert.match(firstJoined, /Waiting for your approval before starting a run\./);
+  assert.match(secondJoined, /No remote run has started yet\./);
+  assert.match(secondJoined, /Blocked on one setup detail/i);
+  assert.match(secondJoined, /Reply `use enriched-tweets`/);
+  assert.match(secondJoined, /quote_tweet_count.*already present or needs to be derived/s);
+  assert.doesNotMatch(secondJoined, /Which dataset\/research environment to run this on|quoted_tweet_id == target\.tweet_id|separate quotes table/i);
+});
+
 test("product orientation presents command center identities without tools", async () => {
   const fakeClient = {
     async respond() {
