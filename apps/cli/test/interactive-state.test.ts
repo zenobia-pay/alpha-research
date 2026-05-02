@@ -93,6 +93,22 @@ test("approval-waiting progress line keeps the task in waiting state", () => {
   assert.match(state.nextExpectedOutput ?? "", /short user reply/i);
 });
 
+test("dataset-selected progress lines keep the user oriented on run kickoff", () => {
+  let state = beginInteractiveTask("run the viral tweets experiment");
+  state = applyAgentMessageToTaskState(state, {
+    role: "tool",
+    content: "Dataset selected: enriched-tweets (ready).",
+  });
+  state = applyAgentMessageToTaskState(state, {
+    role: "tool",
+    content: "Planning run: sample 100 viral tweets, label strict JSON, build a bar chart, and return 10 examples.",
+  });
+
+  assert.equal(state.status, "working");
+  assert.equal(state.currentStep, "Planning run: sample 100 viral tweets, label strict JSON, build a bar chart, and return 10 examples.");
+  assert.match(state.nextExpectedOutput ?? "", /run kickoff|sampling|labeling/i);
+});
+
 test("file import clarification is treated as waiting for user input", () => {
   const state = applyAgentMessageToTaskState(beginInteractiveTask("I have a CSV of customer support tickets on my desktop. How do I turn it into something I can research here?"), {
     role: "assistant",

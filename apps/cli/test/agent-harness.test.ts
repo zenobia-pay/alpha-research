@@ -766,15 +766,64 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
 
   const joinedMessages = messages.map((message) => message.content).join("\n");
   assert.match(joinedMessages, /Checking remote datasets/);
+  assert.match(joinedMessages, /Dataset selected: enriched-tweets \(ready\)\./);
+  assert.match(joinedMessages, /Planning run: sample 100 viral tweets, label strict JSON, build a bar chart, and return 10 examples\./);
   assert.match(joinedMessages, /Inspecting dataset enriched-tweets/);
+  assert.match(joinedMessages, /Field check: missing `hook_type`, `emotional_tone`, `controversy_level`\. I will warn in the run summary if those fields are unavailable\./);
   assert.match(joinedMessages, /Starting remote analysis for enriched-tweets/);
   assert.doesNotMatch(joinedMessages, /Running run_remote_transformation/);
+  assert.doesNotMatch(joinedMessages, /Top matches for "enriched-tweets"/);
   assert.match(joinedMessages, /Started remote analysis on enriched-tweets/);
   assert.match(joinedMessages, /Run: run-transform-viral \(queued\)/);
+  assert.match(joinedMessages, /Plan: top 0\.1% by `quote_tweet_count`, random sample 100, strict JSON labels for `hook_type`, `emotional_tone`, `controversy_level`, then produce a bar chart and 10 representative examples\./);
+  assert.match(joinedMessages, /Warning: requested fields not verified in dataset metadata: `hook_type`, `emotional_tone`, `controversy_level`\. The run will need to confirm them at execution time\./);
   assert.match(joinedMessages, /Expected artifacts: bar chart, structured JSON results, representative examples/);
   assert.match(joinedMessages, /research show active runs/);
   assert.match(joinedMessages, /Dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-transform-viral#run-run-transform-viral/);
   assert.doesNotMatch(joinedMessages, /Terminal session:/);
+});
+
+test("specific viral tweets experiment blocks clearly when the named dataset is not ready", async () => {
+  const calls: string[] = [];
+  const fakeClient = {
+    async listDatasets() {
+      calls.push("listDatasets");
+      return {
+        datasets: [{ id: "enriched-tweets", name: "Enriched Tweets", status: "uploading" }],
+      };
+    },
+    async getDataset() {
+      calls.push("getDataset");
+      throw new Error("Dataset inspection should not run before the dataset is ready.");
+    },
+    async startRun() {
+      calls.push("startRun");
+      throw new Error("Run should not start while the dataset is uploading.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.deepEqual(calls, ["listDatasets"]);
+  const final = messages.at(-1)?.content ?? "";
+  const joined = messages.map((message) => message.content).join("\n");
+  assert.match(joined, /Dataset selected: enriched-tweets \(uploading\)\./);
+  assert.match(joined, /Planning run: sample 100 viral tweets, label strict JSON, build a bar chart, and return 10 examples\./);
+  assert.match(final, /I accepted the experiment design, but I did not start the run because `enriched-tweets` is uploading\./i);
+  assert.match(final, /Planned work once it is ready: filter the top 0\.1% by `quote_tweet_count`/i);
+  assert.match(final, /wait for the dataset to finish uploading\/deploying, then rerun the same prompt/i);
 });
 
 test("dataset inspection surfaces schema evidence for requested analysis fields", async () => {

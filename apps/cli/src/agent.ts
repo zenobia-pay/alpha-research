@@ -383,6 +383,12 @@ function formatDatasetLifecycleLabel(status: string | undefined, deploymentStatu
   if (normalized === "ready" || deployment === "ready" || deployment === "deployed") {
     return "ready to use";
   }
+  if (normalized === "uploading") {
+    return "uploading";
+  }
+  if (deployment === "deploying" || normalized === "deploying") {
+    return "deploying";
+  }
   if (normalized === "provisioning" || normalized === "building" || normalized === "booting") {
     return "still being prepared";
   }
@@ -2387,6 +2393,207 @@ function extractRequestedDatasetReference(input: string) {
   return onOrUsing?.[1]?.toLowerCase() ?? null;
 }
 
+type SpecificViralTweetsRequest = {
+  datasetId: string;
+  metricField: string;
+  thresholdPercent: number;
+  sampleSize: number;
+  labelFields: string[];
+  wantsBarChart: boolean;
+  representativeExamples: number;
+};
+
+function parseSpecificViralTweetsRequest(input: string): SpecificViralTweetsRequest | null {
+  const explicitUsingMatch = input.match(/\busing\s+([a-z0-9][a-z0-9_-]*)(?:,|\s)/iu);
+  const datasetId = explicitUsingMatch?.[1]?.toLowerCase() ?? extractRequestedDatasetReference(input);
+  const lower = input.toLowerCase();
+  if (!datasetId || !/\bviral tweets?\b/.test(lower)) {
+    return null;
+  }
+  const thresholdMatch = input.match(/\btop\s+(\d+(?:\.\d+)?)%\s+by\s+([a-z][a-z0-9_]*)\b/i);
+  const sampleMatch = input.match(/\b(?:randomly\s+)?sample\s+(\d+)\s+viral tweets?\b/i);
+  const examplesMatch = input.match(/\b(\d+)\s+representative examples\b/i);
+  const labelMatch = input.match(/\blabel each for\s+(.+?)\s+using strict json\b/i);
+  if (!thresholdMatch?.[1] || !thresholdMatch[2] || !sampleMatch?.[1] || !labelMatch?.[1]) {
+    return null;
+  }
+  const labelFields = labelMatch[1]
+    .split(/,|\band\b/iu)
+    .map((value) => value.trim().replace(/[^a-z0-9_]/gi, "").toLowerCase())
+    .filter((value) => value.length > 0);
+  if (labelFields.length === 0) {
+    return null;
+  }
+  return {
+    datasetId,
+    metricField: thresholdMatch[2].toLowerCase(),
+    thresholdPercent: Number(thresholdMatch[1]),
+    sampleSize: Number(sampleMatch[1]),
+    labelFields,
+    wantsBarChart: /\bbar chart\b/i.test(input),
+    representativeExamples: Number(examplesMatch?.[1] ?? "0"),
+  };
+}
+
+function remoteDatasetFieldNames(dataset: RemoteDatasetDetail) {
+  const profileFields = schemaFieldNames(dataset.profile?.schema);
+  const recordDataset = dataset as Record<string, unknown>;
+  const rawFields = recordDataset.fields;
+  const explicitFields = Array.isArray(rawFields)
+    ? rawFields
+      .map((field: unknown) => typeof field === "string" ? field.trim() : "")
+      .filter((field) => field.length > 0)
+    : [];
+  return [...new Set([...profileFields, ...explicitFields].map((field) => field.toLowerCase()))];
+}
+
+function datasetSelectionProgressLine(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
+  const lifecycle = formatDatasetLifecycleLabel(dataset.status, dataset.deploymentStatus);
+  const detail = lifecycle === "ready to use" ? "ready" : lifecycle;
+  return `Dataset selected: ${dataset.id} (${detail}).`;
+}
+
+function buildSpecificViralTweetsRunPrompt(request: SpecificViralTweetsRequest) {
+  const labelList = request.labelFields.map((field) => `\`${field}\``).join(", ");
+  const outputLines = [
+    request.wantsBarChart ? "- a bar chart summarizing the label distribution" : null,
+    request.representativeExamples > 0 ? `- ${request.representativeExamples} representative tweet examples with their labels` : null,
+    "- a strict JSON result bundle for every labeled sample row",
+  ].filter(Boolean) as string[];
+  return [
+    `Use the mounted dataset \`${request.datasetId}\` for this analysis.`,
+    `Define viral tweets as the top ${request.thresholdPercent}% by \`${request.metricField}\`.`,
+    `Randomly sample ${request.sampleSize} viral tweets.`,
+    `For each sampled tweet, assign strict JSON labels for ${labelList}.`,
+    "Keep the output schema deterministic and machine-readable.",
+    "Work only from the mounted dataset fields; if a requested field is unavailable, say so explicitly in the summary and continue with the fields that are available.",
+    "Produce these outputs:",
+    ...outputLines,
+  ].join("\n");
+}
+
+async function maybeHandleSpecificViralTweetsExperiment(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!initialSession) {
+    return null;
+  }
+  const request = parseSpecificViralTweetsRequest(input);
+  if (!request) {
+    return null;
+  }
+
+  const client = deps.createRemoteClient(initialSession);
+  emit({ role: "tool", content: "Checking remote datasets..." });
+  const listed = await client.listDatasets().catch(() => null);
+  if (!listed?.datasets?.length) {
+    return "I could not verify that the requested dataset exists in RESEARCH, so I did not start the run. Ask `show my datasets` if you want the current remote inventory first.";
+  }
+
+  const selected = chooseDatasetBriefingTarget(request.datasetId, listed.datasets);
+  if (!selected) {
+    return `I could not find a dataset matching \`${request.datasetId}\`, so I did not start the run. Ask \`show my datasets\` to inspect the available dataset ids.`;
+  }
+
+  emit({ role: "tool", content: datasetSelectionProgressLine(selected) });
+  emit({ role: "tool", content: `Planning run: sample ${request.sampleSize} viral tweets, label strict JSON, build ${request.wantsBarChart ? "a bar chart" : "outputs"}, and return ${request.representativeExamples} examples.` });
+
+  const ready = normalizeRemoteDatasetState(selected) === "ready";
+  if (!ready) {
+    return [
+      `I accepted the experiment design, but I did not start the run because \`${selected.id}\` is ${formatDatasetLifecycleLabel(selected.status, selected.deploymentStatus)}.`,
+      `Dataset: ${selected.id}`,
+      `State: ${selected.status ?? selected.deploymentStatus ?? "unknown"}`,
+      "Planned work once it is ready: filter the top 0.1% by `quote_tweet_count`, randomly sample 100 tweets, label strict JSON for `hook_type`, `emotional_tone`, and `controversy_level`, then produce a bar chart and 10 representative examples.",
+      "Next: wait for the dataset to finish uploading/deploying, then rerun the same prompt.",
+    ].join("\n");
+  }
+
+  emit({ role: "tool", content: `Inspecting dataset ${selected.id}...` });
+  const detail = await client.getDataset(selected.id).catch(() => null);
+  if (!detail?.dataset) {
+    return `I found \`${selected.id}\` and it appears ready, but I could not inspect its metadata to verify the requested fields. Retry once dataset inspection is available.`;
+  }
+
+  const availableFields = remoteDatasetFieldNames(detail.dataset);
+  const requestedFields = [request.metricField, ...request.labelFields];
+  const missingFields = requestedFields.filter((field) => !availableFields.includes(field.toLowerCase()));
+  const fieldStatusLine = missingFields.length > 0
+    ? `Field check: missing ${missingFields.map((field) => `\`${field}\``).join(", ")}. I will warn in the run summary if those fields are unavailable.`
+    : `Field check: confirmed ${requestedFields.map((field) => `\`${field}\``).join(", ")}.`;
+  emit({ role: "tool", content: fieldStatusLine });
+
+  const toolContext: ToolExecutionContext = {
+    session: initialSession,
+    sessionId: null,
+    emit,
+    deps,
+  };
+  const target = await resolveRunnableEnvironmentDataset(toolContext, client, request.datasetId, { datasetId: request.datasetId, prompt: input });
+  const datasetId = target.datasetId;
+  emit({ role: "tool", content: summarizeResolvedDataset(target, "this analysis") });
+  emit({ role: "tool", content: `Starting remote analysis for ${datasetId}...` });
+
+  let result;
+  try {
+    result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, buildSpecificViralTweetsRunPrompt(request)), {
+      type: "transform",
+      config: withStandardAnalysisResources({
+        scriptOutline: [
+          `Compute viral threshold as the top ${request.thresholdPercent}% of rows by ${request.metricField}.`,
+          `Randomly sample ${request.sampleSize} viral tweets after thresholding.`,
+          `Label each sampled tweet with strict JSON fields: ${request.labelFields.join(", ")}.`,
+          request.wantsBarChart ? "Render a bar chart from the label counts." : null,
+          request.representativeExamples > 0 ? `Return ${request.representativeExamples} representative labeled examples.` : null,
+          missingFields.length > 0 ? `Warn explicitly if these requested fields are unavailable: ${missingFields.join(", ")}.` : null,
+        ].filter(Boolean).join("\n"),
+      }, datasetId),
+    });
+  } catch (error) {
+    if (error instanceof RemoteRequestError) {
+      const summary = summarizeBusyDatasetConflict(error, {
+        target,
+        purpose: "this viral-tweets analysis",
+        expectedArtifacts: ["bar chart", "structured JSON results", "representative examples"],
+      });
+      if (summary) {
+        return summary;
+      }
+    }
+    throw error;
+  }
+
+  if (initialSession) {
+    await trackRemoteRun({
+      id: result.run.id,
+      datasetId: result.run.datasetId,
+      origin: initialSession.origin,
+      status: result.run.status,
+      prompt: result.run.prompt,
+      createdAt: result.run.createdAt,
+      updatedAt: result.run.updatedAt,
+    });
+    spawnRunWatcher(result.run.id);
+  }
+
+  const summaryLines = [
+    `Started remote analysis on ${result.run.datasetId}.`,
+    `Dataset: ${result.run.datasetId}`,
+    `Run: ${result.run.id} (${normalizeAsyncRunStatus(result.run.status)})`,
+    `Plan: top ${request.thresholdPercent}% by \`${request.metricField}\`, random sample ${request.sampleSize}, strict JSON labels for ${request.labelFields.map((field) => `\`${field}\``).join(", ")}, then produce ${request.wantsBarChart ? "a bar chart" : "analysis outputs"}${request.representativeExamples > 0 ? ` and ${request.representativeExamples} representative examples` : ""}.`,
+    missingFields.length > 0
+      ? `Warning: requested fields not verified in dataset metadata: ${missingFields.map((field) => `\`${field}\``).join(", ")}. The run will need to confirm them at execution time.`
+      : "Field check: the requested metric and label fields were verified in dataset metadata before launch.",
+    "Expected artifacts: bar chart, structured JSON results, representative examples.",
+    "Next: the run will keep processing in the background. Follow it in the dashboard or ask `research show active runs`.",
+    `Dashboard: ${dashboardRunUrl(initialSession.origin, result.run.id)}`,
+  ];
+  return summaryLines.join("\n");
+}
+
 function matchesDatasetReference(dataset: RemoteDatasetSummary, reference: string) {
   const normalizedName = `${dataset.id} ${dataset.name}`.toLowerCase();
   return dataset.id.toLowerCase() === reference || normalizedName.includes(reference);
@@ -4312,6 +4519,15 @@ export async function runAgentTurn(
   const directResponse = getLocalDirectResponse(input);
   if (directResponse) {
     emit({ role: "assistant", content: directResponse });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+    };
+  }
+
+  const specificViralTweetsResponse = await maybeHandleSpecificViralTweetsExperiment(input, initialSession, emit, deps);
+  if (specificViralTweetsResponse) {
+    emit({ role: "assistant", content: specificViralTweetsResponse });
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,

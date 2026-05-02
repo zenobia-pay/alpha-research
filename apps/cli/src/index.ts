@@ -71,8 +71,11 @@ export function initialPromptModeStatus(prompt: string) {
   if (/\bdataset\b|\bsource\b|\bcoverage\b|\bquality\b|\blimitation\b/.test(lower)) {
     return "Inspecting dataset details...";
   }
+  if (/\bviral tweets?\b|\bquote_tweet_count\b|\bstrict json\b|\brepresentative examples\b/.test(lower)) {
+    return "Planning dataset-backed research...";
+  }
   if (/\banaly[sz]e\b|\bresearch\b|\bhypothesis\b|\bexperiment\b/.test(lower)) {
-    return "Scoping the research task...";
+    return "Planning dataset-backed research...";
   }
   return "Thinking...";
 }

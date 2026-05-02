@@ -148,6 +148,8 @@ function inferNextExpectedOutput(prompt: string) {
 
 function inferNextExpectedFromProgress(text: string) {
   if (/Checking remote datasets/u.test(text)) return "A recommendation or build kickoff based on available datasets.";
+  if (/Dataset selected:/u.test(text)) return "Either a run kickoff or a clear readiness/blocking update for the selected dataset.";
+  if (/Planning run:/u.test(text)) return "A remote run kickoff that preserves the requested sampling, labeling, and output design.";
   if (/Starting dataset build/u.test(text)) return "A remote build run with artifact expectations.";
   if (/Inspecting dataset/u.test(text)) return "A dataset briefing or a readiness summary.";
   if (/Waiting for your approval before starting a run\./u.test(text)) return "A short user reply so RESEARCH can continue with the agreed experiment scope.";
@@ -175,7 +177,7 @@ function deriveAssistantStatus(text: string): TaskStatus {
 }
 
 function looksLikeProgress(text: string) {
-  return /\.\.\.$/u.test(text) || /^(Checking|Inspecting|Starting|Resolving|Creating|Preparing|Uploading|Finalizing|Deploying|Retrieving|Waiting)\b/u.test(text);
+  return /\.\.\.$/u.test(text) || /^(Checking|Inspecting|Starting|Resolving|Creating|Preparing|Uploading|Finalizing|Deploying|Retrieving|Waiting|Dataset selected:|Planning run:)\b/u.test(text);
 }
 
 function extractRunId(text: string) {
