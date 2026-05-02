@@ -2,6 +2,8 @@
 
 Canonical public datasets are refreshed by the ingest worker. The scheduler should be owned by the backend or by a systemd timer on `alpha-research-ingest`; the CLI should only start ad hoc builds and analyses.
 
+Canonical jobs should use the `canonical-public` resource profile unless the source registry has a measured reason to request a larger profile. Do not resize every canonical dataset workspace to 500GiB.
+
 ## Jobs
 
 Each canonical dataset has two daily jobs:
@@ -67,3 +69,13 @@ The first production implementation can use a single daily worker loop:
 5. Persist run ids, statuses, artifact URLs, and latest successful manifest path in the catalog.
 
 Do not allow expansion jobs to ingest sources that require credentials, paid access, unclear licenses, scraping behind anti-bot controls, or user-provided private data. Those candidates should stay in `source_registry.plan.json` until a human promotes them.
+
+## Storage and Concurrency
+
+Daily canonical jobs should publish immutable dataset versions to object storage:
+
+```text
+datasets/<datasetId>/versions/<versionId>/
+```
+
+Analysis, briefing, and expansion-planning runs should bind to a published dataset version and read it concurrently. Only refresh/publish jobs need a writer lock for a dataset. A failed provisioning or refresh attempt must mark the job/deployment as failed and preserve the error in run events so the dataset does not remain stuck in `deploying`.

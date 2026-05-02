@@ -74,11 +74,83 @@ export type AgentRuntimeDeps = {
   listLocalDatasets: () => Promise<DatasetInstanceSummary[]>;
 };
 
-const STANDARD_ANALYSIS_RESOURCES = {
-  profile: "standard-analysis",
-  runnerSize: "s-8vcpu-16gb",
-  workspaceDiskGb: 500,
-};
+const CANONICAL_PUBLIC_DATASET_IDS = new Set([
+  "econ",
+  "sociology",
+  "philosophy",
+  "history",
+  "literature",
+  "political-science",
+  "anthropology",
+  "linguistics",
+  "classics",
+]);
+
+const RESOURCE_PROFILES = {
+  "briefing": {
+    profile: "briefing",
+    runnerSize: "s-2vcpu-4gb",
+    workspaceDiskGb: 20,
+    storageMode: "object-store-versioned",
+  },
+  "canonical-public": {
+    profile: "canonical-public",
+    runnerSize: "s-4vcpu-8gb",
+    workspaceDiskGb: 50,
+    storageMode: "object-store-versioned",
+    datasetAccess: "read-only-version",
+    publishMode: "versioned",
+  },
+  "standard-analysis": {
+    profile: "standard-analysis",
+    runnerSize: "s-8vcpu-16gb",
+    workspaceDiskGb: 100,
+    storageMode: "object-store-versioned",
+    datasetAccess: "read-only-version",
+  },
+  "large-ingest": {
+    profile: "large-ingest",
+    runnerSize: "s-8vcpu-16gb",
+    workspaceDiskGb: 500,
+    storageMode: "object-store-versioned",
+    publishMode: "versioned",
+  },
+} as const;
+
+type ResourceProfileName = keyof typeof RESOURCE_PROFILES;
+
+const STANDARD_ANALYSIS_RESOURCES = RESOURCE_PROFILES["standard-analysis"];
+
+function isResourceProfileName(value: unknown): value is ResourceProfileName {
+  return typeof value === "string" && Object.hasOwn(RESOURCE_PROFILES, value);
+}
+
+function selectEnvironmentResourceProfile(input: Record<string, unknown>, publicOnly: boolean): ResourceProfileName {
+  if (isResourceProfileName(input.resourceProfile)) {
+    return input.resourceProfile;
+  }
+  const datasetId = typeof input.datasetId === "string" ? input.datasetId.trim().toLowerCase() : "";
+  const text = [
+    input.name,
+    input.description,
+    input.sourceDescription,
+    input.prompt,
+  ].filter((value): value is string => typeof value === "string").join(" ").toLowerCase();
+  if (publicOnly || CANONICAL_PUBLIC_DATASET_IDS.has(datasetId) || /\bcanonical\b|\bpublic[- ]data\b/.test(text)) {
+    return "canonical-public";
+  }
+  return "standard-analysis";
+}
+
+function environmentResources(input: Record<string, unknown>, publicOnly: boolean) {
+  const profileName = selectEnvironmentResourceProfile(input, publicOnly);
+  return {
+    ...RESOURCE_PROFILES[profileName],
+    ...(input.resources && typeof input.resources === "object"
+      ? input.resources as Record<string, unknown>
+      : {}),
+  };
+}
 
 const DATASET_BRIEFING_ARTIFACTS = [
   { type: "markdown", title: "Dataset Briefing" },
@@ -2977,6 +3049,13 @@ export function createToolRegistry(): ToolDefinition[] {
             items: { type: "string" },
           },
           prompt: { type: "string" },
+          resourceProfile: {
+            type: "string",
+            enum: Object.keys(RESOURCE_PROFILES),
+          },
+          resources: {
+            type: "object",
+          },
           artifacts: {
             type: "array",
             items: { type: "object" },
@@ -3036,7 +3115,7 @@ export function createToolRegistry(): ToolDefinition[] {
             publicSources,
             privateSources,
             prompt,
-            resources: STANDARD_ANALYSIS_RESOURCES,
+            resources: environmentResources(input, false),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
           });
         } catch (error) {
@@ -3086,6 +3165,13 @@ export function createToolRegistry(): ToolDefinition[] {
           description: { type: "string" },
           sourceDescription: { type: "string" },
           prompt: { type: "string" },
+          resourceProfile: {
+            type: "string",
+            enum: Object.keys(RESOURCE_PROFILES),
+          },
+          resources: {
+            type: "object",
+          },
           artifacts: {
             type: "array",
             items: { type: "object" },
@@ -3109,7 +3195,7 @@ export function createToolRegistry(): ToolDefinition[] {
             description: typeof input.description === "string" ? input.description : undefined,
             sourceDescription: String(input.sourceDescription),
             prompt,
-            resources: STANDARD_ANALYSIS_RESOURCES,
+            resources: environmentResources(input, true),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
           });
         } catch (error) {

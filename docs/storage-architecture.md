@@ -17,22 +17,22 @@
 - optional keyword search: Typesense, Meilisearch, or OpenSearch
 - tabular/time-series source data: partitioned Parquet
 - text projections: sharded JSONL, ideally zstd-compressed in production
-- normalized working set: mounted DigitalOcean volume attached to ingest/orchestrator droplets
+- normalized working set: ephemeral worker scratch plus optional mounted DigitalOcean cache volumes
 
 ## Remote Ingest Direction
 
-For large datasets, normalization should happen remotely on infrastructure that already has access to the mounted volume.
+For large datasets, normalization should happen remotely on infrastructure that can read and write the canonical object store. Mounted volumes are scratch/cache, not the source of truth.
 
 Recommended flow:
 
 1. the CLI authenticates to Alpha Research
 2. the backend plans ingest with the platform OpenAI key, not the user's local machine
 3. source data is uploaded or otherwise made reachable to a remote ingest worker
-4. the ingest worker writes `manifest.json` plus shard files onto the mounted DigitalOcean volume
-5. serving droplets attach that volume or hydrate a local cache from it
-6. canonical long-term artifacts can then be mirrored into object storage
+4. the ingest worker writes raw snapshots, normalized shards, manifests, and artifacts to object storage
+5. Postgres records the dataset version, source registry, shard inventory, quality reports, and latest-version pointer
+6. serving and runner droplets hydrate only the needed partitions into local scratch/cache
 
-This avoids making the user's laptop the source of truth for deployment, and keeps the normalized dataset package colocated with the droplets that need to serve it
+This avoids making the user's laptop or any single mounted volume the source of truth for deployment. It also allows multiple read-only analysis runs to use the same dataset version concurrently while a refresh builds the next version.
 
 ## Local Package Format
 
@@ -84,3 +84,5 @@ The intended next production steps are:
 2. persist manifest and shard metadata into Postgres
 3. register text/vector projections in Qdrant and an optional keyword index
 4. let API nodes hydrate a local shard cache on demand instead of relying on a shared volume
+5. version every published dataset and bind runs to immutable dataset versions
+6. persist run logs and artifacts to Postgres/object storage while workers execute
