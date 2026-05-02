@@ -753,7 +753,7 @@ test("dataset describe request starts briefing run with required artifacts", asy
 
   const final = messages.at(-1)?.content ?? "";
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Searching datasets/);
+  assert.match(joined, /Locating dataset econ for a trust briefing/);
   assert.match(joined, /Selected econ for this briefing \(Economics\)/);
   assert.match(joined, /Generating dataset briefing/);
   assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
@@ -1129,6 +1129,107 @@ test("dataset describe request falls back to saved briefing when dataset is busy
   assert.match(final, /FRED/);
   assert.match(final, /Artifacts: Dataset Briefing and Dataset Profile/);
   assert.doesNotMatch(final, /Started dataset briefing run/);
+});
+
+test("dataset trust briefing reuses saved profile before starting a new run", async () => {
+  const calls: string[] = [];
+  const fakeClient = {
+    async listDatasets() {
+      calls.push("listDatasets");
+      return {
+        datasets: [
+          { id: "econ", name: "Economic Indicators", status: "ready" },
+        ],
+      };
+    },
+    async getDataset(datasetId: string) {
+      calls.push(`getDataset:${datasetId}`);
+      return {
+        dataset: {
+          id: "econ",
+          name: "Economic Indicators",
+          status: "ready",
+          profile: {
+            sources: ["FRED", "BLS"],
+            schema: [{ name: "series_id", type: "string" }, { name: "value", type: "number" }],
+            timeCoverage: { start: "2010-01", end: "2026-03" },
+            quality: "Validated schemas and normalized series coverage.",
+            limitations: ["Some series have different publication lags."],
+            briefingArtifactId: "artifact-briefing",
+            profileArtifactId: "artifact-profile",
+            describedAt: "2026-04-30T12:00:00.000Z",
+          },
+        },
+      };
+    },
+    async startRun() {
+      calls.push("startRun");
+      throw new Error("Saved profile should be used instead of starting a new run.");
+    },
+    async respond() {
+      calls.push("respond");
+      throw new Error("Dataset trust briefing should be handled locally.");
+    },
+    async appendSessionEntry() {
+      return { id: "entry-briefing-profile" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Before I use the econ dataset, help me understand what's inside it, where it came from, and whether I can trust it.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  assert.deepEqual(calls, ["listDatasets", "getDataset:econ"]);
+  const transcript = messages.map((message) => message.content).join("\n");
+  assert.match(transcript, /Locating dataset econ for a trust briefing/i);
+  assert.match(transcript, /Reading saved profile for econ: sources, schema, coverage, quality, limitations/i);
+  assert.match(transcript, /Dataset Briefing: Economic Indicators/);
+  assert.match(transcript, /Sources: FRED; BLS/);
+  assert.match(transcript, /Time Coverage: start: 2010-01; end: 2026-03/);
+  assert.match(transcript, /Quality & Validation: Validated schemas and normalized series coverage\./);
+  assert.match(transcript, /Limitations & Known Gaps: Some series have different publication lags\./);
+  assert.doesNotMatch(transcript, /Started dataset briefing run/);
+});
+
+test("remote transport failures surface a concise blocked summary", async () => {
+  const fakeClient = {
+    async respond() {
+      throw new RemoteRequestError(
+        "Remote transport failed for /api/cli/respond. fetch failed | Connect Timeout Error | UND_ERR_CONNECT_TIMEOUT",
+        503,
+        "/api/cli/respond",
+      );
+    },
+    async appendSessionEntry() {
+      return { id: "entry-transport-blocked" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Show me the latest dataset briefing for econ.", session, emit, undefined, deps);
+
+  const final = messages.at(-1)?.content ?? "";
+  assert.match(final, /^Blocked: remote request failed\./);
+  assert.match(final, /What failed: \/api\/cli\/respond/);
+  assert.match(final, /Status: backend unreachable/);
+  assert.match(final, /no new remote result was retrieved in this attempt/i);
+  assert.match(final, /retry once when the backend is reachable/i);
+  assert.doesNotMatch(final, /TypeError: fetch failed|undici|apps\/cli\/dist|alpharesearch\.nyc:443/i);
 });
 
 test("run result retrieval includes selected run context and artifacts", async () => {

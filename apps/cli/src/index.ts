@@ -13,6 +13,15 @@ import { buildInstallPrompt, handleFixture, printUsage, runScriptedCommand } fro
 import { RemoteApiClient } from "./remote.js";
 import { login, readSession } from "./session.js";
 
+function extractPromptDatasetReference(prompt: string) {
+  const explicit = prompt.match(/\b(?:the\s+)?([a-z0-9][a-z0-9_-]*)\s+dataset\b/i);
+  if (explicit?.[1]) {
+    return explicit[1];
+  }
+  const implicit = prompt.match(/\bdataset\s+([a-z0-9][a-z0-9_-]*)\b/i);
+  return implicit?.[1] ?? null;
+}
+
 function enterAltScreen() {
   process.stdout.write("\u001b[?1049h\u001b[H");
 }
@@ -59,6 +68,7 @@ function wrapForStdout(line: string) {
 
 export function initialPromptModeStatus(prompt: string) {
   const lower = prompt.trim().toLowerCase();
+  const datasetReference = extractPromptDatasetReference(prompt);
   if (/\bwhich dataset should i use\b/.test(lower)) {
     return "Looking up candidate datasets...";
   }
@@ -77,8 +87,10 @@ export function initialPromptModeStatus(prompt: string) {
   if (/\bresult\b|\bartifact\b|\blast run\b|\bstatus\b|\bprogress\b/.test(lower)) {
     return "Checking run state...";
   }
-  if (/\bdataset\b|\bsource\b|\bcoverage\b|\bquality\b|\blimitation\b/.test(lower)) {
-    return "Inspecting dataset details...";
+  if (/\bdataset\b|\bsource\b|\bcoverage\b|\bquality\b|\blimitation\b|\btrust\b|\btrustworthy\b|\bprovenance\b|\bwhat'?s inside\b|\bwhere it came from\b|\bunderstand\b/.test(lower)) {
+    return datasetReference
+      ? `Inspecting ${datasetReference}: sources, schema, coverage, quality, limitations...`
+      : "Inspecting dataset: sources, schema, coverage, quality, limitations...";
   }
   if (/\bviral tweets?\b|\bquote_tweet_count\b|\bstrict json\b|\brepresentative examples\b/.test(lower)) {
     return "Planning dataset-backed research...";
@@ -94,6 +106,14 @@ function printPromptModeHeader() {
 }
 
 function promptModeKickoffMessage(prompt: string) {
+  const datasetReference = extractPromptDatasetReference(prompt);
+  if (
+    datasetReference
+    && /\bdataset\b/i.test(prompt)
+    && /\b(trust|trustworthy|provenance|source|sources|quality|limitation|limitations|what'?s inside|where it came from|understand)\b/i.test(prompt)
+  ) {
+    return `Request understood: brief ${datasetReference} with sources, schema, coverage, quality checks, limitations, and trust signals.`;
+  }
   const datasetMatch = prompt.match(/\busing\s+the\s+([a-z0-9][a-z0-9_-]*)\s+dataset\b/i)
     ?? prompt.match(/\busing\s+([a-z0-9][a-z0-9_-]*)\b/i);
   const yearRangeMatch = prompt.match(/\bfrom\s+(\d{4})\s+(?:through|to)\s+(\d{4})\b/i);
@@ -135,6 +155,12 @@ function formatPromptModeMessage(message: AgentMessage, previousMessages: AgentM
       return {
         ...message,
         content: content.replace("Run startup:", "Still initializing:"),
+      };
+    }
+    if (content === "Searching datasets...") {
+      return {
+        ...message,
+        content: "Locating the requested dataset...",
       };
     }
     const previousContent = previousMessages.at(-1)?.content.trim();

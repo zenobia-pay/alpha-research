@@ -34,7 +34,14 @@ test("prompt mode shows an explicit input-needed state for vague housing risk qu
 test("prompt mode treats dataset briefing prompts as dataset inspection work", () => {
   assert.equal(
     initialPromptModeStatus("Describe the econ dataset for me."),
-    "Inspecting dataset details...",
+    "Inspecting econ: sources, schema, coverage, quality, limitations...",
+  );
+});
+
+test("prompt mode treats dataset trust prompts as dataset inspection work", () => {
+  assert.equal(
+    initialPromptModeStatus("Before I use the econ dataset, help me understand what's inside it, where it came from, and whether I can trust it."),
+    "Inspecting econ: sources, schema, coverage, quality, limitations...",
   );
 });
 

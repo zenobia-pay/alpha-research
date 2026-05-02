@@ -1663,17 +1663,22 @@ function summarizeRemoteFailure(error: RemoteRequestError) {
   const payload = parseRemoteErrorJson(error);
   const rawMessage = typeof payload?.error === "string" ? payload.error : error.message;
   const isCapacity = error.status === 429 || /capacity|volume|limit|quota|too many/i.test(rawMessage);
+  const isTransport = error.status === 503 || /transport failed|fetch failed|connect timeout|timed out|econnreset|enotfound|eai_again|socket/i.test(rawMessage);
   const lines = [
     "Blocked: remote request failed.",
     `What failed: ${error.path}`,
-    `Status: ${error.status}`,
+    `Status: ${isTransport ? "backend unreachable" : error.status}`,
     "",
     isCapacity
       ? "The backend appears to be blocked by an infrastructure capacity or rate limit. No completed result is available from this attempt."
-      : "The backend rejected the request before the CLI could finish the work.",
+      : isTransport
+        ? "The CLI could not reach the backend, so no new remote result was retrieved in this attempt."
+        : "The backend rejected the request before the CLI could finish the work.",
   ];
   if (isCapacity) {
     lines.push("Next: retry later, or ask an operator to inspect backend capacity before retrying.");
+  } else if (isTransport) {
+    lines.push("Next: retry once when the backend is reachable, or run `research debug run <run-id>` if you were waiting on an existing run.");
   } else {
     lines.push("Next: retry once, or run with debug diagnostics if it fails again.");
   }
@@ -2791,7 +2796,7 @@ function shouldHandleDatasetBriefingRequest(input: string) {
   if (/\b(analy[sz]e|analysis|hypothesis|experiment|trend|why|compare|correlation|predict)\b/.test(lower)) {
     return false;
   }
-  return /\b(describe|brief|briefing|document|documentation|profile|inventory|what is inside|what's inside|inspect)\b/.test(lower);
+  return /\b(describe|brief|briefing|document|documentation|profile|inventory|what is inside|what's inside|inspect|understand|trust|trustworthy|where it came from|provenance|source|sources|quality|limitation|limitations)\b/.test(lower);
 }
 
 function chooseDatasetBriefingTarget(reference: string, datasets: RemoteDatasetSummary[]) {
@@ -3105,7 +3110,7 @@ async function maybeHandleDatasetBriefingRequest(
   if (typeof client.listDatasets !== "function") {
     return null;
   }
-  emit({ role: "tool", content: "Searching datasets..." });
+  emit({ role: "tool", content: `Locating dataset ${reference} for a trust briefing...` });
   const listed = await client.listDatasets().catch(() => null);
   if (!listed) {
     return null;
@@ -3118,6 +3123,16 @@ async function maybeHandleDatasetBriefingRequest(
     role: "tool",
     content: `Selected ${selected.id} for this briefing${selected.name?.trim() && selected.name.trim().toLowerCase() !== selected.id.toLowerCase() ? ` (${selected.name.trim()})` : ""}.`,
   });
+  if (typeof client.getDataset === "function") {
+    emit({ role: "tool", content: `Reading saved profile for ${selected.id}: sources, schema, coverage, quality, limitations...` });
+    const detail = await client.getDataset(selected.id).catch(() => null);
+    if (detail?.dataset) {
+      const savedProfile = formatDatasetProfileFallback(detail.dataset);
+      if (savedProfile) {
+        return savedProfile;
+      }
+    }
+  }
   const toolContext: ToolExecutionContext = {
     session: initialSession,
     sessionId: null,
