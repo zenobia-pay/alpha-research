@@ -2524,6 +2524,138 @@ function maybeHandleVagueMarketQuestion(input: string) {
   ].join("\n");
 }
 
+function isCountyMonthHousingCycleBuildRequest(input: string) {
+  const lower = input.toLowerCase();
+  if (!/\b(make|build|create)\b/.test(lower) || !/\bdataset\b/.test(lower)) {
+    return false;
+  }
+  return /\bcounty-month\b/.test(lower)
+    && /\bhousing(?:-cycle|\s+cycle)?\b/.test(lower)
+    && /\b(?:fred|census|zillow|bls|fhfa|nber)\b/.test(lower);
+}
+
+function extractPromptYearRange(input: string) {
+  const match = input.match(/\bfrom\s+(\d{4})\s+(?:through|to)\s+(\d{4})\b/iu);
+  if (!match?.[1] || !match[2]) return null;
+  return { start: match[1], end: match[2] };
+}
+
+function countyMonthHousingCycleDatasetPrompt(input: string) {
+  const years = extractPromptYearRange(input);
+  const yearText = years ? ` from ${years.start} to ${years.end}` : "";
+  return [
+    `Build or extend a county-month housing-cycle research dataset${yearText}.`,
+    "Use public sources only and preserve exact provenance for every fetched table.",
+    "Required sources: FRED interest-rate and macro series; Census/ACS county population and income; Zillow home values and rents; BLS employment, unemployment, and CPI; FHFA house price index; NBER recession indicators.",
+    "Normalize all sources to a county-month panel with explicit join keys and documented temporal alignment.",
+    "Validate source URLs, row counts, missingness, join-key integrity, and temporal coverage before marking the dataset ready.",
+    "Produce a data dictionary, manifest, validation report, and source catalog that explain what was fetched, how it was joined, and where quality is incomplete.",
+    "If an existing economics environment already contains part of this source catalog, extend it instead of rebuilding duplicate source work.",
+    "",
+    `Original user request: ${input.replace(/\s+/gu, " ").trim()}`,
+  ].join("\n");
+}
+
+function countyMonthHousingCycleArtifacts() {
+  return [
+    { type: "manifest", title: "Dataset manifest" },
+    { type: "markdown", title: "Validation report" },
+    { type: "markdown", title: "Data dictionary" },
+    { type: "json", title: "Schema and source catalog" },
+  ];
+}
+
+async function maybeHandleCountyMonthHousingCycleBuild(
+  input: string,
+  initialSession: SessionRecord | null,
+  emit: (message: AgentMessage) => void,
+  deps: AgentRuntimeDeps,
+) {
+  if (!initialSession || !isCountyMonthHousingCycleBuildRequest(input)) {
+    return null;
+  }
+
+  emit({ role: "tool", content: "Checking remote datasets..." });
+  const client = deps.createRemoteClient(initialSession);
+  const existingDatasets = await client.listDatasets().catch(() => ({ datasets: [] }));
+  const topicTokens = datasetSelectionTopicTokens(input);
+  const ranked = existingDatasets.datasets
+    .map((dataset) => ({ dataset, score: scoreDatasetForTopic(dataset, topicTokens) }))
+    .sort((left, right) => right.score - left.score || String(right.dataset.createdAt ?? "").localeCompare(String(left.dataset.createdAt ?? "")));
+  const primary = ranked[0]?.dataset ?? null;
+  const fallbackDatasetId = "econ-housing-cycle";
+  const requestedDatasetId = primary && ranked[0] && ranked[0].score >= 2 ? primary.id : fallbackDatasetId;
+  const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, {
+    datasetId: requestedDatasetId,
+    name: "County-month housing-cycle economics panel",
+    sourceDescription: "Public county-month economics panel for housing-cycle research.",
+  }, existingDatasets.datasets);
+  const matchedDataset = existingDatasets.datasets.find((dataset) => dataset.id === datasetId) ?? primary;
+  const lifecycle = matchedDataset ? formatDatasetLifecycleLabel(matchedDataset.status, matchedDataset.deploymentStatus) : "new build";
+  const evidence = matchedDataset ? summarizeDatasetTradeoff(matchedDataset) : "public economics source catalog";
+
+  emit({
+    role: "tool",
+    content: matchedDataset
+      ? `Using dataset ${datasetId} (${lifecycle}). Strongest current base: ${evidence}.`
+      : `No strong existing match found. Creating ${datasetId} for this county-month housing-cycle build.`,
+  });
+  emit({
+    role: "tool",
+    content: "Build target: county-month panel with provenance, row counts, missingness, join-key checks, temporal coverage, data dictionary, and manifest.",
+  });
+  emit({ role: "tool", content: "Starting dataset build..." });
+
+  const prompt = countyMonthHousingCycleDatasetPrompt(input);
+  const artifacts = countyMonthHousingCycleArtifacts();
+  let result;
+  try {
+    result = await client.createPublicDataEnvironment(datasetId, {
+      name: datasetId === "econ"
+        ? "Econ housing-cycle extension"
+        : "County-month housing-cycle economics panel",
+      description: "County-month economics panel for testing housing-cycle hypotheses.",
+      sourceDescription: "Public macro, housing, labor, demographic, inflation, and recession data normalized to county-month grain.",
+      prompt,
+      resources: STANDARD_ANALYSIS_RESOURCES,
+      artifacts,
+    });
+  } catch (error) {
+    if (error instanceof RemoteRequestError) {
+      const summary = summarizeBusyDatasetConflict(error, {
+        target: { requestedDatasetId, datasetId, datasetName: matchedDataset?.name, reusedExisting: datasetId !== requestedDatasetId },
+        purpose: "this county-month housing-cycle build",
+        expectedArtifacts: ["Dataset manifest", "Validation report", "Data dictionary", "Schema and source catalog"],
+      });
+      if (summary) {
+        return summary;
+      }
+    }
+    throw error;
+  }
+
+  await trackRemoteRun({
+    id: result.run.id,
+    datasetId: result.run.datasetId,
+    origin: initialSession.origin,
+    status: result.run.status,
+    prompt: result.run.prompt ?? prompt,
+    createdAt: result.run.createdAt,
+    updatedAt: result.run.updatedAt,
+  });
+  spawnRunWatcher(result.run.id);
+
+  return formatEnvironmentBuildSummary({
+    buildKind: "public-data environment",
+    datasetId: result.run.datasetId,
+    datasetName: datasetId === "econ" ? "Econ housing-cycle extension" : "County-month housing-cycle economics panel",
+    prompt,
+    artifacts,
+    run: result.run,
+    origin: initialSession.origin,
+  });
+}
+
 function shouldHandleAmbiguousBusinessOpportunityResearch(input: string) {
   const lower = input.toLowerCase();
   const asksForBroadAnalysis = /\b(run|do|perform|whatever)\b/.test(lower) && /\banalysis|research\b/.test(lower);
@@ -5417,6 +5549,17 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
+      pendingAction: null,
+    };
+  }
+
+  const countyMonthHousingCycleBuild = await maybeHandleCountyMonthHousingCycleBuild(input, initialSession, emit, deps);
+  if (countyMonthHousingCycleBuild) {
+    emit({ role: "assistant", content: countyMonthHousingCycleBuild });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+      datasetContext: conversationState?.datasetContext ?? null,
       pendingAction: null,
     };
   }

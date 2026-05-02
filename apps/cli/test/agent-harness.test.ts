@@ -96,6 +96,83 @@ test("broad business-opportunity prompts stop at a scoped approval gate before a
   assert.doesNotMatch(joinedMessages, /Checking remote datasets|Loaded run history|Found \d+ remote datasets|Starting remote/i);
 });
 
+test("county-month housing-cycle dataset requests reuse a strong economics base and start the build immediately", async () => {
+  let created: { datasetId: string; body: Record<string, unknown> } | null = null;
+  const fakeClient = {
+    async listDatasets() {
+      return {
+        datasets: [
+          {
+            id: "econ",
+            name: "Economics Base",
+            status: "ready",
+            deploymentStatus: "ready",
+            createdAt: "2026-04-20T00:00:00.000Z",
+            profile: {
+              sources: ["FRED", "Census", "Zillow", "BLS", "FHFA", "NBER"],
+              notes: "County and national economics coverage for housing work.",
+            },
+          },
+          {
+            id: "mixed-smoke-1776979192",
+            name: "Mixed Smoke",
+            status: "ready",
+            deploymentStatus: "ready",
+            createdAt: "2026-04-19T00:00:00.000Z",
+          },
+        ],
+      };
+    },
+    async createPublicDataEnvironment(datasetId: string, body: Record<string, unknown>) {
+      created = { datasetId, body };
+      return {
+        dataset: null,
+        environment: { datasetId, status: "booting" },
+        run: {
+          id: "run-housing-cycle-build",
+          datasetId,
+          status: "booting",
+          prompt: String(body.prompt ?? ""),
+          createdAt: "2026-05-01T23:00:00.000Z",
+          updatedAt: "2026-05-01T23:00:00.000Z",
+        },
+      };
+    },
+    async respond() {
+      throw new Error("This request should be handled locally without generic model fallback.");
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn(
+    "Make me a county-month economics dataset for testing a housing-cycle hypothesis from 2015 to 2025. Include FRED rates, Census population/income, Zillow home values and rents, BLS employment/unemployment/CPI, FHFA HPI, and NBER recession indicators. Validate source URLs, row counts, missingness, join keys, temporal coverage, and produce a data dictionary and manifest.",
+    session,
+    emit,
+    undefined,
+    deps,
+  );
+
+  const joinedMessages = messages.map((message) => message.content).join("\n");
+  assert.match(joinedMessages, /Checking remote datasets/i);
+  assert.match(joinedMessages, /Using dataset econ \(ready to use\)\./i);
+  assert.match(joinedMessages, /Build target: county-month panel/i);
+  assert.match(joinedMessages, /Starting dataset build/i);
+  assert.match(joinedMessages, /Started public-data environment build for Econ housing-cycle extension\./i);
+  assert.match(joinedMessages, /Dataset: econ/i);
+  assert.match(joinedMessages, /Run: run-housing-cycle-build/i);
+  assert.match(joinedMessages, /Validation preserved: source URLs, row counts, missingness, join keys, temporal coverage\./i);
+  assert.ok(created, "Expected a public-data environment build");
+  assert.equal(created?.datasetId, "econ");
+  assert.match(String(created?.body.prompt ?? ""), /county-month housing-cycle research dataset from 2015 to 2025/i);
+  assert.match(String(created?.body.prompt ?? ""), /FRED interest-rate and macro series/i);
+  assert.match(String(created?.body.prompt ?? ""), /data dictionary, manifest, validation report, and source catalog/i);
+});
+
 test("viral tweets proposal follow-up asks for one blocking input and keeps the run unstarted", async () => {
   const fakeClient = {
     async listDatasets() {

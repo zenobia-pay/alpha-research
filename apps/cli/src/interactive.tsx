@@ -82,7 +82,7 @@ function runStatusColor(status: string) {
 
 function summarizeRunLine(run: TrackedRunRecord) {
   const latest = run.lastEventMessage?.trim();
-  const suffix = latest ? ` · ${latest}` : run.prompt ? ` · ${summarizePrompt(run.prompt, 80)}` : "";
+  const suffix = latest ? ` · ${summarizePrompt(latest, 80)}` : "";
   return `${shortId(run.id)}  ${run.datasetId}  ${run.status}${suffix}`;
 }
 
@@ -485,10 +485,12 @@ function TaskSummary({
   taskState,
   width,
   conversationState,
+  showRequestSummary,
 }: {
   taskState: InteractiveTaskState;
   width: number;
   conversationState: AgentConversationState;
+  showRequestSummary: boolean;
 }) {
   const composerText = useAuiState((state) => state.composer.text);
   const preview = composerText.trim().length > 0 ? composerText : summarizePrompt(taskState.goal ?? "", 140);
@@ -505,10 +507,10 @@ function TaskSummary({
       <Text>{`Status: ${formatTaskStatus(taskState.status)}`}</Text>
       {taskState.statusLabel ? <Text color={statusBadgeColor(taskState.status)}>{`State: ${taskState.statusLabel}`}</Text> : null}
       {resolvedDataset ? <Text color="cyan">{`Context: ${resolvedDataset.id} (${resolvedDataset.scope} · ${resolvedDataset.state})`}</Text> : null}
-      {preview ? (
+      {showRequestSummary && preview ? (
         <Box flexDirection="column" marginTop={1}>
-          <Text bold>Request</Text>
-          {wrapText(preview, Math.max(24, width - 6)).slice(0, 3).map((line, index) => (
+          <Text bold>Goal</Text>
+          {wrapText(preview, Math.max(24, width - 6)).slice(0, 2).map((line, index) => (
             <Text key={index}>{line}</Text>
           ))}
         </Box>
@@ -683,13 +685,14 @@ function ResearchThread({
   const showIdleSummary = messageCount === 0 && !taskState.goal;
   const authRecovery = taskState.status === "blocked" && taskState.lastResult ? extractAuthRecoveryDetails(taskState.lastResult) : null;
   const showThreadMessages = showIdleSummary || taskState.status === "done" || (messageCount > 1 && taskState.status !== "blocked");
+  const showRequestSummary = !showThreadMessages;
 
   return (
     <ThreadPrimitive.Root>
       {showIdleSummary ? (
         <IdleSummary session={session} runs={trackedRuns} startupComplete={startupComplete} width={columns} />
       ) : (
-        <TaskSummary taskState={taskState} width={columns} conversationState={conversationState} />
+        <TaskSummary taskState={taskState} width={columns} conversationState={conversationState} showRequestSummary={showRequestSummary} />
       )}
 
       {showThreadMessages ? (
