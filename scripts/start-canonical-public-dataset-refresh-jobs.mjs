@@ -149,6 +149,19 @@ try {
       error: formatted,
       origin: session.origin,
     });
+
+    for (const dataset of canonicalDatasets) {
+      results.push({
+        datasetId: dataset.id,
+        status: "remote_status_unavailable",
+        datasetStatus: "unknown",
+        deploymentStatus: "unknown",
+        activeRunId: null,
+        error: formatted,
+        origin: session.origin,
+      });
+    }
+
     console.log(JSON.stringify({ dryRun, statusOnly, results }, null, 2));
     process.exitCode = 2;
     process.exit();
