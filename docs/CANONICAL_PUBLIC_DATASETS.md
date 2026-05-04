@@ -7,6 +7,7 @@ This plan defines evergreen, public Alpha Research datasets for broad humanities
 - Canonical datasets use short, human names and stable ids: `econ`, `philosophy`, `sociology`, etc.
 - They are public by default. Private uploads can join a research run, but should not mutate the canonical public dataset.
 - Each dataset has a source registry, normalized tables/documents, data dictionary, quality report, and dataset briefing.
+- Each dataset has a download inventory and normalization inventory that explain exactly what was fetched, when, from where, and how raw inputs became normalized outputs.
 - Each dataset refreshes daily. Refresh jobs should update existing source snapshots, append new versions where history matters, and preserve source provenance.
 - Each dataset also gets a daily expansion-planning run. This run reasons about missing coverage, new public sources, broken links, licensing constraints, and high-value additions for the field.
 - Expansion-planning runs may propose new sources, but only sources that pass licensing, access, and reproducibility checks should become active fetch targets.
@@ -19,7 +20,29 @@ For every canonical dataset, schedule two jobs:
    - Fetch from active public sources.
    - Normalize into the existing schema or add versioned tables when a source changes shape.
    - Validate source URLs, row counts, missingness, join keys, temporal coverage, and geography/topic coverage.
-   - Publish `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `data_dictionary.md`, and `quality_report.md`.
+   - Publish `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `download_inventory.jsonl`, `download_inventory.csv`, `normalization_inventory.jsonl`, `normalization_inventory.csv`, `data_dictionary.md`, and `quality_report.md`.
+
+## Provenance Inventory Contract
+
+Every canonical refresh must make provenance inspectable without reading agent transcripts. A final row count without source and transform provenance is not sufficient.
+
+`download_inventory.jsonl` and `download_inventory.csv` must include one record per attempted source download:
+
+- Source id, source name, and plain-English description.
+- Durable canonical/landing URL plus exact request URL or API endpoint used, with secrets redacted.
+- Retrieval timestamp, retrieval method, HTTP status, raw output path, raw format, raw byte count, and SHA-256 hash.
+- License or terms summary, access status, and failure/gating reason for deferred, credentialed, failed, or skipped sources.
+
+`normalization_inventory.jsonl` and `normalization_inventory.csv` must include one record per normalized table or document collection:
+
+- Output id/path, output format, row or document count, column or field count, and content hash.
+- Plain-English description of what each row or document represents.
+- Source ids and raw/intermediate input paths used.
+- Grain, primary keys, join keys, temporal coverage, geography/topic coverage, and schema with plain-English field descriptions.
+- Ordered transform steps: cleaning, filtering, reshaping, joins, aggregation, imputation, unit conversion, and derived fields.
+- QA checks: row counts, missingness, uniqueness, join coverage, range checks, caveats, and known gaps.
+
+`manifest.json`, `data_dictionary.md`, `quality_report.md`, and `dataset_briefing.md` must summarize these inventories.
 
 2. `expand`
    - Read the dataset profile, prior expansion plans, and failed/deferred sources.
