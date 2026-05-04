@@ -142,13 +142,47 @@ let datasetsPayload;
 try {
   datasetsPayload = await api(session, "/api/cli/datasets");
 } catch (error) {
+  const formatted = formatError(error);
+  if (!dryRun) {
+    results.push({
+      status: "blocked_remote_unreachable",
+      error: formatted,
+      origin: session.origin,
+    });
+    console.log(JSON.stringify({ dryRun, statusOnly, results }, null, 2));
+    process.exitCode = 2;
+    process.exit();
+  }
+
+  // Offline dry-run mode: remote may be unreachable in sandboxed environments.
+  // Emit planned prompts/resources without needing live dataset readiness checks.
   results.push({
-    status: "blocked_remote_unreachable",
-    error: formatError(error),
+    status: "offline_dry_run_remote_unreachable",
+    error: formatted,
     origin: session.origin,
   });
+
+  for (const dataset of canonicalDatasets) {
+    const sourceRegistryBullets = extractSourceRegistrySection(catalogMarkdown, dataset.id);
+    const prompt = refreshPrompt(dataset.id, dataset.name, sourceRegistryBullets);
+    results.push({
+      datasetId: dataset.id,
+      status: "offline_dry_run_planned",
+      promptLength: prompt.length,
+      resources: CANONICAL_PUBLIC_RESOURCES,
+      artifacts: [
+        "manifest.json",
+        "source_registry.csv",
+        "source_registry.plan.json",
+        "data_dictionary.md",
+        "quality_report.md",
+        "dataset_briefing.md",
+      ],
+    });
+  }
+
   console.log(JSON.stringify({ dryRun, statusOnly, results }, null, 2));
-  process.exitCode = 2;
+  process.exitCode = 0;
   process.exit();
 }
 
