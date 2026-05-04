@@ -370,6 +370,32 @@ async function runJourney(journey: Journey, outRoot: string) {
     snapshotMs: SNAPSHOT_MS,
   }, null, 2));
 
+  const env = {
+    ...process.env,
+    COLUMNS: String(WIDTH),
+    LINES: String(HEIGHT),
+    FORCE_COLOR: "0",
+  };
+  if (journey.id === "J16") {
+    const sessionDir = join(outDir, "session");
+    await mkdir(sessionDir, { recursive: true });
+    env.RESEARCH_SESSION_DIR = sessionDir;
+    env.RESEARCH_DISABLE_RUN_WATCHER = "1";
+    await writeFile(join(sessionDir, "runs.json"), JSON.stringify([
+      {
+        id: "run-blocking-enriched-tweets",
+        datasetId: "enriched-tweets",
+        origin: "https://dashboard.alpharesearch.nyc",
+        status: "running",
+        prompt: "Label viral tweets and produce engagement artifacts.",
+        dashboardUrl: "https://dashboard.alpharesearch.nyc/?view=runs&runId=run-blocking-enriched-tweets#run-run-blocking-enriched-tweets",
+        createdAt: "2026-05-01T19:40:00.000Z",
+        updatedAt: "2026-05-01T19:44:00.000Z",
+        lastSeenAt: "2026-05-01T19:44:00.000Z",
+      },
+    ], null, 2));
+  }
+
   let log = "";
   const events: string[] = [];
   const startedAt = Date.now();
@@ -389,12 +415,7 @@ async function runJourney(journey: Journey, outRoot: string) {
 
   const child = spawn("node", ["apps/cli/dist/index.js", "--prompt", journey.prompt], {
     cwd: process.cwd(),
-    env: {
-      ...process.env,
-      COLUMNS: String(WIDTH),
-      LINES: String(HEIGHT),
-      FORCE_COLOR: "0",
-    },
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
 

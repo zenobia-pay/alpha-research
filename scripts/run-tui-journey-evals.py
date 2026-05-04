@@ -477,6 +477,10 @@ def run_journey(journey: Journey, out_root: Path, no_run: bool = False) -> Path:
         "FORCE_COLOR": "1",
         "CI": "0",
     })
+    if journey.id == "TUI09":
+        session_root = out_dir / "signed-out-session"
+        session_root.mkdir(parents=True, exist_ok=True)
+        env["RESEARCH_SESSION_DIR"] = str(session_root)
 
     pid, master_fd = pty.fork()
     if pid == 0:

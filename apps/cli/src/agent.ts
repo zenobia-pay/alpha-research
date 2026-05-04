@@ -381,8 +381,8 @@ function renderBusyDatasetConflict(details: {
   const updatedAge = formatRelativeAge(details.updatedAt);
   const lines = [
     details.datasetId
-      ? `Blocked: ${details.datasetId} is already busy.`
-      : "Blocked: dataset is already busy.",
+      ? `Blocked: ${details.datasetId} already has an active run, so I did not start a duplicate analysis.`
+      : "Blocked: this dataset already has an active run, so I did not start a duplicate analysis.",
     "",
     `Active run: ${details.runId}`,
     `Status: ${details.status}`,
@@ -402,7 +402,7 @@ function renderBusyDatasetConflict(details: {
     `- Inspect now: \`research debug run ${details.runId}\``,
   );
   if (details.dashboardUrl) {
-    lines.push(`- Open dashboard: ${details.dashboardUrl}`);
+    lines.push("- Open dashboard from the run page after inspection.");
   }
   lines.push("- Wait for the active run to finish, or cancel it if you confirm it is stuck.");
   return lines.join("\n");
@@ -2462,7 +2462,7 @@ function maybeHandleCsvImportHowTo(input: string) {
     "",
     "`/absolute/path/to/local-file.csv` + `CSV of customer support tickets`",
     "",
-    "Next: I will inspect the file, infer the schema, normalize it, and get it ready for research.",
+    "Next: I will inspect the file, infer the schema, choose a dataset name/id with you if needed, normalize it, and deploy it so it is ready for research.",
     "Reply with the absolute path to the local file and a one-line description. No upload is needed.",
     "Tip: drag the file into Terminal to paste the path.",
   ].join("\n");
@@ -2754,6 +2754,29 @@ function formatViralTweetsProposalFollowUp(pending: Extract<PendingConversationA
       : "Reply with the dataset id you want me to use, or ask me to show tweet datasets first.",
     "After that, I will inspect the dataset metadata to confirm whether `quote_tweet_count` is already present or needs to be derived from quote relationships before I start the run.",
   ].join("\n");
+}
+
+function extractSuggestedViralTweetsDatasetId(response: string) {
+  return response.match(/Dataset:\s+`([^`]+)`/u)?.[1] ?? null;
+}
+
+function buildViralTweetsApprovedPrompt(pending: Extract<PendingConversationAction, { type: "viral-tweets-proposal" }>, input: string) {
+  const lower = input.toLowerCase();
+  const metricField = /\bretweet_count\b/.test(lower)
+    ? "retweet_count"
+    : /\bfavorite_count\b/.test(lower)
+      ? "favorite_count"
+      : pending.defaultMetricField;
+  const sampleSize = Number(input.match(/\bsample\s+(\d+)\s+tweets?\b/i)?.[1] ?? pending.defaultSampleSize);
+  const explicitDatasetId = input.match(/\buse\s+([a-z0-9][a-z0-9_-]*)\b/i)?.[1] ?? null;
+  const datasetId = explicitDatasetId && explicitDatasetId !== metricField ? explicitDatasetId : pending.suggestedDatasetId;
+  if (!datasetId || !pending.datasetVerified) {
+    return null;
+  }
+  return [
+    `Using ${datasetId}, define viral tweets as the top 0.1% by ${metricField}.`,
+    `Randomly sample ${sampleSize} viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.`,
+  ].join(" ");
 }
 
 async function maybeHandleVagueTweetsExperiment(
@@ -3778,11 +3801,29 @@ async function maybeHandleBusyDatasetBeforePlanning(
   deps: AgentRuntimeDeps,
 ) {
   const lower = input.toLowerCase();
-  if (!initialSession || !/\b(new analysis|run.*analysis|start.*analysis)\b/.test(lower)) {
+  if (!/\b(new analysis|run.*analysis|start.*analysis)\b/.test(lower)) {
     return null;
   }
   const requestedDatasetId = extractDatasetIdFromNewAnalysis(input);
   if (!requestedDatasetId) {
+    return null;
+  }
+  const runs = await deps.readTrackedRuns().catch(() => []);
+  const trackedActive = runs.find((run) => run.datasetId === requestedDatasetId && !run.terminalAt && !isTerminalRunStatus(run.status));
+  if (trackedActive) {
+    return [
+      renderBusyDatasetConflict({
+        datasetId: requestedDatasetId,
+        runId: trackedActive.id,
+        status: trackedActive.status,
+        createdAt: trackedActive.createdAt,
+        updatedAt: trackedActive.updatedAt,
+        dashboardUrl: trackedActive.dashboardUrl ?? dashboardRunUrl(trackedActive.origin, trackedActive.id),
+      }),
+      trackedActive.prompt?.trim() ? `Current work: ${trackedActive.prompt.trim()}` : null,
+    ].filter(Boolean).join("\n");
+  }
+  if (!initialSession) {
     return null;
   }
   const client = deps.createRemoteClient(initialSession);
@@ -3812,7 +3853,6 @@ async function maybeHandleBusyDatasetBeforePlanning(
     ].filter(Boolean).join("\n");
   }
 
-  const runs = await deps.readTrackedRuns().catch(() => []);
   const active = runs.find((run) => run.datasetId === datasetId && !run.terminalAt && !isTerminalRunStatus(run.status));
   if (!active) {
     return null;
@@ -5516,6 +5556,19 @@ export async function runAgentTurn(
     ? conversationState.pendingAction
     : null;
   if (pendingViralTweetsProposal && looksLikeViralTweetsProposalReply(input)) {
+    const approvedPrompt = buildViralTweetsApprovedPrompt(pendingViralTweetsProposal, input);
+    if (approvedPrompt) {
+      const response = await maybeHandleSpecificViralTweetsExperiment(approvedPrompt, initialSession, emit, deps);
+      if (response) {
+        emit({ role: "assistant", content: response });
+        return {
+          sessionId: conversationState?.sessionId ?? null,
+          previousResponseId: conversationState?.previousResponseId ?? null,
+          datasetContext: conversationState?.datasetContext ?? null,
+          pendingAction: null,
+        };
+      }
+    }
     emit({ role: "assistant", content: formatViralTweetsProposalFollowUp(pendingViralTweetsProposal) });
     return {
       sessionId: conversationState?.sessionId ?? null,
@@ -5602,7 +5655,7 @@ export async function runAgentTurn(
       previousResponseId: conversationState?.previousResponseId ?? null,
       pendingAction: {
         type: "viral-tweets-proposal",
-        suggestedDatasetId: /`([^`]+)`/.exec(vagueTweetsResponse)?.[1] ?? null,
+        suggestedDatasetId: extractSuggestedViralTweetsDatasetId(vagueTweetsResponse),
         datasetVerified: /is available in RESEARCH now\./u.test(vagueTweetsResponse),
         defaultMetricField: "quote_tweet_count",
         defaultSampleSize: 100,

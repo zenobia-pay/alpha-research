@@ -173,7 +173,8 @@ test("county-month housing-cycle dataset requests reuse a strong economics base 
   assert.match(String(created?.body.prompt ?? ""), /data dictionary, manifest, validation report, and source catalog/i);
 });
 
-test("viral tweets proposal follow-up asks for one blocking input and keeps the run unstarted", async () => {
+test("viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed", async () => {
+  let startedRun = false;
   const fakeClient = {
     async listDatasets() {
       return {
@@ -194,11 +195,29 @@ test("viral tweets proposal follow-up asks for one blocking input and keeps the 
           name: "Enriched Tweets",
           status: "ready",
           description: "Tweet engagement dataset with quote_tweet_count.",
+          schema: {
+            fields: [
+              { name: "quote_tweet_count", type: "number" },
+              { name: "hook_type", type: "string" },
+              { name: "emotional_tone", type: "string" },
+              { name: "controversy_level", type: "string" },
+            ],
+          },
         },
       };
     },
     async startRun() {
-      throw new Error("Run should not start during the proposal clarification loop.");
+      startedRun = true;
+      return {
+        run: {
+          id: "run-viral-approved",
+          datasetId: "enriched-tweets",
+          status: "queued",
+          prompt: "viral tweets",
+          createdAt: "2026-05-01T20:00:00.000Z",
+          updatedAt: "2026-05-01T20:00:00.000Z",
+        },
+      };
     },
     async respond() {
       throw new Error("Local viral-tweets flow should handle this without generic model fallback.");
@@ -231,10 +250,10 @@ test("viral tweets proposal follow-up asks for one blocking input and keeps the 
   const secondJoined = secondTurn.messages.map((message) => message.content).join("\n");
   assert.match(firstJoined, /Before I start a remote run, here is the experiment I recommend\./);
   assert.match(firstJoined, /Waiting for your approval before starting a run\./);
-  assert.match(secondJoined, /No remote run has started yet\./);
-  assert.match(secondJoined, /Blocked on one setup detail/i);
-  assert.match(secondJoined, /Reply `use enriched-tweets`/);
-  assert.match(secondJoined, /quote_tweet_count.*already present or needs to be derived/s);
+  assert.match(secondJoined, /Starting remote analysis for enriched-tweets/i);
+  assert.match(secondJoined, /Started remote analysis on enriched-tweets/i);
+  assert.match(secondJoined, /Run: run-viral-approved/i);
+  assert.equal(startedRun, true);
   assert.doesNotMatch(secondJoined, /Which dataset\/research environment to run this on|quoted_tweet_id == target\.tweet_id|separate quotes table/i);
 });
 
@@ -436,14 +455,14 @@ test("file import how-to asks for path before ingesting", async () => {
   assert.match(final, /Send path \+ one-line description:/i);
   assert.match(final, /absolute path to the local file/i);
   assert.match(final, /infer the schema/i);
+  assert.match(final, /choose a dataset name\/id/i);
   assert.match(final, /normalize it/i);
-  assert.match(final, /get it ready for research/i);
+  assert.match(final, /deploy it so it is ready for research/i);
   assert.match(final, /\/absolute\/path\/to\/local-file\.csv/i);
   assert.match(final, /CSV of customer support tickets/i);
   assert.match(final, /No upload is needed\./i);
   assert.match(final, /drag the file into Terminal to paste the path/i);
-  assert.doesNotMatch(final, /dataset name with you if needed/i);
-  assert.doesNotMatch(final, /register the dataset|upload it|deploy it/i);
+  assert.doesNotMatch(final, /register the dataset|upload it/i);
   assert.doesNotMatch(final, /help narrow it down/i);
   assert.doesNotMatch(final, /Started|run-[a-z0-9-]+|Dashboard:/i);
 });
@@ -476,9 +495,9 @@ test("journey P02 wording resolves locally without remote planning", async () =>
   assert.match(final, /Next: I will inspect the file/i);
   assert.match(final, /Send path \+ one-line description:/i);
   assert.match(final, /absolute path to the local file/i);
-  assert.doesNotMatch(final, /choose a dataset name/i);
+  assert.match(final, /choose a dataset name\/id/i);
   assert.doesNotMatch(final, /RESEARCH turns your data into a dataset/i);
-  assert.doesNotMatch(final, /register|deploy/i);
+  assert.doesNotMatch(final, /register/i);
 });
 
 test("mixed-source intake asks for all sources and approval before any build", async () => {
@@ -799,8 +818,9 @@ test("file-to-dataset onboarding asks only for path and description", async () =
   assert.match(final, /CSV of customer support tickets/i);
   assert.match(final, /Reply with the absolute path to the local file and a one-line description\./i);
   assert.match(final, /No upload is needed\./i);
+  assert.match(final, /choose a dataset name\/id/i);
+  assert.match(final, /deploy it so it is ready for research/i);
   assert.doesNotMatch(final, /RESEARCH:/);
-  assert.doesNotMatch(final, /dataset name\/id|choose a dataset name/i);
 });
 
 test("dataset recommendation inventory includes ranked shortlist for the topic", async () => {
@@ -2191,14 +2211,14 @@ test("prompt-mode busy dataset shortcut shows age, health, and clear actions", {
     await runAgentTurn(`Run a new analysis on ${datasetId}.`, session, emit, undefined, deps);
 
     const final = messages.at(-1)?.content ?? "";
-    assert.match(final, new RegExp(`Blocked: ${datasetId} is already busy\\.`));
+    assert.match(final, new RegExp(`Blocked: ${datasetId} already has an active run`));
     assert.match(final, /Status: booting/);
     assert.match(final, /Started: 2026-05-01T19:40:00.000Z/);
     assert.match(final, /Last update: 2026-05-01T19:44:00.000Z/);
     assert.match(final, /holding the dataset lock/);
     assert.match(final, /worth inspecting|expected while the worker starts/);
     assert.match(final, /Inspect now: `research debug run run-local-blocker`/);
-    assert.match(final, /Open dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-local-blocker#run-run-local-blocker/);
+    assert.match(final, /Open dashboard from the run page after inspection\./);
     assert.match(final, /Wait for the active run to finish, or cancel it if you confirm it is stuck\./);
   } finally {
     if (previousRuns === null) {
@@ -2252,13 +2272,13 @@ test("prompt-mode busy dataset shortcut uses backend active runs before planning
 
   assert.equal(respondCalls, 0);
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /Blocked: enriched-tweets is already busy\./);
+  assert.match(final, /Blocked: enriched-tweets already has an active run/);
   assert.match(final, /Active run: run-remote-blocker/);
   assert.match(final, /Status: running/);
   assert.match(final, /No new run was started\./);
   assert.match(final, /Current work: Analyze engagement patterns in enriched tweets\./);
   assert.match(final, /Inspect now: `research debug run run-remote-blocker`/);
-  assert.match(final, /Open dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-remote-blocker#run-run-remote-blocker/);
+  assert.match(final, /Open dashboard from the run page after inspection\./);
 });
 
 test("wait for run completion can time out deterministically", async () => {

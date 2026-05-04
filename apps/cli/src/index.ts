@@ -69,7 +69,7 @@ function wrapForStdout(line: string) {
 export function initialPromptModeStatus(prompt: string) {
   const lower = prompt.trim().toLowerCase();
   const datasetReference = extractPromptDatasetReference(prompt);
-  const isReadinessCheck = /\b(can i trust|trust enough|usable right now|use it for|ready for|readiness|fix it first)\b/.test(lower)
+  const isReadinessCheck = /\b(can i trust|whether i can trust|trust enough|usable right now|use it for|ready for|readiness|fix it first)\b/.test(lower)
     && /\bdataset\b/.test(lower);
   if (/\b(run|do|perform|whatever)\b/.test(lower) && /\banalysis|research\b/.test(lower) && /\ball my data\b/.test(lower) && /\bbusiness opportunit(?:y|ies)\b/.test(lower)) {
     return "Needs your approval: scope a bounded study before any remote work.";
