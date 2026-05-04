@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Literature canonical dataset briefing</title><style>
+:root { color-scheme: light; --ink:#17211b; --muted:#5b6b61; --line:#d9e0dc; --paper:#fbfcfb; --wash:#eef5f1; --accent:#146b5d; --warn:#9b5a13; --ok:#17633f; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); }
+header { padding: 32px max(24px, calc((100vw - 1120px)/2)); background: var(--wash); border-bottom: 1px solid var(--line); }
+main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 48px; }
+h1 { margin: 0 0 8px; font-size: 34px; line-height: 1.1; letter-spacing: 0; }
+h2 { margin: 30px 0 10px; font-size: 20px; }
+h3 { margin: 22px 0 8px; font-size: 16px; }
+p { margin: 8px 0; }
+a { color: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: white; }
+.k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.v { font-size: 18px; font-weight: 650; overflow-wrap: anywhere; }
+.badge { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; font-size: 12px; background: white; }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.muted { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 22px; background: white; }
+th, td { border-bottom: 1px solid var(--line); padding: 9px 8px; text-align: left; vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+.notice { border-left: 4px solid var(--warn); background: #fff8ee; padding: 12px 14px; margin: 14px 0; }
+.summary { border-left: 4px solid var(--accent); background: #eff7f4; padding: 12px 14px; margin: 14px 0; }
+</style></head>
+<body>
+<header><p><a href="index.html">Canonical dataset briefings</a></p><h1>Literature <span class="badge">literature</span></h1><p>Public-domain texts, bibliographic metadata, authorship, genre, reception, editions, literary movements, and computational text-analysis corpora.</p></header>
+<main>
+<section class="grid">
+  <div class="card"><div class="k">Remote dataset status</div><div class="v ok">ready</div></div>
+  <div class="card"><div class="k">Remote deployment status</div><div class="v ok">ready</div></div>
+  <div class="card"><div class="k">Active run id</div><div class="v">None</div></div>
+  <div class="card"><div class="k">Generated</div><div class="v">2026-05-04T22:39:21.189Z</div></div>
+</section>
+<section class="notice"><strong>Exact local disk state:</strong> no canonical dataset package for <code>literature</code> is present in this checkout. I found no <code>data/instances/literature</code> directory and no local <code>manifest.json</code>, <code>source_registry.csv</code>, <code>source_registry.plan.json</code>, <code>data_dictionary.md</code>, <code>quality_report.md</code>, <code>dataset_briefing.md</code>, or <code>expansion_plan.md</code> for this dataset.</section>
+<h2>What Data Is Present On Disk</h2>
+<p>The only dataset instance files under <code>data/instances</code> are demo fixtures. They are not canonical public datasets and do not correspond to <code>literature</code>.</p>
+<table><thead><tr><th>Path</th><th>Dataset id inside file</th><th>Records</th><th>Bytes</th></tr></thead><tbody><tr><td><code>data/instances/demo-econ/instance.json</code></td><td><code>county-economics</code></td><td>4</td><td>4167</td></tr><tr><td><code>data/instances/demo-tweets/instance.json</code></td><td><code>tweets</code></td><td>3</td><td>4775</td></tr></tbody></table>
+<h2>Catalog Target</h2>
+<p>This is what the canonical catalog says the dataset should contain after successful remote refresh/publication. These targets are not currently materialized on local disk in this checkout.</p>
+<h3>Source Registry Targets</h3><ul><li>Project Gutenberg</li><li>Internet Archive texts</li><li>HathiTrust Research Center</li><li>Open Library</li><li>Library of Congress</li><li>Wikidata literary works/authors</li><li>OpenAlex</li><li>Crossref</li><li>Europeana</li><li>Perseus Digital Library</li><li>TextGrid Repository</li><li>Early English Books Online TCP</li></ul>
+<h3>Priority Tables/Documents</h3><ul><li>works</li><li>authors</li><li>editions</li><li>full_text_public_domain</li><li>genres_movements</li><li>citations_reception</li><li>source_registry</li></ul>
+<h2>Operational Interpretation</h2>
+<div class="summary"><p>The remote catalog reports <code>literature</code> as ready with no active run. Local disk still has no canonical package for this dataset.</p></div>
+</main>
+</body></html>

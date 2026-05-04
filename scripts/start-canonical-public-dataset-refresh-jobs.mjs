@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { lookup as dnsLookup } from "node:dns";
+import { request as httpsRequest } from "node:https";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -10,6 +12,10 @@ const statusOnly = process.argv.includes("--status-only");
 const remoteStatusAttempts = Number(process.env.CANONICAL_REMOTE_STATUS_ATTEMPTS ?? "5");
 const remoteStatusRetryBaseMs = Number(process.env.CANONICAL_REMOTE_STATUS_RETRY_BASE_MS ?? "2000");
 const maxConcurrentRemoteRuns = Math.max(1, Math.trunc(Number(process.env.CANONICAL_MAX_CONCURRENT_REMOTE_RUNS ?? "2")));
+const alphaResearchFallbackIps = (process.env.ALPHA_RESEARCH_FALLBACK_IPS ?? "104.21.25.66,172.67.223.109")
+  .split(",")
+  .map((ip) => ip.trim())
+  .filter(Boolean);
 
 const canonicalDatasets = [
   { id: "econ", name: "Econ" },
@@ -55,6 +61,7 @@ function sleep(ms) {
 }
 
 function errorCauseCode(error) {
+  if (error && typeof error === "object" && typeof error.code === "string") return error.code;
   const cause = error instanceof Error ? error.cause : null;
   return cause && typeof cause === "object" && typeof cause.code === "string" ? cause.code : null;
 }
@@ -71,6 +78,37 @@ function isTransientRemoteError(error) {
     "UND_ERR_SOCKET",
   ]);
   return transientCodes.has(errorCauseCode(error));
+}
+
+function lookupWithAlphaFallback(hostname, options, callback) {
+  const opts = typeof options === "object" && options !== null ? options : {};
+  const done = (address, family = 4) => {
+    if (opts.all) {
+      callback(null, [{ address, family }]);
+      return;
+    }
+    callback(null, address, family);
+  };
+
+  if (process.env.CANONICAL_FORCE_DNS_FALLBACK === "1" && hostname === "alpharesearch.nyc" && alphaResearchFallbackIps.length > 0) {
+    done(alphaResearchFallbackIps[0], 4);
+    return;
+  }
+
+  dnsLookup(hostname, opts, (error, address, family) => {
+    if (!error) {
+      callback(null, address, family);
+      return;
+    }
+
+    if (hostname === "alpharesearch.nyc" && isTransientRemoteError(error) && alphaResearchFallbackIps.length > 0) {
+      console.warn(`DNS lookup for ${hostname} failed with ${error.code}; using configured fallback IP.`);
+      done(alphaResearchFallbackIps[0], 4);
+      return;
+    }
+
+    callback(error, address, family);
+  });
 }
 
 function readSession() {
@@ -91,22 +129,42 @@ function dashboardRunUrl(origin, runId) {
 }
 
 async function api(session, path, options = {}) {
-  const response = await fetch(`${session.origin}${path}`, {
-    method: options.method ?? "GET",
-    headers: {
-      Authorization: `Bearer ${session.accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  const url = new URL(path, session.origin);
+  const bodyPayload = options.body === undefined ? undefined : JSON.stringify(options.body);
+  const bodyText = await new Promise((resolve, reject) => {
+    const request = httpsRequest({
+      protocol: url.protocol,
+      hostname: url.hostname,
+      port: url.port || 443,
+      path: `${url.pathname}${url.search}`,
+      method: options.method ?? "GET",
+      lookup: lookupWithAlphaFallback,
+      servername: url.hostname,
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+        "Content-Type": "application/json",
+        ...(bodyPayload === undefined ? {} : { "Content-Length": Buffer.byteLength(bodyPayload) }),
+      },
+    }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        const text = Buffer.concat(chunks).toString("utf8");
+        if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
+          const error = new Error(`Remote request failed (${response.statusCode ?? "unknown"}) for ${path}: ${text || "{}"}`);
+          error.status = response.statusCode;
+          error.body = text ? JSON.parse(text) : {};
+          reject(error);
+          return;
+        }
+        resolve(text);
+      });
+    });
+    request.on("error", reject);
+    if (bodyPayload !== undefined) request.write(bodyPayload);
+    request.end();
   });
-  const bodyText = await response.text().catch(() => "");
   const body = bodyText ? JSON.parse(bodyText) : {};
-  if (!response.ok) {
-    const error = new Error(`Remote request failed (${response.status}) for ${path}: ${bodyText || "{}"}`);
-    error.status = response.status;
-    error.body = body;
-    throw error;
-  }
   return body;
 }
 

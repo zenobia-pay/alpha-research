@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Econ canonical dataset briefing</title><style>
+:root { color-scheme: light; --ink:#17211b; --muted:#5b6b61; --line:#d9e0dc; --paper:#fbfcfb; --wash:#eef5f1; --accent:#146b5d; --warn:#9b5a13; --ok:#17633f; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); }
+header { padding: 32px max(24px, calc((100vw - 1120px)/2)); background: var(--wash); border-bottom: 1px solid var(--line); }
+main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 48px; }
+h1 { margin: 0 0 8px; font-size: 34px; line-height: 1.1; letter-spacing: 0; }
+h2 { margin: 30px 0 10px; font-size: 20px; }
+h3 { margin: 22px 0 8px; font-size: 16px; }
+p { margin: 8px 0; }
+a { color: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: white; }
+.k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.v { font-size: 18px; font-weight: 650; overflow-wrap: anywhere; }
+.badge { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; font-size: 12px; background: white; }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.muted { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 22px; background: white; }
+th, td { border-bottom: 1px solid var(--line); padding: 9px 8px; text-align: left; vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+.notice { border-left: 4px solid var(--warn); background: #fff8ee; padding: 12px 14px; margin: 14px 0; }
+.summary { border-left: 4px solid var(--accent); background: #eff7f4; padding: 12px 14px; margin: 14px 0; }
+</style></head>
+<body>
+<header><p><a href="index.html">Canonical dataset briefings</a></p><h1>Econ <span class="badge">econ</span></h1><p>Macroeconomics, labor, housing, inflation, credit, consumer behavior, regional economics, and business-cycle research.</p></header>
+<main>
+<section class="grid">
+  <div class="card"><div class="k">Remote dataset status</div><div class="v warn">deploying</div></div>
+  <div class="card"><div class="k">Remote deployment status</div><div class="v warn">provisioning</div></div>
+  <div class="card"><div class="k">Active run id</div><div class="v"><a href="https://dashboard.alpharesearch.nyc/?view=runs&amp;runId=bae04017-5614-4df8-b016-3def8f16d897#run-bae04017-5614-4df8-b016-3def8f16d897">bae04017-5614-4df8-b016-3def8f16d897</a></div></div>
+  <div class="card"><div class="k">Generated</div><div class="v">2026-05-04T22:39:21.189Z</div></div>
+</section>
+<section class="notice"><strong>Exact local disk state:</strong> no canonical dataset package for <code>econ</code> is present in this checkout. I found no <code>data/instances/econ</code> directory and no local <code>manifest.json</code>, <code>source_registry.csv</code>, <code>source_registry.plan.json</code>, <code>data_dictionary.md</code>, <code>quality_report.md</code>, <code>dataset_briefing.md</code>, or <code>expansion_plan.md</code> for this dataset.</section>
+<h2>What Data Is Present On Disk</h2>
+<p>The only dataset instance files under <code>data/instances</code> are demo fixtures. They are not canonical public datasets and do not correspond to <code>econ</code>.</p>
+<table><thead><tr><th>Path</th><th>Dataset id inside file</th><th>Records</th><th>Bytes</th></tr></thead><tbody><tr><td><code>data/instances/demo-econ/instance.json</code></td><td><code>county-economics</code></td><td>4</td><td>4167</td></tr><tr><td><code>data/instances/demo-tweets/instance.json</code></td><td><code>tweets</code></td><td>3</td><td>4775</td></tr></tbody></table>
+<h2>Catalog Target</h2>
+<p>This is what the canonical catalog says the dataset should contain after successful remote refresh/publication. These targets are not currently materialized on local disk in this checkout.</p>
+<h3>Source Registry Targets</h3><ul><li>Federal Reserve / FRED</li><li>U.S. Census Bureau</li><li>American Community Survey</li><li>Current Population Survey</li><li>American Housing Survey</li><li>BLS data portal</li><li>Consumer Price Index</li><li>American Time Use Survey</li><li>Consumer Expenditure Survey</li><li>BEA data portal</li><li>Personal Consumption Expenditures</li><li>FHFA Home Price Index</li><li>Zillow research data</li><li>Zillow Home Value Index</li><li>Redfin Data Center</li><li>National Association of Realtors research and statistics</li><li>Case-Shiller Index</li><li>CoreLogic home price insights</li><li>Freddie Mac AIMI</li><li>Fannie Mae surveys</li><li>Federal Reserve Senior Loan Officer Opinion Survey</li><li>Federal Reserve Bank of New York data</li><li>NBER</li><li>IMF data</li><li>ONS</li><li>Pew Research Center</li><li>General Social Survey</li><li>Panel Study of Income Dynamics</li><li>Apartment List rent estimates</li></ul>
+<h3>Priority Tables/Documents</h3><ul><li>macro_series</li><li>labor_market</li><li>housing_market</li><li>credit_finance</li><li>demographics_income</li><li>source_registry</li></ul>
+<h2>Operational Interpretation</h2>
+<div class="summary"><p>A remote refresh/public-environment run is active for <code>econ</code>. Local disk still has no canonical package until remote artifacts are published and pulled/mirrored into this checkout.</p></div>
+</main>
+</body></html>
