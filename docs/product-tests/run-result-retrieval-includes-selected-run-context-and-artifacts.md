@@ -1,4 +1,4 @@
-# run result retrieval includes original prompt and artifacts
+# run result retrieval includes selected run context and artifacts
 
 ## Product Use
 

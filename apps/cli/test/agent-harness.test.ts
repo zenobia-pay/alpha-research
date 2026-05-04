@@ -442,10 +442,11 @@ test("dataset recommendation inventory includes ranked shortlist for the topic",
   );
 
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Found 3 remote datasets\./);
-  assert.match(joined, /Top matches for "housing affordability county-month affordability metrics":/);
-  assert.match(joined, /1\. econ-housing \(ready, score \d+\) - name overlap: housing/);
-  assert.match(joined, /2\. econ \(ready, score \d+\) - ready existing environment/);
+  assert.match(joined, /Primary dataset/);
+  assert.match(joined, /Start with `econ-housing` \(Housing Economics\)/);
+  assert.match(joined, /strongest current match because its metadata points to housing affordability focus/);
+  assert.match(joined, /Status: ready to inspect or analyze now/);
+  assert.match(joined, /Which geography matters most: nationwide, state, metro, county, or tract\?/);
 });
 
 test("async query run returns immediately with canonical dashboard and terminal links", async () => {
@@ -841,7 +842,7 @@ test("busy dataset conflict explains active run and emits heartbeat while waitin
     assert.match(joined, /Still preparing the econ environment and checking whether the dataset volume is free/i);
     assert.match(joined, /An analysis is already running on econ\./);
     assert.match(joined, /I did not start a duplicate run/i);
-    assert.match(joined, /Dashboard run: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-busy#run-run-busy/);
+    assert.match(joined, /Open dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-busy#run-run-busy/);
     assert.match(joined, /Inspect in CLI: research debug run run-busy/);
   } finally {
     if (originalHeartbeat === undefined) {
@@ -1441,7 +1442,7 @@ test("dataset describe conflict keeps guidance anchored on briefing artifacts", 
   assert.match(joined, /Blocked: this dataset briefing is waiting on an active dataset run/);
   assert.match(joined, /Expected artifacts once the run finishes: Dataset Briefing, Dataset Profile/);
   assert.match(joined, /When it finishes, ask: show results from run-briefing/);
-  assert.match(joined, /If it seems stuck, debug: research debug run run-briefing/);
+  assert.match(joined, /Inspect (in CLI|now): `?research debug run run-briefing`?/);
 });
 
 test("prompt-mode busy dataset shortcut shows age, health, and clear actions", { concurrency: false }, async () => {
@@ -1773,9 +1774,9 @@ test("product planning: vague viral tweets request designs scoped experiment bef
   assert.doesNotMatch(joinedMessages, /Starting remote run/i);
   assert.match(joinedMessages, /Before I start a remote run/i);
   assert.match(joinedMessages, /Proposed dataset: `enriched-tweets`/i);
-  assert.match(joinedMessages, /assuming it has tweet text, timestamps, and engagement fields/i);
+  assert.match(joinedMessages, /text, timestamps, authors, and engagement fields/i);
   assert.match(joinedMessages, /top 0\.1% by `quote_tweet_count`/i);
-  assert.match(joinedMessages, /sample 100 tweets/i);
+  assert.match(joinedMessages, /sample: label 100 tweets/i);
   assert.match(joinedMessages, /hook_type/i);
   assert.match(joinedMessages, /emotional_tone/i);
   assert.match(joinedMessages, /controversy_level/i);
@@ -2310,8 +2311,8 @@ test("product workflow success: econ research hypothesis creates data environmen
   assert.match(joinedMessages, /No remote datasets found; a new build will be needed if the plan proceeds\./);
   assert.match(joinedMessages, /Reviewing remote datasets and drafting the next step\.\.\./);
   assert.match(joinedMessages, /Created research spec spec-housing-rates/);
-  assert.match(joinedMessages, /Running run_remote_transformation\.\.\./);
-  assert.match(joinedMessages, /Running run_remote_labeling\.\.\./);
+  assert.match(joinedMessages, /Starting remote analysis for econ-housing-cycle\.\.\./);
+  assert.match(joinedMessages, /Starting labeling run for econ-housing-cycle\.\.\./);
   assert.match(joinedMessages, /Starting remote run for econ-housing-cycle\.\.\./);
   assert.match(joinedMessages, /Regression summary/);
   assert.match(joinedMessages, /Permit sensitivity by income-growth quartile/);

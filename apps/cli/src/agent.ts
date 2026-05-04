@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 
 import { getInstanceBootstrap, listInstanceBundles, type DatasetInstanceSummary } from "@rprend/alpha-storage";
 
-import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, type SessionRecord } from "./config.js";
+import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
 import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
 import {
   RemoteApiClient,
@@ -3253,8 +3253,11 @@ export function createToolRegistry(): ToolDefinition[] {
             updatedAt: deployment.run.updatedAt,
           });
         }
+        const terminalLink = deployment.run && context.session && context.sessionId
+          ? ` Terminal session: ${dashboardTerminalSessionUrl(context.session.origin, context.sessionId, deployment.run.id)}`
+          : "";
         return {
-          summary: `Deployment started for dataset ${datasetId}.${deployment.run ? ` Run: ${deployment.run.id}.` : ""}${deployment.deployment.status ? ` Status: ${deployment.deployment.status}.` : ""}`,
+          summary: `Deployment started for dataset ${datasetId}.${deployment.run ? ` Run: ${deployment.run.id}.` : ""}${deployment.deployment.status ? ` Status: ${deployment.deployment.status}.` : ""}${terminalLink}`,
           data: deployment,
         };
       },
