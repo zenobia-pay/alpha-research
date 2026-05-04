@@ -73,12 +73,17 @@ function isTransientRemoteError(error) {
     "ECONNRESET",
     "ECONNREFUSED",
     "ETIMEDOUT",
+    // Some sandboxed / policy-controlled environments surface outbound connect failures as EPERM.
+    // Treat as transient so we can retry (and potentially rotate fallback IPs) instead of failing hard.
+    "EPERM",
     "UND_ERR_CONNECT_TIMEOUT",
     "UND_ERR_HEADERS_TIMEOUT",
     "UND_ERR_SOCKET",
   ]);
   return transientCodes.has(errorCauseCode(error));
 }
+
+let alphaFallbackCursor = 0;
 
 function lookupWithAlphaFallback(hostname, options, callback) {
   const opts = typeof options === "object" && options !== null ? options : {};
@@ -90,8 +95,17 @@ function lookupWithAlphaFallback(hostname, options, callback) {
     callback(null, address, family);
   };
 
+  const chooseFallback = () => {
+    if (alphaResearchFallbackIps.length === 0) return null;
+    const ip = alphaResearchFallbackIps[alphaFallbackCursor % alphaResearchFallbackIps.length];
+    alphaFallbackCursor += 1;
+    const family = ip.includes(":") ? 6 : 4;
+    return { ip, family };
+  };
+
   if (process.env.CANONICAL_FORCE_DNS_FALLBACK === "1" && hostname === "alpharesearch.nyc" && alphaResearchFallbackIps.length > 0) {
-    done(alphaResearchFallbackIps[0], 4);
+    const chosen = chooseFallback();
+    if (chosen) done(chosen.ip, chosen.family);
     return;
   }
 
@@ -102,8 +116,11 @@ function lookupWithAlphaFallback(hostname, options, callback) {
     }
 
     if (hostname === "alpharesearch.nyc" && isTransientRemoteError(error) && alphaResearchFallbackIps.length > 0) {
-      console.warn(`DNS lookup for ${hostname} failed with ${error.code}; using configured fallback IP.`);
-      done(alphaResearchFallbackIps[0], 4);
+      const chosen = chooseFallback();
+      console.warn(
+        `DNS lookup for ${hostname} failed with ${error.code}; using configured fallback IP ${chosen?.ip ?? "(none)"}.`,
+      );
+      if (chosen) done(chosen.ip, chosen.family);
       return;
     }
 
