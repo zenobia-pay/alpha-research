@@ -9,6 +9,7 @@ const dryRun = process.argv.includes("--dry-run") || process.env.CANONICAL_DATAS
 const statusOnly = process.argv.includes("--status-only");
 const remoteStatusAttempts = Number(process.env.CANONICAL_REMOTE_STATUS_ATTEMPTS ?? "5");
 const remoteStatusRetryBaseMs = Number(process.env.CANONICAL_REMOTE_STATUS_RETRY_BASE_MS ?? "2000");
+const maxConcurrentRemoteRuns = Math.max(1, Math.trunc(Number(process.env.CANONICAL_MAX_CONCURRENT_REMOTE_RUNS ?? "2")));
 
 const canonicalDatasets = [
   { id: "econ", name: "Econ" },
@@ -249,6 +250,12 @@ try {
 }
 
 const liveDatasets = new Map((datasetsPayload.datasets ?? []).map((dataset) => [dataset.id, dataset]));
+const activeCanonicalRuns = canonicalDatasets.filter((dataset) => {
+  const liveDataset = liveDatasets.get(dataset.id);
+  return Boolean(liveDataset?.activeRunId);
+}).length;
+const startAllowance = Math.max(0, maxConcurrentRemoteRuns - activeCanonicalRuns);
+let startedThisPass = 0;
 
 for (const dataset of canonicalDatasets) {
   const liveDataset = liveDatasets.get(dataset.id);
@@ -273,6 +280,20 @@ for (const dataset of canonicalDatasets) {
 
   if (activeRunId) {
     results.push({ datasetId: dataset.id, status: "skipped_active_run", datasetStatus, deploymentStatus, activeRunId });
+    continue;
+  }
+
+  if (!dryRun && startedThisPass >= startAllowance) {
+    results.push({
+      datasetId: dataset.id,
+      status: "skipped_run_cap_reached",
+      datasetStatus,
+      deploymentStatus,
+      activeRunId,
+      maxConcurrentRemoteRuns,
+      activeCanonicalRuns,
+      startedThisPass,
+    });
     continue;
   }
 
@@ -317,6 +338,7 @@ for (const dataset of canonicalDatasets) {
       runId,
       dashboardUrl: runId ? dashboardRunUrl(session.origin, runId) : null,
     });
+    startedThisPass += 1;
   } catch (error) {
     results.push({
       datasetId: dataset.id,
