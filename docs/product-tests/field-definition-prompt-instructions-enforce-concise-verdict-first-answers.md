@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks what a field means and whether it can define virality.
+When a user asks what a field means, the answer should be concise, verdict-first, and grounded in schema evidence.
 
 ## Why This Test
 
-This protects system instructions for concept answers. The model should answer the definition before proposing work and keep the response concise.
+Field-definition questions are common before analysis. Long speculative explanations or incorrect derived-field definitions lead to bad research choices.
 
 ## Actions Taken
 
-The test captures backend instructions for a field-definition prompt.
+The harness exercises prompt instructions for a field-definition request.
 
 ## Assertions Made
 
-The instructions require a verdict-first answer, schema-evidence clarity, explicit uncertainty, and no unsolicited composite formulas or analysis starts.
+The answer is concise, starts with the useful verdict, distinguishes stored fields from derived metrics, and avoids misleading quote-count logic.

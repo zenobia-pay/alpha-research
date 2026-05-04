@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks for a dataset description while the dataset is blocked.
+A user asks to describe a dataset while another run is holding the dataset. If a saved briefing exists, the product should return that useful documentation instead of only reporting a conflict.
 
 ## Why This Test
 
-This protects read-only documentation access when live briefing cannot start. The product should recover useful saved profile evidence instead of failing hard.
+Dataset understanding should remain useful during active work. Saved profile artifacts are durable product value and should be reused.
 
 ## Actions Taken
 
-The fake client reports a busy dataset and provides stored dataset profile data.
+The harness makes the describe run hit an active-run conflict and provides a saved dataset briefing/profile.
 
 ## Assertions Made
 
-The response uses the saved briefing/profile, explains that live work is blocked, and keeps the answer anchored to dataset documentation.
+The response explains the busy state, uses the saved briefing, names the briefing/profile artifacts, and provides the blocking run for follow-up.

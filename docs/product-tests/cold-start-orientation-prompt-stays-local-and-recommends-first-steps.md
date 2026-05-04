@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A new user asks what to do first before choosing any dataset or run.
+A new user asks an orientation question before choosing a dataset or signing in. The product should answer locally with a practical overview instead of calling remote planning.
 
 ## Why This Test
 
-This protects onboarding from becoming a backend planning call. The product should orient the user with practical next steps that can be understood before any remote work starts.
+Orientation should be fast, understandable, and safe. A cold-start product explanation should not depend on backend availability or account state.
 
 ## Actions Taken
 
-The agent answers the cold-start prompt with a fake remote client that would fail if called.
+The harness injects a remote client that would fail if called, then asks a broad orientation prompt.
 
 ## Assertions Made
 
-The response stays local, suggests listing datasets or providing a file/source, and avoids run ids, dashboard links, lifecycle jargon, and tool chatter.
+The answer stays local, describes useful first actions, recommends concrete prompts, and avoids unnecessary remote tool calls.

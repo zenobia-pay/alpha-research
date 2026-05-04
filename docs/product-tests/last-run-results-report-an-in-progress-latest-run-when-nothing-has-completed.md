@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks for last results when only in-progress runs exist.
+A user asks for last results when all recent work is still running. The product should report in-progress status instead of pretending results exist.
 
 ## Why This Test
 
-This prevents fake result summaries. If no run has completed, the product should say so and point to status/debug actions.
+Async workflows must handle waiting states honestly. Fabricated or premature results would undermine trust.
 
 ## Actions Taken
 
-Tracked runs contain active records but no completed record.
+The harness returns only in-progress run history.
 
 ## Assertions Made
 
-The response says no completed results are available, identifies the active run, and gives a concrete follow-up or debug path.
+The response says no completed result is available yet, identifies the active run, and gives a concrete inspection path.

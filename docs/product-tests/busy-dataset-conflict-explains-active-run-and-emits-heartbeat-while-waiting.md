@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user starts analysis on a dataset that is already locked by another run.
+A user starts work on a dataset that is locked by an active run. The product should show progress while attempting the action, then explain the active run conflict clearly.
 
 ## Why This Test
 
-This protects conflict handling. The product should show progress while checking and then explain why no duplicate run was started.
+Without good conflict handling, users can create duplicate work or think the CLI failed mysteriously. Busy states need an actionable run id and recovery path.
 
 ## Actions Taken
 
-The fake remote API raises a 409 active-run error after heartbeat timing is enabled.
+The fake backend delays the environment request and then returns a dataset-volume conflict with an active run.
 
 ## Assertions Made
 
-The response includes expected artifacts, heartbeat text, active run id/status, no-duplicate-run guidance, dashboard link, and debug command.
+The CLI emits heartbeat progress, reports expected artifacts, identifies the blocking run, avoids starting duplicate work, and gives debug/dashboard guidance.

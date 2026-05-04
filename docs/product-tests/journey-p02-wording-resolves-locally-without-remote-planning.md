@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks for the product behavior represented by journey P02.
+The journey wording for a basic product-orientation prompt should be handled as a local help request. The user is trying to understand the product, not start a remote run.
 
 ## Why This Test
 
-This keeps journey repair wording testable without requiring remote infrastructure. The answer should be product-facing and deterministic.
+Journey prompts are used to evaluate the product experience. If simple orientation routes through remote planning, the UI can appear slow or fail for reasons unrelated to the user's task.
 
 ## Actions Taken
 
-The agent handles the prompt locally while the fake remote client rejects any planning attempt.
+The test sends the P02-style wording through the agent with a fake remote client.
 
 ## Assertions Made
 
-The response matches the repaired P02 guidance and avoids starting a remote run, queueing work, or leaking internal tool names.
+The response is generated locally, gives clear next steps, and does not call remote planning or dataset tools.

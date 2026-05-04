@@ -2,16 +2,16 @@
 
 ## Product Use
 
-The TUI composer renders with and without an authenticated session.
+The composer placeholder changes based on whether the user is signed in. Signed-out users need a prompt that points them toward sign-in or local dataset questions; signed-in users can be invited to ask about datasets, runs, or artifacts.
 
 ## Why This Test
 
-This protects the first text field a user sees. It should guide signed-out users toward sign-in while giving signed-in users artifact and run affordances.
+The first empty-state text is part of the product surface. If it suggests unavailable remote actions while signed out, the user can start with a failing path.
 
 ## Actions Taken
 
-The test calls the placeholder helper for null session and active session states.
+The test calls the placeholder helper with no session and with a valid session.
 
 ## Assertions Made
 
-The signed-out placeholder mentions datasets, runs, or sign-in. The signed-in placeholder mentions datasets, runs, or artifacts.
+The signed-out placeholder mentions datasets, runs, or sign-in. The signed-in placeholder focuses on datasets, runs, and artifacts without unnecessary authentication recovery text.

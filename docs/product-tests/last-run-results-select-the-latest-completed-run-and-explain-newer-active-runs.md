@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks for the last run results while a newer run is still active.
+A user asks for the last run's results while newer runs may still be active. The product should avoid blending active and completed work.
 
 ## Why This Test
 
-This protects run lifecycle clarity. Completed results should not be confused with newer active work that has no final output yet.
+Users often return after starting work asynchronously. The CLI needs to distinguish a completed result from a newer in-progress run.
 
 ## Actions Taken
 
-Tracked runs include completed and active records; the fake client returns results for the completed run.
+The harness provides run history with completed and active runs.
 
 ## Assertions Made
 
-The response selects the latest completed run, explains the newer active run separately, and includes result artifacts.
+The response selects the latest completed run for results and explains that newer active runs still exist separately.

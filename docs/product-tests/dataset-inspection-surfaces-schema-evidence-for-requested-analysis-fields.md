@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks whether a dataset has fields needed for analysis.
+A user asks whether a dataset can support a specific analysis. The product should inspect schema/profile evidence and surface the relevant fields.
 
 ## Why This Test
 
-This protects trust in field answers. The agent should cite available schema evidence and separate stored fields from derived or missing measures.
+Trustworthy dataset selection depends on concrete evidence. The assistant should not merely assert that a dataset is suitable.
 
 ## Actions Taken
 
-The fake dataset detail includes profile and schema information relevant to the question.
+The harness provides a profile containing fields related to county, time, unemployment, and home values.
 
 ## Assertions Made
 
-The answer mentions the verified fields, notes gaps or derived metrics, and avoids claiming unsupported readiness.
+The response names the inspected dataset, reports relevant schema evidence, and summarizes coverage useful for the requested analysis.

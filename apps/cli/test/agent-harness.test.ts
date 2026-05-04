@@ -2550,6 +2550,160 @@ test("stuck run question escalates stale running run to debug now", async () => 
   assert.match(final, /Last update: 2026-04-22T00:00:00\.000Z \(5 minutes ago\)/i);
 });
 
+test("canonical public environments use small versioned object-store resource profile", async () => {
+  const calls: Array<{ name: string; body?: Record<string, unknown> }> = [];
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "terminal-session-canonical-resources",
+          payload: {
+            id: "response-canonical-resources-final",
+            output_text: "Started canonical build.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Started canonical build." }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-canonical-resources",
+        payload: {
+          id: "response-canonical-resources",
+          output: [{
+            type: "function_call",
+            call_id: "call-canonical-resources",
+            name: "create_public_data_environment",
+            arguments: JSON.stringify({
+              datasetId: "sociology",
+              name: "Sociology",
+              sourceDescription: "Canonical public sociology sources.",
+              prompt: "Build the canonical public Sociology dataset.",
+            }),
+          }],
+        },
+      };
+    },
+    async listDatasets() {
+      calls.push({ name: "listDatasets" });
+      return { datasets: [] };
+    },
+    async createPublicDataEnvironment(datasetId: string, body: Record<string, unknown>) {
+      calls.push({ name: "createPublicDataEnvironment", body: { datasetId, ...body } });
+      return {
+        dataset: null,
+        environment: { datasetId, status: "booting" },
+        run: {
+          id: "run-canonical-resources",
+          datasetId,
+          status: "booting",
+          prompt: String(body.prompt),
+          createdAt: "2026-05-01T00:00:00.000Z",
+          updatedAt: "2026-05-01T00:00:00.000Z",
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-canonical-resources" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { emit } = collect();
+
+  await runAgentTurn("Create the canonical sociology dataset.", session, emit, undefined, deps);
+
+  const environmentCall = calls.find((call) => call.name === "createPublicDataEnvironment");
+  assert.deepEqual(environmentCall?.body?.resources, {
+    profile: "canonical-public",
+    runnerSize: "s-4vcpu-8gb",
+    workspaceDiskGb: 50,
+    storageMode: "object-store-versioned",
+    datasetAccess: "read-only-version",
+    publishMode: "versioned",
+  });
+});
+
+test("environment builds support explicit large-ingest resource profile", async () => {
+  const calls: Array<{ name: string; body?: Record<string, unknown> }> = [];
+  const fakeClient = {
+    async respond(body: Record<string, unknown>) {
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "terminal-session-large-ingest",
+          payload: {
+            id: "response-large-ingest-final",
+            output_text: "Started large ingest.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Started large ingest." }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-large-ingest",
+        payload: {
+          id: "response-large-ingest",
+          output: [{
+            type: "function_call",
+            call_id: "call-large-ingest",
+            name: "create_research_environment",
+            arguments: JSON.stringify({
+              datasetId: "archive-corpus",
+              name: "Archive Corpus",
+              sourceDescription: "Large public archive corpus.",
+              prompt: "Fetch and normalize a large archive corpus.",
+              resourceProfile: "large-ingest",
+            }),
+          }],
+        },
+      };
+    },
+    async listDatasets() {
+      calls.push({ name: "listDatasets" });
+      return { datasets: [] };
+    },
+    async createDataset(body: Record<string, unknown>) {
+      calls.push({ name: "createDataset", body });
+      return { dataset: { id: body.datasetId, name: body.name, status: "created" } };
+    },
+    async createResearchEnvironment(datasetId: string, body: Record<string, unknown>) {
+      calls.push({ name: "createResearchEnvironment", body: { datasetId, ...body } });
+      return {
+        dataset: null,
+        environment: { datasetId, status: "booting" },
+        run: {
+          id: "run-large-ingest",
+          datasetId,
+          status: "booting",
+          prompt: String(body.prompt),
+          createdAt: "2026-05-01T00:00:00.000Z",
+          updatedAt: "2026-05-01T00:00:00.000Z",
+        },
+      };
+    },
+    async appendSessionEntry() {
+      return { id: "entry-large-ingest" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { emit } = collect();
+
+  await runAgentTurn("Create a large archive dataset.", session, emit, undefined, deps);
+
+  const environmentCall = calls.find((call) => call.name === "createResearchEnvironment");
+  assert.deepEqual(environmentCall?.body?.resources, {
+    profile: "large-ingest",
+    runnerSize: "s-8vcpu-16gb",
+    workspaceDiskGb: 500,
+    storageMode: "object-store-versioned",
+    publishMode: "versioned",
+  });
+});
+
 test("product planning: vague viral tweets request designs scoped experiment before running", async () => {
   const calls: string[] = [];
   const fakeClient = {

@@ -222,11 +222,26 @@ For non-query product runs, the CLI sends a first-class runtime resource contrac
 {
   "profile": "standard-analysis",
   "runnerSize": "s-8vcpu-16gb",
-  "workspaceDiskGb": 500
+  "workspaceDiskGb": 100,
+  "storageMode": "object-store-versioned",
+  "datasetAccess": "read-only-version"
 }
 ```
 
-The backend runner provisioner must honor this contract before these slow product E2Es can pass reliably. The user prompt should not contain infrastructure caveats or low-disk workarounds; resource sizing belongs in the run contract and provisioning layer. A failed waited-on run should be reported with diagnostics rather than silently retried with a rewritten run prompt.
+Canonical public-data builds use the smaller `canonical-public` profile by default:
+
+```json
+{
+  "profile": "canonical-public",
+  "runnerSize": "s-4vcpu-8gb",
+  "workspaceDiskGb": 50,
+  "storageMode": "object-store-versioned",
+  "datasetAccess": "read-only-version",
+  "publishMode": "versioned"
+}
+```
+
+Large 500GiB scratch workspaces are reserved for explicit `large-ingest` jobs after the source plan justifies that footprint. The backend runner provisioner must honor these contracts before slow product E2Es can pass reliably. The user prompt should not contain infrastructure caveats or low-disk workarounds; resource sizing belongs in the run contract and provisioning layer. A failed waited-on run should be reported with diagnostics rather than silently retried with a rewritten run prompt.
 
 ## Runtime Seams
 

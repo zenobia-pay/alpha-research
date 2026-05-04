@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A prompt-mode user asks to run analysis on a locally tracked busy dataset.
+In prompt mode, a busy dataset shortcut should summarize the blocking run's age, health, and available actions.
 
 ## Why This Test
 
-This protects the fast path that avoids unnecessary remote planning. The product should detect the local blocker and provide useful age and health context.
+Prompt mode has limited interaction. The single response must help users decide whether to wait, inspect, or cancel.
 
 ## Actions Taken
 
-The test writes a temporary tracked-run record and asks for new work on the same dataset.
+The harness returns an active blocking run with timestamps.
 
 ## Assertions Made
 
-The response reports the active run id, status, start and update times, lock explanation, dashboard link, and inspect/wait/cancel options.
+The response includes run age, current health, debug guidance, dashboard guidance, and avoids starting duplicate work.

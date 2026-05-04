@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks for results when the latest known run failed.
+A user asks for last results after the latest relevant work failed. The product should surface the failure and diagnostics rather than searching for unrelated success.
 
 ## Why This Test
 
-This protects failure handling. The product should not present failed work as results and should guide debugging.
+Failure states are part of the research lifecycle. The user needs to understand what failed and how to inspect it.
 
 ## Actions Taken
 
-Tracked runs contain a failed run and no successful completed run.
+The harness returns failed run history without a successful completed run.
 
 ## Assertions Made
 
-The response reports the failure state, identifies the run, and gives a debug or recovery action without inventing artifacts.
+The response reports the failed run, avoids claiming results, and gives debug or dashboard next steps.

@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks for a concrete viral tweets experiment.
+A user provides a specific viral-tweets experiment. The product should start the remote run and clearly summarize what analysis and artifacts were requested.
 
 ## Why This Test
 
-This protects remote run starts by making the scope and expected outputs visible before background work continues.
+For well-scoped research work, the CLI should move directly into execution while keeping the user informed about outputs and monitoring links.
 
 ## Actions Taken
 
-The fake remote client starts a run and returns artifact metadata.
+The harness asks for a concrete viral-tweets experiment with dataset, metric, sample, labels, and outputs.
 
 ## Assertions Made
 
-The transcript shows the selected dataset, analysis intent, expected artifacts, run id, and dashboard or follow-up affordance without exposing raw tool plumbing.
+The product starts a remote run, includes artifact expectations, tracks the run, and returns user-facing status rather than raw tool internals.

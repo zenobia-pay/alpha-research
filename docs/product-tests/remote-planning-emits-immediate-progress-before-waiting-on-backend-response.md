@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A signed-in user asks for work that needs remote planning.
+When a remote planning request may take several seconds, the CLI should emit immediate progress so the user knows work has started.
 
 ## Why This Test
 
-This protects perceived responsiveness. The CLI should show useful progress immediately while waiting for the backend rather than appearing frozen.
+Silent waits feel like hangs. The product needs responsive terminal behavior even when the backend model or planner is still working.
 
 ## Actions Taken
 
-The fake remote client delays its response while emitted messages are captured.
+The harness delays the remote planning response and observes emitted messages.
 
 ## Assertions Made
 
-The transcript includes immediate planning or lookup progress before the backend result, then returns the final assistant response.
+The CLI emits an immediate user-facing progress line before the delayed backend response completes.

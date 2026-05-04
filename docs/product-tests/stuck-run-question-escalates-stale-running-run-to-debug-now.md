@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks whether an older running run is stuck.
+A user asks about a stale running run. The product should escalate to debugging when the run has not updated recently.
 
 ## Why This Test
 
-This protects escalation. When a run has not updated for several minutes, the product should recommend immediate inspection instead of vague waiting.
+Long-running work can fail silently. The CLI should distinguish normal boot time from stale execution that needs diagnostics.
 
 ## Actions Taken
 
-The test injects a running tracked run with a five-minute-old update and last event message.
+The harness provides a running run with an old update timestamp.
 
 ## Assertions Made
 
-The response says the run may be stalled, cites the last event, reports the age, and tells the user to run the debug command now.
+The response says the run may be stalled, reports the last update age, and recommends `research debug run` for the specific run.

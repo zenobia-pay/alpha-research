@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks to analyze a dataset and say what is interesting without choosing scope.
+A user asks what is interesting in a dataset without a research question. The product should not launch broad expensive analysis by default.
 
 ## Why This Test
 
-This protects the approval gate for broad analysis. The product should inspect metadata and ask for a focused choice before spending remote time.
+Open-ended exploration can become costly and unfocused. The CLI should turn ambiguity into a focused choice or briefing.
 
 ## Actions Taken
 
-The fake client returns dataset profile metadata and fails if a run is started.
+The harness asks an intentionally vague dataset-interesting question.
 
 ## Assertions Made
 
-The response gives a concise dataset briefing, names focused next-step options, and says no broad remote analysis will start until scope is chosen.
+The response gives a concise dataset-oriented briefing, offers focused next options, and does not start a remote analysis run prematurely.

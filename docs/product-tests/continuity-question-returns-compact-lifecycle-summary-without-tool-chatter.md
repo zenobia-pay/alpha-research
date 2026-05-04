@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks what is happening with ongoing work.
+A user asks what is going on or where things stand. The product should summarize active and recent runs in plain language.
 
 ## Why This Test
 
-This protects continuity UX. The answer should summarize active, blocked, or completed work in plain language.
+Continuity questions happen in long-running async workflows. The answer should be compact and useful, not a dump of tool calls.
 
 ## Actions Taken
 
-The test provides tracked run records and asks a broad continuity question.
+The harness provides tracked run state and asks a continuity-style question.
 
 ## Assertions Made
 
-The response groups work compactly, avoids raw tool output, and translates lifecycle states into user-facing next actions.
+The response gives lifecycle status, highlights actionable runs, and avoids raw tool chatter or excessive internals.

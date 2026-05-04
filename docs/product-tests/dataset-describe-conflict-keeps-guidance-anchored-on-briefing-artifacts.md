@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks for a dataset briefing while a briefing or analysis run is active.
+A dataset describe request can conflict with an active run. The product should keep the guidance anchored on the requested briefing artifacts rather than drifting into generic analysis advice.
 
 ## Why This Test
 
-This protects documentation workflow conflict handling. The answer should remain about Dataset Briefing and Dataset Profile artifacts rather than drifting into general analysis guidance.
+Dataset documentation is a distinct workflow. Busy guidance should preserve the user's intent and tell them what artifacts to expect.
 
 ## Actions Taken
 
-The fake client raises an active-run conflict for the describe request.
+The fake backend returns an active-run conflict for a dataset briefing run.
 
 ## Assertions Made
 
-The response names the dataset, active run, expected briefing artifacts, result retrieval command, and debug command.
+The response names the blocking run, avoids a duplicate run, mentions expected Dataset Briefing and Dataset Profile artifacts, and gives inspection guidance.

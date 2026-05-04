@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks what datasets are available.
+A user asks what datasets they have. The product should present a scannable inventory that foregrounds useful ready datasets and de-emphasizes draft, upload-test, or noisy internal datasets.
 
 ## Why This Test
 
-This protects inventory as a decision surface rather than a raw dump. Ready and meaningful datasets should be easy to find, while test or draft datasets should not dominate.
+Dataset choice is a core workflow. A raw id dump makes users choose from implementation details instead of product names, readiness, and likely next actions.
 
 ## Actions Taken
 
-The test supplies local and remote dataset summaries with mixed readiness and noisy names.
+The harness returns a mixed catalog of ready, draft, uploaded, and noisy datasets.
 
 ## Assertions Made
 
-The response names the best starting point first, groups ready datasets separately, includes ids and readiness, and pushes smoke or draft datasets into the secondary group.
+The response is recommendation-first, shows human names before ids, indicates readiness, and avoids presenting noisy datasets as equally useful choices.

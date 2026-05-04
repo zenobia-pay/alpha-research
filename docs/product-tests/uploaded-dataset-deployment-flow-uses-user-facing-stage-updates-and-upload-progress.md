@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user creates and deploys a dataset from a local CSV.
+A user uploads a local file and deploys it as a dataset. The product should show each lifecycle stage in human language.
 
 ## Why This Test
 
-This protects the full upload lifecycle. The CLI should show each user-facing stage and progress without exposing raw tool names.
+File upload and deployment can take time. Users need progress, verification, and a run id without being exposed to internal tool names.
 
 ## Actions Taken
 
-The fake client walks through file resolution, profiling, registration, upload target creation, upload, verification, and deployment.
+The harness creates a temporary CSV, resolves it, profiles it, registers the dataset, uploads it through a presigned URL, verifies completion, and starts deployment.
 
 ## Assertions Made
 
-The transcript includes local file use, profile check, dataset creation, upload target, 100 percent progress, upload verification, deployment start, and terminal-session link.
+The transcript includes file resolution, inspection, dataset creation, upload target readiness, upload progress, upload verification, deployment start, and the canonical terminal-session link.

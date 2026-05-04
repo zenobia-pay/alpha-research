@@ -2,16 +2,16 @@
 
 ## Product Use
 
-A user asks whether a very fresh booting run is stuck.
+A user asks whether a fresh booting run is stuck. The product should explain that booting can be normal before escalating.
 
 ## Why This Test
 
-This protects false alarms. The product should explain that a newly booting run may still be mounting data and should not be treated as failed immediately.
+Prematurely calling fresh provisioning stuck creates noise. Users need calibrated status based on age and state.
 
 ## Actions Taken
 
-The test injects a tracked run updated thirty seconds ago.
+The harness provides a recently updated booting run and asks a stuck-run question.
 
 ## Assertions Made
 
-The answer says it does not look stuck yet, describes the waiting state in plain language, suggests waiting briefly, and includes the debug command.
+The response describes the run as fresh or still starting, gives the run id, and suggests inspection without over-escalating.
