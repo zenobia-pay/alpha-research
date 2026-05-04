@@ -303,11 +303,28 @@ function arrayOrUndefined(value) {
 
 function redact(value) {
   return JSON.parse(JSON.stringify(value, (key, nested) => {
-    if (key.toLowerCase().includes("token") || key.toLowerCase() === "authorization") {
+    const normalizedKey = key.toLowerCase();
+    if (
+      normalizedKey.includes("token")
+      || normalizedKey === "authorization"
+      || normalizedKey === "uploadurl"
+      || normalizedKey === "downloadurl"
+      || normalizedKey === "signedurl"
+      || normalizedKey === "presignedurl"
+    ) {
       return "[redacted]";
     }
+    if (typeof nested === "string") return redactString(nested);
     return nested;
   }));
+}
+
+function redactString(value) {
+  return value
+    .replaceAll(/https?:\/\/[^\s"')<>]+X-Amz-[^\s"')<>]+/g, "[redacted-presigned-url]")
+    .replaceAll(/https?:\/\/[^\s"')<>]+[?&](?:token|signature|access_token|auth)=[^\s"')<>]+/gi, "[redacted-signed-url]")
+    .replaceAll(/(Authorization:\s*)(?:Bearer\s+)?[A-Za-z0-9._~+/=-]+/gi, "$1[redacted]")
+    .replaceAll(/(X-Amz-(?:Credential|Signature)=)[^&\s"')<>]+/g, "$1[redacted]");
 }
 
 function reply(id, result) {
