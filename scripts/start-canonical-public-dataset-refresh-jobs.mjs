@@ -7,6 +7,8 @@ const catalogPath = new URL("../docs/CANONICAL_PUBLIC_DATASETS.md", import.meta.
 
 const dryRun = process.argv.includes("--dry-run") || process.env.CANONICAL_DATASET_REFRESH_DRY_RUN === "1";
 const statusOnly = process.argv.includes("--status-only");
+const remoteStatusAttempts = Number(process.env.CANONICAL_REMOTE_STATUS_ATTEMPTS ?? "5");
+const remoteStatusRetryBaseMs = Number(process.env.CANONICAL_REMOTE_STATUS_RETRY_BASE_MS ?? "2000");
 
 const canonicalDatasets = [
   { id: "econ", name: "Econ" },
@@ -47,6 +49,29 @@ function formatError(error) {
   return payload;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function errorCauseCode(error) {
+  const cause = error instanceof Error ? error.cause : null;
+  return cause && typeof cause === "object" && typeof cause.code === "string" ? cause.code : null;
+}
+
+function isTransientRemoteError(error) {
+  const transientCodes = new Set([
+    "EAI_AGAIN",
+    "ENOTFOUND",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_SOCKET",
+  ]);
+  return transientCodes.has(errorCauseCode(error));
+}
+
 function readSession() {
   const raw = readFileSync(sessionPath, "utf8");
   const session = JSON.parse(raw);
@@ -82,6 +107,30 @@ async function api(session, path, options = {}) {
     throw error;
   }
   return body;
+}
+
+async function apiWithRetry(session, path, options = {}) {
+  const attempts = Math.max(1, Math.trunc(options.attempts ?? remoteStatusAttempts));
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await api(session, path, options);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientRemoteError(error) || attempt === attempts) {
+        throw error;
+      }
+
+      const delayMs = remoteStatusRetryBaseMs * attempt;
+      console.warn(
+        `Remote status check failed with ${errorCauseCode(error)}; retrying in ${delayMs}ms (${attempt}/${attempts}).`,
+      );
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
 }
 
 function extractSourceRegistrySection(markdown, datasetId) {
@@ -140,7 +189,7 @@ const results = [];
 
 let datasetsPayload;
 try {
-  datasetsPayload = await api(session, "/api/cli/datasets");
+  datasetsPayload = await apiWithRetry(session, "/api/cli/datasets");
 } catch (error) {
   const formatted = formatError(error);
   if (!dryRun) {
