@@ -19,6 +19,8 @@ import {
   buildLiveSummary,
   cleanUiLine,
   createIdleTaskState,
+  extractAuthRecoveryDetails,
+  extractBlockedRunDetails,
   splitTrackedRuns,
   wrapText,
   type InteractiveTaskState,
@@ -33,6 +35,22 @@ type InteractiveAppProps = {
 
 export function composerPlaceholder(session: SessionRecord | null) {
   return session ? "Ask about datasets, runs, or artifacts" : "Ask about datasets, runs, or sign-in";
+}
+
+function blockedComposerPlaceholder() {
+  return "Choose recovery: inspect, wait, cancel, or retry later";
+}
+
+export function authComposerPlaceholder() {
+  return "Type /login to sign in";
+}
+
+export function emptyStatePromptExamples() {
+  return [
+    "Show my datasets so I can see what is ready to use.",
+    "Create a dataset from /full/path/to/file.csv.",
+    "Show the latest run and its artifacts.",
+  ];
 }
 
 function shortId(value: string, size = 8) {
@@ -64,8 +82,226 @@ function runStatusColor(status: string) {
 
 function summarizeRunLine(run: TrackedRunRecord) {
   const latest = run.lastEventMessage?.trim();
-  const suffix = latest ? ` · ${latest}` : run.prompt ? ` · ${run.prompt}` : "";
+  const suffix = latest ? ` · ${summarizePrompt(latest, 80)}` : "";
   return `${shortId(run.id)}  ${run.datasetId}  ${run.status}${suffix}`;
+}
+
+export function summarizePrompt(prompt: string, maxLength = 96) {
+  const cleaned = cleanUiLine(prompt);
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+export function describeRunPhase(status: string) {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "booting" || normalized === "queued") {
+    return {
+      label: "Starting",
+      detail: "Accepted and provisioning the remote worker for this run.",
+    };
+  }
+  if (normalized === "running") {
+    return {
+      label: "Running",
+      detail: "Worker is active and still processing the request.",
+    };
+  }
+  if (normalized === "ready" || normalized === "completed" || normalized === "succeeded") {
+    return {
+      label: "Complete",
+      detail: "The run finished and artifacts should be available.",
+    };
+  }
+  if (normalized === "failed" || normalized === "error" || normalized === "worker_unreachable") {
+    return {
+      label: "Blocked",
+      detail: "Remote state is unclear. Inspect the run or retry later.",
+    };
+  }
+  return {
+    label: "Needs attention",
+    detail: "Check the run for the latest status and next step.",
+  };
+}
+
+export function describeRunFreshness(updatedAt: string, now = Date.now()) {
+  const updatedMs = new Date(updatedAt).getTime();
+  if (!Number.isFinite(updatedMs)) {
+    return {
+      label: "Unknown",
+      color: "gray" as const,
+      detail: "No reliable heartbeat yet.",
+      age: "unknown",
+    };
+  }
+  const ageMs = Math.max(0, now - updatedMs);
+  const ageSeconds = Math.round(ageMs / 1000);
+  const age = ageSeconds < 60
+    ? `${ageSeconds}s ago`
+    : ageSeconds < 3600
+      ? `${Math.floor(ageSeconds / 60)}m ago`
+      : `${Math.floor(ageSeconds / 3600)}h ago`;
+  if (ageMs <= 2 * 60_000) {
+    return {
+      label: "Fresh",
+      color: "green" as const,
+      detail: "Healthy if another update arrives within 2 minutes.",
+      age,
+    };
+  }
+  if (ageMs < 5 * 60_000) {
+    return {
+      label: "Warm",
+      color: "yellow" as const,
+      detail: "Still within the normal wait window. Debug if it stays quiet past 5 minutes.",
+      age,
+    };
+  }
+  return {
+    label: "Stale",
+    color: "red" as const,
+    detail: "Quiet longer than expected. Inspect or debug now.",
+    age,
+  };
+}
+
+export function describeRunExpectation(run: TrackedRunRecord) {
+  const prompt = (run.prompt ?? "").toLowerCase();
+  const outputs = [];
+  if (/strict json|json/u.test(prompt)) outputs.push("structured JSON");
+  if (/chart|bar chart|plot|graph/u.test(prompt)) outputs.push("chart");
+  if (/examples?/u.test(prompt)) outputs.push("examples");
+  if (/label/u.test(prompt)) outputs.push("labels");
+  if (outputs.length === 0) outputs.push("briefing");
+  return `Expected outputs: ${outputs.join(", ")}.`;
+}
+
+export function formatRunLastUpdate(run: TrackedRunRecord, maxLength = 120) {
+  const latest = run.lastEventMessage?.trim();
+  if (!latest) {
+    return "No remote milestone yet. You can leave this open while the worker continues.";
+  }
+  return summarizePrompt(latest, maxLength);
+}
+
+function summarizeRunActivity(run: TrackedRunRecord) {
+  const latest = run.lastEventMessage?.trim();
+  if (!latest) {
+    return "No remote milestone yet.";
+  }
+  if (/Remote agent droplet .* launched in /i.test(latest)) {
+    return "Worker started and is still getting ready.";
+  }
+  if (/mounted dataset grounding is mandatory/i.test(latest)) {
+    return "Waiting for the dataset mount before analysis can start.";
+  }
+  return summarizePrompt(latest, 100);
+}
+
+function collectSectionBullets(text: string, heading: string) {
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) return [] as string[];
+  const bullets: string[] = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const trimmed = lines[index]?.trim() ?? "";
+    if (!trimmed) continue;
+    if (!trimmed.startsWith("- ")) break;
+    bullets.push(trimmed.slice(2).trim());
+  }
+  return bullets;
+}
+
+export function summarizeCompletedResult(text: string) {
+  const selectedRun = text.match(/^Selected the most recent completed run:\s*([^,]+)(?:, completed .+)?\.$/imu)?.[1]?.trim()
+    ?? text.match(/^Selected run:\s*(.+)$/imu)?.[1]?.trim()
+    ?? text.match(/^- ([^(]+?) \([^)]+\) completed successfully\.$/imu)?.[1]?.trim()
+    ?? null;
+  const completedAt = text.match(/^Selected the most recent completed run:\s*[^,]+, completed (.+)\.$/imu)?.[1]?.trim()
+    ?? text.match(/^Completed:\s*(.+)$/imu)?.[1]?.trim()
+    ?? text.match(/completed ([^.]+)\.$/iu)?.[1]?.trim()
+    ?? null;
+  const why = text.match(/^Why this run:\s*(.+)$/imu)?.[1]?.trim()
+    ?? collectSectionBullets(text, "Latest finished result").find((line) => line.startsWith("Why this result:"))?.replace(/^Why this result:\s*/u, "")
+    ?? null;
+  const summary = collectSectionBullets(text, "Summary")[0]
+    ?? collectSectionBullets(text, "What changed")[0]
+    ?? null;
+  const artifacts = collectSectionBullets(text, "Artifacts")
+    .map((line) => line.replace(/^(Open first|Also available):\s*/u, "").split(/[—(]/u)[0]?.trim() ?? "")
+    .filter(Boolean)
+    .slice(0, 3);
+
+  if (!selectedRun && !summary && !why) {
+    return null;
+  }
+
+  const headline = selectedRun
+    ? `Selected completed run: ${selectedRun}${completedAt ? `, completed ${completedAt.replace(/\.$/u, "")}` : ""}.`
+    : "Selected the latest completed run.";
+
+  return { headline, why, summary, artifacts };
+}
+
+export function currentWorkSummary(taskState: InteractiveTaskState) {
+  const authRecovery = taskState.lastResult ? extractAuthRecoveryDetails(taskState.lastResult) : null;
+  if (taskState.status === "blocked" && authRecovery) {
+    return {
+      title: "Sign-in recovery",
+      lines: [
+        "You are signed out.",
+        "Run `/login` here or `research login` in another terminal to continue.",
+        authRecovery.originalRequest ? `Saved request: ${authRecovery.originalRequest}` : null,
+      ].filter((line): line is string => Boolean(line)),
+    };
+  }
+  const blockedDetails = taskState.lastResult ? extractBlockedRunDetails(taskState.lastResult) : null;
+  if (taskState.status === "blocked" && blockedDetails) {
+    return {
+      title: "Blocking run",
+      lines: [
+        blockedDetails.datasetId ? `Dataset: ${blockedDetails.datasetId}` : null,
+        blockedDetails.runId ? `Run id: ${blockedDetails.runId}` : null,
+        blockedDetails.runStatus ? `Status: ${blockedDetails.runStatus}` : null,
+        blockedDetails.expectedDelay ? `Expected delay: ${blockedDetails.expectedDelay}` : null,
+        blockedDetails.escalationHint ? `Escalate if: ${blockedDetails.escalationHint}` : null,
+      ].filter((line): line is string => Boolean(line)),
+    };
+  }
+  if (taskState.focusRunId) {
+    return {
+      title: "Current run",
+      lines: [
+        `Run id: ${taskState.focusRunId}`,
+        taskState.selectedDatasetId ? `Dataset: ${taskState.selectedDatasetId}` : null,
+        `Status: ${formatTaskStatus(taskState.status)}${taskState.statusLabel ? ` · ${taskState.statusLabel}` : ""}`,
+        taskState.focusRunUrl ? `Dashboard: ${taskState.focusRunUrl}` : null,
+        taskState.nextExpectedOutput ? `Next: ${taskState.nextExpectedOutput}` : null,
+      ].filter((line): line is string => Boolean(line)),
+    };
+  }
+
+  if (taskState.selectedDatasetId && (taskState.status === "blocked" || taskState.status === "working" || taskState.status === "waiting")) {
+    return {
+      title: "Current work",
+      lines: [
+        `Dataset: ${taskState.selectedDatasetId}${taskState.selectedDatasetState ? ` (${taskState.selectedDatasetState})` : ""}`,
+        taskState.currentStep ? `State: ${taskState.currentStep}` : null,
+        taskState.nextExpectedOutput ? `Next: ${taskState.nextExpectedOutput}` : null,
+      ].filter((line): line is string => Boolean(line)),
+    };
+  }
+
+  return null;
+}
+
+export function runPanelSummary(runs: TrackedRunRecord[], focusRunId: string | null = null) {
+  const { focused, background } = splitTrackedRuns(runs, focusRunId);
+  const visible = [focused, ...background].filter((item): item is TrackedRunRecord => Boolean(item)).slice(0, 3);
+  if (visible.length === 0) {
+    return ["No active runs."];
+  }
+  return visible.map((run) => summarizeRunLine(run));
 }
 
 async function pollTrackedRuns(
@@ -189,26 +425,145 @@ function ActivityIndicator() {
   );
 }
 
-function TaskSummary({ taskState, width }: { taskState: InteractiveTaskState; width: number }) {
+function formatTaskStatus(status: InteractiveTaskState["status"]) {
+  if (status === "done") return "ready";
+  return status;
+}
+
+function statusBadgeColor(status: InteractiveTaskState["status"]) {
+  if (status === "blocked") return "red";
+  if (status === "waiting") return "green";
+  if (status === "working") return "yellow";
+  return "blue";
+}
+
+function TaskActivityIndicator({
+  status,
+  currentStep,
+  startedAt,
+}: {
+  status: InteractiveTaskState["status"];
+  currentStep: string | null;
+  startedAt: number | null;
+}) {
+  if (status === "waiting") {
+    const waitingLabel = currentStep && /approval|choice/u.test(currentStep)
+      ? "· scoping experiment · waiting for your choice"
+      : "· waiting for your reply";
+    return (
+      <Box>
+        <Text color="green">{waitingLabel}</Text>
+      </Box>
+    );
+  }
+  if (status === "blocked") {
+    return (
+      <Box>
+        <Text color="red">· blocked</Text>
+      </Box>
+    );
+  }
+  if (status === "done") {
+    return (
+      <Box>
+        <Text color="green">· ready for the next question</Text>
+      </Box>
+    );
+  }
+  if (status === "working") {
+    const elapsed = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : null;
+    return (
+      <Box>
+        <Text color="yellow">{`· working${elapsed !== null ? ` · ${elapsed}s elapsed` : ""}${currentStep ? ` · ${currentStep}` : ""}`}</Text>
+      </Box>
+    );
+  }
+  return <ActivityIndicator />;
+}
+
+function TaskSummary({
+  taskState,
+  width,
+  conversationState,
+  showRequestSummary,
+}: {
+  taskState: InteractiveTaskState;
+  width: number;
+  conversationState: AgentConversationState;
+  showRequestSummary: boolean;
+}) {
   const composerText = useAuiState((state) => state.composer.text);
-  const preview = composerText.trim().length > 0 ? composerText : taskState.goal;
+  const preview = composerText.trim().length > 0 ? composerText : summarizePrompt(taskState.goal ?? "", 140);
+  const resolvedDataset = conversationState.datasetContext?.lastResolvedDataset;
+  const workSummary = currentWorkSummary(taskState);
+  const authRecovery = taskState.status === "blocked" && taskState.lastResult ? extractAuthRecoveryDetails(taskState.lastResult) : null;
+  const blockedDetails = taskState.status === "blocked" && taskState.lastResult ? extractBlockedRunDetails(taskState.lastResult) : null;
+  const blockedBannerColor = blockedDetails?.recommendedAction === "wait" ? "yellow" : "red";
+  const summaryBorderColor = authRecovery ? "yellow" : taskState.status === "blocked" ? blockedBannerColor : "green";
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
-      <Text bold color="green">research</Text>
-      <Text>{`Status: ${taskState.status}`}</Text>
-      {preview ? (
+    <Box flexDirection="column" borderStyle="round" borderColor={summaryBorderColor} paddingX={1}>
+      <Text bold color={summaryBorderColor}>research</Text>
+      <Text>{`Status: ${formatTaskStatus(taskState.status)}`}</Text>
+      {taskState.statusLabel ? <Text color={statusBadgeColor(taskState.status)}>{`State: ${taskState.statusLabel}`}</Text> : null}
+      {resolvedDataset ? <Text color="cyan">{`Context: ${resolvedDataset.id} (${resolvedDataset.scope} · ${resolvedDataset.state})`}</Text> : null}
+      {showRequestSummary && preview ? (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Goal</Text>
-          {wrapText(preview, Math.max(24, width - 6)).map((line, index) => (
+          {wrapText(preview, Math.max(24, width - 6)).slice(0, 2).map((line, index) => (
             <Text key={index}>{line}</Text>
           ))}
         </Box>
       ) : null}
-      {taskState.currentStep ? <Text>{`Current step: ${taskState.currentStep}`}</Text> : null}
-      {taskState.lastResult ? <Text>{`Last result: ${taskState.lastResult}`}</Text> : null}
-      {taskState.nextExpectedOutput ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
-      {taskState.planSteps.length > 0 ? (
+      {taskState.currentStep && taskState.status !== "blocked" ? <Text>{`${taskState.status === "done" ? "Last step" : "Current step"}: ${taskState.currentStep}`}</Text> : null}
+      {authRecovery ? (
+        <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor="yellow" paddingX={1}>
+          <Text bold color="yellow">Sign in required</Text>
+          <Text>You are signed out, so I cannot access remote datasets yet.</Text>
+          <Text>Run `/login` here or `research login` in another terminal.</Text>
+          {authRecovery.originalRequest ? <Text>{`After sign-in, I can resume: ${authRecovery.originalRequest}`}</Text> : null}
+        </Box>
+      ) : null}
+      {blockedDetails ? (
+        <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor={blockedBannerColor} paddingX={1}>
+          <Text bold color={blockedBannerColor}>Dataset locked by active run</Text>
+          <Text>{`No new run was started for ${blockedDetails.datasetId ?? taskState.selectedDatasetId ?? "this dataset"}.`}</Text>
+          {blockedDetails.currentWork ? <Text>{`Current work: ${blockedDetails.currentWork}`}</Text> : null}
+          {blockedDetails.recommendedAction ? <Text>{`Recommended action: ${blockedDetails.recommendedAction.replace("_", " ")}`}</Text> : null}
+        </Box>
+      ) : null}
+      {taskState.lastResult && taskState.status === "done" ? (() => {
+        const resultSummary = summarizeCompletedResult(taskState.lastResult);
+        if (!resultSummary) return null;
+        return (
+          <Box flexDirection="column" marginTop={1}>
+            <Text bold>Result</Text>
+            <Text>{resultSummary.headline}</Text>
+            {resultSummary.why ? <Text>{`Why this run: ${resultSummary.why}`}</Text> : null}
+            {resultSummary.summary ? <Text>{`Summary: ${resultSummary.summary}`}</Text> : null}
+            {resultSummary.artifacts.length > 0 ? <Text>{`Artifacts: ${resultSummary.artifacts.join(", ")}`}</Text> : null}
+          </Box>
+        );
+      })() : null}
+      {taskState.nextExpectedOutput && !workSummary && !blockedDetails ? <Text>{`Next expected output: ${taskState.nextExpectedOutput}`}</Text> : null}
+      {workSummary ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text bold>{workSummary.title}</Text>
+          {workSummary.lines.map((line) => (
+            <Text key={line}>{line}</Text>
+          ))}
+        </Box>
+      ) : null}
+      {authRecovery ? null : blockedDetails ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text bold>Recovery actions</Text>
+          <Text>{`1. Inspect now${blockedDetails.debugCommand ? `: ${blockedDetails.debugCommand}` : ""}`}</Text>
+          <Text>{`2. Wait${blockedDetails.expectedDelay ? `: ${blockedDetails.expectedDelay}` : ": this is normal while the worker starts."}`}</Text>
+          <Text>{`3. Cancel: stop the blocking run if it is truly stuck.`}</Text>
+          <Text>4. Retry later: rerun this request after the lock clears.</Text>
+          {blockedDetails.dashboardUrl ? <Text color="gray">Dashboard link available after inspect.</Text> : null}
+        </Box>
+      ) : taskState.planSteps.length > 0 ? (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Plan</Text>
           {taskState.planSteps.map((step, index) => (
@@ -220,6 +575,50 @@ function TaskSummary({ taskState, width }: { taskState: InteractiveTaskState; wi
   );
 }
 
+function IdleSummary({
+  session,
+  runs,
+  startupComplete,
+  width,
+}: {
+  session: SessionRecord | null;
+  runs: TrackedRunRecord[];
+  startupComplete: boolean;
+  width: number;
+}) {
+  const activeRunLines = runPanelSummary(runs);
+  const examples = emptyStatePromptExamples();
+
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1}>
+      <Text bold color="blue">research</Text>
+      <Text>Dataset-backed research agent for choosing, building, inspecting, and running research on datasets.</Text>
+      <Text color={startupComplete ? "gray" : "yellow"}>
+        {startupComplete ? "Waiting for your prompt." : "Starting up and checking for active runs..."}
+      </Text>
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Active runs</Text>
+        {activeRunLines.map((line) => (
+          <Text key={line}>{line}</Text>
+        ))}
+      </Box>
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Try one of these</Text>
+        {examples.map((example) => (
+          <Text key={example}>{`- ${example}`}</Text>
+        ))}
+      </Box>
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Input</Text>
+        {wrapText("Type a question and press Enter. Use /login when you need account datasets or cloud-backed runs.", Math.max(24, width - 6)).map((line, index) => (
+          <Text key={`${line}-${index}`}>{line}</Text>
+        ))}
+        {!session ? <Text color="gray">Signed out locally. You can still ask local dataset and run questions.</Text> : null}
+      </Box>
+    </Box>
+  );
+}
+
 function RunStatusPanel({
   runs,
   focusRunId,
@@ -227,26 +626,37 @@ function RunStatusPanel({
   runs: TrackedRunRecord[];
   focusRunId: string | null;
 }) {
+  const [now, setNow] = useState(() => Date.now());
   const { focused, background } = useMemo(() => splitTrackedRuns(runs, focusRunId), [focusRunId, runs]);
-  if (!focused && background.length === 0) return null;
+
+  useEffect(() => {
+    if (!focused) return undefined;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [focused]);
+
+  const freshness = focused ? describeRunFreshness(focused.updatedAt, now) : null;
+  const phase = focused ? describeRunPhase(focused.status) : null;
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={freshness?.color ?? "gray"} paddingX={1}>
+      <Text bold>Active run</Text>
       {focused ? (
         <>
-          <Text bold>Current run</Text>
-          <Text color={runStatusColor(focused.status)}>{summarizeRunLine(focused)}</Text>
+          <Text>{`${shortId(focused.id)} · ${focused.datasetId}`}</Text>
+          <Text color={runStatusColor(focused.status)}>{`State: ${phase?.label ?? focused.status} (${focused.status})`}</Text>
+          <Text color={freshness?.color}>{`Freshness: ${freshness?.label ?? "Unknown"} · last heartbeat ${freshness?.age ?? "unknown"}`}</Text>
+          <Text color="gray">{phase?.detail}</Text>
+          <Text color="gray">{`Current activity: ${summarizeRunActivity(focused)}`}</Text>
+          <Text color="gray">{freshness?.detail}</Text>
+          <Text color="gray">{focused.dashboardUrl ? "Actions: w wait · i inspect · d debug · c cancel" : "Actions: w wait · d debug · c cancel"}</Text>
         </>
-      ) : null}
-      {background.length > 0 ? (
+      ) : <Text>No active runs.</Text>}
+      {focused && background.length > 0 ? (
         <>
-          <Text bold>{focused ? "Background runs" : "Other active runs"}</Text>
-          <Text color="gray">These are from earlier work unless a new run is started for this request.</Text>
-          {background.slice(0, 2).map((run) => (
-            <Text key={run.id} color={runStatusColor(run.status)}>
-              {summarizeRunLine(run)}
-            </Text>
-          ))}
+          <Text color="gray">{background.length === 1 ? "1 other active run hidden." : `${background.length} other active runs hidden.`}</Text>
         </>
       ) : null}
     </Box>
@@ -256,37 +666,54 @@ function RunStatusPanel({
 function ResearchThread({
   trackedRuns,
   taskState,
+  session,
+  startupComplete,
+  conversationState,
 }: {
   trackedRuns: TrackedRunRecord[];
   taskState: InteractiveTaskState;
+  session: SessionRecord | null;
+  startupComplete: boolean;
+  conversationState: AgentConversationState;
 }) {
   const { columns } = useWindowSize();
   const isRunning = useAuiState((state) => state.thread.isRunning);
-  const borderColor = isRunning ? "yellow" : "gray";
+  const messageCount = useAuiState((state) => state.thread.messages.length);
+  const borderColor = taskState.status === "blocked" ? "gray" : taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
+  const promptColor = taskState.status === "blocked" ? "yellow" : taskState.status === "waiting" ? "green" : isRunning ? "yellow" : "blue";
   const inputWidth = Math.max(20, columns - 4);
+  const showIdleSummary = messageCount === 0 && !taskState.goal;
+  const authRecovery = taskState.status === "blocked" && taskState.lastResult ? extractAuthRecoveryDetails(taskState.lastResult) : null;
+  const showThreadMessages = showIdleSummary || taskState.status === "done" || (messageCount > 1 && taskState.status !== "blocked");
+  const showRequestSummary = !showThreadMessages;
 
   return (
     <ThreadPrimitive.Root>
-      <ThreadPrimitive.Empty>
-        <Box flexDirection="column">
-          <TaskSummary taskState={taskState} width={columns} />
-        </Box>
-      </ThreadPrimitive.Empty>
+      {showIdleSummary ? (
+        <IdleSummary session={session} runs={trackedRuns} startupComplete={startupComplete} width={columns} />
+      ) : (
+        <TaskSummary taskState={taskState} width={columns} conversationState={conversationState} showRequestSummary={showRequestSummary} />
+      )}
 
-      <TaskSummary taskState={taskState} width={columns} />
+      {showThreadMessages ? (
+        <ThreadPrimitive.Messages>
+          {({ message }) =>
+            message.role === "user" ? (
+              <UserMessage width={Math.max(20, columns - 1)} />
+            ) : (
+              <AssistantMessage />
+            )
+          }
+        </ThreadPrimitive.Messages>
+      ) : null}
 
-      <ThreadPrimitive.Messages>
-        {({ message }) =>
-          message.role === "user" ? (
-            <UserMessage width={Math.max(20, columns - 1)} />
-          ) : (
-            <AssistantMessage />
-          )
-        }
-      </ThreadPrimitive.Messages>
-
-      <ActivityIndicator />
-      {taskState.activity.length > 0 ? (
+      <TaskActivityIndicator status={taskState.status} currentStep={taskState.currentStep} startedAt={taskState.startedAt} />
+      {taskState.activity.length > 0
+      && !authRecovery
+      && taskState.status !== "done"
+      && taskState.status !== "blocked"
+      && !taskState.activity.every((item) => item === taskState.lastResult)
+      && !(taskState.status !== "working" && taskState.activity.length === 1) ? (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
           <Text bold>Recent progress</Text>
           {taskState.activity.map((item) => (
@@ -294,11 +721,25 @@ function ResearchThread({
           ))}
         </Box>
       ) : null}
-      <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} />
+      {!showIdleSummary && taskState.focusRunId && !authRecovery ? <RunStatusPanel runs={trackedRuns} focusRunId={taskState.focusRunId} /> : null}
 
-      <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
-        <Text color={isRunning ? "yellow" : "gray"}>{"> "}</Text>
-        <ComposerPrimitive.Input submitOnEnter placeholder="ask RESEARCH" autoFocus />
+      <Box flexDirection="column">
+        <Text bold color={promptColor}>
+          {taskState.status === "blocked" ? "Recovery reply" : messageCount > 0 ? (taskState.status === "done" ? "Reply" : "Reply in thread") : "Prompt"}
+        </Text>
+        <Text color="gray">
+          {taskState.status === "blocked"
+            ? authRecovery
+              ? "Type `/login` to sign in, or sign in in another terminal and then retry your request."
+              : "Type `inspect`, `wait`, `cancel`, or `retry later`, then press Enter."
+            : taskState.status === "done"
+              ? "Ready. Type another question and press Enter."
+              : "Type a follow-up or command and press Enter."}
+        </Text>
+        <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
+          <Text color={promptColor}>{"> "}</Text>
+          <ComposerPrimitive.Input submitOnEnter placeholder={taskState.status === "blocked" ? (authRecovery ? authComposerPlaceholder() : blockedComposerPlaceholder()) : composerPlaceholder(session)} autoFocus />
+        </Box>
       </Box>
     </ThreadPrimitive.Root>
   );
@@ -436,7 +877,7 @@ function createResearchAdapter({
             });
             setSession(nextSession);
             sessionRef.current = nextSession;
-            const resetState = { sessionId: null, previousResponseId: null };
+            const resetState = { sessionId: null, previousResponseId: null, datasetContext: null };
             conversationStateRef.current = resetState;
             setConversationState(resetState);
             emit({ role: "assistant", content: `signed in to ${nextSession.origin}` });
@@ -452,7 +893,7 @@ function createResearchAdapter({
         await clearSession();
         setSession(null);
         sessionRef.current = null;
-        const resetState = { sessionId: null, previousResponseId: null };
+        const resetState = { sessionId: null, previousResponseId: null, datasetContext: null };
         conversationStateRef.current = resetState;
         setConversationState(resetState);
         setTaskState(createIdleTaskState());
@@ -558,9 +999,11 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   const [session, setSessionState] = useState<SessionRecord | null>(null);
   const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
   const [taskState, setTaskState] = useState<InteractiveTaskState>(createIdleTaskState());
+  const [startupComplete, setStartupComplete] = useState(false);
   const [conversationState, setConversationStateState] = useState<AgentConversationState>({
     sessionId: null,
     previousResponseId: null,
+    datasetContext: null,
   });
   const sessionRef = useRef<SessionRecord | null>(null);
   const conversationStateRef = useRef<AgentConversationState>(conversationState);
@@ -585,9 +1028,13 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   });
 
   useEffect(() => {
-    void readSession().then(setSession);
-    void readTrackedRuns().then((runs) => {
-      setTrackedRuns(runs);
+    void Promise.all([
+      readSession().then(setSession),
+      readTrackedRuns().then((runs) => {
+        setTrackedRuns(runs);
+      }),
+    ]).finally(() => {
+      setStartupComplete(true);
     });
   }, []);
 
@@ -613,7 +1060,13 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <Box flexDirection="column">
-        <ResearchThread trackedRuns={trackedRuns} taskState={taskState} />
+        <ResearchThread
+          trackedRuns={trackedRuns}
+          taskState={taskState}
+          session={session}
+          startupComplete={startupComplete}
+          conversationState={conversationState}
+        />
         <RunPoller session={session} setTrackedRuns={setTrackedRuns} />
       </Box>
     </AssistantRuntimeProvider>

@@ -101,15 +101,37 @@ type RequestOptions = {
 export class RemoteApiClient {
   constructor(private readonly session: SessionRecord) {}
 
+  private wrapTransportError(error: unknown, path: string): never {
+    if (error instanceof RemoteRequestError) {
+      throw error;
+    }
+    if (error instanceof Error) {
+      const cause = error.cause instanceof Error ? error.cause : null;
+      const code = cause && "code" in cause ? String((cause as { code?: unknown }).code ?? "") : "";
+      const detail = [error.message, cause?.message, code].filter(Boolean).join(" | ");
+      throw new RemoteRequestError(
+        `Remote transport failed for ${path}.${detail ? ` ${detail}` : ""}`,
+        503,
+        path,
+      );
+    }
+    throw new RemoteRequestError(`Remote transport failed for ${path}.`, 503, path);
+  }
+
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const response = await fetch(`${this.session.origin}${path}`, {
-      method: options.method ?? "GET",
-      headers: {
-        Authorization: `Bearer ${this.session.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.session.origin}${path}`, {
+        method: options.method ?? "GET",
+        headers: {
+          Authorization: `Bearer ${this.session.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      });
+    } catch (error) {
+      this.wrapTransportError(error, path);
+    }
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
@@ -128,14 +150,19 @@ export class RemoteApiClient {
   }
 
   private async requestOptional<T>(path: string, options: RequestOptions = {}): Promise<T | null> {
-    const response = await fetch(`${this.session.origin}${path}`, {
-      method: options.method ?? "GET",
-      headers: {
-        Authorization: `Bearer ${this.session.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.session.origin}${path}`, {
+        method: options.method ?? "GET",
+        headers: {
+          Authorization: `Bearer ${this.session.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      });
+    } catch (error) {
+      this.wrapTransportError(error, path);
+    }
 
     if (response.status === 404) {
       return null;
@@ -185,7 +212,7 @@ export class RemoteApiClient {
           "/api/cli/respond",
         );
       }
-      throw error;
+      this.wrapTransportError(error, "/api/cli/respond");
     } finally {
       clearTimeout(timeout);
     }

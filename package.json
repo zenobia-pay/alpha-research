@@ -11,7 +11,7 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && npm run test:cli",
-    "test:cli": "RESEARCH_SESSION_DIR=.tmp/research-test RESEARCH_DISABLE_RUN_WATCHER=1 tsx --test apps/cli/test/*.test.ts",
+    "test:cli": "RESEARCH_SESSION_DIR=.tmp/research-test RESEARCH_DISABLE_RUN_WATCHER=1 tsx --test --test-force-exit apps/cli/test/*.test.ts",
     "test:golden": "RESEARCH_SESSION_DIR=.tmp/research-test RESEARCH_DISABLE_RUN_WATCHER=1 tsx --test apps/cli/test/golden.test.ts",
     "symphony:test": "RESEARCH_SESSION_DIR=.tmp/research-symphony-test RESEARCH_DISABLE_RUN_WATCHER=1 tsx --test apps/cli/test/symphony-cases.test.ts",
     "harness:check": "RESEARCH_SESSION_DIR=.tmp/research-harness RESEARCH_DISABLE_RUN_WATCHER=1 tsx scripts/harness-check.ts",

@@ -50,3 +50,25 @@ test("run panel summary prioritizes active runs over terminal history", () => {
   assert.match(lines[0] ?? "", /running/i);
   assert.match(lines[0] ?? "", /Fetched 2 sources/i);
 });
+
+test("run panel summary does not echo raw prompts when no event heartbeat exists", () => {
+  const runs = [
+    {
+      id: "run-active",
+      origin: "https://alpharesearch.nyc",
+      datasetId: "econ",
+      status: "running",
+      prompt: "Make me a county-month economics dataset for testing a housing-cycle hypothesis from 2015 to 2025 with many validation requirements.",
+      createdAt: "2026-05-01T00:03:00.000Z",
+      updatedAt: "2026-05-01T00:04:00.000Z",
+      lastSeenAt: "2026-05-01T00:04:00.000Z",
+    },
+  ] satisfies TrackedRunRecord[];
+
+  const lines = runPanelSummary(runs);
+
+  assert.equal(lines.length, 1);
+  assert.match(lines[0] ?? "", /econ/i);
+  assert.match(lines[0] ?? "", /running/i);
+  assert.doesNotMatch(lines[0] ?? "", /housing-cycle hypothesis/i);
+});

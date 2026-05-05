@@ -121,6 +121,11 @@ function createFakeClient(fixture: SymphonyCase, recorded: RecordedCall[]) {
       recorded.push({ name: "listDatasets", args: [] });
       return { datasets: fixture.remote?.datasets ?? [] };
     },
+    async getDataset(datasetId: string) {
+      recorded.push({ name: "getDataset", args: [datasetId] });
+      const dataset = fixture.remote?.datasets?.find((entry) => entry.id === datasetId) ?? null;
+      return { dataset };
+    },
     async createDataset(body: Record<string, unknown>) {
       recorded.push({ name: "createDataset", args: [body] });
       return {
