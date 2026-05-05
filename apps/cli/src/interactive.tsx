@@ -57,6 +57,63 @@ function shortId(value: string, size = 8) {
   return value.length > size ? value.slice(0, size) : value;
 }
 
+export function summarizePrompt(prompt: string | undefined, maxLength = 120) {
+  const cleaned = (prompt ?? "").replace(/\s+/gu, " ").trim();
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+export function describeRunPhase(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized === "booting") {
+    return {
+      label: "Starting",
+      detail: "Accepted and provisioning the remote worker for this run.",
+    };
+  }
+  if (normalized === "running") {
+    return {
+      label: "Running",
+      detail: "Worker is active and still processing the request.",
+    };
+  }
+  if (normalized === "worker_unreachable") {
+    return {
+      label: "Blocked",
+      detail: "Remote state is unclear. Inspect the run or retry later.",
+    };
+  }
+  return {
+    label: status || "Unknown",
+    detail: "Run state is available in the dashboard or debug output.",
+  };
+}
+
+export function describeRunExpectation(run: TrackedRunRecord) {
+  const prompt = (run.prompt ?? "").toLowerCase();
+  const outputs: string[] = [];
+  if (/\bjson\b/u.test(prompt)) outputs.push("structured JSON");
+  if (/\bchart\b|\bvisualization/u.test(prompt)) outputs.push("chart");
+  if (/\bexample/u.test(prompt)) outputs.push("examples");
+  if (/\blabel/u.test(prompt)) outputs.push("labels");
+  return outputs.length > 0
+    ? `Expected outputs: ${outputs.join(", ")}.`
+    : "Expected outputs: run artifacts and summary.";
+}
+
+export function formatRunLastUpdate(run: TrackedRunRecord) {
+  if (!run.lastEventMessage?.trim()) {
+    return "No remote milestone yet. You can leave this open while the worker continues.";
+  }
+  return summarizePrompt(run.lastEventMessage, 120);
+}
+
+export function runPanelSummary(runs: TrackedRunRecord[]) {
+  const active = runs.filter((run) => !run.terminalAt && !isTerminalRunStatus(run.status));
+  if (active.length === 0) return ["No active runs."];
+  return active.map(summarizeRunLine);
+}
+
 function textFromThreadMessage(message: ThreadMessage | undefined) {
   return message?.content
     .filter((part) => part.type === "text")
