@@ -25,7 +25,10 @@
     }
   ],
   "expected": {
-    "toolCalls": [],
+    "toolCalls": [
+      "list_remote_datasets",
+      "inspect_remote_dataset"
+    ],
     "assistantIncludes": [
       "enriched-tweets",
       "top 0.1%",
@@ -33,16 +36,16 @@
       "hook_type",
       "emotional_tone",
       "controversy_level",
-      "Choose one virality definition",
+      "Choose the virality rule",
       "quote_tweet_count",
       "retweet_count",
       "favorite_count",
       "bar chart",
       "representative examples",
-      "reply with 1, 2, or 3",
-      "Approval",
-      "Fallback",
-      "Proceed with this default design"
+      "Reply with 1, 2, or 3",
+      "Waiting for your approval",
+      "Why this dataset",
+      "Waiting for your approval before starting a run"
     ],
     "forbiddenToolCalls": [
       "query_remote_dataset",

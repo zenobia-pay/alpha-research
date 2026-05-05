@@ -164,8 +164,8 @@ function formatBytes(value: number) {
 
 export function formatDuration(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) return "under 1s";
-  if (seconds < 60) return `${Math.max(1, Math.round(seconds))}s`;
   const roundedSeconds = Math.max(1, Math.round(seconds));
+  if (roundedSeconds < 60) return `${roundedSeconds}s`;
   const minutes = Math.floor(roundedSeconds / 60);
   const remainingSeconds = roundedSeconds % 60;
   if (minutes < 60) {

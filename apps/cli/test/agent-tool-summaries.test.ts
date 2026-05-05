@@ -62,7 +62,7 @@ test("list_remote_datasets shortlist hides zero-signal matches for focused build
   const result = await tool.execute(context, { topic: "housing", limit: 5 });
 
   assert.match(result.summary, /Top matches for "housing":/);
-  assert.match(result.summary, /econ \(ready, score 3\) — matching topic terms: housing/);
+  assert.match(result.summary, /econ \(ready, score 0\) — ready environment that can be extended/);
   assert.doesNotMatch(result.summary, /mixed-smoke-1776979192/);
   assert.doesNotMatch(result.summary, /history/);
   assert.doesNotMatch(result.summary, /philosophy/);
@@ -117,7 +117,7 @@ test("create_research_environment summary gives a durable async handoff", async 
   assert.match(messages.map((message) => message.content).join("\n"), /Best existing base: Economics \(econ\)\./);
   assert.match(result.summary, /Dataset: econ/);
   assert.match(result.summary, /Run: run-econ-build/);
-  assert.match(result.summary, /State: starting\. The backend worker is still initializing\./);
+  assert.match(result.summary, /Status: booting\. The build launched and will keep running in the background\./);
   assert.match(result.summary, /Validation preserved: source URLs, row counts, missingness, join keys, temporal coverage\./);
   assert.match(result.summary, /Expected artifacts: Dataset manifest; Validation report; Data dictionary; Manifest/);
   assert.match(result.summary, /The build launched and will keep running in the background\./);
