@@ -59,6 +59,7 @@ The `WORKFLOW.md` prompt tells the agent to:
 - Move `Todo` issues to `In Progress`.
 - Maintain one `## Codex Workpad` comment.
 - Create a branch from the Linear branch name or `codex/<issue-id>`.
+- Prefer the smallest change that satisfies the issue acceptance criteria.
 - Implement, validate, commit, push, and open or update a PR.
 - Move the issue to `In Review` only after validation and PR handoff are complete.
 
