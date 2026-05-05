@@ -1,0 +1,36 @@
+---
+title: "Public Datasets"
+description: "Canonical Alpha Research datasets for broad humanities and social-science fields."
+---
+
+Canonical datasets are remote mounted research environments. Each dataset should contain source registries, raw/source files, normalized outputs, manifests, data dictionaries, quality reports, and dataset briefings.
+
+<Note>
+  The current public briefings describe remote mounted datasets and call out provenance gaps. Future refreshes are required to publish `download_inventory.jsonl/csv` and `normalization_inventory.jsonl/csv`.
+</Note>
+
+| Dataset | ID | Current profile | Sources | Tables | Rows |
+| --- | --- | --- | ---: | ---: | ---: |
+| [Econ](/public-datasets/econ) | `econ` | Economics, housing, labor, credit, and macro-finance | 40 | 5 | 565,242 |
+| [Sociology](/public-datasets/sociology) | `sociology` | Social structure, inequality, demographics, institutions, health, crime, and social attitudes | 10 | 3 | - |
+| [Philosophy](/public-datasets/philosophy) | `philosophy` | Philosophy references, bibliography, works, concepts, and citations | 7 | 7 | - |
+| [History](/public-datasets/history) | `history` | Archives, newspapers, documents, people, places, events, and time series | 9 | 4 | - |
+| [Literature](/public-datasets/literature) | `literature` | Public-domain texts, works, authors, editions, and reception metadata | 7 | 7 | - |
+| [Political Science](/public-datasets/political-science) | `political-science` | Elections, public opinion, legislators, campaign finance, institutions, and conflict | 11 | 4 | - |
+| [Anthropology](/public-datasets/anthropology) | `anthropology` | Cultural traits, ethnographic metadata, archaeology, languages, and places | 14 | 1 | - |
+| [Linguistics](/public-datasets/linguistics) | `linguistics` | Language registry, typology, phonology, lexicons, treebanks, and archives | 11 | 4 | - |
+| [Classics](/public-datasets/classics) | `classics` | Greek and Latin texts, inscriptions, papyri, ancient places, and Wikidata snapshots | 5 | 20 | 308,674 |
+
+## Refresh contract
+
+Every canonical refresh should publish:
+
+- `manifest.json`
+- `source_registry.csv`
+- `source_registry.plan.json`
+- `download_inventory.jsonl` and `download_inventory.csv`
+- `normalization_inventory.jsonl` and `normalization_inventory.csv`
+- `data_dictionary.md`
+- `quality_report.md`
+- `dataset_briefing.md`
+

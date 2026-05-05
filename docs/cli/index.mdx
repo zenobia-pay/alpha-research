@@ -1,0 +1,21 @@
+---
+title: "RESEARCH CLI"
+description: "Use the RESEARCH command-line agent to inspect datasets, launch runs, and retrieve artifacts."
+---
+
+The RESEARCH CLI is the fastest way to work with Alpha Research from a terminal. It can list datasets, inspect dataset profiles, start remote runs, poll status, and debug failures.
+
+<CardGroup cols={2}>
+  <Card title="Install" icon="download" href="/cli/install" />
+  <Card title="Authentication" icon="key-round" href="/cli/authentication" />
+  <Card title="Common commands" icon="terminal" href="/cli/common-commands" />
+  <Card title="Debug runs" icon="bug" href="/cli/debug-runs" />
+</CardGroup>
+
+## Default behavior
+
+- `research` opens the interactive assistant UI.
+- `research --prompt "<prompt>"` runs a one-shot prompt.
+- `research login` signs in through `alpharesearch.nyc`.
+- `research debug run <run-id>` collects remote run evidence before guessing about failures.
+

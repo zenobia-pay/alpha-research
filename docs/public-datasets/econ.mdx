@@ -1,0 +1,41 @@
+---
+title: "Econ"
+description: "Canonical economics, housing, labor, credit, and macro-finance research environment."
+---
+
+`econ` is the canonical economics environment. It is designed for macroeconomics, labor, housing, inflation, credit, consumer behavior, regional economics, and business-cycle research.
+
+## Current remote inventory
+
+| Metric | Value |
+| --- | --- |
+| Dataset status | `deploying` |
+| Deployment status | `provisioning` |
+| Remote manifest | `/mnt/alpha-research/datasets/econ/manifest.json` |
+| Sources | 40 |
+| Tables | 5 |
+| Rows | 565,242 |
+
+## Concrete data currently present
+
+- BEA county personal income
+- Census Building Permits Survey county-month permits
+- FRED 30-year fixed mortgage rates
+- BLS LAUS unemployment
+- Zillow Home Value Index
+- Derived county-month and county-year housing/economic panels
+
+## Normalized outputs found by audit
+
+| Output | Rows | Grain | Coverage |
+| --- | ---: | --- | --- |
+| `processed/econ.bea_income_county_annual.parquet` | 179,648 | county-year | 1969 to 2024 |
+| `processed/econ.census_bps_county_monthly.parquet` | 183,475 | county-month | 2018-01 to 2026-01 |
+| `processed/econ.core_fred_mortgage_monthly.parquet` | 661 | national-month | 1971-04 to 2026-04 |
+| `processed/econ.lau_zhvi_county_annual.parquet` | 17,983 | county-year | 2019 to 2024 |
+| `processed/econ.panel_permits_income_mortgage_monthly.parquet` | 183,475 | county-month | 2018-01 to 2026-01 |
+
+## Known provenance debt
+
+The current profile can show sources, schemas, row counts, and coverage. Some raw downloads still lack exact request URLs, HTTP status, retrieval timestamps, and full transform logs. The refresh contract now requires download and normalization inventories so this debt is visible and fixable.
+

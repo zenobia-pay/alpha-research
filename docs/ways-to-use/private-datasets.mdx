@@ -1,0 +1,18 @@
+---
+title: "Bring Private Data"
+description: "Create a private research environment from your own data."
+---
+
+Use private datasets when the source data belongs to your workspace or when public data needs to be combined with internal data.
+
+The CLI should ask for source-of-truth details before building:
+
+- absolute private file path
+- public source URLs, if any
+- auth constraints for APIs
+- desired grain and time range
+- key fields and expected joins
+- approval to start a build
+
+Private uploads should not mutate public canonical datasets.
+

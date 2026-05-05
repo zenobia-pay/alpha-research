@@ -16,6 +16,7 @@
     "symphony:test": "RESEARCH_SESSION_DIR=.tmp/research-symphony-test RESEARCH_DISABLE_RUN_WATCHER=1 tsx --test apps/cli/test/symphony-cases.test.ts",
     "harness:check": "RESEARCH_SESSION_DIR=.tmp/research-harness RESEARCH_DISABLE_RUN_WATCHER=1 tsx scripts/harness-check.ts",
     "docs:check": "tsx scripts/docs-check.ts",
+    "docs:mintlify:dev": "cd docs && npx mint@latest dev",
     "docs:product-tests:site": "tsx scripts/build-product-test-site.ts",
     "architecture:check": "tsx scripts/architecture-check.ts",
     "smoke:local": "tsx scripts/smoke-local.ts",

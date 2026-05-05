@@ -1,0 +1,103 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Alpha Research",
+  "colors": {
+    "primary": "#146B5D",
+    "light": "#F7FBF8",
+    "dark": "#17211B"
+  },
+  "seo": {
+    "metatags": {
+      "canonical": "https://docs.alpharesearch.nyc"
+    }
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "anchors": [
+      {
+        "anchor": "Docs",
+        "groups": [
+          {
+            "group": "Start here",
+            "pages": [
+              "index",
+              "ways-to-use/index"
+            ]
+          },
+          {
+            "group": "Public datasets",
+            "root": "public-datasets/index",
+            "directory": "card",
+            "pages": [
+              "public-datasets/econ",
+              "public-datasets/sociology",
+              "public-datasets/philosophy",
+              "public-datasets/history",
+              "public-datasets/literature",
+              "public-datasets/political-science",
+              "public-datasets/anthropology",
+              "public-datasets/linguistics",
+              "public-datasets/classics"
+            ]
+          },
+          {
+            "group": "CLI",
+            "root": "cli/index",
+            "pages": [
+              "cli/install",
+              "cli/authentication",
+              "cli/common-commands",
+              "cli/debug-runs"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "root": "dashboard/index",
+            "pages": [
+              "dashboard/datasets",
+              "dashboard/runs",
+              "dashboard/terminal-sessions"
+            ]
+          },
+          {
+            "group": "Ways to use Alpha Research",
+            "root": "ways-to-use/index",
+            "pages": [
+              "ways-to-use/public-datasets",
+              "ways-to-use/private-datasets",
+              "ways-to-use/research-runs",
+              "ways-to-use/local-development"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/mintlify-deployment"
+            ]
+          }
+        ]
+      },
+      {
+        "anchor": "Dashboard",
+        "href": "https://dashboard.alpharesearch.nyc"
+      },
+      {
+        "anchor": "Website",
+        "href": "https://alpharesearch.nyc"
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Dashboard",
+        "href": "https://dashboard.alpharesearch.nyc"
+      },
+      {
+        "label": "GitHub",
+        "href": "https://github.com/rprend/alpha-research"
+      }
+    ]
+  }
+}

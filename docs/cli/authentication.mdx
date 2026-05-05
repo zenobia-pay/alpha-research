@@ -1,0 +1,32 @@
+---
+title: "Authentication"
+description: "Sign in to Alpha Research from the CLI."
+---
+
+Run:
+
+```bash
+research login
+```
+
+The CLI opens:
+
+```text
+https://alpharesearch.nyc/cli/login
+```
+
+After browser login, the CLI stores a local session at:
+
+```text
+~/.research/session.json
+```
+
+Once signed in, model calls go through the Alpha Research backend. Normal CLI turns should not require a local `OPENAI_API_KEY`.
+
+## Environment overrides
+
+```bash
+ALPHA_RESEARCH_WEB_ORIGIN=https://alpharesearch.nyc
+ALPHA_RESEARCH_DASHBOARD_ORIGIN=https://dashboard.alpharesearch.nyc
+```
+
