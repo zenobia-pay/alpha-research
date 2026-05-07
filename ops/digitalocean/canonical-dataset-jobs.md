@@ -79,7 +79,7 @@ Every download attempt must be logged twice on the mounted dataset root:
 - one terminal attempt row in `download_inventory.jsonl` / `.csv`;
 - lifecycle event rows in `download_events.jsonl`.
 
-Every terminal download attempt must have one corresponding `slack_download_alerts.jsonl` row with `delivery_status: sent|pending|failed`.
+Every terminal download attempt must have one corresponding `slack_download_alerts.jsonl` row with `delivery_status: sent|pending|failed`. The alert row and Slack payload must be self-contained: source name/id, terminal status, subject/entities, geography, time coverage, units/measures, schema, row or object count when known, access/license status, blockers, and explicit not-present caveats when a filename could mislead.
 
 ## Deployment Notes
 

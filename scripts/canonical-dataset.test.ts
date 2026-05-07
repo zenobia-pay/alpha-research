@@ -73,6 +73,13 @@ test("build prompt includes mandatory disk-backed inventory and docs contract", 
     "for every attempted source download",
     "CANONICAL_DATASET_SLACK_WEBHOOK_URL",
     "Slack webhook message",
+    "plain-English data summary",
+    "geographic coverage",
+    "time coverage",
+    "unit or measure",
+    "schema/columns",
+    "what is not present",
+    "not address-level, county-level, metro-level, or transaction-level unless the inventory proves it",
     "authenticated Codex CLI/session",
     "/mnt/alpha-research/datasets/medieval-studies",
     "one row/object for every file",
@@ -108,6 +115,28 @@ test("audit contract includes download event and Slack alert artifacts", () => {
   assert.ok(paths.includes("download_events.jsonl"));
   assert.ok(paths.includes("slack_download_alerts.jsonl"));
   assert.ok(paths.includes("slack_briefing.md"));
+});
+
+test("audit prompt requires rich Slack alert backfills", async () => {
+  const prompt = await renderPrompt("audit", {
+    datasetId: "econ",
+    datasetName: "Economics",
+    fieldBrief: "Economic source package.",
+    sourceCatalog: "- fred: https://fred.stlouisfed.org/",
+  });
+  for (const required of [
+    "must understand what the data actually is, not just the file name or path",
+    "plain-English data summary",
+    "observations/entities",
+    "geographic coverage",
+    "time coverage",
+    "unit or measure",
+    "schema/columns",
+    "not address-level, county-level, metro-level, or transaction-level unless the inventory proves it",
+    "rewrite or supersede it with an enriched row",
+  ]) {
+    assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
+  }
 });
 
 test("runtime contract requires Codex login and Slack webhook", () => {

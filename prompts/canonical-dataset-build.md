@@ -66,7 +66,22 @@ Also append one event object to `download_events.jsonl` at the mounted dataset r
 
 Each event must include `dataset_id`, `run_id` when available, `source_id`, `source_name`, `request_url` with secrets redacted, `event_type`, `event_at`, `raw_path`, `http_status`, `bytes_written`, `content_hash_sha256`, and `message`.
 
-For every download attempt, send one Slack webhook message through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` after the terminal event (`succeeded`, `failed`, `blocked`, `skipped`, or `gated`). The message must state dataset id, source id/name, terminal status, request URL with secrets redacted, raw path, bytes, row/object count when known, and exact blocker for failures. Log every Slack alert attempt to `slack_download_alerts.jsonl` with `delivery_status: sent|pending|failed`, `delivery_at`, non-secret HTTP status/error, and the message payload. Write a final `slack_briefing.md` summarizing all download attempts and Slack delivery statuses.
+For every download attempt, send one Slack webhook message through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` after the terminal event (`succeeded`, `failed`, `blocked`, `skipped`, or `gated`). The alert must be self-contained: a user reading Slack must understand what the data actually is, not just the file name or path.
+
+Each Slack message must include a concise plain-English data summary plus structured facts:
+
+- dataset id, source id/name, terminal status, and request URL with secrets redacted;
+- raw path, bytes, content hash, and row/document/object count when known;
+- what the observations/entities are, e.g. monthly national macroeconomic observations, address-level home sales, county-level rates, document images, metadata records, or API responses;
+- geographic coverage at the most precise proven level, e.g. United States national aggregate, state, county, metro, address, global, or unknown/not inspected;
+- time coverage and frequency/granularity when known;
+- unit or measure names and meanings, including important column definitions;
+- native format and schema/columns discovered from inspection;
+- license/access status and any caveats;
+- exact blocker for failed, blocked, skipped, or gated attempts;
+- what is not present when a source title or filename could mislead, e.g. explicitly say that a FRED national macro series is not address-level, county-level, metro-level, or transaction-level unless the inventory proves it.
+
+Log every Slack alert attempt to `slack_download_alerts.jsonl` with `delivery_status: sent|pending|failed`, `delivery_at`, non-secret HTTP status/error, and the complete structured message payload including `plain_english_data_summary`, `observations_or_entities`, `geographic_coverage`, `time_coverage`, `frequency_or_granularity`, `unit_or_measure`, `schema_or_columns`, `not_present_caveats`, and `blocker`. Write a final `slack_briefing.md` summarizing all download attempts, data summaries, blockers, and Slack delivery statuses.
 
 Each download inventory record must include:
 

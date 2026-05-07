@@ -119,7 +119,22 @@ Write or update these files at the dataset root:
 
 ## Slack Alert Rules
 
-For every attempted download, send one concise Slack webhook message through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` after the terminal event (`succeeded`, `failed`, `blocked`, `skipped`, or `gated`). The message must state dataset id, source id/name, terminal status, request URL with secrets redacted, raw path, bytes, row/object count when known, and exact blocker for failures.
+For every attempted download, send one concise Slack webhook message through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` after the terminal event (`succeeded`, `failed`, `blocked`, `skipped`, or `gated`). The alert must be self-contained: a user reading Slack must understand what the data actually is, not just the file name or path.
+
+Each Slack message must include a concise plain-English data summary plus structured facts:
+
+- dataset id, source id/name, terminal status, and request URL with secrets redacted;
+- raw path, bytes, content hash, and row/document/object count when known;
+- what the observations/entities are, e.g. monthly national macroeconomic observations, address-level home sales, county-level rates, document images, metadata records, or API responses;
+- geographic coverage at the most precise proven level, e.g. United States national aggregate, state, county, metro, address, global, or unknown/not inspected;
+- time coverage and frequency/granularity when known;
+- unit or measure names and meanings, including important column definitions;
+- native format and schema/columns discovered from inspection;
+- license/access status and any caveats;
+- exact blocker for failed, blocked, skipped, or gated attempts;
+- what is not present when a source title or filename could mislead, e.g. explicitly say that a FRED national macro series is not address-level, county-level, metro-level, or transaction-level unless the inventory proves it.
+
+Log every Slack alert attempt to `slack_download_alerts.jsonl` with `delivery_status: sent|pending|failed`, `delivery_at`, non-secret HTTP status/error, and the complete structured message payload including `plain_english_data_summary`, `observations_or_entities`, `geographic_coverage`, `time_coverage`, `frequency_or_granularity`, `unit_or_measure`, `schema_or_columns`, `not_present_caveats`, and `blocker`.
 
 Do not fail the whole run just because Slack is unavailable. Instead, write the pending/failed message payload and non-secret delivery error to `slack_download_alerts.jsonl`, add it to `slackAlertsPending`, and call it out in `slack_briefing.md` and the final response.
 

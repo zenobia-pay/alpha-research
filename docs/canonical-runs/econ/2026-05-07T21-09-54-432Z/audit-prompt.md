@@ -1,6 +1,6 @@
-# Canonical Dataset Disk Audit: {datasetName} (`{datasetId}`)
+# Canonical Dataset Disk Audit: Econ (`econ`)
 
-Audit the mounted canonical dataset volume for `{datasetId}`. Do not fetch external sources and do not use private data.
+Audit the mounted canonical dataset volume for `econ`. Do not fetch external sources and do not use private data.
 
 ## Goal
 
@@ -35,8 +35,8 @@ Write these files at the dataset root:
 - `slack_briefing.md`
 - `dataset_briefing.md`
 - `quality_report.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
+- `docs/public-datasets/briefings/econ.md`
+- `docs/public-datasets/econ.mdx`
 
 ## Download And Slack Audit Rules
 
@@ -112,8 +112,8 @@ The briefing must clearly state:
 
 Mirror the final briefing into:
 
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
+- `docs/public-datasets/briefings/econ.md`
+- `docs/public-datasets/econ.mdx`
 
 ## Final Response
 
