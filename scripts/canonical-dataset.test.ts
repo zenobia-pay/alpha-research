@@ -131,6 +131,12 @@ test("status classifier distinguishes missing, active, failed, unproven, and dis
     deploymentStatus: "ready",
     profile: { diskInventoryProven: true, volumeInventoryRunId: "run-audit", volumeInventoryUpdatedAt: "2026-05-07T00:00:00.000Z" },
   }).status, "disk_proven");
+  assert.equal(classifyDatasetStatus({
+    id: "x",
+    status: "ready",
+    deploymentStatus: "ready",
+    profile: { profile: { quality: { diskInventoryProven: true, volumeInventoryRunId: "run-audit" } } },
+  }).status, "disk_proven");
 });
 
 test("prompt record path is deterministic and filesystem-safe", () => {

@@ -31,6 +31,13 @@ type RemoteDataset = {
   manifestPath?: string | null;
   profile?: {
     briefingMarkdown?: string | null;
+    profile?: {
+      quality?: {
+        diskInventoryProven?: boolean | null;
+        volumeInventoryRunId?: string | null;
+        volumeInventoryUpdatedAt?: string | null;
+      } | null;
+    } | null;
     volumeInventoryRunId?: string | null;
     volumeInventoryUpdatedAt?: string | null;
     diskInventoryProven?: boolean | null;
@@ -239,8 +246,11 @@ export function classifyDatasetStatus(dataset: RemoteDataset | null | undefined)
     return { status: "not_ready", datasetStatus, deploymentStatus };
   }
   const profile = dataset.profile ?? null;
+  const nestedQuality = profile?.profile?.quality ?? null;
   const diskInventoryProven = profile?.diskInventoryProven === true
-    || (typeof profile?.volumeInventoryUpdatedAt === "string" && profile.volumeInventoryUpdatedAt.length > 0);
+    || nestedQuality?.diskInventoryProven === true
+    || (typeof profile?.volumeInventoryUpdatedAt === "string" && profile.volumeInventoryUpdatedAt.length > 0)
+    || (typeof nestedQuality?.volumeInventoryUpdatedAt === "string" && nestedQuality.volumeInventoryUpdatedAt.length > 0);
   if (!diskInventoryProven) {
     return { status: "not_disk_proven", datasetStatus, deploymentStatus };
   }
@@ -248,8 +258,8 @@ export function classifyDatasetStatus(dataset: RemoteDataset | null | undefined)
     status: "disk_proven",
     datasetStatus,
     deploymentStatus,
-    volumeInventoryRunId: profile?.volumeInventoryRunId ?? null,
-    volumeInventoryUpdatedAt: profile?.volumeInventoryUpdatedAt ?? null,
+    volumeInventoryRunId: profile?.volumeInventoryRunId ?? nestedQuality?.volumeInventoryRunId ?? null,
+    volumeInventoryUpdatedAt: profile?.volumeInventoryUpdatedAt ?? nestedQuality?.volumeInventoryUpdatedAt ?? null,
   };
 }
 
