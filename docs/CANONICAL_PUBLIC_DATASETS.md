@@ -56,8 +56,10 @@ Every canonical refresh must make provenance inspectable without reading agent t
    - Search the internet with Exa using the remote `EXA_API_KEY`.
    - Classify newly discovered candidate sources as `active_fetchable`, `deferred_fetchable`, `license_review`, `credential_required`, `not_found`, or `reject`.
    - Download public, stable, machine-fetchable `license_review` sources instead of blocking on review; mark them as `license_status: needs_review` in inventories and the result.
-   - Send one Slack webhook briefing through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` for every improvement job. The briefing should summarize searches performed, new sources found, downloads that succeeded, downloads that failed, license-review downloads, ignored/rejected/deferred candidates, briefing/docs updates, and next human actions.
-   - Produce `improvement_plan.md`, `improvement_result.json`, `candidate_sources.csv`, `exa_search_log.json`, and `slack_briefing.md`.
+   - Every create, refresh, and improvement job must run with an authenticated Codex CLI/session and `CANONICAL_DATASET_SLACK_WEBHOOK_URL` in the remote runner environment. The webhook URL is a secret and must never be printed, logged, stored, or included in artifacts.
+   - Append every download lifecycle event to dataset-root `download_events.jsonl`, and keep `download_inventory.jsonl` / `.csv` as the source of truth for attempted downloads.
+   - Send or queue one Slack webhook alert for every terminal download attempt. Log each delivery attempt in dataset-root `slack_download_alerts.jsonl` and summarize them in `slack_briefing.md`. Missing or failed Slack delivery must create pending/failed alert rows instead of silently disappearing.
+   - Produce `improvement_plan.md`, `improvement_result.json`, `candidate_sources.csv`, `exa_search_log.json`, `download_events.jsonl`, `slack_download_alerts.jsonl`, and `slack_briefing.md`.
 
 ## Canonical Dataset Catalog
 

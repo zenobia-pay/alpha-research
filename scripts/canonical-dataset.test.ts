@@ -7,6 +7,7 @@ import test from "node:test";
 
 import {
   artifactContract,
+  CANONICAL_RUNTIME_CONTRACT,
   classifyDatasetStatus,
   loadSourceCatalog,
   parseArgs,
@@ -59,6 +60,9 @@ test("build prompt includes mandatory disk-backed inventory and docs contract", 
   });
   for (const required of [
     "download_inventory.jsonl",
+    "download_events.jsonl",
+    "slack_download_alerts.jsonl",
+    "slack_briefing.md",
     "raw_inventory.jsonl",
     "volume_inventory.jsonl",
     "volume_inventory_summary.json",
@@ -67,6 +71,10 @@ test("build prompt includes mandatory disk-backed inventory and docs contract", 
     "docs/public-datasets/briefings/medieval-studies.md",
     "docs/public-datasets/medieval-studies.mdx",
     "for every attempted source download",
+    "CANONICAL_DATASET_SLACK_WEBHOOK_URL",
+    "Slack webhook message",
+    "authenticated Codex CLI/session",
+    "/mnt/alpha-research/datasets/medieval-studies",
     "one row/object for every file",
     "Generate `dataset_briefing.md` only from `download_inventory.*`, `raw_inventory.*`, and `volume_inventory.*`",
   ]) {
@@ -79,6 +87,9 @@ test("artifact contract exposes all required create artifacts", () => {
   for (const required of [
     "manifest.json",
     "download_inventory.jsonl",
+    "download_events.jsonl",
+    "slack_download_alerts.jsonl",
+    "slack_briefing.md",
     "raw_inventory.jsonl",
     "volume_inventory.jsonl",
     "volume_inventory.csv",
@@ -90,6 +101,18 @@ test("artifact contract exposes all required create artifacts", () => {
   ]) {
     assert.ok(paths.includes(required), `Missing ${required}`);
   }
+});
+
+test("audit contract includes download event and Slack alert artifacts", () => {
+  const paths = artifactContract("medieval-studies", "audit").map((artifact) => artifact.path);
+  assert.ok(paths.includes("download_events.jsonl"));
+  assert.ok(paths.includes("slack_download_alerts.jsonl"));
+  assert.ok(paths.includes("slack_briefing.md"));
+});
+
+test("runtime contract requires Codex login and Slack webhook", () => {
+  assert.equal(CANONICAL_RUNTIME_CONTRACT.requiresCodexLogin, true);
+  assert.ok(CANONICAL_RUNTIME_CONTRACT.requiredEnvironment.includes("CANONICAL_DATASET_SLACK_WEBHOOK_URL"));
 });
 
 test("status classifier distinguishes missing, active, failed, unproven, and disk-proven datasets", () => {

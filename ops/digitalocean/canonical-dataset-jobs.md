@@ -37,6 +37,9 @@ Every successful refresh should publish:
 - `source_registry.plan.json`
 - `download_inventory.jsonl`
 - `download_inventory.csv`
+- `download_events.jsonl`
+- `slack_download_alerts.jsonl`
+- `slack_briefing.md`
 - `raw_inventory.jsonl`
 - `raw_inventory.csv`
 - `data_dictionary.md`
@@ -63,11 +66,20 @@ Every successful improvement run should publish:
 - `candidate_sources.csv`
 - `exa_search_log.json`
 - `slack_briefing.md`
+- `download_events.jsonl`
+- `slack_download_alerts.jsonl`
 - `raw_inventory.jsonl`
 - `raw_inventory.csv`
 - `dataset_briefing.md`
 
-The remote runner must have `EXA_API_KEY` and `CANONICAL_DATASET_SLACK_WEBHOOK_URL` in its environment. These are worker secrets; prompts and artifacts must never include secret values. If the Slack webhook is unavailable, the improvement job must still write `slack_briefing.md` and record the pending webhook payload in `improvement_result.json`.
+The remote runner must have an authenticated Codex CLI/session and `CANONICAL_DATASET_SLACK_WEBHOOK_URL` in its environment for create, refresh, and improvement jobs. Improvement jobs may also use `EXA_API_KEY`. These are worker secrets; prompts and artifacts must never include secret values. If the Slack webhook is unavailable, jobs must still write `slack_briefing.md`, append pending/failed alert rows to `slack_download_alerts.jsonl`, and record pending webhook payloads in the structured result instead of silently dropping notifications.
+
+Every download attempt must be logged twice on the mounted dataset root:
+
+- one terminal attempt row in `download_inventory.jsonl` / `.csv`;
+- lifecycle event rows in `download_events.jsonl`.
+
+Every terminal download attempt must have one corresponding `slack_download_alerts.jsonl` row with `delivery_status: sent|pending|failed`.
 
 ## Deployment Notes
 

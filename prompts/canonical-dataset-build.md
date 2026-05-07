@@ -9,6 +9,9 @@ You are building one canonical public Alpha Research dataset for this humanities
 ## Non-Negotiable Contract
 
 - Public data only. Do not use private user data.
+- Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH` when set; otherwise use `/mnt/alpha-research/datasets/{datasetId}`. Do not write canonical artifacts under a local throwaway `dataset/` directory unless it is a symlink or bind mount to the mounted dataset volume.
+- Before any fetch, verify the remote runner has an authenticated Codex CLI/session available. If Codex is not logged in, stop before downloads, write the exact blocker to the run result, and set `diskInventoryProven: false`.
+- Before any fetch, check `CANONICAL_DATASET_SLACK_WEBHOOK_URL` is present in the environment. Never print, log, persist, or expose the webhook URL. If it is missing or delivery fails, continue only if every alert payload is written to `slack_download_alerts.jsonl` with `delivery_status: pending` or `delivery_status: failed` and the exact non-secret failure reason.
 - This canonical dataset is a raw public source package, not an analysis-ready table bundle.
 - Do not publish processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready outputs as canonical dataset artifacts.
 - Keep each source in source-specific raw paths with provider-native files/API responses, codebooks, README files, schemas, and documentation.
@@ -32,6 +35,9 @@ Write these exact files at the dataset root:
 - `source_registry.plan.json`
 - `download_inventory.jsonl`
 - `download_inventory.csv`
+- `download_events.jsonl`
+- `slack_download_alerts.jsonl`
+- `slack_briefing.md`
 - `raw_inventory.jsonl`
 - `raw_inventory.csv`
 - `volume_inventory.jsonl`
@@ -46,7 +52,21 @@ Write these exact files at the dataset root:
 
 ## Download Logging
 
-Record one row/object in `download_inventory.jsonl` and `download_inventory.csv` for every attempted source download, including failed, blocked, skipped, gated, and successful attempts.
+Record one row/object in `download_inventory.jsonl` and `download_inventory.csv` at the mounted dataset root for every attempted source download, including failed, blocked, skipped, gated, and successful attempts.
+
+Also append one event object to `download_events.jsonl` at the mounted dataset root for every download lifecycle event:
+
+- `planned`
+- `started`
+- `succeeded`
+- `failed`
+- `blocked`
+- `skipped`
+- `gated`
+
+Each event must include `dataset_id`, `run_id` when available, `source_id`, `source_name`, `request_url` with secrets redacted, `event_type`, `event_at`, `raw_path`, `http_status`, `bytes_written`, `content_hash_sha256`, and `message`.
+
+For every download attempt, send one Slack webhook message through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` after the terminal event (`succeeded`, `failed`, `blocked`, `skipped`, or `gated`). The message must state dataset id, source id/name, terminal status, request URL with secrets redacted, raw path, bytes, row/object count when known, and exact blocker for failures. Log every Slack alert attempt to `slack_download_alerts.jsonl` with `delivery_status: sent|pending|failed`, `delivery_at`, non-secret HTTP status/error, and the message payload. Write a final `slack_briefing.md` summarizing all download attempts and Slack delivery statuses.
 
 Each download inventory record must include:
 
@@ -95,6 +115,8 @@ Each raw inventory record must include:
 After all writes are complete, recursively inspect the mounted dataset volume and write `volume_inventory.jsonl`, `volume_inventory.csv`, `volume_inventory_summary.json`, and `volume_tree.txt`.
 
 `volume_inventory.jsonl` is the source of truth for what is on disk. It must contain one row/object for every file on the dataset volume.
+
+Exclude remote agent runtime/tooling/cache directories from the canonical dataset volume when possible before final inventory, including `.remote-agent`, `.codex`, `.cache`, temporary plugin caches, and local virtual environments. If a runtime directory already exists on the mounted volume and cannot be removed, include it in `volume_inventory.*` but mark it with `source_family_guess: runtime_tooling` and call it out as non-dataset contamination in `dataset_briefing.md`, `quality_report.md`, and the final result.
 
 For every file, capture:
 
@@ -152,6 +174,10 @@ Make the final result and artifacts sufficient for the control plane to expose:
 - `volumeInventoryRunId`
 - `volumeInventoryUpdatedAt`
 - `diskInventoryProven: true`
+- `downloadEventLogPath`
+- `slackDownloadAlertsPath`
+- `slackAlertsSent`
+- `slackAlertsPending`
 
 If any required inventory is missing or incomplete, set `diskInventoryProven: false` in the structured result and explain why.
 

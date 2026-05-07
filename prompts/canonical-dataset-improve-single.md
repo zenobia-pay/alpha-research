@@ -24,16 +24,24 @@ Before searching or changing anything, read these files from the mounted dataset
 - `quality_report.md`
 - `source_registry.csv`
 - `source_registry.plan.json`
+- `download_events.jsonl`
+- `slack_download_alerts.jsonl`
+- `slack_briefing.md`
 
 If `volume_inventory.*` is missing or stale, regenerate it before doing external research.
 
 ## Dataset Contract
 
 - Public data only. Do not use private user data.
+- Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH` when set; otherwise use `/mnt/alpha-research/datasets/{datasetId}`. Do not write canonical artifacts under a local throwaway `dataset/` directory unless it is a symlink or bind mount to the mounted dataset volume.
+- Before any fetch, verify the remote runner has an authenticated Codex CLI/session available. If Codex is not logged in, stop before downloads, write the exact blocker to `improvement_result.json`, and set `diskInventoryProven: false`.
+- Before any fetch, check `CANONICAL_DATASET_SLACK_WEBHOOK_URL` is present in the environment. Never print, log, persist, or expose the webhook URL. If it is missing or delivery fails, continue only if every alert payload is written to `slack_download_alerts.jsonl` with `delivery_status: pending` or `delivery_status: failed` and the exact non-secret failure reason.
 - This canonical dataset is a raw public source package.
 - Do not publish processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready outputs as canonical dataset artifacts.
 - Keep provider-native files/API responses, codebooks, schemas, documentation, and raw source artifacts in source-specific paths.
 - Every attempted download must be logged in `download_inventory.*`.
+- Every download lifecycle event must be appended to `download_events.jsonl`.
+- Every terminal download attempt must send or queue one Slack webhook alert and append the delivery result to `slack_download_alerts.jsonl`.
 - Every raw source artifact on disk must be logged in `raw_inventory.*`.
 - Every file on the dataset volume must be logged in `volume_inventory.*`.
 - `dataset_briefing.md` must be regenerated from the inventories, not from memory or narrative assumptions.
@@ -63,6 +71,9 @@ Write or update these files at the dataset root:
 - `exa_search_log.json`
 - `download_inventory.jsonl`
 - `download_inventory.csv`
+- `download_events.jsonl`
+- `slack_download_alerts.jsonl`
+- `slack_briefing.md`
 - `raw_inventory.jsonl`
 - `raw_inventory.csv`
 - `volume_inventory.jsonl`
@@ -92,6 +103,11 @@ Write or update these files at the dataset root:
   "downloadedSources": [],
   "downloadedLicenseReviewSources": [],
   "downloadAttempts": [],
+  "downloadEventLogPath": "download_events.jsonl",
+  "slackDownloadAlertsPath": "slack_download_alerts.jsonl",
+  "slackBriefingPath": "slack_briefing.md",
+  "slackAlertsSent": [],
+  "slackAlertsPending": [],
   "promoteNow": [],
   "defer": [],
   "needsHumanReview": [],
@@ -100,6 +116,14 @@ Write or update these files at the dataset root:
   "nextRunHints": []
 }
 ```
+
+## Slack Alert Rules
+
+For every attempted download, send one concise Slack webhook message through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` after the terminal event (`succeeded`, `failed`, `blocked`, `skipped`, or `gated`). The message must state dataset id, source id/name, terminal status, request URL with secrets redacted, raw path, bytes, row/object count when known, and exact blocker for failures.
+
+Do not fail the whole run just because Slack is unavailable. Instead, write the pending/failed message payload and non-secret delivery error to `slack_download_alerts.jsonl`, add it to `slackAlertsPending`, and call it out in `slack_briefing.md` and the final response.
+
+Before final volume inventory, remove or avoid writing remote agent runtime/tooling/cache directories to the dataset volume when possible, including `.remote-agent`, `.codex`, `.cache`, temporary plugin caches, and local virtual environments. If they remain on disk, inventory them as `runtime_tooling` contamination and make the briefing say clearly that they are not dataset data.
 
 ## Final Response
 

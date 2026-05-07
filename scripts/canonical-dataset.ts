@@ -55,6 +55,9 @@ export const REQUIRED_CANONICAL_ARTIFACTS = [
   { type: "file", title: "source_registry.plan.json", path: "source_registry.plan.json" },
   { type: "file", title: "download_inventory.jsonl", path: "download_inventory.jsonl" },
   { type: "file", title: "download_inventory.csv", path: "download_inventory.csv" },
+  { type: "file", title: "download_events.jsonl", path: "download_events.jsonl" },
+  { type: "file", title: "slack_download_alerts.jsonl", path: "slack_download_alerts.jsonl" },
+  { type: "file", title: "slack_briefing.md", path: "slack_briefing.md" },
   { type: "file", title: "raw_inventory.jsonl", path: "raw_inventory.jsonl" },
   { type: "file", title: "raw_inventory.csv", path: "raw_inventory.csv" },
   { type: "file", title: "volume_inventory.jsonl", path: "volume_inventory.jsonl" },
@@ -65,6 +68,16 @@ export const REQUIRED_CANONICAL_ARTIFACTS = [
   { type: "file", title: "quality_report.md", path: "quality_report.md" },
   { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },
 ] as const;
+
+export const CANONICAL_RUNTIME_CONTRACT = {
+  requiresCodexLogin: true,
+  requiredEnvironment: [
+    "CANONICAL_DATASET_SLACK_WEBHOOK_URL",
+  ],
+  optionalEnvironment: [
+    "EXA_API_KEY",
+  ],
+} as const;
 
 const MODE_TEMPLATES: Record<Exclude<Mode, "status">, string> = {
   create: "prompts/canonical-dataset-build.md",
@@ -199,6 +212,9 @@ export function artifactContract(datasetId: string, mode: Mode) {
       { type: "structured_result", title: "volume_inventory_summary.json", path: "volume_inventory_summary.json" },
       { type: "file", title: "volume_tree.txt", path: "volume_tree.txt" },
       { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },
+      { type: "file", title: "download_events.jsonl", path: "download_events.jsonl" },
+      { type: "file", title: "slack_download_alerts.jsonl", path: "slack_download_alerts.jsonl" },
+      { type: "file", title: "slack_briefing.md", path: "slack_briefing.md" },
       ...docsArtifacts,
     ];
   }
@@ -329,6 +345,18 @@ async function run() {
           sourceDescription: `Canonical public sources for ${datasetName}.`,
           prompt,
           resources: CANONICAL_PUBLIC_RESOURCES,
+          config: {
+            canonicalDatasetLifecycle: true,
+            jobKind: "dataset-create",
+            datasetId: args.datasetId,
+            datasetName,
+            writesDatasetBriefing: true,
+            syncsDocsFromBriefing: true,
+            requiresVolumeInventory: true,
+            requiresDownloadEventLog: true,
+            requiresSlackDownloadAlerts: true,
+            ...CANONICAL_RUNTIME_CONTRACT,
+          },
           artifacts,
         },
       },
@@ -374,7 +402,10 @@ async function run() {
           writesDatasetBriefing: true,
           syncsDocsFromBriefing: true,
           requiresVolumeInventory: true,
+          requiresDownloadEventLog: true,
+          requiresSlackDownloadAlerts: true,
           resources: CANONICAL_PUBLIC_RESOURCES,
+          ...CANONICAL_RUNTIME_CONTRACT,
         },
         artifacts,
       },
