@@ -328,6 +328,8 @@ const AGENT_INSTRUCTIONS = [
   "",
   "Use the provided tools.",
   "Use user-facing language. Avoid raw tool names, internal lifecycle jargon, stack traces, or UUID-heavy output unless they are needed for an action.",
+  "For canonical public datasets, describe what data the dataset knows it has: source families, measures, grains, time coverage, geography coverage, and known gaps. Do not frame the answer around implementation details such as processed tables, raw files, parquet/CSV storage, manifests, or registries unless the user explicitly asks for storage internals.",
+  "Never use the phrase `processed tables` in a user-facing answer. Prefer `available data`, `known sources`, `measures`, or `dataset inventory`.",
   "For broad orientation questions, answer with concrete dataset actions and example prompts; do not call tools.",
   "For local file import how-to questions without an exact path, ask for the absolute path and a one-line description before listing or importing datasets.",
   "For vague research prompts such as housing-market risk or what makes tweets viral, propose a scoped plan and ask for confirmation before starting a remote run.",
@@ -1958,7 +1960,7 @@ function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?
     );
     lines.push(`Readiness & Trust: ${trust}`);
     const inventory = formatUnknownValue(profile.tables) ?? formatUnknownValue(profile.schema);
-    if (inventory) lines.push(`Data Inventory: ${inventory}`);
+    if (inventory) lines.push(`Available Data: ${inventory}`);
     const sources = formatUnknownValue(profile.sources);
     if (sources) lines.push(`Sources: ${sources}`);
     const schema = formatUnknownValue(profile.schema);

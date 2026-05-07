@@ -3008,6 +3008,62 @@ test("vague dataset interesting request gives a concise briefing and focused cho
   assert.doesNotMatch(transcript, /deployment finishes|env turns ready|briefing\/profile/i);
 });
 
+test("saved canonical dataset briefing describes available data without processed-table wording", async () => {
+  const fakeClient = {
+    async listDatasets() {
+      return {
+        datasets: [{ id: "econ", name: "Econ", status: "ready" }],
+      };
+    },
+    async getDataset(datasetId: string) {
+      assert.equal(datasetId, "econ");
+      return {
+        dataset: {
+          id: "econ",
+          name: "Econ",
+          status: "ready",
+          profile: {
+            datasetId: "econ",
+            sources: [
+              { name: "BEA county income" },
+              { name: "Census building permits" },
+              { name: "BLS unemployment" },
+              { name: "Zillow home values" },
+            ],
+            tables: [
+              { name: "county-month housing and rates" },
+              { name: "county-year labor and home values" },
+            ],
+            timeCoverage: { start: "1969", end: "2026-04" },
+            geographyCoverage: { level: "county and national series" },
+            quality: "Source coverage and joins are documented in the saved profile.",
+          },
+        },
+      };
+    },
+    async startRun() {
+      throw new Error("Saved profile should answer without a new run.");
+    },
+    async appendSessionEntry() {
+      return { id: "entry-1" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("Describe the econ dataset.", session, emit, undefined, deps);
+
+  const transcript = messages.map((message) => message.content).join("\n");
+  assert.match(transcript, /Available Data: name: county-month housing and rates; name: county-year labor and home values/i);
+  assert.match(transcript, /Sources: name: BEA county income; name: Census building permits; name: BLS unemployment; name: Zillow home values/i);
+  assert.doesNotMatch(transcript, /processed tables/i);
+  assert.doesNotMatch(transcript, /Data Inventory:/i);
+});
+
 test("product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts", async () => {
   const calls: Array<{ name: string; body?: unknown; prompt?: string; options?: unknown }> = [];
   const requiredPublicSources = [
