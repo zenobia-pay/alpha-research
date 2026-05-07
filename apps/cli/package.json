@@ -1,6 +1,6 @@
 {
   "name": "@rprend/research",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "RESEARCH CLI for creating and deploying Alpha Research datasets.",
   "license": "UNLICENSED",

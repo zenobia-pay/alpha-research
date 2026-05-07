@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -163,7 +164,8 @@ test("version flag prints package version without starting interactive UI", asyn
 
   assert.equal(result.signal, null);
   assert.equal(result.code, 0);
-  assert.equal(stdout.trim(), "0.1.0");
+  const packageJson = JSON.parse(await readFile(join(process.cwd(), "apps/cli/package.json"), "utf8")) as { version: string };
+  assert.equal(stdout.trim(), packageJson.version);
   assert.equal(stderr, "");
 });
 
