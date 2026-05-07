@@ -87,6 +87,7 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [county-month housing-cycle dataset requests reuse a strong economics base and start the build immediately](product-tests/county-month-housing-cycle-dataset-requests-reuse-a-strong-economics-base-and-start-the-build-immediately.md)
 - [dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching](product-tests/dataset-follow-up-keeps-the-exact-prior-inventory-match-instead-of-fuzzy-overlap-switching.md)
 - [dataset trust briefing reuses saved profile before starting a new run](product-tests/dataset-trust-briefing-reuses-saved-profile-before-starting-a-new-run.md)
+- [dataset trust briefing renders saved profile briefing markdown](product-tests/dataset-trust-briefing-renders-saved-profile-briefing-markdown.md)
 - [field-definition questions use verified dataset metadata when available](product-tests/field-definition-questions-use-verified-dataset-metadata-when-available.md)
 - [file-to-dataset onboarding asks only for path and description](product-tests/file-to-dataset-onboarding-asks-only-for-path-and-description.md)
 - [last completed run decision summary explains changes, artifacts, trust, and next decisions](product-tests/last-completed-run-decision-summary-explains-changes-artifacts-trust-and-next-decisions.md)

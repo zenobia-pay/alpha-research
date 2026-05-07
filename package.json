@@ -10,8 +10,9 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present && npm run test:cli",
+    "test": "npm run test --workspaces --if-present && npm run test:cli && npm run test:canonical",
     "test:cli": "RESEARCH_SESSION_DIR=.tmp/research-test RESEARCH_DISABLE_RUN_WATCHER=1 tsx --test --test-force-exit apps/cli/test/*.test.ts",
+    "test:canonical": "tsx --test scripts/canonical-dataset.test.ts",
     "test:golden": "RESEARCH_SESSION_DIR=.tmp/research-test RESEARCH_DISABLE_RUN_WATCHER=1 tsx --test apps/cli/test/golden.test.ts",
     "symphony:test": "RESEARCH_SESSION_DIR=.tmp/research-symphony-test RESEARCH_DISABLE_RUN_WATCHER=1 tsx --test apps/cli/test/symphony-cases.test.ts",
     "harness:check": "RESEARCH_SESSION_DIR=.tmp/research-harness RESEARCH_DISABLE_RUN_WATCHER=1 tsx scripts/harness-check.ts",
@@ -39,6 +40,7 @@
     "canonical:refresh": "node scripts/start-canonical-public-dataset-refresh-jobs.mjs",
     "canonical:refresh:status": "node scripts/start-canonical-public-dataset-refresh-jobs.mjs --status-only",
     "canonical:refresh:dry-run": "node scripts/start-canonical-public-dataset-refresh-jobs.mjs --dry-run",
+    "canonical:dataset": "tsx scripts/canonical-dataset.ts",
     "canonical:expand": "node scripts/start-canonical-dataset-expansion-jobs.mjs",
     "canonical:expand:dry-run": "node scripts/start-canonical-dataset-expansion-jobs.mjs --dry-run",
     "canonical:improve": "node scripts/start-canonical-dataset-improvement-jobs.mjs",
