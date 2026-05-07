@@ -44,7 +44,6 @@ export type RemoteDatasetDetail = RemoteDatasetSummary & {
     schema?: unknown;
     sampleRows?: unknown;
     notes?: string | null;
-    briefingMarkdown?: string | null;
     briefingArtifactId?: string | null;
     profileArtifactId?: string | null;
     sources?: unknown;
@@ -270,7 +269,6 @@ export class RemoteApiClient {
     schema?: unknown;
     sampleRows?: unknown;
     notes?: string;
-    briefingMarkdown?: string;
     briefingArtifactId?: string;
     profileArtifactId?: string;
     sources?: unknown;

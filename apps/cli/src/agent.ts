@@ -1935,9 +1935,7 @@ function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?
   const profile = dataset.profile;
   const briefingMarkdown = typeof dataset.briefing?.markdown === "string" && dataset.briefing.markdown.trim().length > 0
     ? dataset.briefing.markdown.trim()
-    : typeof profile?.briefingMarkdown === "string" && profile.briefingMarkdown.trim().length > 0
-      ? profile.briefingMarkdown.trim()
-      : null;
+    : null;
   if (!profile && !briefingMarkdown) {
     return null;
   }
@@ -3062,7 +3060,6 @@ function datasetMetadataText(dataset: RemoteDatasetSummary | RemoteDatasetDetail
         geographyCoverage: profile.geographyCoverage ?? null,
         limitations: profile.limitations ?? null,
         notes: profile.notes ?? null,
-        briefingMarkdown: profile.briefingMarkdown ?? null,
       }).toLowerCase()
     : "";
   return [dataset.id, dataset.name, briefingMarkdown, sourceText].filter(Boolean).join(" ").toLowerCase();
@@ -3548,7 +3545,7 @@ function takeStringList(value: unknown, limit = 3) {
 }
 
 function vagueInterestingDirections(detail: RemoteDatasetDetail) {
-  const topicText = `${detail.id} ${detail.name} ${detail.profile?.notes ?? ""} ${detail.briefing?.markdown ?? ""} ${detail.profile?.briefingMarkdown ?? ""}`.toLowerCase();
+  const topicText = `${detail.id} ${detail.name} ${detail.profile?.notes ?? ""} ${detail.briefing?.markdown ?? ""}`.toLowerCase();
   if (/\bhousing|mortgage|permit|county\b/.test(topicText)) {
     return ["rate sensitivity", "coverage quality", "regional differences"];
   }

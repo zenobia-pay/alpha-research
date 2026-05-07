@@ -649,15 +649,17 @@ test("dataset follow-up keeps the exact prior inventory match instead of fuzzy-o
           id: "tweets",
           name: "Tweets",
           status: "ready",
-          profile: {
-            briefingMarkdown: [
+          briefing: {
+            markdown: [
               "Readiness check, not analysis.",
               "Verdict: usable now",
               "",
               "Overview",
               "Local tweet archive normalized for inspection.",
             ].join("\n"),
-            briefingArtifactId: "artifact-tweets-briefing",
+            artifactId: "artifact-tweets-briefing",
+          },
+          profile: {
             profileArtifactId: "artifact-tweets-profile",
           },
         },
@@ -1387,8 +1389,8 @@ test("dataset describe request falls back to saved briefing when dataset is busy
           id: "econ",
           name: "Economic Indicators",
           status: "ready",
-          profile: {
-            briefingMarkdown: [
+          briefing: {
+            markdown: [
               "Overview",
               "Economic indicators dataset with normalized macro tables.",
               "",
@@ -1401,7 +1403,10 @@ test("dataset describe request falls back to saved briefing when dataset is busy
               "Quality & Validation",
               "Validated schemas.",
             ].join("\n"),
-            briefingArtifactId: "artifact-briefing",
+            artifactId: "artifact-briefing",
+            updatedAt: "2026-04-30T12:00:00.000Z",
+          },
+          profile: {
             profileArtifactId: "artifact-profile",
             describedAt: "2026-04-30T12:00:00.000Z",
           },
