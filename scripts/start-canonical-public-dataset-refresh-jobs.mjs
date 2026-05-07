@@ -217,11 +217,14 @@ function extractSourceRegistrySection(markdown, datasetId) {
   const endIndex = lines.findIndex((line, idx) => idx > startIndex && line.startsWith("### "));
   const section = lines.slice(startIndex, endIndex === -1 ? lines.length : endIndex).join("\n");
 
-  const startNeedle = "Initial active/deferred source registry:";
+  const startNeedles = ["Initial active/deferred source registry:", "Recommended starting sources:"];
   const endNeedle = "Priority raw source families:";
-  const startPos = section.indexOf(startNeedle);
-  if (startPos === -1) return null;
-  const afterStart = section.slice(startPos + startNeedle.length);
+  const matchedStart = startNeedles
+    .map((needle) => ({ needle, index: section.indexOf(needle) }))
+    .filter((match) => match.index !== -1)
+    .sort((left, right) => left.index - right.index)[0];
+  if (!matchedStart) return null;
+  const afterStart = section.slice(matchedStart.index + matchedStart.needle.length);
   const endPos = afterStart.indexOf(endNeedle);
   const slice = (endPos === -1 ? afterStart : afterStart.slice(0, endPos)).trim();
   const bullets = slice
