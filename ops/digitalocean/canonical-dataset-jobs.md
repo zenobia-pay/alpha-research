@@ -10,7 +10,7 @@ Each canonical dataset has two daily jobs:
 
 - `canonical-refresh`: fetch active public raw sources, preserve provider-native source shapes, validate, and publish dataset artifacts.
 - `canonical-expand`: reason over field coverage and propose source-registry changes.
-- `canonical-improve`: run a remote Codex pass that treats `dataset_briefing.md` as the dataset-owned source of truth, searches the internet with Exa, downloads newly found public/compatible/fetchable raw source data, updates inventories and exact native-shape documentation, removes or deprecates canonical processed/derived outputs, rewrites the briefing, mirrors the same briefing into docs, and sends Slack webhook alerts when a high-value source appears relevant but cannot be found, fetched, licensed, or accessed without credentials.
+- `canonical-improve`: run a remote Codex pass that treats `dataset_briefing.md` as the dataset-owned source of truth, searches the internet with Exa, downloads newly found public/fetchable raw source data, downloads public `license_review` sources while marking them as needing review, updates inventories and exact native-shape documentation, removes or deprecates canonical processed/derived outputs, rewrites the briefing, mirrors the same briefing into docs, and sends one Slack webhook briefing summarizing what the job searched, found, downloaded, failed to download, ignored, and updated.
 
 Recommended cadence:
 
@@ -62,11 +62,12 @@ Every successful improvement run should publish:
 - `improvement_result.json`
 - `candidate_sources.csv`
 - `exa_search_log.json`
+- `slack_briefing.md`
 - `raw_inventory.jsonl`
 - `raw_inventory.csv`
 - `dataset_briefing.md`
 
-The remote runner must have `EXA_API_KEY` and `CANONICAL_DATASET_SLACK_WEBHOOK_URL` in its environment. These are worker secrets; prompts and artifacts must never include secret values.
+The remote runner must have `EXA_API_KEY` and `CANONICAL_DATASET_SLACK_WEBHOOK_URL` in its environment. These are worker secrets; prompts and artifacts must never include secret values. If the Slack webhook is unavailable, the improvement job must still write `slack_briefing.md` and record the pending webhook payload in `improvement_result.json`.
 
 ## Deployment Notes
 

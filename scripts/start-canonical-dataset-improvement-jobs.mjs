@@ -191,6 +191,7 @@ for (const dataset of canonicalDatasets) {
       { type: 'structured_result', title: 'Improvement Result', path: 'improvement_result.json' },
       { type: 'table', title: 'Candidate Sources', path: 'candidate_sources.csv' },
       { type: 'structured_result', title: 'Exa Search Log', path: 'exa_search_log.json' },
+      { type: 'file', title: 'Slack Briefing', path: 'slack_briefing.md' },
       { type: 'file', title: 'Dataset Briefing', path: 'dataset_briefing.md' },
       { type: 'file', title: 'Raw Inventory JSONL', path: 'raw_inventory.jsonl' },
       { type: 'table', title: 'Raw Inventory CSV', path: 'raw_inventory.csv' },

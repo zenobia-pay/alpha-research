@@ -8,18 +8,18 @@ Reason over the current dataset briefing, search the internet with Exa, and deci
 
 This is an improvement-and-briefing run. The dataset owns its own `dataset_briefing.md`; that briefing is the CLI's first source of truth for what the dataset contains. Canonical datasets are raw public source packages. Do not publish processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready tables as canonical dataset artifacts.
 
-If a source is clearly public, stable, machine-fetchable, license-compatible, low-risk, and relevant, download the raw provider files/API responses into source-specific paths, record provenance, describe exact native shape, and rewrite the briefing. If a source is promising but not safely fetchable, do not ingest it; record the reason in the plan and alert Slack when human action is needed.
+If a source is clearly public, stable, machine-fetchable, low-risk, and relevant, download the raw provider files/API responses into source-specific paths, record provenance, describe exact native shape, and rewrite the briefing. Do not block a download only because the source needs license review; download the public raw source, mark `license_status: "needs_review"` in inventories and results, and describe the license/terms uncertainty clearly. If a source is promising but not safely fetchable because it is credentialed, paid, anti-bot protected, unstable, private, or lacks a stable endpoint, do not ingest it; record the reason in the plan.
 
 ## Required Environment
 
 - Dataset mount: use `DATASET_MOUNT_PATH` and the workspace `dataset` symlink.
 - Manifest: use `MANIFEST_PATH` when it exists.
 - Exa: use `EXA_API_KEY` from the environment. Never print or write the key.
-- Slack alerts: use `CANONICAL_DATASET_SLACK_WEBHOOK_URL` from the environment. Never print or write the webhook URL.
+- Slack briefing: use `CANONICAL_DATASET_SLACK_WEBHOOK_URL` from the environment. Never print or write the webhook URL.
 
 If `EXA_API_KEY` is missing, write `artifacts/improvement_result.json` with `status: "blocked"` and `blocker: "missing_exa_api_key"`, write `artifacts/improvement_plan.md`, and stop.
 
-If `CANONICAL_DATASET_SLACK_WEBHOOK_URL` is missing, continue the research and write a `slack_alerts_pending` array in `improvement_result.json`; do not fail the whole run just because Slack is missing.
+If `CANONICAL_DATASET_SLACK_WEBHOOK_URL` is missing, continue the research and write a `slackBriefingPending` object in `improvement_result.json`; do not fail the whole run just because Slack is missing.
 
 ## Field Scope
 
@@ -41,11 +41,11 @@ Use this field brief as the scope boundary:
 4. For every candidate, classify it as exactly one of:
    - `active_fetchable`: public, stable, machine-fetchable, license-compatible, and worth adding soon.
    - `deferred_fetchable`: probably useful and fetchable, but lower priority or needs schema planning.
-   - `license_review`: promising but license/terms are unclear.
+   - `license_review`: promising, public, and worth downloading, but license/terms are unclear and must be marked for human review after ingest.
    - `credential_required`: relevant but requires login, API approval, payment, institutional access, or private credentials.
    - `not_found`: the source appears relevant by name/citation but no stable public download/API/catalog endpoint was found.
    - `reject`: irrelevant, brittle, spammy, duplicated, too narrow, or unsafe to fetch.
-5. For each `active_fetchable` source, download the source into a source-specific raw path, compute hashes, and inspect its exact native shape. Do not create processed outputs as canonical artifacts.
+5. For each `active_fetchable` and `license_review` source, download the source into a source-specific raw path, compute hashes, and inspect its exact native shape. Do not create processed outputs as canonical artifacts. For `license_review`, keep the candidate status as `license_review`, add `license_status: "needs_review"`, include the license/terms URL or missing terms note, and do not present the source as license-cleared.
 6. Update `download_inventory.jsonl`/`.csv`, `raw_inventory.jsonl`/`.csv`, `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `data_dictionary.md`, and `quality_report.md` for every new or refreshed source.
 7. Remove older processed/derived artifacts from the canonical published artifact set, or mark them deprecated in the briefing if they still exist in the mounted version and cannot be removed during this run.
 8. Rewrite `dataset_briefing.md` so it is comprehensive and exact about the whole dataset after the run. Include:
@@ -58,7 +58,17 @@ Use this field brief as the scope boundary:
 9. Mirror the final briefing into the docs copy for this dataset, preserving frontmatter if present:
    - `docs/public-datasets/briefings/{datasetId}.md`
    - `docs/public-datasets/{datasetId}.mdx`
-10. For each `not_found`, `credential_required`, or high-value `license_review` candidate, send one concise Slack webhook alert. Include dataset id, candidate name, why it matters, what is missing, URLs checked, and the recommended human action. If Slack delivery fails, record it in `slack_alerts_pending`.
+10. Send one concise Slack webhook briefing for the improvement job, even if nothing changed. The briefing must include:
+   - dataset id/name and run timestamp;
+   - the Exa/API/web searches performed and why;
+   - newly found candidate datasets/sources;
+   - sources downloaded successfully, with raw paths and why they were worth adding;
+   - public `license_review` sources downloaded, with the license uncertainty and recommended human review;
+   - sources attempted but failed, with exact failure/gating reasons and URLs checked;
+   - sources ignored/rejected/deferred, with concise reasons;
+   - briefing/docs/inventory files updated;
+   - recommended next actions.
+   If any new source is downloaded, the Slack briefing must call that out explicitly near the top. If Slack delivery fails, record the complete briefing payload in `slackBriefingPending`.
 11. Decide what should happen next:
    - promote to active fetch target;
    - defer;
@@ -73,6 +83,7 @@ Write these files in the artifact directory:
 - `improvement_result.json`
 - `candidate_sources.csv`
 - `exa_search_log.json`
+- `slack_briefing.md`
 - `dataset_briefing.md`
 - `raw_inventory.jsonl`
 - `raw_inventory.csv`
@@ -91,12 +102,18 @@ Write these files in the artifact directory:
   "downloadedSources": [],
   "briefingUpdated": true,
   "docsUpdated": true,
+  "searchesPerformed": [],
   "promoteNow": [],
   "defer": [],
   "needsHumanReview": [],
   "rejected": [],
+  "downloadAttempts": [],
+  "downloadedLicenseReviewSources": [],
+  "slackBriefingPath": "slack_briefing.md",
   "slackAlertsSent": [],
   "slackAlertsPending": [],
+  "slackBriefingSent": null,
+  "slackBriefingPending": null,
   "nextRunHints": []
 }
 ```
@@ -106,5 +123,6 @@ Write these files in the artifact directory:
 - Do not use private user data.
 - Do not bypass paywalls, login walls, robots restrictions, anti-bot systems, or institutional access controls.
 - Do not write secrets, webhook URLs, API keys, presigned URLs, cookies, or bearer tokens into artifacts or logs.
+- Do not skip a public, stable, machine-fetchable, relevant source only because license review is needed; download it, preserve provenance, and mark it clearly as `license_review` / `license_status: "needs_review"`.
 - Do not mark a source `active_fetchable` unless there is a stable public endpoint and a plausible license/access path.
 - Prefer fewer, higher-quality additions over broad noisy source lists.

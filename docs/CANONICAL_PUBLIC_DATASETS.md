@@ -55,8 +55,9 @@ Every canonical refresh must make provenance inspectable without reading agent t
    - Inspect the mounted dataset, manifest, source registry, data dictionary, quality report, briefing, and previous improvement artifacts.
    - Search the internet with Exa using the remote `EXA_API_KEY`.
    - Classify newly discovered candidate sources as `active_fetchable`, `deferred_fetchable`, `license_review`, `credential_required`, `not_found`, or `reject`.
-   - Send a Slack webhook alert through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` for high-value `not_found`, `credential_required`, or license-review candidates that need human action.
-   - Produce `improvement_plan.md`, `improvement_result.json`, `candidate_sources.csv`, and `exa_search_log.json`.
+   - Download public, stable, machine-fetchable `license_review` sources instead of blocking on review; mark them as `license_status: needs_review` in inventories and the result.
+   - Send one Slack webhook briefing through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` for every improvement job. The briefing should summarize searches performed, new sources found, downloads that succeeded, downloads that failed, license-review downloads, ignored/rejected/deferred candidates, briefing/docs updates, and next human actions.
+   - Produce `improvement_plan.md`, `improvement_result.json`, `candidate_sources.csv`, `exa_search_log.json`, and `slack_briefing.md`.
 
 ## Canonical Dataset Catalog
 
