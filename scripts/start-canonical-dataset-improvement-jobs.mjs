@@ -5,6 +5,7 @@ import { join } from 'node:path'
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), '.research', 'session.json')
 const promptPath = new URL('../prompts/canonical-dataset-improvement.md', import.meta.url)
 const dryRun = process.argv.includes('--dry-run') || process.env.CANONICAL_DATASET_IMPROVEMENT_DRY_RUN === '1'
+const maxConcurrentRemoteRuns = Math.max(1, Math.trunc(Number(process.env.CANONICAL_MAX_CONCURRENT_REMOTE_RUNS ?? '2')))
 
 const canonicalDatasets = [
   {
@@ -83,6 +84,15 @@ function renderPrompt(template, dataset) {
     .replaceAll('{fieldBrief}', dataset.fieldBrief)
 }
 
+function dashboardRunUrl(origin, runId) {
+  const dashboardOrigin = process.env.ALPHA_RESEARCH_DASHBOARD_ORIGIN ?? 'https://dashboard.alpharesearch.nyc'
+  const url = new URL(dashboardOrigin)
+  url.searchParams.set('view', 'runs')
+  url.searchParams.set('runId', runId)
+  url.hash = `run-${encodeURIComponent(runId)}`
+  return url.toString()
+}
+
 async function api(session, path, options = {}) {
   const response = await fetch(`${session.origin}${path}`, {
     method: options.method ?? 'GET',
@@ -125,6 +135,12 @@ try {
 }
 
 const liveDatasets = new Map((datasetPayload.datasets ?? []).map((dataset) => [dataset.id, dataset]))
+const activeCanonicalRuns = canonicalDatasets.filter((dataset) => {
+  const liveDataset = liveDatasets.get(dataset.id)
+  return Boolean(liveDataset?.activeRunId)
+}).length
+const startAllowance = Math.max(0, maxConcurrentRemoteRuns - activeCanonicalRuns)
+let startedThisPass = 0
 
 for (const dataset of canonicalDatasets) {
   const liveDataset = liveDatasets.get(dataset.id)
@@ -143,6 +159,16 @@ for (const dataset of canonicalDatasets) {
   }
   if (liveDataset.activeRunId) {
     results.push({ datasetId: dataset.id, status: 'skipped_active_run', activeRunId: liveDataset.activeRunId })
+    continue
+  }
+  if (!dryRun && startedThisPass >= startAllowance) {
+    results.push({
+      datasetId: dataset.id,
+      status: 'skipped_run_cap_reached',
+      maxConcurrentRemoteRuns,
+      activeCanonicalRuns,
+      startedThisPass,
+    })
     continue
   }
 
@@ -175,12 +201,14 @@ for (const dataset of canonicalDatasets) {
       method: 'POST',
       body,
     })
+    const runId = started.run?.id ?? null
     results.push({
       datasetId: dataset.id,
       status: 'started',
-      runId: started.run?.id,
-      dashboardUrl: `${session.origin.replace('alpharesearch.nyc', 'dashboard.alpharesearch.nyc')}/?view=runs&runId=${started.run?.id}#run-${started.run?.id}`,
+      runId,
+      dashboardUrl: runId ? dashboardRunUrl(session.origin, runId) : null,
     })
+    startedThisPass += 1
   } catch (error) {
     results.push({
       datasetId: dataset.id,
