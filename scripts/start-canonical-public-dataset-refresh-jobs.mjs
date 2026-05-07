@@ -34,7 +34,7 @@ const CANONICAL_PUBLIC_RESOURCES = {
   runnerSize: "s-4vcpu-8gb",
   workspaceDiskGb: 50,
   storageMode: "object-store-versioned",
-  datasetAccess: "read-only-version",
+  datasetAccess: "write-version",
   publishMode: "versioned",
 };
 
@@ -218,7 +218,7 @@ function extractSourceRegistrySection(markdown, datasetId) {
   const section = lines.slice(startIndex, endIndex === -1 ? lines.length : endIndex).join("\n");
 
   const startNeedle = "Initial active/deferred source registry:";
-  const endNeedle = "Priority normalized tables/documents:";
+  const endNeedle = "Priority raw source families:";
   const startPos = section.indexOf(startNeedle);
   if (startPos === -1) return null;
   const afterStart = section.slice(startPos + startNeedle.length);
@@ -240,10 +240,10 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "## Operating contract (must follow)",
     "- Skip or defer any credentialed, paid, unclear-license, or brittle/anti-bot sources; do not fail the build for these.",
     "- Prefer stable government/academic/open-repo sources; keep provenance (URLs, fetch dates, license notes).",
-    "- If an existing canonical dataset version is mounted, extend it rather than starting from scratch.",
-    "- Do not force all canonical sources into one normalized table. Preserve source-specific raw files, tables, document collections, schemas, grains, keys, and formats; add derived cross-source panels only when they are analytically useful and separately documented.",
-    "- Record every attempted raw source download in `download_inventory.jsonl` and `download_inventory.csv` before normalization.",
-    "- Record every normalized output table/document in `normalization_inventory.jsonl` and `normalization_inventory.csv` before publishing.",
+    "- If an existing canonical dataset version is mounted, preserve useful raw source files and remove canonical processed outputs from the next published version.",
+    "- Canonical datasets are raw public source packages. Do not publish processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready tables as canonical dataset artifacts.",
+    "- Keep each source in source-specific raw paths with provider-native files/API responses, codebooks, README files, schemas, and documentation.",
+    "- Record every attempted raw source download in `download_inventory.jsonl` and `download_inventory.csv`.",
     "",
     "## Required published outputs (write these exact files at the dataset root and ensure they are published):",
     "- manifest.json",
@@ -251,8 +251,8 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "- source_registry.plan.json",
     "- download_inventory.jsonl",
     "- download_inventory.csv",
-    "- normalization_inventory.jsonl",
-    "- normalization_inventory.csv",
+    "- raw_inventory.jsonl",
+    "- raw_inventory.csv",
     "- data_dictionary.md",
     "- quality_report.md",
     "- dataset_briefing.md",
@@ -262,16 +262,17 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "## Download inventory required fields",
     "Each row/object must include `source_id`, `source_name`, `plain_english_description`, `canonical_url`, `request_url` with secrets redacted, `retrieved_at`, `retrieval_method`, `http_status`, `raw_path`, `raw_format`, `raw_bytes`, `content_hash_sha256`, `license`, `access_status`, and `failure_or_gating_reason`.",
     "",
-    "## Normalization inventory required fields",
-    "Each row/object must include `output_id`, `output_path`, `plain_english_description`, `source_ids`, `input_paths`, `normalized_at`, `output_format`, `grain`, `primary_key`, `join_keys`, `time_coverage`, `geography_coverage`, `row_count`, `column_count`, `schema`, `transform_steps`, `quality_checks`, and `content_hash_sha256`.",
+    "## Raw inventory required fields",
+    "Each row/object must include `raw_id`, `source_id`, `raw_path`, `plain_english_description`, `native_format`, `native_schema_or_fields`, `native_primary_keys`, `native_time_coverage`, `native_geography_or_topic_coverage`, `row_document_or_object_count`, `raw_bytes`, `content_hash_sha256`, `license`, `access_status`, `retrieved_at`, `request_url`, and `quality_notes`.",
     "",
     "## Source catalog for this field (starting point)",
     sourceRegistryBullets ?? "- (Missing from local catalog; proceed by inspecting the mounted dataset and preserving any existing source registry.)",
     "",
     "## Notes",
     "- If source_registry.plan.json exists already, update it; do not discard deferred items.",
-    "- `dataset_briefing.md` is the dataset-owned briefing the CLI should use first. It must be comprehensive and exact about every source/table/document collection present.",
-    "- `manifest.json`, `data_dictionary.md`, `quality_report.md`, and `dataset_briefing.md` must summarize the download and normalization inventories. A final row count without source and transform provenance is not sufficient.",
+    "- `dataset_briefing.md` is the dataset-owned briefing the CLI should use first. It must be comprehensive and exact about every raw source artifact present.",
+    "- `manifest.json`, `data_dictionary.md`, `quality_report.md`, and `dataset_briefing.md` must summarize the download and raw inventories. A final row count without source provenance is not sufficient.",
+    "- If older processed outputs exist, mark them deprecated and exclude them from the canonical artifact set unless they are simply provider-native source files.",
     "- Mirror the final briefing into `docs/public-datasets/briefings/<datasetId>.md` and `docs/public-datasets/<datasetId>.mdx` so docs carry the same current understanding.",
     "- Quality report should explicitly call out missing coverage and deferred sources, but must still succeed.",
   ].join("\n");
@@ -332,8 +333,8 @@ try {
         "source_registry.plan.json",
         "download_inventory.jsonl",
         "download_inventory.csv",
-        "normalization_inventory.jsonl",
-        "normalization_inventory.csv",
+        "raw_inventory.jsonl",
+        "raw_inventory.csv",
         "data_dictionary.md",
         "quality_report.md",
         "dataset_briefing.md",
@@ -411,8 +412,8 @@ for (const dataset of canonicalDatasets) {
       { type: "file", title: "source_registry.plan.json", path: "source_registry.plan.json" },
       { type: "file", title: "download_inventory.jsonl", path: "download_inventory.jsonl" },
       { type: "file", title: "download_inventory.csv", path: "download_inventory.csv" },
-      { type: "file", title: "normalization_inventory.jsonl", path: "normalization_inventory.jsonl" },
-      { type: "file", title: "normalization_inventory.csv", path: "normalization_inventory.csv" },
+      { type: "file", title: "raw_inventory.jsonl", path: "raw_inventory.jsonl" },
+      { type: "file", title: "raw_inventory.csv", path: "raw_inventory.csv" },
       { type: "file", title: "data_dictionary.md", path: "data_dictionary.md" },
       { type: "file", title: "quality_report.md", path: "quality_report.md" },
       { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },

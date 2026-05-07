@@ -8,9 +8,9 @@ Canonical jobs should use the `canonical-public` resource profile unless the sou
 
 Each canonical dataset has two daily jobs:
 
-- `canonical-refresh`: fetch active public sources, preserve source-specific shapes, validate, and publish dataset artifacts.
+- `canonical-refresh`: fetch active public raw sources, preserve provider-native source shapes, validate, and publish dataset artifacts.
 - `canonical-expand`: reason over field coverage and propose source-registry changes.
-- `canonical-improve`: run a remote Codex pass that treats `dataset_briefing.md` as the dataset-owned source of truth, searches the internet with Exa, downloads newly found public/compatible/fetchable data, updates inventories and exact shape documentation, rewrites the briefing, mirrors the same briefing into docs, and sends Slack webhook alerts when a high-value source appears relevant but cannot be found, fetched, licensed, or accessed without credentials.
+- `canonical-improve`: run a remote Codex pass that treats `dataset_briefing.md` as the dataset-owned source of truth, searches the internet with Exa, downloads newly found public/compatible/fetchable raw source data, updates inventories and exact native-shape documentation, removes or deprecates canonical processed/derived outputs, rewrites the briefing, mirrors the same briefing into docs, and sends Slack webhook alerts when a high-value source appears relevant but cannot be found, fetched, licensed, or accessed without credentials.
 
 Recommended cadence:
 
@@ -35,6 +35,10 @@ Every successful refresh should publish:
 - `manifest.json`
 - `source_registry.csv`
 - `source_registry.plan.json`
+- `download_inventory.jsonl`
+- `download_inventory.csv`
+- `raw_inventory.jsonl`
+- `raw_inventory.csv`
 - `data_dictionary.md`
 - `quality_report.md`
 - `dataset_briefing.md`
@@ -58,6 +62,9 @@ Every successful improvement run should publish:
 - `improvement_result.json`
 - `candidate_sources.csv`
 - `exa_search_log.json`
+- `raw_inventory.jsonl`
+- `raw_inventory.csv`
+- `dataset_briefing.md`
 
 The remote runner must have `EXA_API_KEY` and `CANONICAL_DATASET_SLACK_WEBHOOK_URL` in its environment. These are worker secrets; prompts and artifacts must never include secret values.
 

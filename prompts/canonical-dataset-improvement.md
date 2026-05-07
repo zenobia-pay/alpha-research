@@ -6,9 +6,9 @@ You are running a daily self-improvement pass for the canonical public Alpha Res
 
 Reason over the current dataset briefing, search the internet with Exa, and decide whether there are newly relevant public datasets, archives, APIs, corpora, or metadata releases that should be added to this field's canonical dataset.
 
-This is an improvement-and-briefing run. The dataset owns its own `dataset_briefing.md`; that briefing is the CLI's first source of truth for what the dataset contains. Do not force all sources into one normalized table. Preserve each source/table/document collection in its native shape unless there is a clear analytical reason to create an additional derived panel.
+This is an improvement-and-briefing run. The dataset owns its own `dataset_briefing.md`; that briefing is the CLI's first source of truth for what the dataset contains. Canonical datasets are raw public source packages. Do not publish processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready tables as canonical dataset artifacts.
 
-If a source is clearly public, stable, machine-fetchable, license-compatible, low-risk, and relevant, download it into the dataset, record provenance, describe its exact shape, and rewrite the briefing. If a source is promising but not safely fetchable, do not ingest it; record the reason in the plan and alert Slack when human action is needed.
+If a source is clearly public, stable, machine-fetchable, license-compatible, low-risk, and relevant, download the raw provider files/API responses into source-specific paths, record provenance, describe exact native shape, and rewrite the briefing. If a source is promising but not safely fetchable, do not ingest it; record the reason in the plan and alert Slack when human action is needed.
 
 ## Required Environment
 
@@ -32,7 +32,7 @@ Use this field brief as the scope boundary:
 ## Procedure
 
 1. Inspect the current dataset files, manifest, source registry, previous expansion plans, data dictionary, quality report, and `dataset_briefing.md`. If no briefing exists, create one before doing external research.
-2. Summarize current coverage by source family, geography, time coverage, document/table types, known gaps, and deferred/blocked sources. Be exact: list every table/document collection/source file that exists, its path, format, row or document count when measurable, fields/schema, grain, primary/join keys, temporal coverage, geographic/topic coverage, source ids, transform steps, and known limitations.
+2. Summarize current raw coverage by source family, geography, time coverage, document/object/file types, known gaps, and deferred/blocked sources. Be exact: list every raw source artifact that exists, its path, format, byte count, hash, row/document/object count when measurable, native fields/schema, native keys, temporal coverage, geographic/topic coverage, source ids, quality notes, and known limitations.
 3. Use Exa search to find newly relevant public sources for `{datasetName}`. Query for:
    - public dataset releases in the last 30 days and last year;
    - major archives, APIs, codebooks, benchmark corpora, catalogs, or metadata dumps;
@@ -45,20 +45,21 @@ Use this field brief as the scope boundary:
    - `credential_required`: relevant but requires login, API approval, payment, institutional access, or private credentials.
    - `not_found`: the source appears relevant by name/citation but no stable public download/API/catalog endpoint was found.
    - `reject`: irrelevant, brittle, spammy, duplicated, too narrow, or unsafe to fetch.
-5. For each `active_fetchable` source, download the source into a source-specific raw path, compute hashes, inspect its exact shape, and either keep it as a raw/document collection or write source-specific normalized outputs. Do not collapse unlike sources into one generic table.
-6. Update `download_inventory.jsonl`/`.csv`, `normalization_inventory.jsonl`/`.csv`, `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `data_dictionary.md`, and `quality_report.md` for every new or refreshed source.
-7. Rewrite `dataset_briefing.md` so it is comprehensive and exact about the whole dataset after the run. Include:
+5. For each `active_fetchable` source, download the source into a source-specific raw path, compute hashes, and inspect its exact native shape. Do not create processed outputs as canonical artifacts.
+6. Update `download_inventory.jsonl`/`.csv`, `raw_inventory.jsonl`/`.csv`, `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `data_dictionary.md`, and `quality_report.md` for every new or refreshed source.
+7. Remove older processed/derived artifacts from the canonical published artifact set, or mark them deprecated in the briefing if they still exist in the mounted version and cannot be removed during this run.
+8. Rewrite `dataset_briefing.md` so it is comprehensive and exact about the whole dataset after the run. Include:
    - source inventory and fetch/provenance details;
-   - exact table/document collection inventory;
-   - schemas/fields with plain-English meanings;
-   - grain, keys, time coverage, geography/topic coverage, row/document counts, formats, hashes where available;
-   - transform steps and derived fields;
+   - exact raw artifact inventory;
+   - native schemas/fields with plain-English meanings;
+   - native keys, time coverage, geography/topic coverage, row/document/object counts, formats, byte counts, and hashes where available;
+   - explicit list of deprecated processed artifacts removed or still pending removal;
    - quality checks, missingness, caveats, limitations, deferred/gated sources, and next refresh hints.
-8. Mirror the final briefing into the docs copy for this dataset, preserving frontmatter if present:
+9. Mirror the final briefing into the docs copy for this dataset, preserving frontmatter if present:
    - `docs/public-datasets/briefings/{datasetId}.md`
    - `docs/public-datasets/{datasetId}.mdx`
-9. For each `not_found`, `credential_required`, or high-value `license_review` candidate, send one concise Slack webhook alert. Include dataset id, candidate name, why it matters, what is missing, URLs checked, and the recommended human action. If Slack delivery fails, record it in `slack_alerts_pending`.
-10. Decide what should happen next:
+10. For each `not_found`, `credential_required`, or high-value `license_review` candidate, send one concise Slack webhook alert. Include dataset id, candidate name, why it matters, what is missing, URLs checked, and the recommended human action. If Slack delivery fails, record it in `slack_alerts_pending`.
+11. Decide what should happen next:
    - promote to active fetch target;
    - defer;
    - request human review;
@@ -73,6 +74,8 @@ Write these files in the artifact directory:
 - `candidate_sources.csv`
 - `exa_search_log.json`
 - `dataset_briefing.md`
+- `raw_inventory.jsonl`
+- `raw_inventory.csv`
 - `docs/public-datasets/briefings/{datasetId}.md`
 - `docs/public-datasets/{datasetId}.mdx`
 

@@ -4,7 +4,7 @@ You are running the daily *canonical dataset expansion-planning* job for the pub
 
 This job proposes new public sources and updates the source registry plan. It must not ingest new sources automatically.
 
-The canonical dataset must not be treated as one forced normalized table. It is a source-aware research environment. The plan should preserve source-specific tables, document collections, schemas, grains, keys, formats, and provenance, and should only propose derived cross-source tables when they add clear research value.
+The canonical dataset is a raw public source package. The plan should preserve provider-native files/API responses, source-specific document collections, native schemas, keys, formats, and provenance. Do not propose processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready tables as canonical dataset outputs.
 
 ## Operating contract (must follow)
 - Public data only. Do not include private user data.
@@ -48,7 +48,7 @@ Write `source_registry.plan.json` as a JSON object with a top-level `sources` ar
 - `api_endpoint` (if API-based; otherwise null)
 - `fetchability` (one of the statuses above)
 - `relevance` (short string)
-- `expected_tables` (array of normalized table/doc ids)
+- `expected_raw_artifacts` (array of raw source file/API artifact ids)
 - `geography` (string; "global" allowed)
 - `frequency` (string; "static"/"daily"/"monthly"/"annual"/etc)
 - `license` (string; include URL when available)
@@ -61,7 +61,7 @@ Preserve any existing keys/fields already present in the mounted dataset's plan;
 `expansion_plan.md` must include:
 1) Coverage gaps (what's missing in the current dataset)
 2) Candidate source review table with columns:
-   - `source_name`, `canonical_url`, `direct_download_url/api_endpoint`, `license`, `status`, `why_it_matters`, `expected_tables`, `gating_reason`, `notes`
+   - `source_name`, `canonical_url`, `direct_download_url/api_endpoint`, `license`, `status`, `why_it_matters`, `expected_raw_artifacts`, `gating_reason`, `notes`
 3) Promotions: list sources moved to `active_fetchable` with rationale
 4) Deferrals: list sources kept as `deferred_fetchable` (public but lower priority / heavier ETL)
 5) Blockers: list `license_review` and `credential_required` items with the concrete missing condition

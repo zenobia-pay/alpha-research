@@ -2,57 +2,41 @@
 
 ## Overview
 - Dataset id: `sociology`.
-- Current remote status at 2026-05-04T22:43:13.348Z: dataset `deploying`, deployment `provisioning`.
-- Curated registry of ten flagship sociology-related survey and indicator programs covering U.S. and global social statistics, with metadata on provenance, access, formats, and refresh cadence.
-- Remote manifest path: `/mnt/alpha-research/datasets/sociology/manifest.json`.
-- This dataset is not a single universal normalized table. It is a collection of source-specific files, registries, tables, and document collections described below.
+- Canonical storage policy: raw public source data only. Do not publish canonical analysis tables, merged panels, shared entity models, or cross-source computed outputs.
+- Scope: Social structure, inequality, demographics, institutions, family, work, religion, politics, mobility, health, crime, and social attitudes.
+- The CLI-visible briefing is `dataset.briefing.markdown`, backed by dataset-root `dataset_briefing.md`.
+- Last docs contract update: 2026-05-07T04:53:58.913Z.
 
-## Exact Data Currently Present
-- Source summary: - sources where counted; status breakdown -.
-- Current table/file inventory:
+## Raw Data Inventory
+| Source family | Raw artifact shape | What the briefing must describe |
+| --- | --- | --- |
+| GSS, ANES, WVS, ESS, Pew, ICPSR/OpenICPSR | Provider files, codebooks, metadata, and public API/download records | Survey instruments, respondent data, and codebooks only where redistribution is allowed. |
+| ACS, CPS, IPUMS pointers, PSID, NLS, Add Health | Public metadata/download manifests; credentialed extracts stay as gated references | Population, household, education, work, family, and mobility source data. |
+| OECD, World Bank, CDC, BJS, FBI Crime Data Explorer, UN/WHO/UNESCO/ILO | API responses, CSV/JSON downloads, and source documentation | Public indicators preserved in source-native schemas. |
+| Current registry files | registry/sources.csv, registry/sources.json, registry/schema.json | Metadata-only source catalog; no raw survey payloads are currently packaged. |
 
-| Path | Rows | Columns | Grain | Time Coverage | Geography |
-| --- | ---: | --- | --- | --- | --- |
-| `registry/sources.csv` | - | dataset_id, title, provider, description, geographic_scope, temporal_coverage, latest_release, update_cadence, population_focus, key_topics, data_formats, access_level, primary_url, download_links, license, citation, notes, refresh_strategy, next_refresh_check, source_citations | - | - | - |
-| `registry/sources.json` | - | dataset_id, title, provider, description, geographic_scope, temporal_coverage, latest_release, update_cadence, population_focus, key_topics, data_formats, access_level, primary_url, download_links, license, citation, notes, refresh_strategy, next_refresh_check, source_citations | - | - | - |
-| `registry/schema.json` | - | - | - | - | - |
+## Source Shape Requirements
+- Keep each provider's files/API responses in source-specific raw paths.
+- Record exact file/API shape for every raw artifact: path, format, byte count, hash, row/document/object count when measurable, native fields, native keys, time/geography/topic coverage, license/access status, retrieval timestamp, and request URL with secrets redacted.
+- Keep provider codebooks, README files, schemas, and data dictionaries beside the raw artifacts when public.
+- Do not rewrite fields into a shared schema as part of the canonical package. If an analysis needs a derived table, create it as a separate run artifact outside the canonical raw dataset.
 
-## Schemas And Fields
-- `registry/sources`: `dataset_id` (string: Stable identifier for the dataset entry.); `title` (string: Official dataset title.); `provider` (string: Institution responsible for the dataset.); `description` (string: Brief summary of dataset scope and content.); `geographic_scope` (string: Primary geographic coverage.); `temporal_coverage` (object: Start and end year for the current release.); `latest_release` (date: ISO date for the most recent release (approximate if day unknown).); `update_cadence` (string: Typical update or fielding frequency.); `population_focus` (string: Population or universe represented.); `key_topics` (array: Primary subject domains.); `data_formats` (array: Commonly available file formats.); `access_level` (string: Access conditions (public, registration, etc.).); `primary_url` (string: Landing page for dataset or program.); `download_links` (array: Direct download or API endpoints.); `license` (string: License or use terms.); `citation` (string: Recommended citation.); `notes` (string: Additional usage notes.); `refresh_strategy` (string: Recommended monitoring strategy for updates.); `next_refresh_check` (date: Planned date to review for updates.); `source_citations` (array: Identifiers of web sources supporting metadata.)
+## Deprecated Canonical Artifacts
+These may exist in older mounted versions, but they should be removed from the next published canonical raw version or moved to non-canonical analysis artifacts:
+- Any future cross-survey respondent mega-table
+- Cross-survey attitude/demographic tables unless created as separate analysis artifacts
 
-## Additional Assets
-- No additional assets were listed in the saved profile.
+## Required Briefing Sections
+- Raw source inventory with exact source paths and source URLs.
+- Native file/API schemas and field descriptions, not shared cross-source schemas.
+- Native time, geography, topic, language, collection, or corpus coverage by source.
+- Provenance: retrieval method, timestamp, request URL, hash, license/access notes, and gating reason.
+- Quality: fetch success/failure, completeness notes, malformed files, source caveats, and redistribution limits.
+- Gaps and next refresh hints.
 
-## Time Coverage
-- {"overall":{"startYear":1940,"endYear":2026},"bySource":{"gss_2024_r2":{"start_year":2024,"end_year":2024},"anes_2024_time_series":{"start_year":2024,"end_year":2024},"census_acs_2020_2024_5yr":{"start_year":2020,"end_year":2024},"census_household_pulse_htops":{"start_year":2020,"end_year":2024},"icpsr_openicpsr_catalog":{"start_year":1940,"end_year":2026},"wvs_wave8_2024_2026":{"start_year":2024,"end_year":2026},"oecd_society_at_a_glance_2024":{"start_year":2024,"end_year":2024},"fed_shed_2024":{"start_year":2024,"end_year":2024},"un_sdg_global_database_2024":{"start_year":2000,"end_year":2024},"mit_spae_2024":{"start_year":2024,"end_year":2024}}}
+## Current Gaps And Repair Notes
+- Current package is mostly a source registry; next refresh should add raw public files/codebooks for open sources.
+- Credentialed sources must remain registry entries with gating reasons.
 
-## Geography Coverage
-- Global to OECD members and partner economies to United States to United States; national to tract level
-
-## Formats
-- API
-- ASCII
-- CSV
-- JSON
-- PDF
-- R
-- SAS
-- SDMX
-- SPSS
-- Stata
-- XLS
-
-## Transformations And Derived Fields
-- notes: Metadata-only registry; no in-repo transformations of source data.
-
-## Quality And Validation
-- curation: Entries appear manually curated with citations to authoritative web sources.
-- validation: No automated validation artifacts present; schema.json defines expected fields.
-
-## Limitations And Known Gaps
-- Manifest file is empty and does not summarize dataset state.
-- No raw survey or indicator data stored locally; registry references external sources only.
-- Refresh notes file is empty, so update procedures are undocumented beyond per-source strategies.
-
-## Local Documentation Sync
-- This file is the canonical docs-side copy of the dataset briefing. The daily improvement automation must rewrite this file and `docs/public-datasets/sociology.mdx` whenever it changes the mounted `dataset_briefing.md`.
+## Documentation Sync
+- The dataset refresh/improvement job must write this same content to dataset-root `dataset_briefing.md`, expose it as `dataset.briefing.markdown` in `GET /api/cli/datasets/sociology`, and mirror it into `docs/public-datasets/briefings/sociology.md` and `docs/public-datasets/sociology.mdx`.

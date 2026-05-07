@@ -6,8 +6,8 @@ This plan defines evergreen, public Alpha Research datasets for broad humanities
 
 - Canonical datasets use short, human names and stable ids: `econ`, `philosophy`, `sociology`, etc.
 - They are public by default. Private uploads can join a research run, but should not mutate the canonical public dataset.
-- Each dataset has a source registry, normalized tables/documents, data dictionary, quality report, and dataset briefing.
-- Each dataset has a download inventory and normalization inventory that explain exactly what was fetched, when, from where, and how raw inputs became normalized outputs.
+- Each dataset has a source registry, raw source files/API responses, data dictionary, quality report, raw inventory, and dataset briefing.
+- Each dataset has a download inventory and raw inventory that explain exactly what was fetched, when, from where, and what native shape the raw source data has.
 - Each dataset refreshes daily. Refresh jobs should update existing source snapshots, append new versions where history matters, and preserve source provenance.
 - Each dataset also gets a daily expansion-planning run. This run reasons about missing coverage, new public sources, broken links, licensing constraints, and high-value additions for the field.
 - Expansion-planning runs may propose new sources, but only sources that pass licensing, access, and reproducibility checks should become active fetch targets.
@@ -18,13 +18,13 @@ For every canonical dataset, schedule two jobs:
 
 1. `refresh`
    - Fetch from active public sources.
-   - Normalize into the existing schema or add versioned tables when a source changes shape.
-   - Validate source URLs, row counts, missingness, join keys, temporal coverage, and geography/topic coverage.
-   - Publish `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `download_inventory.jsonl`, `download_inventory.csv`, `normalization_inventory.jsonl`, `normalization_inventory.csv`, `data_dictionary.md`, and `quality_report.md`.
+   - Preserve provider-native files/API responses in source-specific raw paths.
+   - Validate source URLs, byte counts, hashes, native record counts, source coverage, license/access status, and fetch quality.
+   - Publish `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `download_inventory.jsonl`, `download_inventory.csv`, `raw_inventory.jsonl`, `raw_inventory.csv`, `data_dictionary.md`, and `quality_report.md`.
 
 ## Provenance Inventory Contract
 
-Every canonical refresh must make provenance inspectable without reading agent transcripts. A final row count without source and transform provenance is not sufficient.
+Every canonical refresh must make provenance inspectable without reading agent transcripts. A final row count without source provenance and native shape details is not sufficient.
 
 `download_inventory.jsonl` and `download_inventory.csv` must include one record per attempted source download:
 
@@ -33,16 +33,15 @@ Every canonical refresh must make provenance inspectable without reading agent t
 - Retrieval timestamp, retrieval method, HTTP status, raw output path, raw format, raw byte count, and SHA-256 hash.
 - License or terms summary, access status, and failure/gating reason for deferred, credentialed, failed, or skipped sources.
 
-`normalization_inventory.jsonl` and `normalization_inventory.csv` must include one record per normalized table or document collection:
+`raw_inventory.jsonl` and `raw_inventory.csv` must include one record per raw source file/API response/document collection:
 
-- Output id/path, output format, row or document count, column or field count, and content hash.
-- Plain-English description of what each row or document represents.
-- Source ids and raw/intermediate input paths used.
-- Grain, primary keys, join keys, temporal coverage, geography/topic coverage, and schema with plain-English field descriptions.
-- Ordered transform steps: cleaning, filtering, reshaping, joins, aggregation, imputation, unit conversion, and derived fields.
-- QA checks: row counts, missingness, uniqueness, join coverage, range checks, caveats, and known gaps.
+- Raw id/path, native format, byte count, row/document/object count when measurable, native field count, and content hash.
+- Plain-English description of what each native row/object/document represents.
+- Source id, canonical URL, request URL, retrieval timestamp, license/access status, and gating reason when relevant.
+- Native primary keys or identifiers, native temporal coverage, native geography/topic coverage, and native schema/field descriptions.
+- QA checks: fetch status, malformed files, missing source documentation, source caveats, redistribution limits, and known gaps.
 
-`manifest.json`, `data_dictionary.md`, `quality_report.md`, and `dataset_briefing.md` must summarize these inventories.
+`manifest.json`, `data_dictionary.md`, `quality_report.md`, and `dataset_briefing.md` must summarize these inventories. They must not define canonical analysis-ready tables.
 
 2. `expand`
    - Read the dataset profile, prior expansion plans, and failed/deferred sources.
@@ -97,14 +96,12 @@ Initial active/deferred source registry:
 - Panel Study of Income Dynamics: https://psidonline.isr.umich.edu/
 - Apartment List rent estimates: https://www.apartmentlist.com/research/category/data-rent-estimates
 
-Priority normalized tables:
+Priority raw source families:
 
-- `macro_series`: national and regional time series from FRED, BEA, BLS, IMF, ONS, and NBER.
-- `labor_market`: employment, unemployment, wages, hours, occupations, CPS, ATUS, and CEX-derived measures.
-- `housing_market`: HPI, rents, home values, listings, affordability, mortgage indicators, and survey measures.
-- `credit_finance`: rates, lending standards, debt, delinquencies, credit conditions, and bank survey measures.
-- `demographics_income`: ACS, Census, CPS, income, population, household, and geographic covariates.
-- `source_registry`: source metadata, licensing/access notes, fetch status, coverage, and update cadence.
+- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
+- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
+- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+
 
 ### Sociology (`sociology`)
 
@@ -133,9 +130,12 @@ Recommended starting sources:
 - Bureau of Justice Statistics: https://bjs.ojp.gov/data
 - FBI Crime Data Explorer: https://cde.ucr.cjis.gov/
 
-Priority normalized tables/documents:
+Priority raw source families:
 
-- `survey_responses`, `demographics`, `attitudes`, `households_families`, `education_work`, `religion_politics`, `health_crime`, `codebooks`, `source_registry`.
+- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
+- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
+- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+
 
 ### Philosophy (`philosophy`)
 
@@ -159,9 +159,12 @@ Recommended starting sources:
 - Semantic Scholar: https://www.semanticscholar.org/
 - Internet Archive texts: https://archive.org/details/texts
 
-Priority normalized tables/documents:
+Priority raw source families:
 
-- `works`, `authors`, `concepts`, `citations`, `abstracts`, `full_text_public_domain`, `encyclopedia_entries`, `syllabus_mentions`, `source_registry`.
+- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
+- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
+- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+
 
 ### History (`history`)
 
@@ -184,9 +187,12 @@ Recommended starting sources:
 - Clio Infra: https://clio-infra.eu/
 - OpenHistoricalMap: https://www.openhistoricalmap.org/
 
-Priority normalized tables/documents:
+Priority raw source families:
 
-- `documents`, `newspapers`, `archives`, `places`, `events`, `people_organizations`, `time_series`, `metadata_codebooks`, `source_registry`.
+- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
+- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
+- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+
 
 ### Literature (`literature`)
 
@@ -207,9 +213,12 @@ Recommended starting sources:
 - TextGrid Repository: https://textgridrep.org/
 - Early English Books Online TCP: https://textcreationpartnership.org/tcp-texts/eebo-tcp-early-english-books-online/
 
-Priority normalized tables/documents:
+Priority raw source families:
 
-- `works`, `authors`, `editions`, `full_text_public_domain`, `genres_movements`, `citations_reception`, `source_registry`.
+- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
+- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
+- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+
 
 ### Political Science (`political-science`)
 
@@ -233,9 +242,12 @@ Recommended starting sources:
 - Correlates of War: https://correlatesofwar.org/
 - ICEWS Dataverse: https://dataverse.harvard.edu/dataverse/icews
 
-Priority normalized tables/documents:
+Priority raw source families:
 
-- `elections`, `public_opinion`, `legislators_votes`, `campaign_finance`, `parties_manifestos`, `institutions`, `conflict_events`, `country_year`, `source_registry`.
+- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
+- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
+- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+
 
 ### Anthropology (`anthropology`)
 
@@ -256,9 +268,12 @@ Recommended starting sources:
 - Smithsonian collections: https://www.si.edu/openaccess
 - GBIF for human-environment context: https://www.gbif.org/
 
-Priority normalized tables/documents:
+Priority raw source families:
 
-- `cultures`, `languages`, `traits`, `ethnographic_sources`, `archaeology_sites`, `artifacts`, `places`, `source_registry`.
+- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
+- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
+- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+
 
 ### Linguistics (`linguistics`)
 
@@ -279,9 +294,12 @@ Recommended starting sources:
 - PARADISEC: https://www.paradisec.org.au/
 - Leipzig Corpora Collection: https://wortschatz.uni-leipzig.de/en/download
 
-Priority normalized tables/documents:
+Priority raw source families:
 
-- `languages`, `features`, `phoneme_inventories`, `lexicons`, `treebanks`, `speech_corpora`, `archives`, `source_registry`.
+- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
+- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
+- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+
 
 ### Classics (`classics`)
 
@@ -302,9 +320,12 @@ Recommended starting sources:
 - British Museum collection data: https://www.britishmuseum.org/collection
 - Wikidata classical entities: https://www.wikidata.org/
 
-Priority normalized tables/documents:
+Priority raw source families:
 
-- `texts`, `authors`, `works`, `translations`, `inscriptions`, `papyri`, `places`, `persons`, `artifacts`, `source_registry`.
+- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
+- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
+- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+
 
 ## Implementation Plan
 
@@ -322,12 +343,12 @@ Use these prompts with `create_public_data_environment` or the signed-in `resear
 
 ### Econ
 
-Create or extend the public canonical dataset `econ` named `Econ`. Build a durable economics research environment from the source registry in `docs/CANONICAL_PUBLIC_DATASETS.md`. Fetch representative active public sources first, normalize tables, preserve source URLs, write `source_registry.csv`, `source_registry.plan.json`, `manifest.json`, `data_dictionary.md`, `quality_report.md`, and a dataset briefing. Mark sources that need credentials, unclear licensing, or expensive access as deferred rather than failing the build.
+Create or extend the public canonical dataset `econ` named `Econ`. Build a durable economics research environment from the source registry in `docs/CANONICAL_PUBLIC_DATASETS.md`. Fetch representative active public raw sources first, preserve source URLs and native file/API shapes, write `source_registry.csv`, `source_registry.plan.json`, `manifest.json`, `raw_inventory.jsonl`, `raw_inventory.csv`, `data_dictionary.md`, `quality_report.md`, and a dataset briefing. Mark sources that need credentials, unclear licensing, or expensive access as deferred rather than failing the build.
 
 ### Sociology
 
-Create or extend the public canonical dataset `sociology` named `Sociology`. Build a durable sociology research environment from public survey, demographic, institutions, health, crime, and social-attitudes sources in `docs/CANONICAL_PUBLIC_DATASETS.md`. Normalize survey metadata, codebooks, harmonized respondent tables where legally fetchable, and source provenance. Produce a manifest, data dictionary, quality report, source registry, and expansion plan.
+Create or extend the public canonical dataset `sociology` named `Sociology`. Build a durable sociology research environment from public survey, demographic, institutions, health, crime, and social-attitudes sources in `docs/CANONICAL_PUBLIC_DATASETS.md`. Fetch raw public survey metadata, codebooks, provider files where legally fetchable, and source provenance. Produce a manifest, data dictionary, quality report, source registry, and expansion plan.
 
 ### Philosophy
 
-Create or extend the public canonical dataset `philosophy` named `Philosophy`. Build a durable philosophy research environment from public encyclopedia, bibliographic, archive, and public-domain text sources in `docs/CANONICAL_PUBLIC_DATASETS.md`. Normalize works, authors, concepts, citations, abstracts, and public-domain full text where allowed. Produce a manifest, data dictionary, quality report, source registry, and expansion plan.
+Create or extend the public canonical dataset `philosophy` named `Philosophy`. Build a durable philosophy research environment from public encyclopedia, bibliographic, archive, and public-domain text sources in `docs/CANONICAL_PUBLIC_DATASETS.md`. Fetch raw public encyclopedia, bibliography, archive metadata, and public-domain text files where allowed. Produce a manifest, data dictionary, quality report, source registry, and expansion plan.
