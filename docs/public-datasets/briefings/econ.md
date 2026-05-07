@@ -1,7 +1,4 @@
----
-title: "Econ"
-description: "Canonical economics, housing, labor, credit, and macro-finance research environment."
----
+# Econ Dataset Briefing
 
 ## Overview
 - Canonical registry of 40 public economics, housing, credit, and macro-finance sources assembled on 2026-05-01 with stage `build` per `manifest.json`.

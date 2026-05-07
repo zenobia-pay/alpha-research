@@ -1,7 +1,4 @@
----
-title: "Philosophy"
-description: "Canonical philosophy environment for references, works, concepts, citations, and public-domain texts."
----
+# Philosophy Dataset Briefing
 
 ## Overview
 Consolidated snapshot (retrieved 2026-05-02T03:54:26Z) of public-domain and open-access philosophy reference metadata spanning encyclopedia entries, bibliographic catalogs, and Wikidata extracts for people and works.

@@ -1,7 +1,4 @@
----
-title: "Literature"
-description: "Canonical literature corpus environment for texts, works, authors, editions, genre, and reception metadata."
----
+# Literature Dataset Briefing
 
 ## Overview
 - Aggregated public-domain literature metadata combining Project Gutenberg, Internet Archive, Open Library, and Wikidata sources, with future integration stubs for HathiTrust, Standard Ebooks, and Chronicling America.

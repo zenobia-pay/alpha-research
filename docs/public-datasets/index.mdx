@@ -3,7 +3,7 @@ title: "Public Datasets"
 description: "Canonical Alpha Research datasets for broad humanities and social-science fields."
 ---
 
-Canonical datasets are remote mounted research environments. Each dataset should contain source registries, raw/source files, normalized outputs, manifests, data dictionaries, quality reports, and dataset briefings.
+Canonical datasets are remote mounted research environments. Each dataset owns a comprehensive `dataset_briefing.md` that the CLI can read directly. The docs pages mirror those briefing files so the public documentation carries the same current understanding of exact source files, table/document shapes, schemas, coverage, transformations, quality checks, and gaps.
 
 | Dataset | ID | Current profile | Sources | Tables | Rows |
 | --- | --- | --- | ---: | ---: | ---: |
@@ -29,3 +29,7 @@ Every canonical refresh should publish:
 - `data_dictionary.md`
 - `quality_report.md`
 - `dataset_briefing.md`
+- `docs/public-datasets/briefings/<datasetId>.md`
+- `docs/public-datasets/<datasetId>.mdx`
+
+Canonical datasets should not be forced into one universal normalized table. They should preserve the exact shape of each source-specific file, table, document collection, and derived panel, with provenance and transformation details in the briefing.

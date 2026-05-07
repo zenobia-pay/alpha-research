@@ -8,9 +8,9 @@ Canonical jobs should use the `canonical-public` resource profile unless the sou
 
 Each canonical dataset has two daily jobs:
 
-- `canonical-refresh`: fetch active public sources, normalize, validate, and publish dataset artifacts.
+- `canonical-refresh`: fetch active public sources, preserve source-specific shapes, validate, and publish dataset artifacts.
 - `canonical-expand`: reason over field coverage and propose source-registry changes.
-- `canonical-improve`: run a remote Codex analysis pass that inspects the dataset, searches the internet with Exa, classifies new candidate public sources, and sends Slack webhook alerts when a high-value source appears relevant but cannot be found, fetched, licensed, or accessed without credentials.
+- `canonical-improve`: run a remote Codex pass that treats `dataset_briefing.md` as the dataset-owned source of truth, searches the internet with Exa, downloads newly found public/compatible/fetchable data, updates inventories and exact shape documentation, rewrites the briefing, mirrors the same briefing into docs, and sends Slack webhook alerts when a high-value source appears relevant but cannot be found, fetched, licensed, or accessed without credentials.
 
 Recommended cadence:
 
@@ -38,6 +38,8 @@ Every successful refresh should publish:
 - `data_dictionary.md`
 - `quality_report.md`
 - `dataset_briefing.md`
+- `docs/public-datasets/briefings/<datasetId>.md`
+- `docs/public-datasets/<datasetId>.mdx`
 
 Every successful expansion run should publish:
 
@@ -91,4 +93,4 @@ Daily canonical jobs should publish immutable dataset versions to object storage
 datasets/<datasetId>/versions/<versionId>/
 ```
 
-Analysis, briefing, and expansion-planning runs should bind to a published dataset version and read it concurrently. Only refresh/publish jobs need a writer lock for a dataset. A failed provisioning or refresh attempt must mark the job/deployment as failed and preserve the error in run events so the dataset does not remain stuck in `deploying`.
+Analysis, briefing, and expansion-planning runs should bind to a published dataset version and read it concurrently. Improvement runs need a writer lock when they download new source data or rewrite `dataset_briefing.md` and docs mirrors. Only refresh/publish/improvement jobs that mutate dataset artifacts need a writer lock for a dataset. A failed provisioning or refresh attempt must mark the job/deployment as failed and preserve the error in run events so the dataset does not remain stuck in `deploying`.

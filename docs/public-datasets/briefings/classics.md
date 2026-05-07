@@ -1,7 +1,4 @@
----
-title: "Classics"
-description: "Canonical classics environment for Greek and Latin texts, inscriptions, papyri, ancient places, and Wikidata snapshots."
----
+# Classics Dataset Briefing
 
 ## Overview
 The `classics` corpus combines large-scale TEI XML texts from Open Greek and Latin’s First Thousand Years of Greek project, Perseus catalog metadata (MODS/MADS), the Pleiades ancient world gazetteer CSV exports, a Trismegistos geographic dump, and Wikidata SPARQL snapshots for classical authors, works, and ancient places. Together the mounted data span ~1.5 GB (uncompressed), interlinking literary, bibliographic, and geographic perspectives on the ancient Mediterranean and Near East.

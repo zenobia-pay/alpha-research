@@ -1,7 +1,4 @@
----
-title: "Sociology"
-description: "Canonical sociology environment for social structure, inequality, institutions, and social attitudes."
----
+# Sociology Dataset Briefing
 
 ## Overview
 - Dataset id: `sociology`.

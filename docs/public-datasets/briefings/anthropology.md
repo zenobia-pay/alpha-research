@@ -1,7 +1,4 @@
----
-title: "Anthropology"
-description: "Canonical anthropology environment for cultural traits, ethnographic metadata, archaeology, languages, and places."
----
+# Anthropology Dataset Briefing
 
 ## Overview
 - Dataset id: `anthropology`.

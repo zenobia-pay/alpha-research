@@ -4,9 +4,11 @@ You are running a daily self-improvement pass for the canonical public Alpha Res
 
 ## Goal
 
-Reason over the current dataset, search the internet with Exa, and decide whether there are newly relevant public datasets, archives, APIs, corpora, or metadata releases that should be added to this field's canonical dataset.
+Reason over the current dataset briefing, search the internet with Exa, and decide whether there are newly relevant public datasets, archives, APIs, corpora, or metadata releases that should be added to this field's canonical dataset.
 
-This is an improvement-planning run. Do not mutate the canonical dataset directly unless a source is clearly public, stable, machine-fetchable, license-compatible, and low-risk. Prefer producing a precise expansion plan over speculative ingestion.
+This is an improvement-and-briefing run. The dataset owns its own `dataset_briefing.md`; that briefing is the CLI's first source of truth for what the dataset contains. Do not force all sources into one normalized table. Preserve each source/table/document collection in its native shape unless there is a clear analytical reason to create an additional derived panel.
+
+If a source is clearly public, stable, machine-fetchable, license-compatible, low-risk, and relevant, download it into the dataset, record provenance, describe its exact shape, and rewrite the briefing. If a source is promising but not safely fetchable, do not ingest it; record the reason in the plan and alert Slack when human action is needed.
 
 ## Required Environment
 
@@ -29,8 +31,8 @@ Use this field brief as the scope boundary:
 
 ## Procedure
 
-1. Inspect the current dataset files, manifest, source registry, previous expansion plans, data dictionary, quality report, and dataset briefing if present.
-2. Summarize current coverage by source family, geography, time coverage, document/table types, known gaps, and deferred/blocked sources.
+1. Inspect the current dataset files, manifest, source registry, previous expansion plans, data dictionary, quality report, and `dataset_briefing.md`. If no briefing exists, create one before doing external research.
+2. Summarize current coverage by source family, geography, time coverage, document/table types, known gaps, and deferred/blocked sources. Be exact: list every table/document collection/source file that exists, its path, format, row or document count when measurable, fields/schema, grain, primary/join keys, temporal coverage, geographic/topic coverage, source ids, transform steps, and known limitations.
 3. Use Exa search to find newly relevant public sources for `{datasetName}`. Query for:
    - public dataset releases in the last 30 days and last year;
    - major archives, APIs, codebooks, benchmark corpora, catalogs, or metadata dumps;
@@ -43,8 +45,20 @@ Use this field brief as the scope boundary:
    - `credential_required`: relevant but requires login, API approval, payment, institutional access, or private credentials.
    - `not_found`: the source appears relevant by name/citation but no stable public download/API/catalog endpoint was found.
    - `reject`: irrelevant, brittle, spammy, duplicated, too narrow, or unsafe to fetch.
-5. For each `not_found`, `credential_required`, or high-value `license_review` candidate, send one concise Slack webhook alert. Include dataset id, candidate name, why it matters, what is missing, URLs checked, and the recommended human action. If Slack delivery fails, record it in `slack_alerts_pending`.
-6. Decide what should happen next:
+5. For each `active_fetchable` source, download the source into a source-specific raw path, compute hashes, inspect its exact shape, and either keep it as a raw/document collection or write source-specific normalized outputs. Do not collapse unlike sources into one generic table.
+6. Update `download_inventory.jsonl`/`.csv`, `normalization_inventory.jsonl`/`.csv`, `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `data_dictionary.md`, and `quality_report.md` for every new or refreshed source.
+7. Rewrite `dataset_briefing.md` so it is comprehensive and exact about the whole dataset after the run. Include:
+   - source inventory and fetch/provenance details;
+   - exact table/document collection inventory;
+   - schemas/fields with plain-English meanings;
+   - grain, keys, time coverage, geography/topic coverage, row/document counts, formats, hashes where available;
+   - transform steps and derived fields;
+   - quality checks, missingness, caveats, limitations, deferred/gated sources, and next refresh hints.
+8. Mirror the final briefing into the docs copy for this dataset, preserving frontmatter if present:
+   - `docs/public-datasets/briefings/{datasetId}.md`
+   - `docs/public-datasets/{datasetId}.mdx`
+9. For each `not_found`, `credential_required`, or high-value `license_review` candidate, send one concise Slack webhook alert. Include dataset id, candidate name, why it matters, what is missing, URLs checked, and the recommended human action. If Slack delivery fails, record it in `slack_alerts_pending`.
+10. Decide what should happen next:
    - promote to active fetch target;
    - defer;
    - request human review;
@@ -58,6 +72,9 @@ Write these files in the artifact directory:
 - `improvement_result.json`
 - `candidate_sources.csv`
 - `exa_search_log.json`
+- `dataset_briefing.md`
+- `docs/public-datasets/briefings/{datasetId}.md`
+- `docs/public-datasets/{datasetId}.mdx`
 
 `improvement_result.json` must include:
 
@@ -68,6 +85,9 @@ Write these files in the artifact directory:
   "status": "completed|blocked",
   "checkedAt": "ISO-8601 timestamp",
   "currentCoverageSummary": {},
+  "downloadedSources": [],
+  "briefingUpdated": true,
+  "docsUpdated": true,
   "promoteNow": [],
   "defer": [],
   "needsHumanReview": [],

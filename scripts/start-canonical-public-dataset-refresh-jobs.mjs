@@ -241,6 +241,7 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "- Skip or defer any credentialed, paid, unclear-license, or brittle/anti-bot sources; do not fail the build for these.",
     "- Prefer stable government/academic/open-repo sources; keep provenance (URLs, fetch dates, license notes).",
     "- If an existing canonical dataset version is mounted, extend it rather than starting from scratch.",
+    "- Do not force all canonical sources into one normalized table. Preserve source-specific raw files, tables, document collections, schemas, grains, keys, and formats; add derived cross-source panels only when they are analytically useful and separately documented.",
     "- Record every attempted raw source download in `download_inventory.jsonl` and `download_inventory.csv` before normalization.",
     "- Record every normalized output table/document in `normalization_inventory.jsonl` and `normalization_inventory.csv` before publishing.",
     "",
@@ -255,6 +256,8 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "- data_dictionary.md",
     "- quality_report.md",
     "- dataset_briefing.md",
+    "- docs/public-datasets/briefings/<datasetId>.md",
+    "- docs/public-datasets/<datasetId>.mdx",
     "",
     "## Download inventory required fields",
     "Each row/object must include `source_id`, `source_name`, `plain_english_description`, `canonical_url`, `request_url` with secrets redacted, `retrieved_at`, `retrieval_method`, `http_status`, `raw_path`, `raw_format`, `raw_bytes`, `content_hash_sha256`, `license`, `access_status`, and `failure_or_gating_reason`.",
@@ -267,7 +270,9 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "",
     "## Notes",
     "- If source_registry.plan.json exists already, update it; do not discard deferred items.",
+    "- `dataset_briefing.md` is the dataset-owned briefing the CLI should use first. It must be comprehensive and exact about every source/table/document collection present.",
     "- `manifest.json`, `data_dictionary.md`, `quality_report.md`, and `dataset_briefing.md` must summarize the download and normalization inventories. A final row count without source and transform provenance is not sufficient.",
+    "- Mirror the final briefing into `docs/public-datasets/briefings/<datasetId>.md` and `docs/public-datasets/<datasetId>.mdx` so docs carry the same current understanding.",
     "- Quality report should explicitly call out missing coverage and deferred sources, but must still succeed.",
   ].join("\n");
 }
@@ -332,6 +337,8 @@ try {
         "data_dictionary.md",
         "quality_report.md",
         "dataset_briefing.md",
+        "docs/public-datasets/briefings/<datasetId>.md",
+        "docs/public-datasets/<datasetId>.mdx",
       ],
     });
   }
@@ -409,6 +416,8 @@ for (const dataset of canonicalDatasets) {
       { type: "file", title: "data_dictionary.md", path: "data_dictionary.md" },
       { type: "file", title: "quality_report.md", path: "quality_report.md" },
       { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },
+      { type: "file", title: "docs briefing mirror", path: `docs/public-datasets/briefings/${dataset.id}.md` },
+      { type: "file", title: "docs dataset page", path: `docs/public-datasets/${dataset.id}.mdx` },
     ],
   };
 

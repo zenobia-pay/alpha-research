@@ -1,7 +1,4 @@
----
-title: "Linguistics"
-description: "Canonical linguistics environment for language registry, typology, phonology, lexicons, treebanks, and archives."
----
+# Linguistics Dataset Briefing
 
 ## Overview
 - Integrated registry aligning Glottolog 5.3, WALS 2020.4, PHOIBLE 2.0, and Universal Dependencies 2.17 into a shared language index with 8,618 language-level records.

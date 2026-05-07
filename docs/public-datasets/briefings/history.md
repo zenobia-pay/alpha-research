@@ -1,7 +1,4 @@
----
-title: "History"
-description: "Canonical history environment for archives, newspapers, documents, places, events, people, and time series."
----
+# History Dataset Briefing
 
 ## Overview
 - Snapshot generated on 2026-05-02T03:55:12.585584Z with 2,047 aggregated metadata records spanning nine public-history providers.

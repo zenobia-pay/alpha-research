@@ -4,6 +4,8 @@ You are running the daily *canonical dataset expansion-planning* job for the pub
 
 This job proposes new public sources and updates the source registry plan. It must not ingest new sources automatically.
 
+The canonical dataset must not be treated as one forced normalized table. It is a source-aware research environment. The plan should preserve source-specific tables, document collections, schemas, grains, keys, formats, and provenance, and should only propose derived cross-source tables when they add clear research value.
+
 ## Operating contract (must follow)
 - Public data only. Do not include private user data.
 - Do not propose sources that require credentials, paid access, unclear licensing, or brittle/anti-bot scraping to fetch.
@@ -20,6 +22,8 @@ Inspect the mounted dataset root and any published artifacts, including:
 - `quality_report.md`
 - `dataset_briefing.md`
 - Any prior `expansion_plan.md`
+
+Treat `dataset_briefing.md` as the primary exact inventory for what the CLI can tell users about this dataset. If it is missing or vague, mark that as a coverage gap and specify the briefing sections the next refresh/improvement run must fill.
 
 If `source_registry.plan.json` is missing, reconstruct it from `source_registry.csv` or `manifest.json` (preserving prior deferred/gated items where possible) before writing outputs.
 
@@ -61,6 +65,7 @@ Preserve any existing keys/fields already present in the mounted dataset's plan;
 3) Promotions: list sources moved to `active_fetchable` with rationale
 4) Deferrals: list sources kept as `deferred_fetchable` (public but lower priority / heavier ETL)
 5) Blockers: list `license_review` and `credential_required` items with the concrete missing condition
+6) Briefing update requirements: exact additions that `dataset_briefing.md` and `docs/public-datasets/{datasetId}.mdx` must receive if each candidate is later ingested
 
 ## Field brief
 {fieldBrief}

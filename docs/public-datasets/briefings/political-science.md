@@ -1,8 +1,3 @@
----
-title: "Political Science"
-description: "Canonical political science environment for elections, public opinion, institutions, legislation, and conflict."
----
-
 ## Overview
 - Canonical registry summarizing 11 widely used political science data sources with standardized metadata on coverage, refresh cadence, formats, access, and provenance.
 - Current edition created 2026-05-02 for the Alpha Research political-science dataset mount; refresh guidance documented the same day.
