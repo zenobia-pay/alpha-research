@@ -268,6 +268,7 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "## Notes",
     "- If source_registry.plan.json exists already, update it; do not discard deferred items.",
     "- `manifest.json`, `data_dictionary.md`, `quality_report.md`, and `dataset_briefing.md` must summarize the download and normalization inventories. A final row count without source and transform provenance is not sufficient.",
+    "- `dataset_briefing.md` is the canonical user-facing dataset briefing that the CLI reads directly. Keep it comprehensive and current: name source families, measures, grains, row counts, join keys, time/geography coverage, freshness, quality checks, missingness, deferred sources, and known gaps.",
     "- Quality report should explicitly call out missing coverage and deferred sources, but must still succeed.",
   ].join("\n");
 }

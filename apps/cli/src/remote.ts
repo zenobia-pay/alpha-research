@@ -33,11 +33,17 @@ export type RemoteDatasetDetail = RemoteDatasetSummary & {
   ingestConfig?: Record<string, unknown> | null;
   sourceFilename?: string | null;
   sourceType?: string | null;
+  briefing?: {
+    path?: string | null;
+    markdown?: string | null;
+    updatedAt?: string | null;
+  } | null;
   profile?: {
     datasetId: string;
     schema?: unknown;
     sampleRows?: unknown;
     notes?: string | null;
+    briefingPath?: string | null;
     briefingMarkdown?: string | null;
     briefingArtifactId?: string | null;
     profileArtifactId?: string | null;
@@ -264,6 +270,7 @@ export class RemoteApiClient {
     schema?: unknown;
     sampleRows?: unknown;
     notes?: string;
+    briefingPath?: string;
     briefingMarkdown?: string;
     briefingArtifactId?: string;
     profileArtifactId?: string;

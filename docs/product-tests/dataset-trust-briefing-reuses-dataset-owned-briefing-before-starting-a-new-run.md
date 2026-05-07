@@ -1,12 +1,12 @@
-# dataset trust briefing reuses saved profile before starting a new run
+# dataset trust briefing reuses dataset-owned briefing before starting a new run
 
 ## Product Use
 
-This product test exercises the CLI behavior for `dataset trust briefing reuses saved profile before starting a new run` from the user's point of view.
+This product test exercises the CLI behavior for `dataset trust briefing reuses dataset-owned briefing before starting a new run` from the user's point of view.
 
 ## Why This Test
 
-The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.
+The scenario protects the contract that dataset inventory comes from the dataset-owned `dataset_briefing.md` file. The CLI should reuse that briefing when it exists, avoid accidental remote work, and avoid synthesizing comprehensive inventory from loose profile fragments.
 
 ## Actions Taken
 

@@ -177,7 +177,7 @@ function environmentResources(input: Record<string, unknown>, publicOnly: boolea
 }
 
 const DATASET_BRIEFING_ARTIFACTS = [
-  { type: "markdown", title: "Dataset Briefing" },
+  { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },
   { type: "json", title: "Dataset Profile" },
 ] as const;
 
@@ -226,7 +226,9 @@ function datasetBriefingPrompt(datasetId: string) {
   return [
     `Describe dataset ${datasetId}.`,
     "",
-    "Produce a durable documentation briefing for humans. Treat this as a readiness/trust check, not an analysis run. Do not include query instructions, starter analyses, or suggestions for how to use agents; this is a dataset documentation task only.",
+    "Produce or update the dataset-owned briefing file for humans. Treat this as a readiness/trust check, not an analysis run. Do not include query instructions, starter analyses, or suggestions for how to use agents; this is a dataset documentation task only.",
+    "",
+    "The dataset is responsible for knowing what it has. Write the canonical briefing to `dataset_briefing.md` at the dataset root and make it comprehensive enough for the CLI to answer dataset-inventory questions by reading that file directly. Do not leave the briefing only as a run artifact or transient summary.",
     "",
     "Inspect the mounted dataset exhaustively before writing:",
     "- Mounted files and directory structure.",
@@ -237,7 +239,7 @@ function datasetBriefingPrompt(datasetId: string) {
     "- Native and normalized time scales, first/last observations, update cadences, geography levels, crosswalks, transformations, derived fields, QA checks, limitations, known gaps, and county/month panel coverage when relevant.",
     "",
     "Create these artifacts:",
-    "1. Dataset Briefing — markdown document with these exact sections: Overview; Readiness & Trust; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps; Usable Next Steps.",
+    "1. dataset_briefing.md — markdown document at the dataset root with these exact sections: Overview; Readiness & Trust; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps; Usable Next Steps.",
     "2. Dataset Profile — structured JSON backing data with summary, sources, tables, schemas/columns, timeCoverage, geographyCoverage, formats, transformations, quality, limitations, and generatedAt.",
     "",
     "Overview must start with the exact sentence `Readiness check, not analysis.` followed by a one-line verdict: `Verdict: usable now` or `Verdict: fix first`, plus the intended study grain if it is evident.",
@@ -328,6 +330,8 @@ const AGENT_INSTRUCTIONS = [
   "",
   "Use the provided tools.",
   "Use user-facing language. Avoid raw tool names, internal lifecycle jargon, stack traces, or UUID-heavy output unless they are needed for an action.",
+  "Dataset inventory and readiness answers should come from the dataset-owned briefing file when available. The canonical file is `dataset_briefing.md` at the dataset root; the CLI may receive it as `dataset.briefing.markdown` or legacy `dataset.profile.briefingMarkdown`.",
+  "Do not synthesize a comprehensive dataset briefing from loose schema/profile fragments when the dataset-owned briefing file is missing. Say the briefing is missing or start a dataset briefing refresh that writes `dataset_briefing.md`.",
   "For canonical public datasets, describe what data the dataset knows it has: source families, measures, grains, time coverage, geography coverage, and known gaps. Do not frame the answer around implementation details such as processed tables, raw files, parquet/CSV storage, manifests, or registries unless the user explicitly asks for storage internals.",
   "Never use the phrase `processed tables` in a user-facing answer. Prefer `available data`, `known sources`, `measures`, or `dataset inventory`.",
   "For broad orientation questions, answer with concrete dataset actions and example prompts; do not call tools.",
@@ -1933,59 +1937,49 @@ function formatUnknownValue(value: unknown): string | null {
   return null;
 }
 
+function datasetOwnedBriefingMarkdown(dataset: RemoteDatasetDetail): { markdown: string; path: string | null; updatedAt: string | null } | null {
+  const explicitMarkdown = typeof dataset.briefing?.markdown === "string" ? dataset.briefing.markdown.trim() : "";
+  if (explicitMarkdown.length > 0) {
+    return {
+      markdown: explicitMarkdown,
+      path: typeof dataset.briefing?.path === "string" && dataset.briefing.path.trim() ? dataset.briefing.path.trim() : "dataset_briefing.md",
+      updatedAt: typeof dataset.briefing?.updatedAt === "string" && dataset.briefing.updatedAt.trim() ? dataset.briefing.updatedAt.trim() : null,
+    };
+  }
+  const legacyMarkdown = typeof dataset.profile?.briefingMarkdown === "string" ? dataset.profile.briefingMarkdown.trim() : "";
+  if (legacyMarkdown.length > 0) {
+    return {
+      markdown: legacyMarkdown,
+      path: typeof dataset.profile?.briefingPath === "string" && dataset.profile.briefingPath.trim() ? dataset.profile.briefingPath.trim() : "dataset_briefing.md",
+      updatedAt: dataset.profile?.describedAt ?? dataset.profile?.updatedAt ?? null,
+    };
+  }
+  return null;
+}
+
 function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?: { runId: string; status: string }) {
   const profile = dataset.profile;
-  if (!profile) {
+  const briefing = datasetOwnedBriefingMarkdown(dataset);
+  if (!briefing) {
     return null;
   }
   const lines: string[] = [];
   if (blockingRun) {
     lines.push(
-      `Using the latest saved dataset briefing for ${dataset.id} while run ${blockingRun.runId} is ${blockingRun.status}.`,
+      `Using ${briefing.path ?? "dataset_briefing.md"} for ${dataset.id} while run ${blockingRun.runId} is ${blockingRun.status}.`,
       "",
     );
   }
-  if (typeof profile.briefingMarkdown === "string" && profile.briefingMarkdown.trim().length > 0) {
-    lines.push(profile.briefingMarkdown.trim());
-  } else {
-    const trust = formatUnknownValue(profile.quality) ?? profile.notes ?? "Saved dataset profile exists, but explicit trust notes are limited.";
-    const limitations = formatUnknownValue(profile.limitations);
-    const verdict = limitations ? "Verdict: fix first." : "Verdict: usable now.";
-    lines.push(
-      "Readiness check, not analysis.",
-      "",
-      `Dataset Briefing: ${dataset.name || dataset.id}`,
-      "",
-      `Overview: ${verdict} ${dataset.name || dataset.id}${dataset.status ? ` (${dataset.status})` : ""}`,
-    );
-    lines.push(`Readiness & Trust: ${trust}`);
-    const inventory = formatUnknownValue(profile.tables) ?? formatUnknownValue(profile.schema);
-    if (inventory) lines.push(`Available Data: ${inventory}`);
-    const sources = formatUnknownValue(profile.sources);
-    if (sources) lines.push(`Sources: ${sources}`);
-    const schema = formatUnknownValue(profile.schema);
-    if (schema) lines.push(`Schemas: ${schema}`);
-    const timeCoverage = formatUnknownValue(profile.timeCoverage);
-    if (timeCoverage) lines.push(`Time Coverage: ${timeCoverage}`);
-    const geographyCoverage = formatUnknownValue(profile.geographyCoverage);
-    if (geographyCoverage) lines.push(`Geography Coverage: ${geographyCoverage}`);
-    const formats = formatUnknownValue(profile.formats);
-    if (formats) lines.push(`Formats: ${formats}`);
-    const transformations = formatUnknownValue(profile.transformations);
-    if (transformations) lines.push(`Transformations & Derived Fields: ${transformations}`);
-    const quality = formatUnknownValue(profile.quality);
-    if (quality) lines.push(`Quality & Validation: ${quality}`);
-    if (limitations) lines.push(`Limitations & Known Gaps: ${limitations}`);
-  }
+  lines.push(briefing.markdown);
   const artifactNotes = [
-    profile.briefingArtifactId ? "Dataset Briefing" : null,
-    profile.profileArtifactId ? "Dataset Profile" : null,
+    briefing.path ?? null,
+    profile?.profileArtifactId ? "Dataset Profile" : null,
   ].filter((entry): entry is string => Boolean(entry));
-  const generatedAt = profile.describedAt ?? profile.updatedAt;
+  const generatedAt = briefing.updatedAt ?? profile?.describedAt ?? profile?.updatedAt;
   if (artifactNotes.length > 0 || generatedAt) {
     lines.push(
       "",
-      `Artifacts: ${artifactNotes.length > 0 ? artifactNotes.join(" and ") : "saved dataset profile"}${generatedAt ? ` · updated ${generatedAt}` : ""}`,
+      `Briefing source: ${artifactNotes.length > 0 ? artifactNotes.join(" and ") : "dataset_briefing.md"}${generatedAt ? ` · updated ${generatedAt}` : ""}`,
     );
   }
   return lines.join("\n");
@@ -3499,7 +3493,7 @@ async function startDatasetBriefingRun(
           summary: summary ?? [
             `Blocked: ${datasetId} is already busy.`,
             `Holding run: ${conflict.runId} (${conflict.status})`,
-            "A saved dataset briefing is not available yet.",
+            "A dataset-owned briefing file is not available yet.",
             `Next: research debug run ${conflict.runId}`,
           ].join("\n"),
           data: { ok: false, reason: "dataset_busy", blockingRunId: conflict.runId },
@@ -3521,7 +3515,7 @@ async function startDatasetBriefingRun(
     spawnRunWatcher(result.run.id);
   }
   return {
-    summary: `Started dataset briefing run ${result.run.id} for ${datasetId}. Expected artifacts: Dataset Briefing, Dataset Profile. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+    summary: `Started dataset briefing refresh ${result.run.id} for ${datasetId}. Expected output: dataset_briefing.md at the dataset root, plus Dataset Profile JSON. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
     data: result,
   };
 }
@@ -3789,7 +3783,7 @@ async function maybeHandleDatasetBriefingRequest(
     content: `Selected ${selected.id} for this readiness check${selected.name?.trim() && selected.name.trim().toLowerCase() !== selected.id.toLowerCase() ? ` (${selected.name.trim()})` : ""}.`,
   });
   if (typeof client.getDataset === "function") {
-    emit({ role: "tool", content: `Reading saved profile for ${selected.id}: sources, tables, schema, coverage, join evidence, quality, limitations...` });
+    emit({ role: "tool", content: `Reading dataset-owned briefing for ${selected.id}...` });
     const detail = await client.getDataset(selected.id).catch(() => null);
     if (detail?.dataset) {
       const savedProfile = formatDatasetProfileFallback(detail.dataset);
@@ -3813,7 +3807,7 @@ async function maybeHandleDatasetBriefingRequest(
     emit,
     deps,
   };
-  emit({ role: "tool", content: "No complete saved profile found. Starting a dataset readiness briefing..." });
+  emit({ role: "tool", content: "No dataset-owned briefing file found. Starting a briefing refresh to write dataset_briefing.md..." });
   const result = await startDatasetBriefingRun(toolContext, { datasetId: selected.id });
   const resultData = isRecord(result.data) ? result.data : {};
   if (resultData.ok === false || resultData.reusedSavedProfile === true) {
@@ -4260,7 +4254,7 @@ function asyncRunLaunchSummary(
       case "run_remote_labeling":
         return `Started remote labeling${datasetId ? ` on ${datasetId}` : ""}.`;
       case "describe_remote_dataset":
-        return `Started dataset briefing run ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
+        return `Started dataset briefing refresh ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
       case "create_research_environment":
         return `Started research environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
       case "create_public_data_environment":
@@ -4281,7 +4275,7 @@ function asyncRunLaunchSummary(
   if (expectations.length > 0) {
     lines.push(`Expected artifacts: ${expectations.join(", ")}.`);
   } else if (toolName === "describe_remote_dataset") {
-    lines.push("Expected artifacts: Dataset Briefing, Dataset Profile.");
+    lines.push("Expected output: dataset_briefing.md at the dataset root, plus Dataset Profile JSON.");
   }
   lines.push("Next: the run will keep processing in the background. Follow it in the dashboard or ask `research show active runs`.");
   if (context.session && runId) {

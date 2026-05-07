@@ -211,7 +211,7 @@ function formatPromptModeMessage(message: AgentMessage, previousMessages: AgentM
     if (shortlistMatch) {
       return {
         ...message,
-        content: `Dataset selected: ${shortlistMatch[2]} is the best match for "${shortlistMatch[1]}". Checking its saved profile and readiness evidence now.`,
+        content: `Dataset selected: ${shortlistMatch[2]} is the best match for "${shortlistMatch[1]}". Checking its dataset briefing and readiness evidence now.`,
       };
     }
     if (content.startsWith("Top matches for ")) {
@@ -263,7 +263,7 @@ function hasSubstantivePromptModeVerdict(messages: AgentMessage[]) {
 function parseStartedDatasetBriefingRun(messages: AgentMessage[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const content = messages[index]?.content ?? "";
-    const match = content.match(/Started dataset briefing run ([a-z0-9-]+) for ([a-z0-9_-]+)/i);
+    const match = content.match(/Started dataset briefing (?:run|refresh) ([a-z0-9-]+) for ([a-z0-9_-]+)/i);
     if (match) {
       return { runId: match[1]!, datasetId: match[2]! };
     }
@@ -272,7 +272,8 @@ function parseStartedDatasetBriefingRun(messages: AgentMessage[]) {
 }
 
 function previewDatasetBriefingContent(artifacts: Array<{ title?: string; type?: string; content?: unknown }>) {
-  const preferred = artifacts.find((artifact) => artifact.title === "Dataset Briefing" && typeof artifact.content === "string")
+  const preferred = artifacts.find((artifact) => artifact.title === "dataset_briefing.md" && typeof artifact.content === "string")
+    ?? artifacts.find((artifact) => artifact.title === "Dataset Briefing" && typeof artifact.content === "string")
     ?? artifacts.find((artifact) => artifact.type === "markdown" && typeof artifact.content === "string")
     ?? artifacts.find((artifact) => typeof artifact.content === "string" && artifact.title?.endsWith(".md"));
   const content = typeof preferred?.content === "string" ? preferred.content.trim() : "";

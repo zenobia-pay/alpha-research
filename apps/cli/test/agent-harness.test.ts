@@ -1018,7 +1018,7 @@ test("dataset describe request starts briefing run with required artifacts", asy
   assert.equal(startedDatasetId, "econ");
   assert.equal(startedOptions?.type, "describe");
   assert.deepEqual(startedOptions?.artifacts, [
-    { type: "markdown", title: "Dataset Briefing" },
+    { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },
     { type: "json", title: "Dataset Profile" },
   ]);
   assert.equal((startedOptions?.config as Record<string, unknown>)?.describeDataset, true);
@@ -1033,7 +1033,7 @@ test("dataset describe request starts briefing run with required artifacts", asy
     failOnUnreadable: true,
     disallowExternalFallback: true,
   });
-  assert.match(startedPrompt, /Dataset Briefing/);
+  assert.match(startedPrompt, /dataset_briefing\.md/);
   assert.match(startedPrompt, /Dataset Profile/);
   assert.match(startedPrompt, /Overview; Readiness & Trust; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps; Usable Next Steps/);
   assert.match(startedPrompt, /Treat this as a readiness\/trust check, not an analysis run/);
@@ -1051,11 +1051,11 @@ test("dataset describe request starts briefing run with required artifacts", asy
   const joined = messages.map((message) => message.content).join("\n");
   assert.match(joined, /Locating dataset econ for a readiness check/);
   assert.match(joined, /Selected econ for this readiness check \(Economics\)/);
-  assert.match(joined, /No complete saved profile found\. Starting a dataset readiness briefing/);
+  assert.match(joined, /No dataset-owned briefing file found\. Starting a briefing refresh to write dataset_briefing\.md/);
   assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
   assert.doesNotMatch(joined, /Top matches for/);
-  assert.match(final, /Started dataset briefing run run-describe for econ/);
-  assert.match(final, /Expected artifacts: Dataset Briefing, Dataset Profile/);
+  assert.match(final, /Started dataset briefing refresh run-describe for econ/);
+  assert.match(final, /Expected output: dataset_briefing\.md at the dataset root, plus Dataset Profile JSON/);
   assert.match(final, /Run: run-describe/);
   assert.match(final, /State: starting\. The backend worker is initializing now\./);
   assert.match(final, /research show active runs/);
@@ -1422,14 +1422,14 @@ test("dataset describe request falls back to saved briefing when dataset is busy
   await runAgentTurn("describe the econ dataset", session, emit, undefined, deps);
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /Using the latest saved dataset briefing for econ while run run-econ-busy is running/);
+  assert.match(final, /Using dataset_briefing\.md for econ while run run-econ-busy is running/);
   assert.match(final, /Readiness & Trust/);
   assert.match(final, /FRED/);
-  assert.match(final, /Artifacts: Dataset Briefing and Dataset Profile/);
+  assert.match(final, /Briefing source: dataset_briefing\.md and Dataset Profile/);
   assert.doesNotMatch(final, /Started dataset briefing run/);
 });
 
-test("dataset trust briefing reuses saved profile before starting a new run", async () => {
+test("dataset trust briefing reuses dataset-owned briefing before starting a new run", async () => {
   const calls: string[] = [];
   const fakeClient = {
     async listDatasets() {
@@ -1448,6 +1448,16 @@ test("dataset trust briefing reuses saved profile before starting a new run", as
           name: "Economic Indicators",
           status: "ready",
           profile: {
+            briefingMarkdown: [
+              "Readiness check, not analysis.",
+              "",
+              "Dataset Briefing: Economic Indicators",
+              "",
+              "Sources: FRED; BLS",
+              "Time Coverage: start: 2010-01; end: 2026-03",
+              "Quality & Validation: Validated schemas and normalized series coverage.",
+              "Limitations & Known Gaps: Some series have different publication lags.",
+            ].join("\n"),
             sources: ["FRED", "BLS"],
             schema: [{ name: "series_id", type: "string" }, { name: "value", type: "number" }],
             timeCoverage: { start: "2010-01", end: "2026-03" },
@@ -1462,7 +1472,7 @@ test("dataset trust briefing reuses saved profile before starting a new run", as
     },
     async startRun() {
       calls.push("startRun");
-      throw new Error("Saved profile should be used instead of starting a new run.");
+      throw new Error("Dataset-owned briefing should be used instead of starting a new run.");
     },
     async respond() {
       calls.push("respond");
@@ -1491,7 +1501,7 @@ test("dataset trust briefing reuses saved profile before starting a new run", as
   const transcript = messages.map((message) => message.content).join("\n");
   assert.match(transcript, /Locating dataset econ for a readiness check/i);
   assert.match(transcript, /Selected econ for this readiness check \(Economic Indicators\)/i);
-  assert.match(transcript, /Reading saved profile for econ: sources, tables, schema, coverage, join evidence, quality, limitations/i);
+  assert.match(transcript, /Reading dataset-owned briefing for econ/i);
   assert.match(transcript, /Readiness check, not analysis\./);
   assert.match(transcript, /Dataset Briefing: Economic Indicators/);
   assert.match(transcript, /Sources: FRED; BLS/);
@@ -2175,7 +2185,7 @@ test("dataset describe conflict keeps guidance anchored on briefing artifacts", 
   const joined = messages.map((message) => message.content).join("\n");
   assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
   assert.match(joined, /Blocked: this dataset briefing is already running on this dataset\./);
-  assert.match(joined, /Expected artifacts once the run finishes: Dataset Briefing, Dataset Profile/);
+  assert.match(joined, /Expected artifacts once the run finishes: dataset_briefing\.md, Dataset Profile/);
   assert.match(joined, /When it finishes, ask: show results from run-briefing/);
   assert.match(joined, /Inspect now: research debug run run-briefing/);
 });
@@ -3008,7 +3018,7 @@ test("vague dataset interesting request gives a concise briefing and focused cho
   assert.doesNotMatch(transcript, /deployment finishes|env turns ready|briefing\/profile/i);
 });
 
-test("saved canonical dataset briefing describes available data without processed-table wording", async () => {
+test("dataset-owned canonical briefing describes available data without processed-table wording", async () => {
   const fakeClient = {
     async listDatasets() {
       return {
@@ -3024,25 +3034,19 @@ test("saved canonical dataset briefing describes available data without processe
           status: "ready",
           profile: {
             datasetId: "econ",
-            sources: [
-              { name: "BEA county income" },
-              { name: "Census building permits" },
-              { name: "BLS unemployment" },
-              { name: "Zillow home values" },
-            ],
-            tables: [
-              { name: "county-month housing and rates" },
-              { name: "county-year labor and home values" },
-            ],
-            timeCoverage: { start: "1969", end: "2026-04" },
-            geographyCoverage: { level: "county and national series" },
-            quality: "Source coverage and joins are documented in the saved profile.",
+            briefingMarkdown: [
+              "Dataset Briefing: Econ",
+              "",
+              "Available Data: county-month housing and rates; county-year labor and home values.",
+              "Sources: BEA county income; Census building permits; BLS unemployment; Zillow home values.",
+              "Time Coverage: 1969 to 2026-04.",
+            ].join("\n"),
           },
         },
       };
     },
     async startRun() {
-      throw new Error("Saved profile should answer without a new run.");
+      throw new Error("Dataset-owned briefing should answer without a new run.");
     },
     async appendSessionEntry() {
       return { id: "entry-1" };
@@ -3058,8 +3062,8 @@ test("saved canonical dataset briefing describes available data without processe
   await runAgentTurn("Describe the econ dataset.", session, emit, undefined, deps);
 
   const transcript = messages.map((message) => message.content).join("\n");
-  assert.match(transcript, /Available Data: name: county-month housing and rates; name: county-year labor and home values/i);
-  assert.match(transcript, /Sources: name: BEA county income; name: Census building permits; name: BLS unemployment; name: Zillow home values/i);
+  assert.match(transcript, /Available Data: county-month housing and rates; county-year labor and home values/i);
+  assert.match(transcript, /Sources: BEA county income; Census building permits; BLS unemployment; Zillow home values/i);
   assert.doesNotMatch(transcript, /processed tables/i);
   assert.doesNotMatch(transcript, /Data Inventory:/i);
 });
