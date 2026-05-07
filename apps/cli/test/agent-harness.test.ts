@@ -1506,6 +1506,65 @@ test("dataset trust briefing reuses saved profile before starting a new run", as
   assert.doesNotMatch(transcript, /Started dataset briefing run/);
 });
 
+test("dataset trust briefing renders saved profile briefing markdown", async () => {
+  const fakeClient = {
+    async listDatasets() {
+      return {
+        datasets: [
+          { id: "econ", name: "Economic Indicators", status: "ready" },
+        ],
+      };
+    },
+    async getDataset() {
+      return {
+        dataset: {
+          id: "econ",
+          name: "Economic Indicators",
+          status: "ready",
+          profile: {
+            briefingMarkdown: [
+              "# Dataset Briefing - econ",
+              "",
+              "## Overview",
+              "This is the persisted control-plane briefing markdown.",
+              "",
+              "## Sources",
+              "FRED and BLS.",
+            ].join("\n"),
+            briefingArtifactId: "artifact-briefing",
+            profileArtifactId: "artifact-profile",
+            describedAt: "2026-05-07T05:08:33.167Z",
+          },
+        },
+      };
+    },
+    async startRun() {
+      throw new Error("Saved profile briefing markdown should be used instead of starting a new run.");
+    },
+    async respond() {
+      throw new Error("Dataset trust briefing should be handled locally.");
+    },
+    async appendSessionEntry() {
+      return { id: "entry-profile-briefing-markdown" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("describe the econ dataset", session, emit, undefined, deps);
+
+  const transcript = messages.map((message) => message.content).join("\n");
+  assert.match(transcript, /# Dataset Briefing - econ/);
+  assert.match(transcript, /persisted control-plane briefing markdown/);
+  assert.match(transcript, /Artifacts: Dataset Briefing and Dataset Profile/);
+  assert.doesNotMatch(transcript, /Readiness check, not analysis\./);
+  assert.doesNotMatch(transcript, /Started dataset briefing run/);
+});
+
 test("remote transport failures surface a concise blocked summary", async () => {
   const fakeClient = {
     async respond() {

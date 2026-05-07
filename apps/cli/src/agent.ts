@@ -1935,6 +1935,8 @@ function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?
   const profile = dataset.profile;
   const briefingMarkdown = typeof dataset.briefing?.markdown === "string" && dataset.briefing.markdown.trim().length > 0
     ? dataset.briefing.markdown.trim()
+    : typeof profile?.briefingMarkdown === "string" && profile.briefingMarkdown.trim().length > 0
+      ? profile.briefingMarkdown.trim()
     : null;
   if (!profile && !briefingMarkdown) {
     return null;
@@ -3051,7 +3053,9 @@ function datasetSelectionTopicTokens(input: string) {
 
 function datasetMetadataText(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
   const profile = "profile" in dataset ? dataset.profile : null;
-  const briefingMarkdown = "briefing" in dataset ? dataset.briefing?.markdown : null;
+  const briefingMarkdown = "briefing" in dataset
+    ? dataset.briefing?.markdown ?? dataset.profile?.briefingMarkdown
+    : null;
   const sourceText = isRecord(profile)
     ? JSON.stringify({
         sources: profile.sources ?? null,

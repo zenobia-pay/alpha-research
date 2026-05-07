@@ -44,6 +44,7 @@ export type RemoteDatasetDetail = RemoteDatasetSummary & {
     schema?: unknown;
     sampleRows?: unknown;
     notes?: string | null;
+    briefingMarkdown?: string | null;
     briefingArtifactId?: string | null;
     profileArtifactId?: string | null;
     sources?: unknown;
