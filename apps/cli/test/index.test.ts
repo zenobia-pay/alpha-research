@@ -128,6 +128,45 @@ test("prompt mode kickoff for fully specified tweet experiments preserves the ex
   assert.equal(stderr, "");
 });
 
+test("version flag prints package version without starting interactive UI", async () => {
+  const child = spawn(process.execPath, ["--import", "tsx", "apps/cli/src/index.ts", "--version"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      RESEARCH_DISABLE_RUN_WATCHER: "1",
+      RESEARCH_SESSION_DIR: join(process.cwd(), ".tmp", "research-test-version"),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+
+  const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error("version flag did not exit cleanly"));
+    }, 4000);
+    child.on("exit", (code, signal) => {
+      clearTimeout(timeout);
+      resolve({ code, signal });
+    });
+  });
+
+  assert.equal(result.signal, null);
+  assert.equal(result.code, 0);
+  assert.equal(stdout.trim(), "0.1.0");
+  assert.equal(stderr, "");
+});
+
 test("prompt mode treats dataset creation prompts as immediate creation work", () => {
   assert.equal(
     initialPromptModeStatus("Create a dataset from /tmp/enriched_tweets.parquet, name it Enriched Tweets, and deploy it."),

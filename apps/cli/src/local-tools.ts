@@ -33,6 +33,7 @@ export function printUsage() {
     "Commands:",
     "  research                         Start the interactive agent UI",
     "  research --alt-screen           Start the interactive agent UI in alternate-screen mode",
+    "  research --version              Print the CLI version",
     "  research --prompt <text>        Run a single prompt without entering the interactive UI",
     "  agent                           Start the interactive agent UI",
     "  prompt <text>                   Run a single prompt without entering the interactive UI",

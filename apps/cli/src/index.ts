@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import React from "react";
@@ -134,6 +135,13 @@ export function initialPromptModeStatus(prompt: string) {
 
 function printPromptModeHeader() {
   console.log("research");
+}
+
+export async function readCliVersion() {
+  const packageJsonUrl = new URL("../package.json", import.meta.url);
+  const raw = await readFile(packageJsonUrl, "utf8");
+  const parsed = JSON.parse(raw) as { version?: unknown };
+  return typeof parsed.version === "string" ? parsed.version : "unknown";
 }
 
 function promptModeKickoffMessage(prompt: string) {
@@ -385,6 +393,14 @@ export async function main() {
   const { flags, positionals } = parseCliArgs(argv);
   const [command, ...rest] = positionals;
   const promptFlag = typeof flags.prompt === "string" ? flags.prompt.trim() : "";
+
+  if (command === "version" || command === "--version" || command === "-v" || flags.version === "true") {
+    console.log(await readCliVersion());
+    if (shouldExitPromptMode()) {
+      await exitPromptModeProcess();
+    }
+    return;
+  }
 
   if (promptFlag) {
     await runPromptMode(promptFlag);
