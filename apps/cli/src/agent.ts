@@ -1933,7 +1933,12 @@ function formatUnknownValue(value: unknown): string | null {
 
 function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?: { runId: string; status: string }) {
   const profile = dataset.profile;
-  if (!profile) {
+  const briefingMarkdown = typeof dataset.briefing?.markdown === "string" && dataset.briefing.markdown.trim().length > 0
+    ? dataset.briefing.markdown.trim()
+    : typeof profile?.briefingMarkdown === "string" && profile.briefingMarkdown.trim().length > 0
+      ? profile.briefingMarkdown.trim()
+      : null;
+  if (!profile && !briefingMarkdown) {
     return null;
   }
   const lines: string[] = [];
@@ -1943,9 +1948,12 @@ function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?
       "",
     );
   }
-  if (typeof profile.briefingMarkdown === "string" && profile.briefingMarkdown.trim().length > 0) {
-    lines.push(profile.briefingMarkdown.trim());
+  if (briefingMarkdown) {
+    lines.push(briefingMarkdown);
   } else {
+    if (!profile) {
+      return null;
+    }
     const trust = formatUnknownValue(profile.quality) ?? profile.notes ?? "Saved dataset profile exists, but explicit trust notes are limited.";
     const limitations = formatUnknownValue(profile.limitations);
     const verdict = limitations ? "Verdict: fix first." : "Verdict: usable now.";
@@ -1976,10 +1984,10 @@ function formatDatasetProfileFallback(dataset: RemoteDatasetDetail, blockingRun?
     if (limitations) lines.push(`Limitations & Known Gaps: ${limitations}`);
   }
   const artifactNotes = [
-    profile.briefingArtifactId ? "Dataset Briefing" : null,
-    profile.profileArtifactId ? "Dataset Profile" : null,
+    dataset.briefing?.artifactId || profile?.briefingArtifactId ? "Dataset Briefing" : null,
+    profile?.profileArtifactId ? "Dataset Profile" : null,
   ].filter((entry): entry is string => Boolean(entry));
-  const generatedAt = profile.describedAt ?? profile.updatedAt;
+  const generatedAt = dataset.briefing?.updatedAt ?? profile?.describedAt ?? profile?.updatedAt;
   if (artifactNotes.length > 0 || generatedAt) {
     lines.push(
       "",
@@ -3045,6 +3053,7 @@ function datasetSelectionTopicTokens(input: string) {
 
 function datasetMetadataText(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
   const profile = "profile" in dataset ? dataset.profile : null;
+  const briefingMarkdown = "briefing" in dataset ? dataset.briefing?.markdown : null;
   const sourceText = isRecord(profile)
     ? JSON.stringify({
         sources: profile.sources ?? null,
@@ -3056,7 +3065,7 @@ function datasetMetadataText(dataset: RemoteDatasetSummary | RemoteDatasetDetail
         briefingMarkdown: profile.briefingMarkdown ?? null,
       }).toLowerCase()
     : "";
-  return [dataset.id, dataset.name, sourceText].filter(Boolean).join(" ").toLowerCase();
+  return [dataset.id, dataset.name, briefingMarkdown, sourceText].filter(Boolean).join(" ").toLowerCase();
 }
 
 function scoreDatasetForTopic(dataset: RemoteDatasetSummary | RemoteDatasetDetail, topicTokens: string[]) {
@@ -3539,7 +3548,7 @@ function takeStringList(value: unknown, limit = 3) {
 }
 
 function vagueInterestingDirections(detail: RemoteDatasetDetail) {
-  const topicText = `${detail.id} ${detail.name} ${detail.profile?.notes ?? ""} ${detail.profile?.briefingMarkdown ?? ""}`.toLowerCase();
+  const topicText = `${detail.id} ${detail.name} ${detail.profile?.notes ?? ""} ${detail.briefing?.markdown ?? ""} ${detail.profile?.briefingMarkdown ?? ""}`.toLowerCase();
   if (/\bhousing|mortgage|permit|county\b/.test(topicText)) {
     return ["rate sensitivity", "coverage quality", "regional differences"];
   }

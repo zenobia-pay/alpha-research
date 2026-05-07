@@ -33,6 +33,12 @@ export type RemoteDatasetDetail = RemoteDatasetSummary & {
   ingestConfig?: Record<string, unknown> | null;
   sourceFilename?: string | null;
   sourceType?: string | null;
+  briefing?: {
+    markdown?: string | null;
+    path?: string | null;
+    artifactId?: string | null;
+    updatedAt?: string | null;
+  } | null;
   profile?: {
     datasetId: string;
     schema?: unknown;
