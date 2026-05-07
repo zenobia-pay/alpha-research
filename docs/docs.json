@@ -2,17 +2,21 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Alpha Research",
+  "logo": {
+    "light": "/alpha-research-wordmark.png",
+    "dark": "/alpha-research-wordmark.png"
+  },
   "colors": {
-    "primary": "#146B5D",
-    "light": "#F7FBF8",
-    "dark": "#17211B"
+    "primary": "#262626",
+    "light": "#FAFAFA",
+    "dark": "#262626"
   },
   "seo": {
     "metatags": {
       "canonical": "https://docs.alpharesearch.nyc"
     }
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.ico",
   "navigation": {
     "anchors": [
       {
