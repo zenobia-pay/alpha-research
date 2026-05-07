@@ -134,6 +134,9 @@ test("audit prompt requires rich Slack alert backfills", async () => {
     "schema/columns",
     "not address-level, county-level, metro-level, or transaction-level unless the inventory proves it",
     "rewrite or supersede it with an enriched row",
+    "Update the CLI-visible dataset profile after the audit",
+    "quality.slackAlertsPending",
+    "Do not mark Slack as sent unless delivery was actually confirmed",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }

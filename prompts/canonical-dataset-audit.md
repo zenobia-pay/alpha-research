@@ -115,6 +115,23 @@ Mirror the final briefing into:
 - `docs/public-datasets/briefings/{datasetId}.md`
 - `docs/public-datasets/{datasetId}.mdx`
 
+Update the CLI-visible dataset profile after the audit using the same inventory-derived facts. The profile update must include:
+
+- `briefingMarkdown`
+- `sources`
+- `tables`
+- `quality.diskInventoryProven: true`
+- `quality.volumeInventoryRunId`
+- `quality.volumeInventoryUpdatedAt`
+- `quality.downloadEventLogPath`
+- `quality.slackDownloadAlertsPath`
+- `quality.slackBriefingPath`
+- `quality.slackAlertsSent`
+- `quality.slackAlertsPending`
+- `limitations`
+
+If Slack alerts are pending or failed, the profile briefing and quality fields must say that directly. Do not mark Slack as sent unless delivery was actually confirmed.
+
 ## Final Response
 
 Return file count, total bytes, required artifacts missing, unreadable file count, and whether `diskInventoryProven` is true.
