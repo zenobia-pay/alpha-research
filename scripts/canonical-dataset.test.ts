@@ -142,6 +142,29 @@ test("audit prompt requires rich Slack alert backfills", async () => {
   }
 });
 
+test("improve prompt requires docs mirrors and CLI proof update", async () => {
+  const prompt = await renderPrompt("improve", {
+    datasetId: "econ",
+    datasetName: "Economics",
+    fieldBrief: "Economic source package expansion.",
+    sourceCatalog: "- fred: https://fred.stlouisfed.org/",
+  });
+  for (const required of [
+    "update all three public/CLI surfaces from the same inventory-derived briefing",
+    "docs/public-datasets/briefings/econ.md",
+    "docs/public-datasets/econ.mdx",
+    "the CLI-visible dataset profile returned by `GET /api/cli/datasets/econ`",
+    "briefingMarkdown",
+    "quality.diskInventoryProven: true",
+    "quality.volumeInventoryRunId",
+    "quality.slackAlertsSent",
+    "quality.slackAlertsPending",
+    "Do not mark Slack as sent unless delivery was actually confirmed",
+  ]) {
+    assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
+  }
+});
+
 test("runtime contract requires Codex login and Slack webhook", () => {
   assert.equal(CANONICAL_RUNTIME_CONTRACT.requiresCodexLogin, true);
   assert.ok(CANONICAL_RUNTIME_CONTRACT.requiredEnvironment.includes("CANONICAL_DATASET_SLACK_WEBHOOK_URL"));

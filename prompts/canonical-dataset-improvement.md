@@ -118,6 +118,32 @@ Write these files in the artifact directory:
 }
 ```
 
+## Docs And CLI Profile Update
+
+After downloads, inventories, and briefing regeneration, update all three public/CLI surfaces from the same inventory-derived briefing:
+
+- dataset-root `dataset_briefing.md`
+- `docs/public-datasets/briefings/{datasetId}.md`
+- `docs/public-datasets/{datasetId}.mdx`
+- the CLI-visible dataset profile returned by `GET /api/cli/datasets/{datasetId}`
+
+The CLI-visible profile update must include:
+
+- `briefingMarkdown`
+- `sources`
+- `tables`
+- `quality.diskInventoryProven: true`
+- `quality.volumeInventoryRunId`
+- `quality.volumeInventoryUpdatedAt`
+- `quality.downloadEventLogPath`
+- `quality.slackDownloadAlertsPath`
+- `quality.slackBriefingPath`
+- `quality.slackAlertsSent`
+- `quality.slackAlertsPending`
+- `limitations`
+
+If any required inventory is missing, stale, or not generated from the current mounted volume, set `diskInventoryProven: false`, explain the exact blocker in `improvement_result.json`, and do not claim docs or CLI proof are current. If Slack alerts are pending or failed, the profile briefing and quality fields must say that directly. Do not mark Slack as sent unless delivery was actually confirmed.
+
 ## Safety Rules
 
 - Do not use private user data.
