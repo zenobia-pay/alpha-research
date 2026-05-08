@@ -8,6 +8,7 @@ import {
   currentWorkSummary,
   describeRunExpectation,
   describeRunPhase,
+  formatAssistantDisplayText,
   formatRunLastUpdate,
   summarizeCompletedResult,
   summarizePrompt,
@@ -250,4 +251,13 @@ test("default composer placeholder still serves normal prompts", () => {
 
 test("auth composer placeholder points directly to login", () => {
   assert.equal(authComposerPlaceholder(), "Type /login to sign in");
+});
+
+test("assistant display formatting turns inline pseudo-bullets into readable markdown", () => {
+  const formatted = formatAssistantDisplayText(
+    "I didn’t catch that. Do you want to: - Create a research environment, or - Run a hypothesis/analysis on an existing dataset? Examples you can send: - “Import /Users/me/data/sales.csv and profile it.” - “Test: captions vs watch time.”",
+  );
+
+  assert.match(formatted, /Do you want to:\n\n- Create a research environment,\n- Run a hypothesis\/analysis/u);
+  assert.match(formatted, /Examples you can send:\n\n- “Import \/Users\/me\/data\/sales\.csv and profile it\.”\n- “Test: captions vs watch time\.”/u);
 });

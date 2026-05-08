@@ -397,9 +397,17 @@ function AssistantMessage() {
   return (
     <Box flexDirection="column">
       <Text bold color="green">research</Text>
-      <MarkdownText text={text} />
+      <MarkdownText text={formatAssistantDisplayText(text)} />
     </Box>
   );
+}
+
+export function formatAssistantDisplayText(text: string) {
+  return text
+    .replace(/(\bDo you want to:)\s*-\s*/gu, "$1\n\n- ")
+    .replace(/(\bExamples you can send:)\s*-\s*/gu, "$1\n\n- ")
+    .replace(/[ \t]+or[ \t]+-[ \t]+(?=[A-Z“"`])/gu, "\n- ")
+    .replace(/[ \t]+-[ \t]+(?=[“"`])/gu, "\n- ");
 }
 
 function ActivityIndicator() {
