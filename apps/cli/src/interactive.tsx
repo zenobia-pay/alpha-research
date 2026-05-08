@@ -733,29 +733,31 @@ function StableComposerInput({
   autoFocus?: boolean;
 }) {
   const aui = useAui();
-  const text = useAuiState((state) => state.composer.text);
+  const [draft, setDraft] = useState("");
   const { isFocused } = useFocus({ autoFocus });
 
   useInput(
     (input, key) => {
       if (key.ctrl && input === "c") {
-        if (text.length > 0) {
-          aui.composer().setText("");
+        if (draft.length > 0) {
+          setDraft("");
         }
         return;
       }
       if (key.return) {
         if (submitOnEnter) {
+          aui.composer().setText(draft);
           aui.composer().send();
+          setDraft("");
         }
         return;
       }
       if (key.backspace || key.delete) {
-        aui.composer().setText(text.slice(0, -1));
+        setDraft((current) => current.slice(0, -1));
         return;
       }
       if (input && !key.ctrl && !key.meta) {
-        aui.composer().setText(text + input);
+        setDraft((current) => current + input);
       }
     },
     { isActive: isFocused },
@@ -763,7 +765,7 @@ function StableComposerInput({
 
   return (
     <Box>
-      <Text dimColor={!text && !!placeholder}>{text || placeholder}</Text>
+      <Text dimColor={!draft && !!placeholder}>{draft || placeholder}</Text>
       {isFocused ? <Text>▋</Text> : null}
     </Box>
   );
