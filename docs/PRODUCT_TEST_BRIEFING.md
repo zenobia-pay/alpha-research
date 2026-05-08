@@ -29,6 +29,7 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [whats-in dataset question reads briefing markdown without starting a run](product-tests/whats-in-dataset-question-reads-briefing-markdown-without-starting-a-run.md)
 - [missing dataset briefing does not start a remote refresh run](product-tests/missing-dataset-briefing-does-not-start-a-remote-refresh-run.md)
 - [specific viral tweets experiment starts with user-facing analysis summary and artifact expectations](product-tests/specific-viral-tweets-experiment-starts-with-user-facing-analysis-summary-and-artifact-expectations.md)
+- [pending run creation does not claim a remote run was accepted before a run id exists](product-tests/pending-run-creation-does-not-claim-a-remote-run-was-accepted-before-a-run-id-exists.md)
 - [dataset inspection surfaces schema evidence for requested analysis fields](product-tests/dataset-inspection-surfaces-schema-evidence-for-requested-analysis-fields.md)
 - [busy dataset conflict explains active run and emits heartbeat while waiting](product-tests/busy-dataset-conflict-explains-active-run-and-emits-heartbeat-while-waiting.md)
 - [dataset describe tool reads saved briefing without starting a run](product-tests/dataset-describe-tool-reads-saved-briefing-without-starting-a-run.md)

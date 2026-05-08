@@ -36,7 +36,7 @@ export function composerPlaceholder(session: SessionRecord | null) {
 }
 
 function blockedComposerPlaceholder() {
-  return "Choose recovery: inspect, wait, cancel, or retry later";
+  return "Describe the next step or type retry";
 }
 
 export function authComposerPlaceholder() {
@@ -733,7 +733,9 @@ function ResearchThread({
           {taskState.status === "blocked"
             ? authRecovery
               ? "Type `/login` to sign in, or sign in in another terminal and then retry your request."
-              : "Type `inspect`, `wait`, `cancel`, or `retry later`, then press Enter."
+              : taskState.lastResult && extractBlockedRunDetails(taskState.lastResult)
+                ? "Type `inspect`, `wait`, `cancel`, or `retry later`, then press Enter."
+                : "Type a follow-up or `retry`, then press Enter."
             : taskState.status === "done"
               ? "Ready. Type another question and press Enter."
               : "Type a follow-up or command and press Enter."}

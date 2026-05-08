@@ -1574,6 +1574,81 @@ test("specific viral tweets experiment uses AI-selected run tool even when datas
   assert.match(final, /run-viral-uploading/i);
 });
 
+test("pending run creation does not claim a remote run was accepted before a run id exists", async () => {
+  const originalHeartbeat = process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS;
+  process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS = "25";
+  try {
+    const fakeClient = {
+      async respond(body: Record<string, unknown>) {
+        if (String(body.instructions ?? "").includes("remote research agent")) {
+          const text = "Test whether higher unemployment is associated with lower year-over-year CPI inflation in the econ dataset. Build a monthly US panel, run OLS, and produce a self-contained HTML report with a scatter plot and rolling correlation chart.";
+          return {
+            sessionId: "pending-run-prompt-session",
+            payload: {
+              id: "pending-run-generated-prompt",
+              output_text: text,
+              output: [{ type: "message", content: [{ type: "output_text", text }] }],
+            },
+          };
+        }
+        return {
+          sessionId: "pending-run-session",
+          payload: {
+            id: "pending-run-response",
+            output: [{
+              type: "function_call",
+              call_id: "call-pending-run",
+              name: "start_research_run",
+              arguments: JSON.stringify({
+                datasetId: "econ",
+                researchIntent: "Run a simple Phillips curve smoke-test experiment.",
+                conversationSummary: "The user approved a simple econ experiment using CPI and unemployment.",
+              }),
+            }],
+          },
+        };
+      },
+      async listDatasets() {
+        return { datasets: [{ id: "econ", name: "Econ", status: "ready" }] };
+      },
+      async startRun() {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        throw new RemoteRequestError(
+          "Remote request failed (503) for /api/cli/datasets/econ/runs. backend worker did not accept the request",
+          503,
+          "/api/cli/datasets/econ/runs",
+        );
+      },
+      async appendSessionEntry() {
+        return { id: "entry-pending-run" };
+      },
+    };
+    const deps: AgentRuntimeDeps = {
+      ...createDefaultAgentRuntimeDeps(),
+      createRemoteClient: () => fakeClient as never,
+      readSession: async () => session,
+    };
+    const { messages, emit } = collect();
+
+    await runAgentTurn("great. Run it.", session, emit, {
+      sessionId: "existing-session",
+      previousResponseId: "previous-response",
+      datasetContext: { lastResolvedDataset: { id: "econ", scope: "remote", state: "ready" } },
+    }, deps);
+
+    const transcript = messages.map((message) => message.content).join("\n");
+    assert.match(transcript, /Run request pending for econ; no run id has been returned yet/i);
+    assert.match(transcript, /No run id was returned, so the CLI cannot confirm that any remote run was created/i);
+    assert.doesNotMatch(transcript, /request accepted for econ|backend worker still initializing|Started research run/i);
+  } finally {
+    if (originalHeartbeat === undefined) {
+      delete process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS;
+    } else {
+      process.env.RESEARCH_TOOL_HEARTBEAT_INTERVAL_MS = originalHeartbeat;
+    }
+  }
+});
+
 test("dataset inspection surfaces schema evidence for requested analysis fields", async () => {
   const fakeClient = {
     async respond(body: Record<string, unknown>) {

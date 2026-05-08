@@ -1797,9 +1797,9 @@ function progressHeartbeat(toolName: string, input: Record<string, unknown>, ela
   }
   if (ASYNC_RUN_START_TOOLS.has(toolName)) {
     if (elapsedSeconds < 12) {
-      return `Run startup: request accepted for ${datasetId}; waiting for backend worker (${elapsedSeconds}s elapsed).`;
+      return `Run request pending for ${datasetId}; no run id has been returned yet (${elapsedSeconds}s elapsed).`;
     }
-    return `Run startup: backend worker still initializing for ${datasetId} (${elapsedSeconds}s elapsed).`;
+    return `Run request still pending for ${datasetId}; no run has been confirmed yet (${elapsedSeconds}s elapsed).`;
   }
   return `Still running ${toolName} (${elapsedSeconds}s elapsed).`;
 }
@@ -1886,18 +1886,23 @@ function summarizeRemoteFailure(error: RemoteRequestError) {
   const rawMessage = typeof payload?.error === "string" ? payload.error : error.message;
   const isCapacity = error.status === 429 || /capacity|volume|limit|quota|too many/i.test(rawMessage);
   const isTransport = error.status === 503 || /transport failed|fetch failed|connect timeout|timed out|econnreset|enotfound|eai_again|socket/i.test(rawMessage);
+  const isRunCreate = /\/api\/cli\/datasets\/[^/]+\/runs\b/u.test(error.path);
   const lines = [
     "Blocked: remote request failed.",
     `What failed: ${error.path}`,
     `Status: ${isTransport ? "backend unreachable" : error.status}`,
     "",
-    isCapacity
+    isRunCreate
+      ? "No run id was returned, so the CLI cannot confirm that any remote run was created."
+      : isCapacity
       ? "The backend appears to be blocked by an infrastructure capacity or rate limit. No completed result is available from this attempt."
       : isTransport
         ? "The CLI could not reach the backend, so no new remote result was retrieved in this attempt."
         : "The backend rejected the request before the CLI could finish the work.",
   ];
-  if (isCapacity) {
+  if (isRunCreate) {
+    lines.push("Next: check the runs page once. If no run appears, retry the same request after the backend is reachable.");
+  } else if (isCapacity) {
     lines.push("Next: retry later, or ask an operator to inspect backend capacity before retrying.");
   } else if (isTransport) {
     lines.push("Next: retry once when the backend is reachable, or run `research debug run <run-id>` if you were waiting on an existing run.");

@@ -196,23 +196,8 @@ function formatPromptModeMessage(message: AgentMessage, previousMessages: AgentM
     if (content.startsWith("Top matches for ")) {
       return null;
     }
-    if (content.startsWith("Run startup: waiting for backend worker")) {
-      return {
-        ...message,
-        content: content.replace("Run startup:", "Still initializing:"),
-      };
-    }
-    if (content.startsWith("Run startup: request accepted")) {
-      return {
-        ...message,
-        content: content.replace("Run startup:", "Still initializing:"),
-      };
-    }
-    if (content.startsWith("Run startup: backend worker still initializing")) {
-      return {
-        ...message,
-        content: content.replace("Run startup:", "Still initializing:"),
-      };
+    if (content.startsWith("Run request pending") || content.startsWith("Run request still pending")) {
+      return message;
     }
     if (content === "Searching datasets...") {
       return {
