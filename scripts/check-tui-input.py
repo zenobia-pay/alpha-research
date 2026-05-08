@@ -45,6 +45,7 @@ def main() -> int:
 
     try:
         read_for(2)
+        before_typing = len(raw)
         os.write(fd, b"abcdef")
         read_for(0.5)
         before_ctrl = len(raw)
@@ -68,10 +69,16 @@ def main() -> int:
             pass
 
     transcript = bytes(raw).decode("utf-8", errors="replace")
+    typing_chunk = bytes(raw[before_typing:before_ctrl]).decode("utf-8", errors="replace")
     full_line_clears = transcript.count("\x1b[2K")
+    typing_escapes = typing_chunk.count("\x1b")
     failures: list[str] = []
     if full_line_clears:
         failures.append(f"expected incremental rendering with 0 full-line clears, saw {full_line_clears}")
+    if typing_escapes:
+        failures.append(f"expected plain typed echo with 0 ANSI escapes while typing, saw {typing_escapes}")
+    if "abcdef" not in typing_chunk:
+        failures.append("typed characters were not echoed as a contiguous draft")
     if "abcdef" in ctrl_chunk:
         failures.append("Ctrl-C did not clear the typed draft")
     if "XYZ" not in transcript:
@@ -85,7 +92,7 @@ def main() -> int:
 
     print("TUI input check passed.")
     print(f"Command: {' '.join(command)}")
-    print("Verified: incremental rendering, Ctrl-C clears draft, input continues after clear.")
+    print("Verified: typed echo has no ANSI redraws, Ctrl-C clears draft, input continues after clear.")
     return 0
 
 

@@ -744,12 +744,22 @@ function StableComposerInput({
   const { exit } = useApp();
   const draftRef = useRef("");
   const { isFocused } = useFocus({ autoFocus });
+  const moveCursorToInput = () => {
+    if (isFocused) {
+      process.stdout.write("\x1b[2A\r\x1b[5C");
+    }
+  };
   const clearDraftLine = () => {
     if (draftRef.current.length > 0) {
       process.stdout.write("\b \b".repeat(draftRef.current.length));
     }
     draftRef.current = "";
   };
+
+  useEffect(() => {
+    const timer = setTimeout(moveCursorToInput, 0);
+    return () => clearTimeout(timer);
+  });
 
   useInput(
     (input, key) => {
