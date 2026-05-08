@@ -181,21 +181,15 @@ test("improve prompt requires remote data-only briefing update", async () => {
     "Do not stop after writing a plan",
     "slackAlertsSent",
     "slackAlertsPending",
-    "Do not mark Slack as sent unless delivery was actually confirmed",
     "Provider-level access failures are not run-level blockers",
     "Do not stop the whole run after BLS, FHFA, Treasury, or any other single provider blocks",
-    "Do not send thin alerts",
-    "what data is actually on disk, at what grain, where, for what dates, and with what caveats",
+    "make the message explain what data was downloaded or what blocked the attempt in plain English",
+    "do not mark Slack as sent unless delivery was actually confirmed",
     "## Keep The Briefing Up To Date",
     "Write the dataset briefing as a comprehensive literal data inventory.",
     "Make it comprehensive but concise and human readable.",
     "# Data Inventory",
     "Data comes from FRED",
-    "Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored.",
-    "copy these files into the remote run artifact directory",
-    ".remote-agent/workspaces/<run-id>/artifacts/",
-    "Do not add a `# Blocked Or Missing Data` section",
-    "Do not add a `# Non-Data Artifacts On Disk` section",
     "Do not delete active runtime directories during the run",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
@@ -207,6 +201,13 @@ test("improve prompt requires remote data-only briefing update", async () => {
   assert.doesNotMatch(prompt, /POST \/api\/cli\/datasets\/econ\/profile/u);
   assert.doesNotMatch(prompt, /briefingMarkdown/u);
   assert.doesNotMatch(prompt, /docs mirrors/u);
+  assert.doesNotMatch(prompt, /Do not start with filenames/u);
+  assert.doesNotMatch(prompt, /Do not include file names/u);
+  assert.doesNotMatch(prompt, /For every raw inventory record/u);
+  assert.doesNotMatch(prompt, /Do not add a `# Blocked Or Missing Data` section/u);
+  assert.doesNotMatch(prompt, /copy these files into the remote run artifact directory/u);
+  assert.doesNotMatch(prompt, /Each Slack message must include/u);
+  assert.doesNotMatch(prompt, /Do not send thin alerts/u);
 });
 
 test("runtime contract requires Codex login and Slack webhook", () => {

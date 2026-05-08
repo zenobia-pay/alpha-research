@@ -122,10 +122,6 @@ Write the dataset briefing as a comprehensive literal data inventory.
 
 Write a comprehensive summary of every piece of data that is on this dataset. Make it comprehensive but concise and human readable. Phrase it as legible sentences.
 
-Do not start with filenames, provider acronyms, or vague category names such as `BIS`, `FRED`, `housing`, or `microdata`.
-
-Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored. The briefing must not include paths, URLs, byte sizes, run ids, dashboard links, required artifact status, Slack status, inventory status, runtime/tooling files, manifests, quality reports, failed inspection rows, or non-data artifacts. Keep blocked attempts and operational metadata in `download_inventory.*`, `download_events.jsonl`, `quality_report.md`, `slack_briefing.md`, and `improvement_result.json`, not in `dataset_briefing.md`.
-
 Use this shape:
 
 ```md
@@ -133,53 +129,9 @@ Use this shape:
 - Consumer Price Index for All Urban Consumers, seasonally adjusted U.S. national monthly price index observations; one row per month; United States; 1947-01 through 2026-03. Data comes from FRED. The data fields are ... . The units are ...
 ```
 
-For every raw inventory record that represents actual source data, include one bullet with:
-
-- what the data literally measures or contains;
-- the observed entities/records, e.g. persons, households, housing units, city-month home value index rows, bank-country-quarter positions, macro time-series observations, HTML chronology records, API response objects;
-- grain/frequency, e.g. person-level, household-level, housing-unit-level, city-month, state-quarter, metro-quarter, country-quarter, national-month, national-day;
-- geography covered and the exact level of geography;
-- time coverage or collection vintage;
-- row/document/object count when measurable;
-- important columns/fields and units/measures;
-
-Group bullets only after each bullet remains self-contained. If there are multiple files for one source, do not collapse them into one vague provider line unless the inventory proves they are one logical package and the bullet still names all concrete data contents, grains, geographies, coverage, and counts.
-
-Do not add a `# Blocked Or Missing Data` section. Do not add a `# Non-Data Artifacts On Disk` section. The briefing is only a list of data that is actually stored.
-
-Before final response, copy these files into the remote run artifact directory as produced artifacts so the orchestrator can recover the exact briefing:
-
-- `dataset_briefing.md`
-- `improvement_result.json`
-- `volume_inventory_summary.json`
-
-If the artifact directory path is not obvious, use the active remote-agent workspace artifacts directory under `.remote-agent/workspaces/<run-id>/artifacts/`. Do not omit these artifacts just because the same files also exist at the dataset root.
-
 ## Slack Alert Rules
 
-For every attempted download, send one concise Slack webhook message through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` after the terminal event (`succeeded`, `failed`, `blocked`, `skipped`, or `gated`). The alert must be self-contained: a user reading Slack must understand what the data actually is, not just the file name or path.
-
-Each Slack message must include a concise plain-English data summary plus structured facts:
-
-- start with a one-line headline in this shape: `[datasetId] source_name status: what this dataset contains; grain; geography; time span; row/object count or size; path`;
-- dataset id, source id/name, terminal status, and request URL with secrets redacted;
-- raw path, bytes, content hash, and row/document/object count when known;
-- what the observations/entities are, e.g. monthly national macroeconomic observations, address-level home sales, county-level rates, document images, metadata records, or API responses;
-- geographic coverage at the most precise proven level, e.g. United States national aggregate, state, county, metro, address, global, or unknown/not inspected;
-- time coverage and frequency/granularity when known;
-- unit or measure names and meanings, including important column definitions;
-- native format and schema/columns discovered from inspection;
-- exact blocker for failed, blocked, skipped, or gated attempts;
-- next action for failed, blocked, skipped, gated, or partial attempts, e.g. alternate endpoint to try, manual review needed, whitelisted access needed, or no action needed;
-- what is not present when a source title or filename could mislead, e.g. explicitly say that a FRED national macro series is not address-level, county-level, metro-level, or transaction-level unless the inventory proves it.
-
-Do not send thin alerts like `Download succeeded for raw/path.csv`. If a Slack message would not let a reader answer "what data is actually on disk, at what grain, where, for what dates, and with what caveats?", enrich it before sending or mark unknown fields as `unknown/not inspected`.
-
-Log every Slack alert attempt to `slack_download_alerts.jsonl` with `delivery_status: sent|pending|failed`, `delivery_at`, non-secret HTTP status/error, and the complete structured message payload including `plain_english_data_summary`, `observations_or_entities`, `geographic_coverage`, `time_coverage`, `frequency_or_granularity`, `unit_or_measure`, `schema_or_columns`, `not_present_caveats`, and `blocker`.
-
-Do not mark Slack as sent unless delivery was actually confirmed.
-
-Do not fail the whole run just because Slack is unavailable. Instead, write the pending/failed message payload and non-secret delivery error to `slack_download_alerts.jsonl`, add it to `slackAlertsPending`, and call it out in `slack_briefing.md` and the final response.
+For every attempted download, send one concise Slack webhook message through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` after the terminal event, and make the message explain what data was downloaded or what blocked the attempt in plain English. Log every Slack alert attempt to `slack_download_alerts.jsonl` with `delivery_status: sent|pending|failed`, never expose the webhook URL, and do not mark Slack as sent unless delivery was actually confirmed.
 
 Before final volume inventory, avoid creating new remote agent runtime/tooling/cache directories on the dataset volume when possible. Do not delete active runtime directories during the run, including `.remote-agent`, `.codex`, `.cache`, temporary plugin caches, or local virtual environments; on this platform deleting active runtime directories can kill artifact capture and make the run fail. If runtime/tooling/cache directories are present on disk, inventory them as `runtime_tooling` contamination and make the briefing say clearly that they are not dataset data.
 
