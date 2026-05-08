@@ -733,7 +733,7 @@ function ResearchThread({
 
 function StableComposerInput({
   submitOnEnter,
-  placeholder,
+  placeholder: _placeholder,
   autoFocus = true,
 }: {
   submitOnEnter?: boolean;
@@ -742,14 +742,20 @@ function StableComposerInput({
 }) {
   const aui = useAui();
   const { exit } = useApp();
-  const [draft, setDraft] = useState("");
+  const draftRef = useRef("");
   const { isFocused } = useFocus({ autoFocus });
+  const clearDraftLine = () => {
+    if (draftRef.current.length > 0) {
+      process.stdout.write("\b \b".repeat(draftRef.current.length));
+    }
+    draftRef.current = "";
+  };
 
   useInput(
     (input, key) => {
       if ((key.ctrl || key.meta) && input === "c") {
-        if (draft.length > 0) {
-          setDraft("");
+        if (draftRef.current.length > 0) {
+          clearDraftLine();
         } else {
           exit();
         }
@@ -757,18 +763,23 @@ function StableComposerInput({
       }
       if (key.return) {
         if (submitOnEnter) {
+          const draft = draftRef.current;
+          draftRef.current = "";
           aui.composer().setText(draft);
           aui.composer().send();
-          setDraft("");
         }
         return;
       }
       if (key.backspace || key.delete) {
-        setDraft((current) => current.slice(0, -1));
+        if (draftRef.current.length > 0) {
+          draftRef.current = draftRef.current.slice(0, -1);
+          process.stdout.write("\b \b");
+        }
         return;
       }
       if (input && !key.ctrl && !key.meta) {
-        setDraft((current) => current + input);
+        draftRef.current += input;
+        process.stdout.write(input);
       }
     },
     { isActive: isFocused },
@@ -776,8 +787,7 @@ function StableComposerInput({
 
   return (
     <Box>
-      <Text dimColor={!draft && !!placeholder}>{draft || placeholder}</Text>
-      {isFocused ? <Text>▋</Text> : null}
+      <Text> </Text>
     </Box>
   );
 }
