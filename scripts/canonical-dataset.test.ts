@@ -177,20 +177,23 @@ test("improve prompt requires remote data-only briefing update", async () => {
     sourceCatalog: "- fred: https://fred.stlouisfed.org/",
   });
   for (const required of [
-    "Execute the work now",
-    "Do not stop after writing a plan",
+    "Run a self-improvement pass for this canonical public Alpha Research dataset now.",
+    "## Instructions",
+    "Use the mounted dataset volume as the dataset root.",
+    "Regenerate stale or missing disk inventories before making changes.",
+    "Classify each candidate as `active_fetchable`, `deferred_fetchable`, `credential_required`, `not_found`, or `reject`.",
+    "Fetch active public machine-readable sources",
+    "Record every attempted download",
+    "Regenerate `dataset_briefing.md` from the current inventories.",
     "slackAlertsSent",
     "slackAlertsPending",
-    "Provider-level access failures are not run-level blockers",
-    "Do not stop the whole run after BLS, FHFA, Treasury, or any other single provider blocks",
-    "make the message explain what data was downloaded or what blocked the attempt in plain English",
-    "do not mark Slack as sent unless delivery was actually confirmed",
+    "explaining in plain English what data was downloaded or what blocked the attempt",
+    "mark `sent` only after confirmed delivery",
     "## Keep The Briefing Up To Date",
     "Write the dataset briefing as a comprehensive literal data inventory.",
     "Make it comprehensive but concise and human readable.",
     "# Data Inventory",
     "Data comes from FRED",
-    "Do not delete active runtime directories during the run",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }
@@ -208,6 +211,8 @@ test("improve prompt requires remote data-only briefing update", async () => {
   assert.doesNotMatch(prompt, /copy these files into the remote run artifact directory/u);
   assert.doesNotMatch(prompt, /Each Slack message must include/u);
   assert.doesNotMatch(prompt, /Do not send thin alerts/u);
+  assert.doesNotMatch(prompt, /Do not bypass/u);
+  assert.doesNotMatch(prompt, /Provider-level access failures are not run-level blockers/u);
 });
 
 test("runtime contract requires Codex login and Slack webhook", () => {
