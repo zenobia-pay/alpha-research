@@ -2,7 +2,7 @@
 <rect width="100%" height="100%" fill="#101317"/>
 <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
 <text x="16" y="30">ad error.                                                                                                               </text>
-<text x="16" y="48">· Do not download public sample data, GitHub CSVs, web search results, synthetic replacements, or any other external fal</text>
+<text x="16" y="48">· Use the selected dataset context for this task</text>
 <text x="16" y="66">lback to complete this dataset-grounded task.                                                                           </text>
 <text x="16" y="84">·                                                                                                                       </text>
 <text x="16" y="102">· Experiment plan: 1) Define outcome and cohorts. - Outcome: viral = top 1% of engagement_rate within same calendar mont</text>

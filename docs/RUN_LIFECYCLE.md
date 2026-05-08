@@ -30,7 +30,7 @@ The CLI treats terminal statuses through `isTerminalRunStatus` in `apps/cli/src/
 
 ## CLI Start Flow
 
-1. The agent chooses an async run-start tool such as `query_remote_dataset`, `aggregate_remote_dataset`, or `create_research_environment`.
+1. The agent chooses an async run-start tool such as `start_research_run`, `start_research_run`, or `create_research_environment`.
 2. The tool calls the backend to create the run.
 3. The CLI records the run in the tracked-run store with dashboard URL and prompt.
 4. The CLI returns immediately unless the user explicitly asked to wait.

@@ -5,7 +5,7 @@
 <text x="16" y="48">· Found 8 remote datasets.                                                                                              </text>
 <text x="16" y="66">· Calling inspect_remote_dataset                                                                                        </text>
 <text x="16" y="84">· Inspected remote dataset econ.                                                                                        </text>
-<text x="16" y="102">· Calling start_remote_run                                                                                              </text>
+<text x="16" y="102">· Calling start_research_run                                                                                              </text>
 <text x="16" y="120">· Dataset is already busy with run 486be6ce-969a-4d2b-b353-acc6c80f1cb4 (running). Open https://dashboard.alpharesearch.</text>
 <text x="16" y="138">nyc/?view=runs&amp;runId=486be6ce-969a-4d2b-b353-acc6c80f1cb4#run-486be6ce-969a-4d2b-b353-acc6c80f1cb4 or ask me to check th</text>
 <text x="16" y="156">at run instead of starting another one.                                                                                 </text>

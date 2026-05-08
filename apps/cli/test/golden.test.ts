@@ -99,7 +99,7 @@ for (const fixture of await readFixtures()) {
         };
       },
       async startRun() {
-        toolCalls.push("query_remote_dataset");
+        toolCalls.push("start_research_run");
         return {
           run: fixture.run ?? {
             id: "run-query",

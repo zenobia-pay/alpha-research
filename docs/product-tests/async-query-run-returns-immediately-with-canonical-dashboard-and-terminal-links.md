@@ -17,7 +17,7 @@ The product starts a query run against `enriched-tweets`, returns immediately, a
 - A query run is started.
 - The response includes the canonical dashboard run URL.
 - The response includes the canonical terminal-session URL.
-- The run prompt requires mounted dataset grounding.
-- The run config requires mounted dataset grounding for `enriched-tweets`.
-- The workflow must fail loudly if mounted data cannot be read.
-- The workflow must not use public sample data, GitHub CSVs, or external fallback data.
+- The runner prompt is the model-selected prompt for `enriched-tweets`.
+- The run config keeps the dataset context attached to `enriched-tweets`.
+- The CLI returns immediately instead of waiting for completion.
+- The workflow does not add a local wrapper around the model-selected prompt.

@@ -5,7 +5,7 @@
 <text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
 <text x="16" y="66">· Inspecting dataset enriched-tweets...                                                                                 </text>
 <text x="16" y="84">· Inspected remote dataset enriched-tweets.                                                                             </text>
-<text x="16" y="102">· Running run_remote_transformation...                                                                                  </text>
+<text x="16" y="102">· Running start_research_run...                                                                                  </text>
 <text x="16" y="120">· Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=r</text>
 <text x="16" y="138">uns&amp;runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3                                 </text>
 <text x="16" y="156">Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=run</text>

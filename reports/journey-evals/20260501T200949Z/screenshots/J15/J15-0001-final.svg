@@ -6,7 +6,7 @@
 <text x="16" y="66">Run: 1e0d1967-36ea-4306-8597-8c66aeea64b3                                                                               </text>
 <text x="16" y="84">Dataset: enriched-tweets                                                                                                </text>
 <text x="16" y="102">State: booting                                                                                                          </text>
-<text x="16" y="120">Current work: Mounted dataset grounding is mandatory for dataset `enriched-tweets`.                                     </text>
+<text x="16" y="120">Current work: Dataset setup is starting for enriched-tweets.                                     </text>
 <text x="16" y="138">                                                                                                                        </text>
 <text x="16" y="156">Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for yo</text>
 <text x="16" y="174">ur workload.                                                                                                            </text>

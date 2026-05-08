@@ -36,7 +36,6 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [last run results report an in-progress latest run when nothing has completed](product-tests/last-run-results-report-an-in-progress-latest-run-when-nothing-has-completed.md)
 - [last run results report a failed latest run when nothing completed successfully](product-tests/last-run-results-report-a-failed-latest-run-when-nothing-completed-successfully.md)
 - [continuity question returns compact lifecycle summary without tool chatter](product-tests/continuity-question-returns-compact-lifecycle-summary-without-tool-chatter.md)
-- [non-resumable run continuation returns artifacts instead of crashing](product-tests/non-resumable-run-continuation-returns-artifacts-instead-of-crashing.md)
 - [busy dataset conflict returns blocking run guidance](product-tests/busy-dataset-conflict-returns-blocking-run-guidance.md)
 - [dataset describe reads saved briefing without starting duplicate run](product-tests/dataset-describe-reads-saved-briefing-without-starting-duplicate-run.md)
 - [prompt-mode busy dataset shortcut shows age, health, and clear actions](product-tests/prompt-mode-busy-dataset-shortcut-shows-age-health-and-clear-actions.md)

@@ -91,7 +91,7 @@ The user supplies dataset, metric, threshold, sample size, labeling fields, and 
 
 ## Correct Outcome
 
-`research` kicks off the run. It requires mounted dataset grounding, starts analysis/labeling work, returns run id/status/artifact expectations, and only asks a question if the dataset or fields are missing.
+`research` kicks off the run. It requires dataset setup, starts analysis/labeling work, returns run id/status/artifact expectations, and only asks a question if the dataset or fields are missing.
 
 ## Judge For
 
@@ -167,7 +167,7 @@ exec
 · Found 7 remote datasets.
 · Inspecting dataset enriched-tweets...
 · Inspected remote dataset enriched-tweets.
-· Running run_remote_transformation...
+· Running start_research_run...
 · Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3
 Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3
 Terminal session: https://dashboard.alpharesearch.nyc/?view=terminal-sessions&sessionId=b579a4a0-fe7d-4a7a-a6e9-f0261c3873fb&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3
@@ -243,14 +243,14 @@ exec
 · Found 7 remote datasets.                                                                                              
 · Inspecting dataset enriched-tweets...                                                                                 
 · Inspected remote dataset enriched-tweets.                                                                             
-· Running run_remote_transformation...                                                                                  
+· Running start_research_run...                                                                                  
                                                                                                                         
 ###0007-final.txt
 · Checking remote datasets...                                                                                           
 · Found 7 remote datasets.                                                                                              
 · Inspecting dataset enriched-tweets...                                                                                 
 · Inspected remote dataset enriched-tweets.                                                                             
-· Running run_remote_transformation...                                                                                  
+· Running start_research_run...                                                                                  
 · Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=r
 uns&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3                                 
 Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=run
@@ -308,7 +308,7 @@ exec
 5:<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
 6:<text x="16" y="66">· Inspecting dataset enriched-tweets...                                                                                 </text>
 7:<text x="16" y="84">· Inspected remote dataset enriched-tweets.                                                                             </text>
-8:<text x="16" y="102">· Running run_remote_transformation...                                                                                  </text>
+8:<text x="16" y="102">· Running start_research_run...                                                                                  </text>
 9:<text x="16" y="120">                                                                                                                        </text>
 
 ###0007-final.svg
@@ -317,7 +317,7 @@ exec
 5:<text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
 6:<text x="16" y="66">· Inspecting dataset enriched-tweets...                                                                                 </text>
 7:<text x="16" y="84">· Inspected remote dataset enriched-tweets.                                                                             </text>
-8:<text x="16" y="102">· Running run_remote_transformation...                                                                                  </text>
+8:<text x="16" y="102">· Running start_research_run...                                                                                  </text>
 9:<text x="16" y="120">· Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=r</text>
 10:<text x="16" y="138">uns&amp;runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3                                 </text>
 11:<text x="16" y="156">Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=run</text>
@@ -384,7 +384,7 @@ exec
 · Found 7 remote datasets.
 · Inspecting dataset enriched-tweets...
 · Inspected remote dataset enriched-tweets.
-· Running run_remote_transformation...
+· Running start_research_run...
 · Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3
 Queued transformation run 1e0d1967-36ea-4306-8597-8c66aeea64b3. Dashboard: https://dashboard.alpharesearch.nyc/?view=runs&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3
 Terminal session: https://dashboard.alpharesearch.nyc/?view=terminal-sessions&sessionId=b579a4a0-fe7d-4a7a-a6e9-f0261c3873fb&runId=1e0d1967-36ea-4306-8597-8c66aeea64b3#run-1e0d1967-36ea-4306-8597-8c66aeea64b3
@@ -421,7 +421,7 @@ codex
    - Evidence: [snapshot `0002-10s.txt`](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J09/20260501T194240Z/snapshots/0002-10s.txt), [snapshot `0005-25s.txt`](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J09/20260501T194240Z/snapshots/0005-25s.txt), log `atMs 10003` to `atMs 25006`.
 
 2. **Product confusion, medium severity**  
-   - The line `Running run_remote_transformation...` is internal implementation language, not user language. A normal user gets little signal about what that means or why it matters.
+   - The line `Running start_research_run...` is internal implementation language, not user language. A normal user gets little signal about what that means or why it matters.
    - Evidence: [snapshot `0006-30s.txt`](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J09/20260501T194240Z/snapshots/0006-30s.txt), log `atMs 27819`.
 
 3. **Run lifecycle confusion, medium severity**  
@@ -446,7 +446,7 @@ codex
 - A progress cue during the 15-25 second quiet period, even if only a heartbeat or stage label.
 
 **Information That Should Be Removed or De-Emphasized**
-- Internal tool names like `run_remote_transformation`.
+- Internal tool names like `start_research_run`.
 - Duplicate completion lines that repeat the same queued-run message and URLs.
 - Overly verbose raw URLs unless they are the primary action the user needs next.
 
@@ -486,7 +486,7 @@ tokens used
    - Evidence: [snapshot `0002-10s.txt`](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J09/20260501T194240Z/snapshots/0002-10s.txt), [snapshot `0005-25s.txt`](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J09/20260501T194240Z/snapshots/0005-25s.txt), log `atMs 10003` to `atMs 25006`.
 
 2. **Product confusion, medium severity**  
-   - The line `Running run_remote_transformation...` is internal implementation language, not user language. A normal user gets little signal about what that means or why it matters.
+   - The line `Running start_research_run...` is internal implementation language, not user language. A normal user gets little signal about what that means or why it matters.
    - Evidence: [snapshot `0006-30s.txt`](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J09/20260501T194240Z/snapshots/0006-30s.txt), log `atMs 27819`.
 
 3. **Run lifecycle confusion, medium severity**  
@@ -511,7 +511,7 @@ tokens used
 - A progress cue during the 15-25 second quiet period, even if only a heartbeat or stage label.
 
 **Information That Should Be Removed or De-Emphasized**
-- Internal tool names like `run_remote_transformation`.
+- Internal tool names like `start_research_run`.
 - Duplicate completion lines that repeat the same queued-run message and URLs.
 - Overly verbose raw URLs unless they are the primary action the user needs next.
 

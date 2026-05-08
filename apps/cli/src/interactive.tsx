@@ -190,9 +190,6 @@ function summarizeRunActivity(run: TrackedRunRecord) {
   if (/Remote agent droplet .* launched in /i.test(latest)) {
     return "Worker started and is still getting ready.";
   }
-  if (/mounted dataset grounding is mandatory/i.test(latest)) {
-    return "Waiting for the dataset mount before analysis can start.";
-  }
   return summarizePrompt(latest, 100);
 }
 

@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1040" height="680" viewBox="0 0 1040 680">
 <rect width="100%" height="100%" fill="#101317"/>
 <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
-<text x="16" y="30">· Mounted dataset grounding is mandatory for dataset `enriched-tweets`.                                                 </text>
-<text x="16" y="48">· Before doing analysis, read and validate the mounted dataset from the attached dataset volume, preferring these paths </text>
+<text x="16" y="30">· Dataset setup is starting for enriched-tweets.                                                 </text>
+<text x="16" y="48">· Before doing analysis, read and validate the mounted dataset from the selected dataset context, preferring these paths </text>
 <text x="16" y="66">in order:                                                                                                               </text>
 <text x="16" y="84">· 1. /mnt/alpha-research/data/instances/enriched-tweets                                                                 </text>
 <text x="16" y="102">· 2. /mnt/alpha-research/datasets/enriched-tweets                                                                       </text>
-<text x="16" y="120">· 3. ./dataset only if it is a mount/symlink/copy of the attached dataset volume.                                       </text>
+<text x="16" y="120">· 3. ./dataset only if it is a mount/symlink/copy of the selected dataset context.                                       </text>
 <text x="16" y="138">· If the mounted dataset cannot be found, opened, or parsed, fail the run loudly with the exact paths checked and the re</text>
 <text x="16" y="156">ad error.                                                                                                               </text>
-<text x="16" y="174">· Do not download public sample data, GitHub CSVs, web search results, synthetic replacements, or any other external fal</text>
+<text x="16" y="174">· Use the selected dataset context for this task</text>
 <text x="16" y="192">lback to complete this dataset-grounded task.                                                                           </text>
 <text x="16" y="210">·                                                                                                                       </text>
 <text x="16" y="228">· Experiment plan: 1) Define outcome and cohorts. - Outcome: viral = top 1% of engagement_rate within same calendar mont</text>

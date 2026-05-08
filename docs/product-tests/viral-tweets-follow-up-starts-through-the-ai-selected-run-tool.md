@@ -10,7 +10,7 @@ This protects the contract that experiment planning and run prompting are model-
 
 ## Actions Taken
 
-The deterministic harness has the model first return a scoped plan, then choose `run_remote_transformation` on the follow-up.
+The deterministic harness has the model first return a scoped plan, then choose `start_research_run` on the follow-up.
 
 ## Assertions Made
 

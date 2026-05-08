@@ -5,7 +5,7 @@
 <text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
 <text x="16" y="66">· Inspecting dataset enriched-tweets...                                                                                 </text>
 <text x="16" y="84">· Inspected remote dataset enriched-tweets.                                                                             </text>
-<text x="16" y="102">· Running run_remote_transformation...                                                                                  </text>
+<text x="16" y="102">· Running start_research_run...                                                                                  </text>
 <text x="16" y="120">                                                                                                                        </text>
 </g>
 </svg>

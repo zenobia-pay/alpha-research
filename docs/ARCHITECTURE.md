@@ -34,7 +34,7 @@ Core tool groups:
 - Auth and session: `login`.
 - Local discovery: `resolve_local_dataset`, `profile_local_dataset`, `list_local_datasets`.
 - Remote dataset/environment: `list_remote_datasets`, `inspect_remote_dataset`, `create_research_environment`, `create_public_data_environment`, upload/deploy tools.
-- Research/run operations: `start_remote_run`, `query_remote_dataset`, `aggregate_remote_dataset`, `fetch_public_data`, transform/labeling tools.
+- Research/run operations: `start_research_run`, `start_research_run`, `start_research_run`, `start_research_run`, transform/labeling tools.
 - Run management: `list_tracked_runs`, `get_run_results`, `list_run_artifacts`, `wait_for_run_completion`, `cancel_remote_run`.
 
 Async run-start tools return immediately unless the user explicitly asks to wait. The CLI then records the run locally and starts or relies on polling to update activity.

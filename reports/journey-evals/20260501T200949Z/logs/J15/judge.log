@@ -214,7 +214,7 @@ Your run is still active, but its last update was under 1 minute ago.
 Run: 1e0d1967-36ea-4306-8597-8c66aeea64b3                                                                               
 Dataset: enriched-tweets                                                                                                
 State: booting                                                                                                          
-Current work: Mounted dataset grounding is mandatory for dataset `enriched-tweets`.                                     
+Current work: Dataset setup is starting for enriched-tweets.                                     
                                                                                                                         
 Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for yo
 ur workload.                                                                                                            
@@ -228,7 +228,7 @@ Your run is still active, but its last update was under 1 minute ago.
 Run: 1e0d1967-36ea-4306-8597-8c66aeea64b3
 Dataset: enriched-tweets
 State: booting
-Current work: Mounted dataset grounding is mandatory for dataset `enriched-tweets`.
+Current work: Dataset setup is starting for enriched-tweets.
 
 Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for your workload.
 Debug: research debug run 1e0d1967-36ea-4306-8597-8c66aeea64b3
@@ -283,7 +283,7 @@ exec
 <text x="16" y="66">Run: 1e0d1967-36ea-4306-8597-8c66aeea64b3                                                                               </text>
 <text x="16" y="84">Dataset: enriched-tweets                                                                                                </text>
 <text x="16" y="102">State: booting                                                                                                          </text>
-<text x="16" y="120">Current work: Mounted dataset grounding is mandatory for dataset `enriched-tweets`.                                     </text>
+<text x="16" y="120">Current work: Dataset setup is starting for enriched-tweets.                                     </text>
 <text x="16" y="138">                                                                                                                        </text>
 <text x="16" y="156">Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for yo</text>
 <text x="16" y="174">ur workload.                                                                                                            </text>
@@ -344,7 +344,7 @@ exec
      3	Run: 1e0d1967-36ea-4306-8597-8c66aeea64b3                                                                               
      4	Dataset: enriched-tweets                                                                                                
      5	State: booting                                                                                                          
-     6	Current work: Mounted dataset grounding is mandatory for dataset `enriched-tweets`.                                     
+     6	Current work: Dataset setup is starting for enriched-tweets.                                     
      7	                                                                                                                        
      8	Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for yo
      9	ur workload.                                                                                                            
@@ -358,7 +358,7 @@ exec
      3	Run: 1e0d1967-36ea-4306-8597-8c66aeea64b3
      4	Dataset: enriched-tweets
      5	State: booting
-     6	Current work: Mounted dataset grounding is mandatory for dataset `enriched-tweets`.
+     6	Current work: Dataset setup is starting for enriched-tweets.
      7	
      8	Recommended next step: keep monitoring if this is a large dataset profile; debug now if the heartbeat looks stale for your workload.
      9	Debug: research debug run 1e0d1967-36ea-4306-8597-8c66aeea64b3
@@ -405,7 +405,7 @@ codex
 
 **Confusing Moments, Ordered by Severity**
 1. **Internal jargon leaks into the main answer**
-   - `Current work: Mounted dataset grounding is mandatory for dataset enriched-tweets.` is not plain language for a normal user.
+   - `Current work: Dataset setup is mandatory for dataset enriched-tweets.` is not plain language for a normal user.
    - A user will not know whether this is progress, a requirement, an error, or a deadlock.
    - Evidence: [snapshot text](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J15/20260501T194504Z/snapshots/0001-final.txt) lines 5-6; [screenshot SVG](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J15/20260501T194504Z/screenshots/0001-final.svg).
 
@@ -452,7 +452,7 @@ codex
 - Move technical metadata into a lighter-weight details section:
   - `Run ID`, `Dataset`, `State`, `Last update`
 - Replace jargon with user-facing language:
-  - `Mounted dataset grounding is mandatory` -> `Waiting for dataset mounting`
+  - `Dataset setup is mandatory` -> `Waiting for dataset mounting`
 - Reduce line wrapping in the action line and make the recommendation easier to scan.
 
 **Evidence References**
@@ -479,7 +479,7 @@ tokens used
 
 **Confusing Moments, Ordered by Severity**
 1. **Internal jargon leaks into the main answer**
-   - `Current work: Mounted dataset grounding is mandatory for dataset enriched-tweets.` is not plain language for a normal user.
+   - `Current work: Dataset setup is mandatory for dataset enriched-tweets.` is not plain language for a normal user.
    - A user will not know whether this is progress, a requirement, an error, or a deadlock.
    - Evidence: [snapshot text](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J15/20260501T194504Z/snapshots/0001-final.txt) lines 5-6; [screenshot SVG](file:///Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J15/20260501T194504Z/screenshots/0001-final.svg).
 
@@ -526,7 +526,7 @@ tokens used
 - Move technical metadata into a lighter-weight details section:
   - `Run ID`, `Dataset`, `State`, `Last update`
 - Replace jargon with user-facing language:
-  - `Mounted dataset grounding is mandatory` -> `Waiting for dataset mounting`
+  - `Dataset setup is mandatory` -> `Waiting for dataset mounting`
 - Reduce line wrapping in the action line and make the recommendation easier to scan.
 
 **Evidence References**

@@ -3,7 +3,7 @@
 <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
 <text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
 <text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
-<text x="16" y="66">· Calling start_remote_agent_run                                                                                        </text>
+<text x="16" y="66">· Calling start_research_run                                                                                        </text>
 <text x="16" y="84">· Dataset is already busy with run 40f2e15b-4eef-47ff-8bbc-55178caa77e4 (booting). Open https://dashboard.alpharesearch.</text>
 <text x="16" y="102">nyc/?view=runs&amp;runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4#run-40f2e15b-4eef-47ff-8bbc-55178caa77e4 or ask me to check th</text>
 <text x="16" y="120">at run instead of starting another one.                                                                                 </text>

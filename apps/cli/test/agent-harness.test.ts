@@ -240,21 +240,31 @@ test("viral tweets follow-up starts through the AI-selected run tool", async () 
         },
       };
     },
-    async startRun() {
+    async startRun(_datasetId: string, prompt: string) {
       startedRun = true;
       return {
         run: {
           id: "run-viral-approved",
           datasetId: "enriched-tweets",
           status: "queued",
-          prompt: "viral tweets",
+          prompt,
           createdAt: "2026-05-01T20:00:00.000Z",
           updatedAt: "2026-05-01T20:00:00.000Z",
         },
       };
     },
-    async respond() {
+    async respond(body: Record<string, unknown>) {
       respondCount += 1;
+      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+        return {
+          sessionId: "viral-ai-session",
+          payload: {
+            id: "viral-generated-prompt",
+            output_text: "Use quote_tweet_count and sample 100 tweets.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Use quote_tweet_count and sample 100 tweets." }] }],
+          },
+        };
+      }
       if (respondCount === 1) {
         return {
           sessionId: "viral-ai-session",
@@ -283,10 +293,11 @@ test("viral tweets follow-up starts through the AI-selected run tool", async () 
           output: [{
             type: "function_call",
             call_id: "call-transform",
-            name: "run_remote_transformation",
+            name: "start_research_run",
             arguments: JSON.stringify({
               datasetId: "enriched-tweets",
-              prompt: "Use quote_tweet_count and sample 100 tweets.",
+              researchIntent: "Use quote_tweet_count and sample 100 tweets.",
+              conversationSummary: "The user approved the viral tweets experiment using quote_tweet_count and sample 100 tweets.",
             }),
           }],
         },
@@ -319,7 +330,7 @@ test("viral tweets follow-up starts through the AI-selected run tool", async () 
   const firstJoined = firstTurn.messages.map((message) => message.content).join("\n");
   const secondJoined = secondTurn.messages.map((message) => message.content).join("\n");
   assert.match(firstJoined, /scoped experiment design/i);
-  assert.match(secondJoined, /Started remote analysis on enriched-tweets/i);
+  assert.match(secondJoined, /Started research run on enriched-tweets/i);
   assert.match(secondJoined, /Run: run-viral-approved/i);
   assert.equal(startedRun, true);
   assert.doesNotMatch(secondJoined, /Which dataset\/research environment to run this on|quoted_tweet_id == target\.tweet_id|separate quotes table/i);
@@ -1034,8 +1045,18 @@ test("async query run returns immediately with canonical dashboard and terminal 
   let startedPrompt = "";
   let startedOptions: Record<string, unknown> | undefined;
   const fakeClient = {
-    async respond() {
+    async respond(body: Record<string, unknown>) {
       calls.push("respond");
+      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+        return {
+          sessionId: "terminal-session-1",
+          payload: {
+            id: "response-generated-prompt",
+            output_text: "Return 10 viral tweets.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Return 10 viral tweets." }] }],
+          },
+        };
+      }
       return {
         sessionId: "terminal-session-1",
         payload: {
@@ -1043,7 +1064,7 @@ test("async query run returns immediately with canonical dashboard and terminal 
           output: [{
             type: "function_call",
             call_id: "call-1",
-            name: "query_remote_dataset",
+            name: "start_research_run",
             arguments: JSON.stringify({
               datasetId: "enriched-tweets",
               prompt: "Return 10 viral tweets.",
@@ -1082,7 +1103,7 @@ test("async query run returns immediately with canonical dashboard and terminal 
   await runAgentTurn("get me 10 viral tweets", session, emit, undefined, deps);
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /Started query run run-123/);
+  assert.match(final, /Started research run on enriched-tweets/);
   assert.match(final, /Run: run-123/);
   assert.match(final, /State: starting\. The backend worker is initializing now\./);
   assert.match(final, /research show active runs/);
@@ -1288,7 +1309,18 @@ test("whats-in dataset question reads briefing markdown without starting a run",
 test("specific viral tweets experiment starts with user-facing analysis summary and artifact expectations", async () => {
   let startedPrompt = "";
   const fakeClient = {
-    async respond() {
+    async respond(body: Record<string, unknown>) {
+      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+        const text = "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.";
+        return {
+          sessionId: "viral-session",
+          payload: {
+            id: "viral-generated-prompt",
+            output_text: text,
+            output: [{ type: "message", content: [{ type: "output_text", text }] }],
+          },
+        };
+      }
       return {
         sessionId: "viral-session",
         payload: {
@@ -1309,7 +1341,7 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
             {
               type: "function_call",
               call_id: "call-transform",
-              name: "run_remote_transformation",
+              name: "start_research_run",
               arguments: JSON.stringify({
                 datasetId: "enriched-tweets",
                 prompt: "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
@@ -1373,9 +1405,9 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
   const joinedMessages = messages.map((message) => message.content).join("\n");
   assert.match(joinedMessages, /Checking remote datasets/);
   assert.match(joinedMessages, /Inspecting dataset enriched-tweets/);
-  assert.match(joinedMessages, /Starting remote analysis for enriched-tweets/);
+  assert.match(joinedMessages, /Starting remote run for enriched-tweets/);
   assert.doesNotMatch(joinedMessages, /Top matches for "enriched-tweets"/);
-  assert.match(joinedMessages, /Started remote analysis on enriched-tweets/);
+  assert.match(joinedMessages, /Started research run on enriched-tweets/);
   assert.match(joinedMessages, /Run: run-transform-viral/);
   assert.match(joinedMessages, /State: queued\. The request is accepted and waiting for backend capacity\./);
   assert.match(joinedMessages, /Expected artifacts: bar chart, structured JSON results, representative examples/);
@@ -1388,7 +1420,18 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
 test("specific viral tweets experiment uses AI-selected run tool even when dataset state is unresolved", async () => {
   const calls: string[] = [];
   const fakeClient = {
-    async respond() {
+    async respond(body: Record<string, unknown>) {
+      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+        const text = "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.";
+        return {
+          sessionId: "viral-block-session",
+          payload: {
+            id: "viral-block-generated-prompt",
+            output_text: text,
+            output: [{ type: "message", content: [{ type: "output_text", text }] }],
+          },
+        };
+      }
       return {
         sessionId: "viral-block-session",
         payload: {
@@ -1396,7 +1439,7 @@ test("specific viral tweets experiment uses AI-selected run tool even when datas
           output: [{
             type: "function_call",
             call_id: "call-start",
-            name: "run_remote_transformation",
+            name: "start_research_run",
             arguments: JSON.stringify({
               datasetId: "enriched-tweets",
               prompt: "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
@@ -1447,8 +1490,8 @@ test("specific viral tweets experiment uses AI-selected run tool even when datas
   assert.deepEqual(calls, ["listDatasets", "startRun"]);
   const final = messages.at(-1)?.content ?? "";
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Starting remote analysis for enriched-tweets/i);
-  assert.match(final, /Started remote analysis on enriched-tweets/i);
+  assert.match(joined, /Starting remote run for enriched-tweets/i);
+  assert.match(final, /Started research run on enriched-tweets/i);
   assert.match(final, /run-viral-uploading/i);
 });
 
@@ -2293,93 +2336,19 @@ test("continuity question returns compact lifecycle summary without tool chatter
   assert.doesNotMatch(final, /Running list_run_artifacts|Checking run history|Remote Agent Transcript|No produced artifacts found/);
 });
 
-test("non-resumable run continuation returns artifacts instead of crashing", async () => {
-  const calls: string[] = [];
-  const fakeClient = {
-    async respond(body: Record<string, unknown>) {
-      calls.push("respond");
-      if (Array.isArray(body.input)) {
-        const toolOutput = JSON.parse(String((body.input[0] as Record<string, unknown>).output)) as {
-          summary: string;
-          data: { reason?: string; artifacts?: Array<{ title: string }> };
-        };
-        assert.equal(toolOutput.data.reason, "not_resumable");
-        assert.equal(toolOutput.data.artifacts?.[0]?.title, "Remote Agent Summary");
-        return {
-          sessionId: "terminal-session-non-resumable",
-          payload: {
-            id: "response-non-resumable-2",
-            output_text: `Could not resume. ${toolOutput.summary}`,
-            output: [{
-              type: "message",
-              content: [{ type: "output_text", text: `Could not resume. ${toolOutput.summary}` }],
-            }],
-          },
-        };
-      }
-      return {
-        sessionId: "terminal-session-non-resumable",
-        payload: {
-          id: "response-non-resumable-1",
-          output: [{
-            type: "function_call",
-            call_id: "call-non-resumable",
-            name: "continue_remote_agent_run",
-            arguments: JSON.stringify({
-              runId: "run-no-session",
-              prompt: "Continue from the prior output.",
-            }),
-          }],
-        },
-      };
-    },
-    async getRunResults() {
-      calls.push("getRunResults");
-      return {
-        run: {
-          id: "run-no-session",
-          datasetId: "econ",
-          status: "ready",
-          prompt: "Original run.",
-        },
-        metadata: null,
-        events: [],
-        artifacts: [{
-          id: "artifact-summary",
-          runId: "run-no-session",
-          type: "markdown",
-          title: "Remote Agent Summary",
-          content: "Finished without a resumable session.",
-        }],
-      };
-    },
-    async startRun() {
-      calls.push("startRun");
-      throw new Error("startRun should not be called for a non-resumable continuation.");
-    },
-    async appendSessionEntry() {
-      calls.push("appendSessionEntry");
-      return { id: "entry-non-resumable" };
-    },
-  };
-  const deps: AgentRuntimeDeps = {
-    ...createDefaultAgentRuntimeDeps(),
-    createRemoteClient: () => fakeClient as never,
-    readSession: async () => session,
-  };
-  const { messages, emit } = collect();
-
-  await runAgentTurn("continue run-no-session", session, emit, undefined, deps);
-
-  const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /does not have a resumable remote agent session/);
-  assert.equal(calls.includes("getRunResults"), true);
-  assert.equal(calls.includes("startRun"), false);
-});
-
 test("busy dataset conflict returns blocking run guidance", async () => {
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
+      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+        return {
+          sessionId: "terminal-session-3",
+          payload: {
+            id: "response-busy-generated-prompt",
+            output_text: "Run analysis.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Run analysis." }] }],
+          },
+        };
+      }
       if (Array.isArray(body.input)) {
         return {
           sessionId: "terminal-session-3",
@@ -2397,7 +2366,7 @@ test("busy dataset conflict returns blocking run guidance", async () => {
           output: [{
             type: "function_call",
             call_id: "call-1",
-            name: "query_remote_dataset",
+            name: "start_research_run",
             arguments: JSON.stringify({ datasetId: "busy-dataset", prompt: "Run analysis." }),
           }],
         },
@@ -2424,7 +2393,7 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   await runAgentTurn("run analysis on busy dataset", session, emit, undefined, deps);
 
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Blocked: this query is already running on this dataset\./);
+  assert.match(joined, /Blocked: this research run is already running on this dataset\./);
   assert.match(joined, /Using dataset busy-dataset for /);
   assert.match(joined, /Blocking run: run-blocking/);
   assert.match(joined, /I did not start a duplicate run/);
@@ -3520,9 +3489,10 @@ test("product workflow success: econ research hypothesis creates data environmen
       },
     },
     {
-      name: "run_remote_transformation",
+      name: "start_research_run",
       arguments: {
         datasetId: "econ-housing-cycle",
+        runType: "transform",
         prompt: "Create the county-month analysis panel for the housing-rate hypothesis.",
         scriptOutline: "Join FRED mortgage rates, FHFA HPI, Census permits/income, BLS unemployment, and BEA income by county_fips/month; compute lags, deltas, quartiles, and missingness flags.",
       },
@@ -3532,9 +3502,10 @@ test("product workflow success: econ research hypothesis creates data environmen
       arguments: { runId: "run-transform", timeoutSeconds: 0 },
     },
     {
-      name: "run_remote_labeling",
+      name: "start_research_run",
       arguments: {
         datasetId: "econ-housing-cycle",
+        runType: "label",
         prompt: "Label market regimes on the county-month panel.",
         labelingPrompt: "For each county-month, assign expansion, slowdown, or stress using mortgage-rate changes, unemployment trend, HPI trend, permit growth, and income growth. Return the label and short rationale.",
       },
@@ -3544,9 +3515,10 @@ test("product workflow success: econ research hypothesis creates data environmen
       arguments: { runId: "run-label", timeoutSeconds: 0 },
     },
     {
-      name: "start_remote_run",
+      name: "start_research_run",
       arguments: {
         datasetId: "econ-housing-cycle",
+        runType: "hypothesis",
         prompt: "Test whether rising mortgage rates reduce housing permits most in counties with weaker income growth, using the labeled county-month panel.",
         type: "hypothesis",
         config: {
@@ -3574,6 +3546,24 @@ test("product workflow success: econ research hypothesis creates data environmen
 
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
+      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+        const parsed = JSON.parse(String(body.input));
+        const runType = String(parsed.runType ?? "analysis");
+        const textByType: Record<string, string> = {
+          transform: "Create the county-month analysis panel for the housing-rate hypothesis.",
+          label: "Label market regimes on the county-month panel.",
+          hypothesis: "Test whether rising mortgage rates reduce housing permits most in counties with weaker income growth, using the labeled county-month panel.",
+        };
+        const text = textByType[runType] ?? "Run the scoped research task.";
+        return {
+          sessionId: "product-session",
+          payload: {
+            id: `product-generated-${runType}`,
+            output_text: text,
+            output: [{ type: "message", content: [{ type: "output_text", text }] }],
+          },
+        };
+      }
       if (Array.isArray(body.input)) {
         const next = responses.shift();
         if (!next) {
@@ -3810,8 +3800,7 @@ test("product workflow success: econ research hypothesis creates data environmen
   assert.match(joinedMessages, /No remote datasets found; a new build will be needed if the plan proceeds\./);
   assert.doesNotMatch(joinedMessages, /Reviewing remote datasets and drafting the next step\.\.\./);
   assert.match(joinedMessages, /Created research spec spec-housing-rates/);
-  assert.match(joinedMessages, /Starting remote analysis for econ-housing-cycle\.\.\./);
-  assert.match(joinedMessages, /Starting labeling run for econ-housing-cycle\.\.\./);
+  assert.match(joinedMessages, /Starting remote run for econ-housing-cycle\.\.\./);
   assert.match(joinedMessages, /Starting remote run for econ-housing-cycle\.\.\./);
   assert.match(joinedMessages, /Regression summary/);
   assert.match(joinedMessages, /Permit sensitivity by income-growth quartile/);

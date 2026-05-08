@@ -83,15 +83,15 @@ test("prompt mode surfaces a fix-first readiness label for trust-before-study pr
   );
 });
 
-test("prompt mode treats fully specified tweet experiments as immediate research work", () => {
+test("prompt mode treats fully specified dataset experiments generically", () => {
   assert.equal(
-    initialPromptModeStatus("Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples."),
-    "Scoping experiment design...",
+    initialPromptModeStatus("Using econ, test whether housing price growth predicts county employment growth and produce a table plus one chart."),
+    "Thinking...",
   );
 });
 
-test("prompt mode kickoff for fully specified tweet experiments preserves the exact request", async () => {
-  const child = spawn(process.execPath, ["--import", "tsx", "apps/cli/src/index.ts", "--prompt", "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples."], {
+test("prompt mode kickoff for fully specified experiments stays generic", async () => {
+  const child = spawn(process.execPath, ["--import", "tsx", "apps/cli/src/index.ts", "--prompt", "Using econ, test whether housing price growth predicts county employment growth and produce a table plus one chart."], {
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -115,7 +115,7 @@ test("prompt mode kickoff for fully specified tweet experiments preserves the ex
   const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error("viral prompt kickoff did not exit cleanly"));
+      reject(new Error("prompt kickoff did not exit cleanly"));
     }, 4000);
     child.on("exit", (code, signal) => {
       clearTimeout(timeout);
@@ -125,7 +125,8 @@ test("prompt mode kickoff for fully specified tweet experiments preserves the ex
 
   assert.equal(result.signal, null);
   assert.equal(result.code, 0);
-  assert.match(stdout, /Request understood: use\s+enriched-tweets and preserve top 0\.1%,\s+random sample of 100, strict JSON\s+labels, a bar chart, and 10 examples\./);
+  assert.match(stdout, /Sign in first with `\/login`/);
+  assert.doesNotMatch(stdout, /top 0\.1%|strict JSON|representative examples|quote_tweet_count/i);
   assert.equal(stderr, "");
 });
 

@@ -10,7 +10,7 @@ This protects the contract that the CLI does not locally parse and compile a spe
 
 ## Actions Taken
 
-The deterministic harness has the model choose `run_remote_transformation` for `enriched-tweets`. The fake backend accepts the run.
+The deterministic harness has the model choose `start_research_run` for `enriched-tweets`. The fake backend accepts the run.
 
 ## Assertions Made
 

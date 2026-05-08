@@ -232,16 +232,9 @@ type ResponsesApiPayload = {
 const DATASET_EXTENSIONS = [".parquet", ".csv", ".json", ".txt", ".md", ".markdown", ".html", ".htm", ".pdf"];
 const MAX_TOOL_ROUNDS = 12;
 const ASYNC_RUN_START_TOOLS = new Set([
-  "start_remote_run",
-  "query_remote_dataset",
-  "aggregate_remote_dataset",
-  "fetch_public_data",
+  "start_research_run",
   "deploy_remote_dataset",
   "deploy_local_instance",
-  "start_remote_agent_run",
-  "continue_remote_agent_run",
-  "run_remote_transformation",
-  "run_remote_labeling",
   "create_public_data_environment",
   "create_research_environment",
 ]);
@@ -277,6 +270,22 @@ const AGENT_INSTRUCTIONS = [
   "Always give 2-3 concrete follow-up suggestions grounded in the result.",
   "",
   "Be concise. After tool work completes, summarize the result and current status.",
+].join("\n");
+
+const REMOTE_RUN_PROMPT_INSTRUCTIONS = [
+  "You write the prompt for a remote Codex research run.",
+  "",
+  "The prompt will be sent to an agent attached to one specific research dataset. Write only the remote-run prompt text.",
+  "",
+  "Make it concrete, grounded, and falsifiable. Include:",
+  "1. The dataset/environment to use.",
+  "2. The research question or task.",
+  "3. The exact data subset, variables, labels, transformations, or scripts needed.",
+  "4. The expected outputs, including report sections, tables, charts, and artifact names.",
+  "5. Quality checks and limitations the remote agent should report.",
+  "",
+  "Use researcher-facing language. Do not mention RESEARCH CLI internals, tool names, stack traces, UUIDs, networking, mounts, or cloud lifecycle details.",
+  "Do not add generic boilerplate. Do not invent a special-case template. Base the prompt only on the provided conversation context and selected dataset.",
 ].join("\n");
 
 function formatNumber(value: number) {
@@ -764,7 +773,6 @@ function summarizePromptForHumans(prompt: string | undefined, datasetId: string)
   const firstLine = prompt?.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
   const cleaned = firstLine
     .replace(/[`"'"]/g, "")
-    .replace(/^mounted dataset grounding is mandatory.*$/i, "")
     .replace(/^describe dataset\s+/i, "Describe ")
     .trim();
   if (cleaned) {
@@ -3333,18 +3341,12 @@ function summarizeTrackedRunWork(run: { datasetId: string; prompt?: string; last
   if (!firstPromptLine) {
     return "Remote processing is in progress.";
   }
-  if (/mounted dataset grounding is mandatory/i.test(firstPromptLine)) {
-    return `Waiting for dataset ${run.datasetId} to be mounted so the run can start reading it.`;
-  }
   return firstPromptLine.endsWith(".") ? firstPromptLine : `${firstPromptLine}.`;
 }
 
 function summarizeRunEventForHumans(message: string) {
   if (/Remote agent droplet .* launched in /i.test(message)) {
     return "Worker started and is still getting ready.";
-  }
-  if (/mounted dataset grounding is mandatory/i.test(message)) {
-    return "Waiting for the dataset mount before analysis can start.";
   }
   return message.endsWith(".") ? message : `${message}.`;
 }
@@ -3542,15 +3544,8 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
       return "Checking run history...";
     case "get_run_results":
       return `Retrieving results for run ${String(input.runId ?? "").trim() || ""}...`.trim();
-    case "start_remote_run":
-    case "start_remote_agent_run":
-    case "query_remote_dataset":
-    case "aggregate_remote_dataset":
+    case "start_research_run":
       return `Starting remote run for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
-    case "run_remote_transformation":
-      return `Starting remote analysis for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
-    case "run_remote_labeling":
-      return `Starting labeling run for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
     case "create_research_environment":
     case "create_public_data_environment":
       return "Starting dataset build...";
@@ -3575,6 +3570,46 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
 
 function shouldEchoToolResult(toolName: string, summary: string) {
   return !summary.startsWith("Blocked:") && !ASYNC_RUN_START_TOOLS.has(toolName);
+}
+
+function normalizeResearchRunType(value: unknown) {
+  const normalized = typeof value === "string" ? value.toLowerCase().trim() : "";
+  if (["analysis", "fetch", "transform", "label", "hypothesis", "agent", "query"].includes(normalized)) {
+    return normalized;
+  }
+  return "analysis";
+}
+
+function researchRunTypeFromInput(input: Record<string, unknown>) {
+  return normalizeResearchRunType(input.runType ?? input.type);
+}
+
+async function generateRemoteResearchRunPrompt(
+  context: ToolExecutionContext,
+  input: Record<string, unknown>,
+  datasetId: string,
+) {
+  const client = createRemoteClient(context);
+  const promptInput = {
+    datasetId,
+    runType: researchRunTypeFromInput(input),
+    researchIntent: typeof input.researchIntent === "string" ? input.researchIntent : typeof input.prompt === "string" ? input.prompt : "",
+    conversationSummary: typeof input.conversationSummary === "string" ? input.conversationSummary : typeof input.prompt === "string" ? input.prompt : "",
+    dataPlan: typeof input.dataPlan === "string" ? input.dataPlan : "",
+    outputPlan: typeof input.outputPlan === "string" ? input.outputPlan : "",
+    qualityPlan: typeof input.qualityPlan === "string" ? input.qualityPlan : "",
+    artifacts: Array.isArray(input.artifacts) ? input.artifacts : undefined,
+  };
+  const response = await client.respond({
+    instructions: REMOTE_RUN_PROMPT_INSTRUCTIONS,
+    input: JSON.stringify(promptInput, null, 2),
+    parallel_tool_calls: false,
+  });
+  const prompt = extractOutputText(response.payload as ResponsesApiPayload).trim();
+  if (!prompt) {
+    throw new Error("Remote run prompt generation returned an empty prompt.");
+  }
+  return prompt;
 }
 
 function normalizeAsyncRunStatus(status: unknown) {
@@ -3616,8 +3651,7 @@ function inferArtifactExpectations(toolName: string, resultData: Record<string, 
   if (promptLower.includes("bar chart")) hints.add("bar chart");
   if (promptLower.includes("representative example")) hints.add("representative examples");
   if (promptLower.includes("strict json")) hints.add("structured JSON results");
-  if (toolName === "run_remote_labeling") hints.add("labeling output");
-  if (toolName === "run_remote_transformation" && hints.size === 0) hints.add("analysis outputs");
+  if (toolName === "start_research_run" && hints.size === 0) hints.add("analysis outputs");
   return [...hints].slice(0, 4);
 }
 
@@ -3638,18 +3672,12 @@ function asyncRunLaunchSummary(
   const stateLine = asyncRunStateLine(status);
   const headline = (() => {
     switch (toolName) {
-      case "run_remote_transformation":
-        return `Started remote analysis${datasetId ? ` on ${datasetId}` : ""}.`;
-      case "run_remote_labeling":
-        return `Started remote labeling${datasetId ? ` on ${datasetId}` : ""}.`;
       case "create_research_environment":
         return `Started research environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
       case "create_public_data_environment":
         return `Started public-data environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
-      case "query_remote_dataset":
-        return `Started query run ${runId ?? "unknown"}${datasetId ? ` on ${datasetId}` : ""}.`;
-      case "aggregate_remote_dataset":
-        return `Started aggregate run ${runId ?? "unknown"}${datasetId ? ` on ${datasetId}` : ""}.`;
+      case "start_research_run":
+        return `Started research run${datasetId ? ` on ${datasetId}` : ""}.`;
       default:
         return `Started run ${runId ?? "unknown"}${datasetId ? ` on ${datasetId}` : ""}.`;
     }
@@ -4417,41 +4445,48 @@ export function createToolRegistry(): ToolDefinition[] {
       },
     },
     {
-      name: "start_remote_run",
-      description: "Start a structured remote agent run against a dataset, including hypothesis tests, public-data fetches, transformations, labeling jobs, and artifact requests.",
+      name: "start_research_run",
+      description: "Start one research run after enough context has been gathered. This tool first generates the remote Codex prompt from the conversation context, then starts the run against the selected dataset.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           datasetId: { type: "string" },
-          prompt: { type: "string" },
-          type: {
+          researchIntent: { type: "string" },
+          conversationSummary: { type: "string" },
+          dataPlan: { type: "string" },
+          outputPlan: { type: "string" },
+          qualityPlan: { type: "string" },
+          runType: {
             type: "string",
-            enum: ["analysis", "fetch", "transform", "label", "hypothesis", "agent"],
+            enum: ["analysis", "fetch", "transform", "label", "hypothesis", "agent", "query"],
           },
-          config: { type: "object" },
           artifacts: {
             type: "array",
             items: { type: "object" },
           },
         },
-        required: ["datasetId", "prompt"],
+        required: ["datasetId", "researchIntent", "conversationSummary"],
       },
       async execute(context, input) {
         const client = createRemoteClient(context);
         const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
         const datasetId = target.datasetId;
-        const prompt = String(input.prompt);
+        const generatedPrompt = await generateRemoteResearchRunPrompt(context, input, datasetId);
+        const runType = researchRunTypeFromInput(input);
         let result;
         try {
-          result = await client.startRun(datasetId, prompt, {
-            type: typeof input.type === "string" ? input.type : undefined,
-            config: withStandardAnalysisResources(input.config && typeof input.config === "object" ? input.config as Record<string, unknown> : undefined, datasetId),
+          result = await client.startRun(datasetId, generatedPrompt, {
+            type: runType,
+            config: withStandardAnalysisResources({
+              generatedBy: "start_research_run",
+              researchIntent: typeof input.researchIntent === "string" ? input.researchIntent : typeof input.prompt === "string" ? input.prompt : "",
+            }, datasetId),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
           });
         } catch (error) {
           if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this run" });
+            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this research run" });
             if (summary) {
               return { summary, data: { ok: false, reason: "dataset_busy" } };
             }
@@ -4464,167 +4499,14 @@ export function createToolRegistry(): ToolDefinition[] {
             datasetId: result.run.datasetId,
             origin: context.session.origin,
             status: result.run.status,
-            prompt: result.run.prompt ?? prompt,
+            prompt: result.run.prompt ?? generatedPrompt,
             createdAt: result.run.createdAt,
             updatedAt: result.run.updatedAt,
           });
           spawnRunWatcher(result.run.id);
         }
         return {
-          summary: `Started run ${result.run.id} on ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
-          data: result,
-        };
-      },
-    },
-    {
-      name: "query_remote_dataset",
-      description: "Start a lightweight remote query against a deployed dataset and return immediately with a run id and dashboard link.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          prompt: { type: "string" },
-        },
-        required: ["datasetId", "prompt"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
-        const datasetId = target.datasetId;
-        const prompt = String(input.prompt);
-        let started;
-        try {
-          started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
-            type: "query",
-            config: withStandardAnalysisResources(undefined, datasetId),
-            artifacts: [{ type: "query_result", title: "Query Result" }],
-          }));
-        } catch (error) {
-          if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this query" });
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
-            }
-          }
-          throw error;
-        }
-        if (context.session) {
-          await trackRemoteRun({
-            id: started.run.id,
-            datasetId: started.run.datasetId,
-            origin: context.session.origin,
-            status: started.run.status,
-            prompt: started.run.prompt ?? prompt,
-            createdAt: started.run.createdAt,
-            updatedAt: started.run.updatedAt,
-          });
-          spawnRunWatcher(started.run.id);
-        }
-        return {
-          summary: `Started query run ${started.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, started.run.id)}`,
-          data: { run: started.run, pending: true },
-        };
-      },
-    },
-    {
-      name: "aggregate_remote_dataset",
-      description: "Start a lightweight remote aggregation against a deployed dataset and return immediately with a run id and dashboard link.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          prompt: { type: "string" },
-        },
-        required: ["datasetId", "prompt"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
-        const datasetId = target.datasetId;
-        const prompt = String(input.prompt);
-        let started;
-        try {
-          started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
-            type: "query",
-            config: withStandardAnalysisResources(undefined, datasetId),
-            artifacts: [{ type: "aggregate_result", title: "Aggregate Result" }],
-          }));
-        } catch (error) {
-          if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this aggregation" });
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
-            }
-          }
-          throw error;
-        }
-        if (context.session) {
-          await trackRemoteRun({
-            id: started.run.id,
-            datasetId: started.run.datasetId,
-            origin: context.session.origin,
-            status: started.run.status,
-            prompt: started.run.prompt ?? prompt,
-            createdAt: started.run.createdAt,
-            updatedAt: started.run.updatedAt,
-          });
-          spawnRunWatcher(started.run.id);
-        }
-        return {
-          summary: `Started aggregate run ${started.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, started.run.id)}`,
-          data: { run: started.run, pending: true },
-        };
-      },
-    },
-    {
-      name: "fetch_public_data",
-      description: "Queue a remote public-data acquisition run that fetches internet data into a research environment.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          sourceDescription: { type: "string" },
-          prompt: { type: "string" },
-        },
-        required: ["datasetId", "sourceDescription", "prompt"],
-      },
-      async execute(context, input) {
-        const sourceDescription = String(input.sourceDescription);
-        const client = createRemoteClient(context);
-        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
-        const datasetId = target.datasetId;
-        let result;
-        try {
-          result = await client.startRun(datasetId, String(input.prompt), {
-            type: "fetch",
-            config: { sourceDescription },
-          });
-        } catch (error) {
-          if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
-            }
-          }
-          throw error;
-        }
-        if (context.session) {
-          await trackRemoteRun({
-            id: result.run.id,
-            datasetId: result.run.datasetId,
-            origin: context.session.origin,
-            status: result.run.status,
-            prompt: result.run.prompt,
-            createdAt: result.run.createdAt,
-            updatedAt: result.run.updatedAt,
-          });
-          spawnRunWatcher(result.run.id);
-        }
-        return {
-          summary: `Queued public-data fetch run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
+          summary: `Started research run ${result.run.id} on ${datasetId}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
           data: result,
         };
       },
@@ -4673,235 +4555,6 @@ export function createToolRegistry(): ToolDefinition[] {
       },
       async execute(context, input) {
         return startDatasetBriefingRun(context, input);
-      },
-    },
-    {
-      name: "start_remote_agent_run",
-      description: "Start a remote agent run on a dataset-attached cloud environment and track its results.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          prompt: { type: "string" },
-          artifacts: {
-            type: "array",
-            items: { type: "object" },
-          },
-        },
-        required: ["datasetId", "prompt"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
-        const datasetId = target.datasetId;
-        let result;
-        try {
-          result = await client.startRun(datasetId, String(input.prompt), {
-            type: "agent",
-            config: withStandardAnalysisResources(undefined, datasetId),
-            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
-          });
-        } catch (error) {
-          if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this remote agent run" });
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
-            }
-          }
-          throw error;
-        }
-        if (context.session) {
-          await trackRemoteRun({
-            id: result.run.id,
-            datasetId: result.run.datasetId,
-            origin: context.session.origin,
-            status: result.run.status,
-            prompt: result.run.prompt ?? String(input.prompt),
-            createdAt: result.run.createdAt,
-            updatedAt: result.run.updatedAt,
-          });
-          spawnRunWatcher(result.run.id);
-        }
-        return {
-          summary: `Queued remote agent run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
-          data: result,
-        };
-      },
-    },
-    {
-      name: "continue_remote_agent_run",
-      description: "Continue a previous remote agent run by resuming its remote agent session with a follow-up prompt.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          runId: { type: "string" },
-          prompt: { type: "string" },
-          artifacts: {
-            type: "array",
-            items: { type: "object" },
-          },
-        },
-        required: ["runId", "prompt"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const previous = await client.getRunResults(String(input.runId));
-        const sessionArtifact = previous.artifacts.find((artifact) => artifact.type === "remote_agent_session");
-        const sessionId = sessionArtifact && typeof sessionArtifact.content === "object" && sessionArtifact.content
-          ? String((sessionArtifact.content as Record<string, unknown>).sessionId ?? "")
-          : "";
-        if (!sessionId) {
-          return {
-            summary: `Run ${String(input.runId)} does not have a resumable remote agent session. Use the saved run artifacts or start a new run for follow-up work.`,
-            data: {
-              ok: false,
-              reason: "not_resumable",
-              run: previous.run,
-              artifacts: previous.artifacts.filter(isProducedArtifact),
-            },
-          };
-        }
-        let result;
-        try {
-          result = await client.startRun(previous.run.datasetId, String(input.prompt), {
-            type: "agent",
-            config: withStandardAnalysisResources({ remoteAgentSessionId: sessionId, parentRunId: String(input.runId) }, previous.run.datasetId),
-            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
-          });
-        } catch (error) {
-          if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
-            }
-          }
-          throw error;
-        }
-        if (context.session) {
-          await trackRemoteRun({
-            id: result.run.id,
-            datasetId: result.run.datasetId,
-            origin: context.session.origin,
-            status: result.run.status,
-            prompt: result.run.prompt ?? String(input.prompt),
-            createdAt: result.run.createdAt,
-            updatedAt: result.run.updatedAt,
-          });
-          spawnRunWatcher(result.run.id);
-        }
-        return {
-          summary: `Queued continuation of remote agent session ${sessionId} as run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
-          data: result,
-        };
-      },
-    },
-    {
-      name: "run_remote_transformation",
-      description: "Queue a remote transformation run that reshapes or filters data inside an existing research environment.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          prompt: { type: "string" },
-          scriptOutline: { type: "string" },
-        },
-        required: ["datasetId", "prompt"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
-        const datasetId = target.datasetId;
-        let result;
-        try {
-          result = await client.startRun(datasetId, String(input.prompt), {
-            type: "transform",
-            config: withStandardAnalysisResources({
-              scriptOutline: typeof input.scriptOutline === "string" ? input.scriptOutline : undefined,
-            }, datasetId),
-          });
-        } catch (error) {
-          if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error, { target, purpose: "this transformation" });
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
-            }
-          }
-          throw error;
-        }
-        if (context.session) {
-          await trackRemoteRun({
-            id: result.run.id,
-            datasetId: result.run.datasetId,
-            origin: context.session.origin,
-            status: result.run.status,
-            prompt: result.run.prompt,
-            createdAt: result.run.createdAt,
-            updatedAt: result.run.updatedAt,
-          });
-          spawnRunWatcher(result.run.id);
-        }
-        return {
-          summary: `Queued transformation run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
-          data: result,
-        };
-      },
-    },
-    {
-      name: "run_remote_labeling",
-      description: "Queue a remote labeling or enrichment run, including the explicit LLM prompt to use for labeling data points.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          prompt: { type: "string" },
-          labelingPrompt: { type: "string" },
-        },
-        required: ["datasetId", "prompt", "labelingPrompt"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const labelingPrompt = String(input.labelingPrompt);
-        const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
-        const datasetId = target.datasetId;
-        let result;
-        try {
-          result = await client.startRun(
-            datasetId,
-            String(input.prompt),
-            {
-              type: "label",
-              config: withStandardAnalysisResources({ labelingPrompt }, datasetId),
-            },
-          );
-        } catch (error) {
-          if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
-            }
-          }
-          throw error;
-        }
-        if (context.session) {
-          await trackRemoteRun({
-            id: result.run.id,
-            datasetId: result.run.datasetId,
-            origin: context.session.origin,
-            status: result.run.status,
-            prompt: result.run.prompt,
-            createdAt: result.run.createdAt,
-            updatedAt: result.run.updatedAt,
-          });
-          spawnRunWatcher(result.run.id);
-        }
-        return {
-          summary: `Queued labeling run ${result.run.id}. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
-          data: result,
-        };
       },
     },
     {

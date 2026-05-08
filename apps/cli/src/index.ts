@@ -116,9 +116,6 @@ export function initialPromptModeStatus(prompt: string) {
       ? `Inspecting ${datasetReference}: sources, schema, coverage, quality, limitations...`
       : "Inspecting dataset: sources, schema, coverage, quality, limitations...";
   }
-  if (/\bviral tweets?\b|\bquote_tweet_count\b|\bstrict json\b|\brepresentative examples\b/.test(lower)) {
-    return "Scoping experiment design...";
-  }
   if (/\banaly[sz]e\b|\bresearch\b|\bhypothesis\b|\bexperiment\b/.test(lower)) {
     return "Planning dataset-backed research...";
   }
@@ -146,16 +143,6 @@ function promptModeKickoffMessage(prompt: string) {
     return "Request understood: broad business-opportunity research needs a bounded study and your approval before I spend remote time.";
   }
   const datasetReference = extractPromptDatasetReference(prompt);
-  const viralTweetsMatch = prompt.match(/\busing\s+([a-z0-9][a-z0-9_-]*)\b/i);
-  if (
-    viralTweetsMatch?.[1]
-    && /\bviral tweets?\b/i.test(prompt)
-    && /\bquote_tweet_count\b/i.test(prompt)
-    && /\bstrict json\b/i.test(prompt)
-  ) {
-    const examplesMatch = prompt.match(/\b(\d+)\s+representative examples\b/i);
-    return `Request understood: use ${viralTweetsMatch[1]} and preserve top 0.1%, random sample of 100, strict JSON labels, a bar chart, and ${examplesMatch?.[1] ?? "representative"} examples.`;
-  }
   if (
     datasetReference
     && /\bdataset\b/i.test(prompt)

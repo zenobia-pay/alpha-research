@@ -291,7 +291,7 @@ Intention:
 The user supplies dataset, metric, threshold, sample size, labeling fields, and outputs.
 
 Correct outcome:
-`research` kicks off the run. It requires mounted dataset grounding, starts analysis/labeling work, returns run id/status/artifact expectations, and only asks a question if the dataset or fields are missing.
+`research` kicks off the run against the selected dataset, starts analysis/labeling work, returns run id/status/artifact expectations, and only asks a question if the dataset or fields are missing.
 
 Judge for:
 Did it start rather than over-clarify, preserve the exact design, show run id and expected artifacts, and warn if fields were unavailable?

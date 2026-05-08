@@ -13,7 +13,7 @@ test("tool registry is structurally valid and serializable", () => {
 
 test("tool registry metadata exposes async run-start tools", () => {
   const metadata = getToolRegistryMetadata();
-  const query = metadata.find((tool) => tool.name === "query_remote_dataset");
+  const query = metadata.find((tool) => tool.name === "start_research_run");
   assert.equal(query?.asyncRunStart, true);
   assert.equal(metadata.every((tool) => typeof tool.description === "string" && tool.description.length > 0), true);
 });

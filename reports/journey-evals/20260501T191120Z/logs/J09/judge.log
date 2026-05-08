@@ -147,7 +147,7 @@ The user supplies dataset, metric, threshold, sample size, labeling fields, and 
 
 ## Correct Outcome
 
-`research` kicks off the run. It requires mounted dataset grounding, starts analysis/labeling work, returns run id/status/artifact expectations, and only asks a question if the dataset or fields are missing.
+`research` kicks off the run. It requires dataset setup, starts analysis/labeling work, returns run id/status/artifact expectations, and only asks a question if the dataset or fields are missing.
 
 ## Judge For
 

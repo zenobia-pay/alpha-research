@@ -41,10 +41,10 @@
       "Proceed with this default design?"
     ],
     "forbiddenToolCalls": [
-      "query_remote_dataset",
-      "start_remote_run",
-      "run_remote_labeling",
-      "start_remote_agent_run"
+      "start_research_run",
+      "start_research_run",
+      "start_research_run",
+      "start_research_run"
     ]
   }
 }

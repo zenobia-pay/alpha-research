@@ -7,7 +7,7 @@
 <text x="16" y="84">· Inspected remote dataset enriched-tweets.                                                                             </text>
 <text x="16" y="102">· Calling create_research_spec                                                                                          </text>
 <text x="16" y="120">· Created research spec b4cfe420-9bfd-4000-b13f-b1b91162e803.                                                           </text>
-<text x="16" y="138">· Calling start_remote_run                                                                                              </text>
+<text x="16" y="138">· Calling start_research_run                                                                                              </text>
 <text x="16" y="156">· Started run 40f2e15b-4eef-47ff-8bbc-55178caa77e4 on enriched-tweets. Dashboard: https://dashboard.alpharesearch.nyc/?v</text>
 <text x="16" y="174">iew=runs&amp;runId=40f2e15b-4eef-47ff-8bbc-55178caa77e4#run-40f2e15b-4eef-47ff-8bbc-55178caa77e4                            </text>
 <text x="16" y="192">Started run 40f2e15b-4eef-47ff-8bbc-55178caa77e4 on enriched-tweets. Dashboard: https://dashboard.alpharesearch.nyc/?vie</text>

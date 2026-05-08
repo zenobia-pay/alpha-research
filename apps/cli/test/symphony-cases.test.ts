@@ -212,7 +212,7 @@ function emittedToolCalls(messages: AgentMessage[]) {
     if (message.content.startsWith("Checking remote datasets")) return ["list_remote_datasets"];
     if (message.content.startsWith("Starting dataset build")) return ["create_research_environment"];
     if (message.content.startsWith("Inspecting dataset")) return ["inspect_remote_dataset"];
-    if (message.content.startsWith("Starting remote run")) return ["start_remote_run"];
+    if (message.content.startsWith("Starting remote run")) return ["start_research_run"];
     return [];
   });
 }
