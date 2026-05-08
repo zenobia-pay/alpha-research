@@ -15,8 +15,6 @@ The product finds and uses `enriched-tweets`, reads mounted dataset files, defin
 ## Assertions Made
 
 - The workflow uses `enriched-tweets`.
-- Mounted dataset grounding is mandatory.
-- If mounted data cannot be read, the workflow must fail loudly.
 - Runtime evidence must not contain GitHub/raw CSV/sample fallback usage.
 - Viral is defined as top `0.1%` by `quote_tweet_count`.
 - `100` random viral tweets are sampled.

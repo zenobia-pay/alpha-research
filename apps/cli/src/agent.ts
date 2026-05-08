@@ -215,20 +215,6 @@ function withStandardAnalysisResources(config?: Record<string, unknown>, dataset
   };
 }
 
-function withMountedDatasetGroundingPrompt(datasetId: string, prompt: string) {
-  return [
-    `Mounted dataset grounding is mandatory for dataset \`${datasetId}\`.`,
-    "Before doing analysis, read and validate the mounted dataset from the attached dataset volume, preferring these paths in order:",
-    `1. /mnt/alpha-research/data/instances/${datasetId}`,
-    `2. /mnt/alpha-research/datasets/${datasetId}`,
-    "3. ./dataset only if it is a mount/symlink/copy of the attached dataset volume.",
-    "If the mounted dataset cannot be found, opened, or parsed, fail the run loudly with the exact paths checked and the read error.",
-    "Do not download public sample data, GitHub CSVs, web search results, synthetic replacements, or any other external fallback to complete this dataset-grounded task.",
-    "",
-    prompt,
-  ].join("\n");
-}
-
 function datasetBriefingPrompt(datasetId: string) {
   return [
     `Describe dataset ${datasetId}.`,
@@ -3278,7 +3264,7 @@ async function maybeHandleSpecificViralTweetsExperiment(
 
   let result;
   try {
-    result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, buildSpecificViralTweetsRunPrompt(request)), {
+    result = await client.startRun(datasetId, buildSpecificViralTweetsRunPrompt(request), {
       type: "transform",
       config: withStandardAnalysisResources({
         scriptOutline: [
@@ -3538,7 +3524,7 @@ async function startDatasetBriefingRun(
   try {
     result = await withAuthRetry(context, () => client.startRun(
       datasetId,
-      withMountedDatasetGroundingPrompt(datasetId, datasetBriefingPrompt(datasetId)),
+      datasetBriefingPrompt(datasetId),
       {
         type: "describe",
         config: withStandardAnalysisResources({ describeDataset: true }, datasetId),
@@ -5139,7 +5125,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const prompt = String(input.prompt);
         let result;
         try {
-          result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, prompt), {
+          result = await client.startRun(datasetId, prompt, {
             type: typeof input.type === "string" ? input.type : undefined,
             config: withStandardAnalysisResources(input.config && typeof input.config === "object" ? input.config as Record<string, unknown> : undefined, datasetId),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
@@ -5190,7 +5176,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const prompt = String(input.prompt);
         let started;
         try {
-          started = await withAuthRetry(context, () => client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, prompt), {
+          started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
             type: "query",
             config: withStandardAnalysisResources(undefined, datasetId),
             artifacts: [{ type: "query_result", title: "Query Result" }],
@@ -5241,7 +5227,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const prompt = String(input.prompt);
         let started;
         try {
-          started = await withAuthRetry(context, () => client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, prompt), {
+          started = await withAuthRetry(context, () => client.startRun(datasetId, prompt, {
             type: "query",
             config: withStandardAnalysisResources(undefined, datasetId),
             artifacts: [{ type: "aggregate_result", title: "Aggregate Result" }],
@@ -5392,7 +5378,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const datasetId = target.datasetId;
         let result;
         try {
-          result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
+          result = await client.startRun(datasetId, String(input.prompt), {
             type: "agent",
             config: withStandardAnalysisResources(undefined, datasetId),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
@@ -5460,7 +5446,7 @@ export function createToolRegistry(): ToolDefinition[] {
         }
         let result;
         try {
-          result = await client.startRun(previous.run.datasetId, withMountedDatasetGroundingPrompt(previous.run.datasetId, String(input.prompt)), {
+          result = await client.startRun(previous.run.datasetId, String(input.prompt), {
             type: "agent",
             config: withStandardAnalysisResources({ remoteAgentSessionId: sessionId, parentRunId: String(input.runId) }, previous.run.datasetId),
             artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
@@ -5511,7 +5497,7 @@ export function createToolRegistry(): ToolDefinition[] {
         const datasetId = target.datasetId;
         let result;
         try {
-          result = await client.startRun(datasetId, withMountedDatasetGroundingPrompt(datasetId, String(input.prompt)), {
+          result = await client.startRun(datasetId, String(input.prompt), {
             type: "transform",
             config: withStandardAnalysisResources({
               scriptOutline: typeof input.scriptOutline === "string" ? input.scriptOutline : undefined,
@@ -5566,7 +5552,7 @@ export function createToolRegistry(): ToolDefinition[] {
         try {
           result = await client.startRun(
             datasetId,
-            withMountedDatasetGroundingPrompt(datasetId, typeof input.prompt === "string" ? input.prompt : `Run labeling job: ${labelingPrompt}`),
+            typeof input.prompt === "string" ? input.prompt : `Run labeling job: ${labelingPrompt}`,
             {
               type: "label",
               config: withStandardAnalysisResources({ labelingPrompt }, datasetId),

@@ -18,7 +18,6 @@ The product starts a dataset briefing run for `econ`. It asks for a human-readab
 - The run type is `describe`.
 - Requested artifacts are `Dataset Briefing` and `Dataset Profile`.
 - The config marks the run as a dataset-description task.
-- Mounted dataset grounding is required.
 - The prompt includes the required briefing sections.
 - The prompt requires `Readiness & Trust`, including whether the dataset is usable right now, what evidence supports that judgment, and what would make use unsafe or premature.
 - The prompt excludes query instructions and suggested follow-ups.

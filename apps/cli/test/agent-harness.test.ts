@@ -986,8 +986,7 @@ test("async query run returns immediately with canonical dashboard and terminal 
   assert.match(final, /https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-123#run-run-123/);
   assert.doesNotMatch(final, /Terminal session:/);
   assert.equal(calls.includes("startRun"), true);
-  assert.match(startedPrompt, /Mounted dataset grounding is mandatory for dataset `enriched-tweets`/);
-  assert.match(startedPrompt, /Do not download public sample data, GitHub CSVs/);
+  assert.equal(startedPrompt, "Return 10 viral tweets.");
   assert.deepEqual((startedOptions?.config as Record<string, unknown>)?.mountedDatasetGrounding, {
     required: true,
     datasetId: "enriched-tweets",
@@ -2475,7 +2474,7 @@ test("stuck run question explains fresh booting run in plain language", async ()
       datasetId: "enriched-tweets",
       origin: session.origin,
       status: "booting",
-      prompt: "Mounted dataset grounding is mandatory for dataset `enriched-tweets`.\nBefore doing analysis, read the mount.",
+      prompt: "Return 10 viral tweets.",
       createdAt: "2026-04-22T00:00:00.000Z",
       updatedAt: "2026-04-22T00:00:00.000Z",
       lastSeenAt: "2026-04-22T00:00:00.000Z",
@@ -2494,13 +2493,12 @@ test("stuck run question explains fresh booting run in plain language", async ()
   assert.match(final, /Freshness: fresh · Recent updates make this look healthy\./i);
   assert.match(final, /Last heartbeat: less than 1 minute ago/i);
   assert.match(final, /Live status: booting · no new event for 30s\./i);
-  assert.match(final, /Current activity: Waiting for dataset enriched-tweets to be mounted so the run can start reading it\./i);
+  assert.match(final, /Current activity: Return 10 viral tweets\./i);
   assert.match(final, /Threshold: Healthy if another update arrives within 2 minutes\./i);
   assert.match(final, /w wait: give it up to 5 minutes total/i);
   assert.match(final, /d debug: research debug run run-fresh-1/i);
   assert.match(final, /c cancel: research \/cancel run-fresh-1/i);
   assert.match(final, /Last update: 2026-04-22T00:00:00\.000Z \(less than 1 minute ago\)/i);
-  assert.doesNotMatch(final, /Mounted dataset grounding is mandatory/i);
 });
 
 test("blocked-or-failed recovery prompt stays focused on the current run and next action", async () => {
@@ -2513,7 +2511,7 @@ test("blocked-or-failed recovery prompt stays focused on the current run and nex
         datasetId: "enriched-tweets",
         origin: session.origin,
         status: "booting",
-        prompt: "Mounted dataset grounding is mandatory for dataset `enriched-tweets`.\nBefore doing analysis, read the mount.",
+        prompt: "Return 10 viral tweets.",
         createdAt: "2026-04-22T00:00:00.000Z",
         updatedAt: "2026-04-22T00:00:00.000Z",
         lastSeenAt: "2026-04-22T00:00:00.000Z",

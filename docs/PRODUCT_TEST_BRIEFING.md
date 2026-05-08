@@ -73,7 +73,6 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [prompt-mode busy dataset shortcut shows age, health, and clear actions](product-tests/prompt-mode-busy-dataset-shortcut-shows-age-health-and-clear-actions.md)
 - [stuck run question explains fresh booting run in plain language](product-tests/stuck-run-question-explains-fresh-booting-run-in-plain-language.md)
 - [stuck run question escalates stale running run to debug now](product-tests/stuck-run-question-escalates-stale-running-run-to-debug-now.md)
-- [field-definition prompt instructions enforce concise verdict-first answers](product-tests/field-definition-prompt-instructions-enforce-concise-verdict-first-answers.md)
 - [vague dataset interesting request gives a concise briefing and focused choice without starting a run](product-tests/vague-dataset-interesting-request-gives-a-concise-briefing-and-focused-choice-without-starting-a-run.md)
 - [uploaded dataset deployment flow uses user-facing stage updates and upload progress](product-tests/uploaded-dataset-deployment-flow-uses-user-facing-stage-updates-and-upload-progress.md)
 
