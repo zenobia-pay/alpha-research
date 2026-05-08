@@ -53,12 +53,9 @@ Use Exa and public web/API searches to find newly relevant public sources for `{
 
 - `active_fetchable`
 - `deferred_fetchable`
-- `license_review`
 - `credential_required`
 - `not_found`
 - `reject`
-
-If a source is public and machine-fetchable but license-unclear, download it only with `license_status: needs_review` and explicit caveats in inventories and result files.
 
 Do not bypass paywalls, login walls, robots restrictions, anti-bot systems, institutional access controls, or private credential requirements.
 
@@ -102,7 +99,6 @@ Write or update these files at the dataset root:
   "volumeInventoryUpdatedAt": "ISO-8601 timestamp",
   "currentCoverageSummary": {},
   "downloadedSources": [],
-  "downloadedLicenseReviewSources": [],
   "downloadAttempts": [],
   "downloadEventLogPath": "download_events.jsonl",
   "slackDownloadAlertsPath": "slack_download_alerts.jsonl",
@@ -128,7 +124,7 @@ Write a comprehensive summary of every piece of data that is on this dataset. Ma
 
 Do not start with filenames, provider acronyms, or vague category names such as `BIS`, `FRED`, `housing`, or `microdata`.
 
-Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored. The briefing must not include paths, URLs, licenses, byte sizes, run ids, dashboard links, required artifact status, Slack status, inventory status, runtime/tooling files, manifests, quality reports, failed inspection rows, or non-data artifacts. Keep blocked attempts and operational metadata in `download_inventory.*`, `download_events.jsonl`, `quality_report.md`, `slack_briefing.md`, and `improvement_result.json`, not in `dataset_briefing.md`.
+Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored. The briefing must not include paths, URLs, byte sizes, run ids, dashboard links, required artifact status, Slack status, inventory status, runtime/tooling files, manifests, quality reports, failed inspection rows, or non-data artifacts. Keep blocked attempts and operational metadata in `download_inventory.*`, `download_events.jsonl`, `quality_report.md`, `slack_briefing.md`, and `improvement_result.json`, not in `dataset_briefing.md`.
 
 Use this shape:
 
@@ -165,7 +161,7 @@ For every attempted download, send one concise Slack webhook message through `CA
 
 Each Slack message must include a concise plain-English data summary plus structured facts:
 
-- start with a one-line headline in this shape: `[datasetId] source_name status: what this dataset contains; grain; geography; time span; row/object count or size; path; license/access caveat`;
+- start with a one-line headline in this shape: `[datasetId] source_name status: what this dataset contains; grain; geography; time span; row/object count or size; path`;
 - dataset id, source id/name, terminal status, and request URL with secrets redacted;
 - raw path, bytes, content hash, and row/document/object count when known;
 - what the observations/entities are, e.g. monthly national macroeconomic observations, address-level home sales, county-level rates, document images, metadata records, or API responses;
@@ -173,9 +169,8 @@ Each Slack message must include a concise plain-English data summary plus struct
 - time coverage and frequency/granularity when known;
 - unit or measure names and meanings, including important column definitions;
 - native format and schema/columns discovered from inspection;
-- license/access status and any caveats;
 - exact blocker for failed, blocked, skipped, or gated attempts;
-- next action for failed, blocked, skipped, gated, license_review, or partial attempts, e.g. alternate endpoint to try, manual review needed, whitelisted access needed, or no action needed;
+- next action for failed, blocked, skipped, gated, or partial attempts, e.g. alternate endpoint to try, manual review needed, whitelisted access needed, or no action needed;
 - what is not present when a source title or filename could mislead, e.g. explicitly say that a FRED national macro series is not address-level, county-level, metro-level, or transaction-level unless the inventory proves it.
 
 Do not send thin alerts like `Download succeeded for raw/path.csv`. If a Slack message would not let a reader answer "what data is actually on disk, at what grain, where, for what dates, and with what caveats?", enrich it before sending or mark unknown fields as `unknown/not inspected`.
