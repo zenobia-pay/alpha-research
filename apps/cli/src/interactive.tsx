@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Box, Text, useApp, useInput, useWindowSize } from "ink";
+import { Box, Text, useApp, useFocus, useInput, useWindowSize } from "ink";
 import {
   AssistantRuntimeProvider,
-  ComposerPrimitive,
   ThreadPrimitive,
+  useAui,
   useAuiState,
   useLocalRuntime,
   type ChatModelAdapter,
@@ -29,12 +29,7 @@ import { RemoteApiClient } from "./remote.js";
 import { readTrackedRuns, type TrackedRunRecord, isTerminalRunStatus, updateTrackedRun } from "./runs.js";
 import { clearSession, login, readSession } from "./session.js";
 
-type InteractiveAppProps = {
-  altScreen?: boolean;
-};
-
 const PROGRESS_RENDER_THROTTLE_MS = 200;
-const RUN_FRESHNESS_REFRESH_MS = 15_000;
 
 export function composerPlaceholder(session: SessionRecord | null) {
   return session ? "Ask about datasets, runs, or artifacts" : "Ask about datasets, runs, or sign-in";
@@ -409,21 +404,11 @@ function AssistantMessage() {
 
 function ActivityIndicator() {
   const isRunning = useAuiState((state) => state.thread.isRunning);
-  const [dots, setDots] = useState(".");
-
-  useEffect(() => {
-    if (!isRunning) return undefined;
-    const timer = setInterval(() => {
-      setDots((current) => (current.length >= 3 ? "." : `${current}.`));
-    }, 650);
-    return () => clearInterval(timer);
-  }, [isRunning]);
-
   if (!isRunning) return null;
 
   return (
     <Box>
-      <Text color="yellow">{`· working${dots}`}</Text>
+      <Text color="yellow">· working</Text>
     </Box>
   );
 }
@@ -474,10 +459,9 @@ function TaskActivityIndicator({
     );
   }
   if (status === "working") {
-    const elapsed = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : null;
     return (
       <Box>
-        <Text color="yellow">{`· working${elapsed !== null ? ` · ${elapsed}s elapsed` : ""}${currentStep ? ` · ${currentStep}` : ""}`}</Text>
+        <Text color="yellow">{`· working${currentStep ? ` · ${currentStep}` : ""}`}</Text>
       </Box>
     );
   }
@@ -495,8 +479,7 @@ function TaskSummary({
   conversationState: AgentConversationState;
   showRequestSummary: boolean;
 }) {
-  const composerText = useAuiState((state) => state.composer.text);
-  const preview = composerText.trim().length > 0 ? composerText : summarizePrompt(taskState.goal ?? "", 140);
+  const preview = summarizePrompt(taskState.goal ?? "", 140);
   const resolvedDataset = conversationState.datasetContext?.lastResolvedDataset;
   const workSummary = currentWorkSummary(taskState);
   const authRecovery = taskState.status === "blocked" && taskState.lastResult ? extractAuthRecoveryDetails(taskState.lastResult) : null;
@@ -629,16 +612,8 @@ function RunStatusPanel({
   runs: TrackedRunRecord[];
   focusRunId: string | null;
 }) {
-  const [now, setNow] = useState(() => Date.now());
+  const now = Date.now();
   const { focused, background } = useMemo(() => splitTrackedRuns(runs, focusRunId), [focusRunId, runs]);
-
-  useEffect(() => {
-    if (!focused) return undefined;
-    const timer = setInterval(() => {
-      setNow(Date.now());
-    }, RUN_FRESHNESS_REFRESH_MS);
-    return () => clearInterval(timer);
-  }, [focused]);
 
   const freshness = focused ? describeRunFreshness(focused.updatedAt, now) : null;
   const phase = focused ? describeRunPhase(focused.status) : null;
@@ -741,10 +716,56 @@ function ResearchThread({
         </Text>
         <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
           <Text color={promptColor}>{"> "}</Text>
-          <ComposerPrimitive.Input submitOnEnter placeholder={taskState.status === "blocked" ? (authRecovery ? authComposerPlaceholder() : blockedComposerPlaceholder()) : composerPlaceholder(session)} autoFocus />
+          <StableComposerInput submitOnEnter placeholder={taskState.status === "blocked" ? (authRecovery ? authComposerPlaceholder() : blockedComposerPlaceholder()) : composerPlaceholder(session)} autoFocus />
         </Box>
       </Box>
     </ThreadPrimitive.Root>
+  );
+}
+
+function StableComposerInput({
+  submitOnEnter,
+  placeholder,
+  autoFocus = true,
+}: {
+  submitOnEnter?: boolean;
+  placeholder: string;
+  autoFocus?: boolean;
+}) {
+  const aui = useAui();
+  const text = useAuiState((state) => state.composer.text);
+  const { isFocused } = useFocus({ autoFocus });
+
+  useInput(
+    (input, key) => {
+      if (key.ctrl && input === "c") {
+        if (text.length > 0) {
+          aui.composer().setText("");
+        }
+        return;
+      }
+      if (key.return) {
+        if (submitOnEnter) {
+          aui.composer().send();
+        }
+        return;
+      }
+      if (key.backspace || key.delete) {
+        aui.composer().setText(text.slice(0, -1));
+        return;
+      }
+      if (input && !key.ctrl && !key.meta) {
+        aui.composer().setText(text + input);
+      }
+    },
+    { isActive: isFocused },
+  );
+
+  return (
+    <Box>
+      <Text dimColor={!text && !!placeholder}>{text || placeholder}</Text>
+      {isFocused ? <Text>▋</Text> : null}
+    </Box>
   );
 }
 
@@ -1019,7 +1040,7 @@ function createResearchAdapter({
   };
 }
 
-export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
+export function InteractiveApp() {
   const { exit } = useApp();
   const [session, setSessionState] = useState<SessionRecord | null>(null);
   const [trackedRuns, setTrackedRuns] = useState<TrackedRunRecord[]>([]);
@@ -1043,11 +1064,8 @@ export function InteractiveApp({ altScreen = false }: InteractiveAppProps) {
     setConversationStateState(nextState);
   };
 
-  useInput((value, key) => {
-    if (key.escape && !altScreen) {
-      exit();
-    }
-    if (key.ctrl && value === "c") {
+  useInput((_value, key) => {
+    if (key.escape) {
       exit();
     }
   });

@@ -23,14 +23,6 @@ function extractPromptDatasetReference(prompt: string) {
   return implicit?.[1] ?? null;
 }
 
-function enterAltScreen() {
-  process.stdout.write("\u001b[?1049h\u001b[H");
-}
-
-function leaveAltScreen() {
-  process.stdout.write("\u001b[?1049l");
-}
-
 function printAgentMessage(message: AgentMessage) {
   const prefix = message.role === "tool" ? "· " : "";
   const lines = message.content.split("\n");
@@ -412,19 +404,7 @@ export async function main() {
   }
 
   if (!command || command === "agent" || command === "chat") {
-    const altScreen = flags["no-alt-screen"] !== "true";
-    if (altScreen) {
-      enterAltScreen();
-      const restore = () => {
-        leaveAltScreen();
-      };
-      process.on("exit", restore);
-      process.on("SIGINT", () => {
-        leaveAltScreen();
-        process.exit(130);
-      });
-    }
-    render(React.createElement(InteractiveApp, { altScreen }));
+    render(React.createElement(InteractiveApp));
     return;
   }
 
