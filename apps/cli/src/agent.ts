@@ -1,6 +1,6 @@
-import { access, readdir, stat } from "node:fs/promises";
+import { access, readdir, rm, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import { getInstanceBootstrap, listInstanceBundles, type DatasetInstanceSummary } from "@rprend/alpha-storage";
 
@@ -59,6 +59,12 @@ type PendingConversationAction =
     datasetVerified: boolean;
     defaultMetricField: string;
     defaultSampleSize: number;
+  }
+  | {
+    type: "delete-local-dataset";
+    instanceId: string;
+    datasetId: string;
+    name: string;
   };
 
 type DatasetConversationEntry = {
@@ -96,6 +102,7 @@ export type AgentRuntimeDeps = {
   readTrackedRuns: typeof readTrackedRuns;
   now: () => number;
   listLocalDatasets: () => Promise<DatasetInstanceSummary[]>;
+  deleteLocalDataset: (instanceId: string) => Promise<void>;
 };
 
 const CANONICAL_PUBLIC_DATASET_IDS = new Set([
@@ -263,6 +270,14 @@ export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
     readTrackedRuns,
     now: () => Date.now(),
     listLocalDatasets: () => listInstanceBundles(DEFAULT_INSTANCE_ROOT),
+    deleteLocalDataset: async (instanceId) => {
+      const root = resolve(DEFAULT_INSTANCE_ROOT);
+      const target = resolve(root, instanceId);
+      if (target === root || !target.startsWith(`${root}/`)) {
+        throw new Error(`Refusing to delete outside dataset instance root: ${instanceId}`);
+      }
+      await rm(target, { recursive: true, force: true });
+    },
   };
 }
 
@@ -3426,6 +3441,109 @@ function summarizeLocalDatasetSelection(dataset: DatasetConversationEntry) {
   return `Dataset selected: ${dataset.id} (local, ${dataset.state}). Reading the local dataset summary now.`;
 }
 
+function isDeleteDatasetRequest(input: string) {
+  const lower = input.trim().toLowerCase();
+  return /\b(delete|remove|rm)\b/.test(lower) && /\b(dataset|that|this|it|demo|local)\b/.test(lower);
+}
+
+function isAffirmative(input: string) {
+  return /^(y|yes|yeah|yep|do it|delete it|confirm|confirmed)$/iu.test(input.trim());
+}
+
+function isNegative(input: string) {
+  return /^(n|no|nope|cancel|stop)$/iu.test(input.trim());
+}
+
+function matchesLocalDatasetReference(dataset: DatasetInstanceSummary, reference: string) {
+  const normalized = reference.trim().toLowerCase();
+  const haystack = [
+    dataset.id,
+    dataset.datasetId,
+    dataset.displayName,
+    dataset.productName,
+  ].filter(Boolean).join(" ").toLowerCase();
+  return dataset.id.toLowerCase() === normalized
+    || dataset.datasetId.toLowerCase() === normalized
+    || dataset.displayName.toLowerCase() === normalized
+    || dataset.productName.toLowerCase() === normalized
+    || haystack.includes(normalized);
+}
+
+function extractDeleteDatasetReference(input: string) {
+  const lower = input.trim().toLowerCase();
+  if (/\b(that|this|it)\b/.test(lower)) {
+    return null;
+  }
+  const quoted = input.match(/[“"`']([^“"`']+)[”"`']/u);
+  if (quoted?.[1]) {
+    return quoted[1].trim().toLowerCase();
+  }
+  const explicit = input.match(/\b(?:delete|remove|rm)\s+(?:the\s+)?(?:local\s+)?(?:demo\s+)?(?:dataset\s+)?([a-z0-9][a-z0-9 _-]*?)(?:\s+dataset)?[.!?]?$/iu);
+  return explicit?.[1]?.trim().toLowerCase() ?? null;
+}
+
+async function maybeHandleLocalDatasetDeletion(
+  input: string,
+  deps: AgentRuntimeDeps,
+  conversationState?: AgentConversationState,
+) {
+  const pendingDelete = conversationState?.pendingAction?.type === "delete-local-dataset"
+    ? conversationState.pendingAction
+    : null;
+  if (pendingDelete) {
+    if (isAffirmative(input)) {
+      await deps.deleteLocalDataset(pendingDelete.instanceId);
+      return {
+        summary: `Deleted local dataset ${pendingDelete.name} (dataset id: \`${pendingDelete.datasetId}\`).`,
+        pendingAction: null,
+      };
+    }
+    if (isNegative(input)) {
+      return {
+        summary: `Canceled. I did not delete ${pendingDelete.name}.`,
+        pendingAction: null,
+      };
+    }
+  }
+
+  if (!isDeleteDatasetRequest(input)) {
+    return null;
+  }
+
+  const localDatasets = await deps.listLocalDatasets().catch(() => []);
+  const reference = extractDeleteDatasetReference(input);
+  const contextual = !reference
+    ? conversationState?.datasetContext?.lastResolvedDataset
+    : null;
+  const match = contextual?.scope === "local"
+    ? localDatasets.find((dataset) => dataset.datasetId === contextual.id || dataset.id === contextual.id) ?? null
+    : reference
+      ? localDatasets.find((dataset) => matchesLocalDatasetReference(dataset, reference)) ?? null
+      : localDatasets.length === 1
+        ? localDatasets[0] ?? null
+        : null;
+
+  if (!match) {
+    return {
+      summary: localDatasets.length > 0
+        ? `I could not tell which local dataset to delete. Use an exact id, for example \`delete ${localDatasets[0]?.datasetId}\`.`
+        : "I do not see any local datasets to delete.",
+      pendingAction: null,
+    };
+  }
+
+  const name = match.displayName || match.productName || match.datasetId;
+  return {
+    summary: `Delete local dataset ${name} (dataset id: \`${match.datasetId}\`, instance: \`${match.id}\`)? Reply \`yes\` to delete it or \`no\` to cancel.`,
+    pendingAction: {
+      type: "delete-local-dataset" as const,
+      instanceId: match.id,
+      datasetId: match.datasetId,
+      name,
+    },
+  };
+}
+
 function describeLocalDataset(instance: DatasetInstanceSummary, bootstrap: Awaited<ReturnType<typeof getInstanceBootstrap>>) {
   const sampleIds = bootstrap.sampleRecords
     .map((record) => record.id)
@@ -4384,6 +4502,34 @@ export function createToolRegistry(): ToolDefinition[] {
             ? `Found ${instances.length} local dataset${instances.length === 1 ? "" : "s"}.`
             : "No local datasets found.",
           data: { instances },
+        };
+      },
+    },
+    {
+      name: "delete_local_dataset",
+      description: "Delete a local dataset instance from the CLI workspace after the user explicitly asks for that local deletion.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          instanceId: { type: "string" },
+        },
+        required: ["instanceId"],
+      },
+      async execute(context, input) {
+        const instanceId = String(input.instanceId);
+        const instances = await listInstanceBundles(DEFAULT_INSTANCE_ROOT);
+        const match = instances.find((dataset) => dataset.id === instanceId || dataset.datasetId === instanceId);
+        if (!match) {
+          return {
+            summary: `Could not find local dataset instance \`${instanceId}\`.`,
+            data: { deleted: false, instanceId },
+          };
+        }
+        await context.deps.deleteLocalDataset(match.id);
+        return {
+          summary: `Deleted local dataset ${match.displayName || match.productName || match.datasetId} (dataset id: ${match.datasetId}).`,
+          data: { deleted: true, instanceId: match.id, datasetId: match.datasetId },
         };
       },
     },
@@ -5637,6 +5783,17 @@ export async function runAgentTurn(
   const pendingViralTweetsProposal = conversationState?.pendingAction?.type === "viral-tweets-proposal"
     ? conversationState.pendingAction
     : null;
+  const localDatasetDeletion = await maybeHandleLocalDatasetDeletion(input, resolvedDeps, conversationState);
+  if (localDatasetDeletion) {
+    emit({ role: "assistant", content: localDatasetDeletion.summary });
+    return {
+      sessionId: conversationState?.sessionId ?? null,
+      previousResponseId: conversationState?.previousResponseId ?? null,
+      datasetContext: conversationState?.datasetContext ?? null,
+      pendingAction: localDatasetDeletion.pendingAction,
+    };
+  }
+
   if (pendingViralTweetsProposal && looksLikeViralTweetsProposalReply(input)) {
     const approvedPrompt = buildViralTweetsApprovedPrompt(pendingViralTweetsProposal, input);
     if (approvedPrompt) {

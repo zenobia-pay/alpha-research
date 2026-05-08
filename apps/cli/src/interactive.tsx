@@ -724,7 +724,7 @@ function ResearchThread({
         </Text>
         <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={inputWidth}>
           <Text color={promptColor}>{"> "}</Text>
-          <StableComposerInput submitOnEnter placeholder={taskState.status === "blocked" ? (authRecovery ? authComposerPlaceholder() : blockedComposerPlaceholder()) : composerPlaceholder(session)} autoFocus />
+          <StableComposerInput key={`${messageCount}:${taskState.status}`} submitOnEnter placeholder={taskState.status === "blocked" ? (authRecovery ? authComposerPlaceholder() : blockedComposerPlaceholder()) : composerPlaceholder(session)} autoFocus />
         </Box>
       </Box>
     </ThreadPrimitive.Root>
@@ -759,7 +759,7 @@ function StableComposerInput({
   useEffect(() => {
     const timer = setTimeout(moveCursorToInput, 0);
     return () => clearTimeout(timer);
-  });
+  }, [isFocused]);
 
   useInput(
     (input, key) => {

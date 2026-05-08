@@ -111,6 +111,7 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [broad business-opportunity prompts stop at a scoped approval gate before any inventory or run work](product-tests/broad-business-opportunity-prompts-stop-at-a-scoped-approval-gate-before-any-inventory-or-run-work.md)
 - [county-month housing-cycle dataset requests reuse a strong economics base and start the build immediately](product-tests/county-month-housing-cycle-dataset-requests-reuse-a-strong-economics-base-and-start-the-build-immediately.md)
 - [dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching](product-tests/dataset-follow-up-keeps-the-exact-prior-inventory-match-instead-of-fuzzy-overlap-switching.md)
+- [local dataset deletion confirms and then removes the selected instance](product-tests/local-dataset-deletion-confirms-and-then-removes-the-selected-instance.md)
 - [dataset-owned canonical briefing describes available data without processed-table wording](product-tests/dataset-owned-canonical-briefing-describes-available-data-without-processed-table-wording.md)
 - [dataset trust briefing reuses dataset-owned briefing before starting a new run](product-tests/dataset-trust-briefing-reuses-dataset-owned-briefing-before-starting-a-new-run.md)
 - [field-definition questions use verified dataset metadata when available](product-tests/field-definition-questions-use-verified-dataset-metadata-when-available.md)

@@ -686,6 +686,45 @@ test("dataset follow-up keeps the exact prior inventory match instead of fuzzy-o
   assert.doesNotMatch(joined, /enriched-tweets/);
 });
 
+test("local dataset deletion confirms and then removes the selected instance", async () => {
+  let deletedInstanceId: string | null = null;
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => ({
+      async respond() {
+        throw new Error("Local dataset deletion should be handled locally.");
+      },
+    }) as never,
+    listLocalDatasets: async () => [
+      {
+        id: "demo-econ",
+        productName: "County Economics",
+        datasetId: "county-economics",
+        displayName: "County Economics",
+        description: "county-level economics demo",
+        recordCount: 4,
+        layout: "sharded",
+      },
+    ],
+    deleteLocalDataset: async (instanceId) => {
+      deletedInstanceId = instanceId;
+    },
+  };
+  const { messages, emit } = collect();
+
+  const afterPrompt = await runAgentTurn("delete that", session, emit, undefined, deps);
+
+  assert.match(messages.at(-1)?.content ?? "", /Delete local dataset County Economics/);
+  assert.equal(afterPrompt.pendingAction?.type, "delete-local-dataset");
+
+  const confirmed = collect();
+  const afterConfirm = await runAgentTurn("yes", session, confirmed.emit, afterPrompt, deps);
+
+  assert.equal(deletedInstanceId, "demo-econ");
+  assert.match(confirmed.messages.at(-1)?.content ?? "", /Deleted local dataset County Economics/);
+  assert.equal(afterConfirm.pendingAction, null);
+});
+
 test("dataset selection from topic uses dataset metadata and asks one focused follow-up", async () => {
   let respondCalled = false;
   const fakeClient = {
