@@ -163,6 +163,8 @@ If a file cannot be inspected, keep the row and set `inventory_error` to the exa
 
 Generate `dataset_briefing.md` only from `download_inventory.*`, `raw_inventory.*`, and `volume_inventory.*`. Do not infer volume contents from memory, the plan, or prior narratives.
 
+The briefing must be a literal English inventory of the data, not a provider/file list. The first useful section must be `# Literal Data Inventory`, and every bullet must describe one concrete dataset/file/API response/document collection in plain English before mentioning its path.
+
 The briefing must explain:
 
 - what is physically on disk;
@@ -175,6 +177,10 @@ The briefing must explain:
 - required artifacts present and missing;
 - whether the dataset is raw data, source registry only, metadata/index package, normalized tables, or mixed;
 - what is not present.
+
+For every raw inventory record that represents actual source data, include one bullet with what the data literally measures or contains; observed entities/records; grain/frequency; geography and geography level; time coverage or collection vintage; row/document/object count and bytes when measurable; important columns/fields and units/measures; source name/id and redacted request URL; raw path after the English description; license/access status; and explicit not-present caveats. Do not collapse concrete datasets into vague provider names.
+
+Add a `# Blocked Or Missing Data` section with one bullet per failed/blocked/deferred terminal attempt. Add a `# Non-Data Artifacts On Disk` section for inventories, manifests, docs mirrors, quality reports, Slack logs, runtime/tooling contamination, and unreadable files.
 
 Mirror the final briefing into:
 
@@ -197,6 +203,8 @@ Make the final result and artifacts sufficient for the control plane to expose:
 - `slackDownloadAlertsPath`
 - `slackAlertsSent`
 - `slackAlertsPending`
+
+The CLI-visible profile update is mandatory. Use the authenticated backend session available to the runner to update the dataset profile endpoint, for example `POST /api/cli/datasets/{datasetId}/profile`, with `briefingMarkdown` set to the exact `dataset_briefing.md` body. Then read back `GET /api/cli/datasets/{datasetId}` and verify that the returned profile/briefing markdown exactly contains the new `# Literal Data Inventory` section and the current run id. If this readback fails, mark `diskInventoryProven: false` and write the exact non-secret blocker.
 
 If any required inventory is missing or incomplete, set `diskInventoryProven: false` in the structured result and explain why.
 
