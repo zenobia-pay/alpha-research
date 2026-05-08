@@ -60,14 +60,16 @@ Use this field brief as the scope boundary:
    - `docs/public-datasets/{datasetId}.mdx`
 10. Send one concise Slack webhook briefing for the improvement job, even if nothing changed. The briefing must include:
    - dataset id/name and run timestamp;
+   - a top-line status card with what data is now on disk, grain, geography, time span, row/object counts or bytes, inventory timestamp, and disk proof status;
    - the Exa/API/web searches performed and why;
-   - newly found candidate datasets/sources;
-   - sources downloaded successfully, with raw paths and why they were worth adding;
-   - public `license_review` sources downloaded, with the license uncertainty and recommended human review;
-   - sources attempted but failed, with exact failure/gating reasons and URLs checked;
+   - newly found candidate datasets/sources, with classification and why each matters;
+   - sources downloaded successfully, with raw paths, row/object counts or bytes, grain, geography, time span, units/measures, schema highlights, and why they were worth adding;
+   - public `license_review` sources downloaded, with the license uncertainty, redistribution caveat, raw path, and recommended human review;
+   - sources attempted but failed, with exact failure/gating reasons, URLs checked, and next route to try;
    - sources ignored/rejected/deferred, with concise reasons;
    - briefing/docs/inventory files updated;
    - recommended next actions.
+   Do not send a thin briefing that only lists filenames. A reader must be able to answer what data was added or blocked, where it lives, what it measures, what grain/geography/time span it covers, and what is still missing.
    If any new source is downloaded, the Slack briefing must call that out explicitly near the top. If Slack delivery fails, record the complete briefing payload in `slackBriefingPending`.
 11. Decide what should happen next:
    - promote to active fetch target;

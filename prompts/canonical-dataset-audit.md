@@ -51,6 +51,7 @@ Every Slack alert row and every backfill message must be self-contained: a user 
 
 Each Slack alert payload must include a concise plain-English data summary plus structured facts:
 
+- start with a one-line headline in this shape: `[datasetId] source_name status: what this dataset contains; grain; geography; time span; row/object count or size; path; license/access caveat`;
 - dataset id, source id/name, terminal status, and request URL with secrets redacted;
 - raw path, bytes, content hash, and row/document/object count when known;
 - what the observations/entities are, e.g. monthly national macroeconomic observations, address-level home sales, county-level rates, document images, metadata records, or API responses;
@@ -60,7 +61,10 @@ Each Slack alert payload must include a concise plain-English data summary plus 
 - native format and schema/columns discovered from inspection;
 - license/access status and any caveats;
 - exact blocker for failed, blocked, skipped, or gated attempts;
+- next action for failed, blocked, skipped, gated, license_review, or partial attempts, e.g. alternate endpoint to try, manual review needed, whitelisted access needed, or no action needed;
 - what is not present when a source title or filename could mislead, e.g. explicitly say that a FRED national macro series is not address-level, county-level, metro-level, or transaction-level unless the inventory proves it.
+
+Do not send or backfill thin alerts like `Download succeeded for raw/path.csv`. If a Slack message would not let a reader answer "what data is actually on disk, at what grain, where, for what dates, and with what caveats?", enrich it before sending or mark unknown fields as `unknown/not inspected`.
 
 If an existing `slack_download_alerts.jsonl` row lacks the rich fields `plain_english_data_summary`, `observations_or_entities`, `geographic_coverage`, `time_coverage`, `frequency_or_granularity`, `unit_or_measure`, `schema_or_columns`, `not_present_caveats`, and `blocker`, rewrite or supersede it with an enriched row. If the webhook is available, send a backfill Slack alert for missing or thin alerts and write `delivery_status: sent`. If the webhook is missing or delivery fails, write `delivery_status: pending` or `delivery_status: failed` with the non-secret reason. Never print or persist the webhook URL.
 
