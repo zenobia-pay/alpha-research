@@ -26,6 +26,7 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [dataset recommendation inventory includes ranked shortlist for the topic](product-tests/dataset-recommendation-inventory-includes-ranked-shortlist-for-the-topic.md)
 - [async query run returns immediately with canonical dashboard and terminal links](product-tests/async-query-run-returns-immediately-with-canonical-dashboard-and-terminal-links.md)
 - [dataset describe request reads briefing markdown without starting a run](product-tests/dataset-describe-request-reads-briefing-markdown-without-starting-a-run.md)
+- [whats-in dataset question reads briefing markdown without starting a run](product-tests/whats-in-dataset-question-reads-briefing-markdown-without-starting-a-run.md)
 - [specific viral tweets experiment starts with user-facing analysis summary and artifact expectations](product-tests/specific-viral-tweets-experiment-starts-with-user-facing-analysis-summary-and-artifact-expectations.md)
 - [dataset inspection surfaces schema evidence for requested analysis fields](product-tests/dataset-inspection-surfaces-schema-evidence-for-requested-analysis-fields.md)
 - [busy dataset conflict explains active run and emits heartbeat while waiting](product-tests/busy-dataset-conflict-explains-active-run-and-emits-heartbeat-while-waiting.md)

@@ -3288,17 +3288,6 @@ function matchesDatasetReference(dataset: RemoteDatasetSummary, reference: strin
   return dataset.id.toLowerCase() === reference || normalizedName.includes(reference);
 }
 
-function shouldHandleDatasetBriefingRequest(input: string) {
-  const lower = input.trim().toLowerCase();
-  if (!/\bdataset\b/.test(lower) || !extractRequestedDatasetReference(input)) {
-    return false;
-  }
-  if (/\b(analy[sz]e|analysis|hypothesis|experiment|trend|why|compare|correlation|predict)\b/.test(lower)) {
-    return false;
-  }
-  return /\b(describe|brief|briefing|document|documentation|profile|inventory|what is inside|what's inside|inspect|understand|trust|trustworthy|where it came from|provenance|source|sources|quality|limitation|limitations|readiness|usable|fix it first)\b/.test(lower);
-}
-
 function chooseDatasetBriefingTarget(reference: string, datasets: RemoteDatasetSummary[]) {
   const normalized = reference.toLowerCase();
   return datasets.find((dataset) => dataset.id.toLowerCase() === normalized)
@@ -3720,95 +3709,6 @@ async function maybeHandleVagueDatasetInterestingQuestion(
     return null;
   }
   return summarizeInterestingDataset(detail.dataset);
-}
-
-async function maybeHandleDatasetBriefingRequest(
-  input: string,
-  initialSession: SessionRecord | null,
-  emit: (message: AgentMessage) => void,
-  deps: AgentRuntimeDeps,
-  conversationState?: AgentConversationState,
-) {
-  if (!initialSession || !shouldHandleDatasetBriefingRequest(input)) {
-    return null;
-  }
-  const reference = extractRequestedDatasetReference(input);
-  if (!reference) {
-    return null;
-  }
-  const client = deps.createRemoteClient(initialSession);
-  if (typeof client.listDatasets !== "function") {
-    return null;
-  }
-  const contextualSelection = chooseDatasetFromConversationContext(reference, conversationState?.datasetContext);
-  if (contextualSelection?.ambiguous) {
-    return formatDatasetDisambiguation(reference, (conversationState?.datasetContext?.inventory ?? []).filter((dataset) =>
-      `${dataset.id} ${dataset.name}`.toLowerCase().includes(reference.toLowerCase())));
-  }
-  if (contextualSelection?.match?.scope === "local") {
-    const localDatasets = await deps.listLocalDatasets().catch(() => []);
-    const localMatch = localDatasets.find((dataset) => dataset.datasetId === contextualSelection.match?.id);
-    if (localMatch) {
-      emit({ role: "tool", content: summarizeLocalDatasetSelection(contextualSelection.match) });
-      const bootstrap = await getInstanceBootstrap(DEFAULT_INSTANCE_ROOT, localMatch.id);
-      return {
-        summary: describeLocalDataset(localMatch, bootstrap),
-        resolvedDataset: contextualSelection.match,
-      };
-    }
-  }
-  emit({ role: "tool", content: `Locating dataset ${reference} for a readiness check...` });
-  const listed = await client.listDatasets().catch(() => null);
-  if (!listed) {
-    return null;
-  }
-  const selected = contextualSelection?.match?.scope === "remote"
-    ? listed.datasets.find((dataset) => dataset.id === contextualSelection.match?.id) ?? chooseDatasetBriefingTarget(reference, listed.datasets)
-    : chooseDatasetBriefingTarget(reference, listed.datasets);
-  if (!selected) {
-    return `I could not find a dataset matching \`${reference}\`. Ask \`show my datasets\` to inspect what is available.`;
-  }
-  emit({
-    role: "tool",
-    content: `Selected ${selected.id} for this readiness check${selected.name?.trim() && selected.name.trim().toLowerCase() !== selected.id.toLowerCase() ? ` (${selected.name.trim()})` : ""}.`,
-  });
-  if (typeof client.getDataset === "function") {
-    emit({ role: "tool", content: `Reading dataset-owned briefing for ${selected.id}...` });
-    const detail = await client.getDataset(selected.id).catch(() => null);
-    if (detail?.dataset) {
-      const savedProfile = formatDatasetProfileFallback(detail.dataset);
-      if (savedProfile) {
-        return {
-          summary: savedProfile,
-          resolvedDataset: {
-            id: selected.id,
-            name: selected.name?.trim() || selected.id,
-            scope: "remote" as const,
-            state: normalizeRemoteDatasetState(selected),
-            description: null,
-          },
-        };
-      }
-    }
-  }
-  const toolContext: ToolExecutionContext = {
-    session: initialSession,
-    sessionId: null,
-    emit,
-    deps,
-  };
-  emit({ role: "tool", content: "No dataset-owned briefing file found. Reading stopped; no remote describe run was started." });
-  const result = await startDatasetBriefingRun(toolContext, { datasetId: selected.id });
-  return {
-    summary: result.summary,
-    resolvedDataset: {
-      id: selected.id,
-      name: selected.name?.trim() || selected.id,
-      scope: "remote" as const,
-      state: normalizeRemoteDatasetState(selected),
-      description: null,
-    },
-  };
 }
 
 function shouldHandleDatasetInventory(input: string) {
@@ -5763,23 +5663,6 @@ export async function runAgentTurn(
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
-      pendingAction: null,
-    };
-  }
-
-  const datasetBriefingResponse = await maybeHandleDatasetBriefingRequest(input, initialSession, emit, deps, conversationState);
-  if (datasetBriefingResponse) {
-    const responseText = typeof datasetBriefingResponse === "string" ? datasetBriefingResponse : datasetBriefingResponse.summary;
-    emit({ role: "assistant", content: responseText });
-    return {
-      sessionId: conversationState?.sessionId ?? null,
-      previousResponseId: conversationState?.previousResponseId ?? null,
-      datasetContext: typeof datasetBriefingResponse === "string"
-        ? conversationState?.datasetContext ?? null
-        : {
-          inventory: conversationState?.datasetContext?.inventory ?? [],
-          lastResolvedDataset: datasetBriefingResponse.resolvedDataset ?? null,
-        },
       pendingAction: null,
     };
   }

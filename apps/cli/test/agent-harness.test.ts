@@ -630,7 +630,44 @@ test("dataset inventory is recommendation-first, name-first, and de-emphasizes n
 });
 
 test("dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching", async () => {
+  let respondCount = 0;
   const fakeClient = {
+    async respond() {
+      respondCount += 1;
+      if (respondCount > 1) {
+        return {
+          sessionId: "terminal-session-tweets-followup",
+          payload: {
+            id: "response-tweets-followup-final",
+            output: [{
+              type: "message",
+              content: [{
+                type: "output_text",
+                text: [
+                  "Readiness check, not analysis.",
+                  "Verdict: usable now",
+                  "",
+                  "Overview",
+                  "Local tweet archive normalized for inspection.",
+                ].join("\n"),
+              }],
+            }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-tweets-followup",
+        payload: {
+          id: "response-tweets-followup-tool",
+          output: [{
+            type: "function_call",
+            call_id: "call-describe-tweets",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "tweets" }),
+          }],
+        },
+      };
+    },
     async listDatasets() {
       return {
         datasets: [
@@ -679,8 +716,7 @@ test("dataset follow-up keeps the exact prior inventory match instead of fuzzy-o
   await runAgentTurn("Describe the tweets dataset.", session, secondTurn.emit, inventoryState, deps);
 
   const joined = secondTurn.messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Locating dataset tweets for a readiness check/);
-  assert.match(joined, /Selected tweets for this readiness check/i);
+  assert.match(joined, /Reading dataset-owned briefing for tweets/);
   assert.match(joined, /Readiness check, not analysis\./);
   assert.doesNotMatch(joined, /enriched-tweets/);
 });
@@ -1000,11 +1036,34 @@ test("async query run returns immediately with canonical dashboard and terminal 
 });
 
 test("dataset describe request reads briefing markdown without starting a run", async () => {
-  let respondCalled = false;
+  let respondCount = 0;
   let startRunCalled = false;
   const fakeClient = {
     async respond() {
-      respondCalled = true;
+      respondCount += 1;
+      if (respondCount > 1) {
+        return {
+          sessionId: "terminal-session-describe",
+          payload: {
+            id: "response-describe-final",
+            output: [{
+              type: "message",
+              content: [{
+                type: "output_text",
+                text: [
+                  "Readiness check, not analysis.",
+                  "Verdict: usable now.",
+                  "",
+                  "Data Inventory",
+                  "- Central table: county_month_panel, 120 rows, county-month grain.",
+                  "",
+                  "Briefing source: dataset_briefing.md · updated 2026-04-29T00:00:00.000Z",
+                ].join("\n"),
+              }],
+            }],
+          },
+        };
+      }
       return {
         sessionId: "terminal-session-describe",
         payload: {
@@ -1058,15 +1117,13 @@ test("dataset describe request reads briefing markdown without starting a run", 
 
   await runAgentTurn("describe dataset econ", session, emit, undefined, deps);
 
-  assert.equal(respondCalled, false);
+  assert.equal(respondCount, 2);
   assert.equal(startRunCalled, false);
 
   const final = messages.at(-1)?.content ?? "";
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Locating dataset econ for a readiness check/);
-  assert.match(joined, /Selected econ for this readiness check \(Economics\)/);
+  assert.match(joined, /Reading dataset briefing for econ/);
   assert.match(joined, /Reading dataset-owned briefing for econ/);
-  assert.doesNotMatch(joined, /Top matches for/);
   assert.match(final, /Readiness check, not analysis\./);
   assert.match(final, /Verdict: usable now/);
   assert.match(final, /county_month_panel/);
@@ -1075,6 +1132,99 @@ test("dataset describe request reads briefing markdown without starting a run", 
   assert.doesNotMatch(final, /Expected output: dataset_briefing\.md/);
   assert.doesNotMatch(final, /Run: run-describe/);
   assert.doesNotMatch(final, /Terminal session:/);
+});
+
+test("whats-in dataset question reads briefing markdown without starting a run", async () => {
+  const calls: string[] = [];
+  let respondCount = 0;
+  const fakeClient = {
+    async respond() {
+      calls.push("respond");
+      respondCount += 1;
+      if (respondCount > 1) {
+        return {
+          sessionId: "terminal-session-whats-in",
+          payload: {
+            id: "response-whats-in-final",
+            output: [{
+              type: "message",
+              content: [{
+                type: "output_text",
+                text: [
+                  "Readiness check, not analysis.",
+                  "Verdict: usable now.",
+                  "",
+                  "Data Inventory",
+                  "- FRED macro series, Census microdata, and housing indicators.",
+                  "",
+                  "Briefing source: dataset_briefing.md · updated 2026-05-08T00:00:00.000Z",
+                ].join("\n"),
+              }],
+            }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-whats-in",
+        payload: {
+          id: "response-whats-in",
+          output: [{
+            type: "function_call",
+            call_id: "call-whats-in",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async listDatasets() {
+      calls.push("listDatasets");
+      return { datasets: [{ id: "econ", name: "Econ", status: "ready" }] };
+    },
+    async getDataset(datasetId: string) {
+      calls.push(`getDataset:${datasetId}`);
+      return {
+        dataset: {
+          id: datasetId,
+          name: "Econ",
+          status: "ready",
+          briefing: {
+            path: "dataset_briefing.md",
+            updatedAt: "2026-05-08T00:00:00.000Z",
+            markdown: [
+              "Readiness check, not analysis.",
+              "Verdict: usable now.",
+              "",
+              "Data Inventory",
+              "- FRED macro series, Census microdata, and housing indicators.",
+            ].join("\n"),
+          },
+        },
+      };
+    },
+    async startRun() {
+      calls.push("startRun");
+      throw new Error("What's-in dataset questions should not start briefing runs.");
+    },
+    async appendSessionEntry() {
+      return { id: "entry-whats-in" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("what's in my econ dataset", session, emit, undefined, deps);
+
+  assert.deepEqual(calls, ["respond", "listDatasets", "getDataset:econ", "respond"]);
+  const transcript = messages.map((message) => message.content).join("\n");
+  assert.match(transcript, /Reading dataset-owned briefing for econ/);
+  assert.match(transcript, /FRED macro series, Census microdata, and housing indicators/);
+  assert.match(transcript, /Briefing source: dataset_briefing\.md/);
+  assert.doesNotMatch(transcript, /Started dataset briefing refresh|Run: [a-z0-9-]{8}/i);
 });
 
 test("specific viral tweets experiment starts with user-facing analysis summary and artifact expectations", async () => {
@@ -1462,6 +1612,7 @@ test("dataset describe tool reads saved briefing without starting a run", async 
 
 test("dataset trust briefing reuses dataset-owned briefing before starting a new run", async () => {
   const calls: string[] = [];
+  let respondCount = 0;
   const fakeClient = {
     async listDatasets() {
       calls.push("listDatasets");
@@ -1507,7 +1658,43 @@ test("dataset trust briefing reuses dataset-owned briefing before starting a new
     },
     async respond() {
       calls.push("respond");
-      throw new Error("Dataset trust briefing should be handled locally.");
+      respondCount += 1;
+      if (respondCount > 1) {
+        return {
+          sessionId: "terminal-session-briefing-profile",
+          payload: {
+            id: "response-briefing-profile-final",
+            output: [{
+              type: "message",
+              content: [{
+                type: "output_text",
+                text: [
+                  "Readiness check, not analysis.",
+                  "",
+                  "Dataset Briefing: Economic Indicators",
+                  "",
+                  "Sources: FRED; BLS",
+                  "Time Coverage: start: 2010-01; end: 2026-03",
+                  "Quality & Validation: Validated schemas and normalized series coverage.",
+                  "Limitations & Known Gaps: Some series have different publication lags.",
+                ].join("\n"),
+              }],
+            }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-briefing-profile",
+        payload: {
+          id: "response-briefing-profile",
+          output: [{
+            type: "function_call",
+            call_id: "call-briefing-profile",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
     },
     async appendSessionEntry() {
       return { id: "entry-briefing-profile" };
@@ -1528,10 +1715,8 @@ test("dataset trust briefing reuses dataset-owned briefing before starting a new
     deps,
   );
 
-  assert.deepEqual(calls, ["listDatasets", "getDataset:econ"]);
+  assert.deepEqual(calls, ["respond", "listDatasets", "getDataset:econ", "respond"]);
   const transcript = messages.map((message) => message.content).join("\n");
-  assert.match(transcript, /Locating dataset econ for a readiness check/i);
-  assert.match(transcript, /Selected econ for this readiness check \(Economic Indicators\)/i);
   assert.match(transcript, /Reading dataset-owned briefing for econ/i);
   assert.match(transcript, /Readiness check, not analysis\./);
   assert.match(transcript, /Dataset Briefing: Economic Indicators/);
@@ -3074,7 +3259,44 @@ test("vague dataset interesting request gives a concise briefing and focused cho
 });
 
 test("dataset-owned canonical briefing describes available data without processed-table wording", async () => {
+  let respondCount = 0;
   const fakeClient = {
+    async respond() {
+      respondCount += 1;
+      if (respondCount > 1) {
+        return {
+          sessionId: "terminal-session-canonical-briefing",
+          payload: {
+            id: "response-canonical-briefing-final",
+            output: [{
+              type: "message",
+              content: [{
+                type: "output_text",
+                text: [
+                  "Dataset Briefing: Econ",
+                  "",
+                  "Available Data: county-month housing and rates; county-year labor and home values.",
+                  "Sources: BEA county income; Census building permits; BLS unemployment; Zillow home values.",
+                  "Time Coverage: 1969 to 2026-04.",
+                ].join("\n"),
+              }],
+            }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-canonical-briefing",
+        payload: {
+          id: "response-canonical-briefing-tool",
+          output: [{
+            type: "function_call",
+            call_id: "call-canonical-briefing",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
     async listDatasets() {
       return {
         datasets: [{ id: "econ", name: "Econ", status: "ready" }],

@@ -15,12 +15,12 @@
       <p class="lede">Readable product explanations for every test contract. Each entry describes how the product is used, what actions are taken, and what assertions are made.</p>
     </header>
 
-    <section class="stat-grid"><div><span>Briefings</span><strong>74</strong></div><div><span>Assertions</span><strong>225</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
+    <section class="stat-grid"><div><span>Briefings</span><strong>75</strong></div><div><span>Assertions</span><strong>230</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
 
     <section class="panel controls">
       <div>
         <h2>Browse The Tests</h2>
-        <p class="lede"><span id="visible-count">74</span> briefings visible. Search by feature, assertion, dataset, run type, or artifact.</p>
+        <p class="lede"><span id="visible-count">75</span> briefings visible. Search by feature, assertion, dataset, run type, or artifact.</p>
       </div>
       <label>
         <span>Search</span>
@@ -33,7 +33,7 @@
       <div>
         <h2>Coverage Mix</h2>
         <table class="hypothesis-table">
-          <tbody><tr><td>CLI Product</td><td>56</td></tr><tr><td>Golden Transcript</td><td>5</td></tr><tr><td>Registry Contract</td><td>3</td></tr><tr><td>Slow E2E</td><td>8</td></tr><tr><td>Symphony Case</td><td>2</td></tr></tbody>
+          <tbody><tr><td>CLI Product</td><td>57</td></tr><tr><td>Golden Transcript</td><td>5</td></tr><tr><td>Registry Contract</td><td>3</td></tr><tr><td>Slow E2E</td><td>8</td></tr><tr><td>Symphony Case</td><td>2</td></tr></tbody>
         </table>
       </div>
       <div>
@@ -363,7 +363,7 @@
   <p class="test-name"><span>Test name</span><code>dataset describe request reads briefing markdown without starting a run</code></p>
   <div class="why-block">
     <h3>Why This Test</h3>
-    <p>This protects the dataset-description workflow as a read-only briefing lookup. A describe request should present the dataset-owned <code>dataset_briefing.md</code> markdown when it exists and should not launch remote documentation work.</p>
+    <p>This protects the dataset-description workflow as a read-only briefing lookup. A describe request may be routed by the model to the briefing tool, but the selected tool should present the dataset-owned <code>dataset_briefing.md</code> markdown when it exists and should not launch remote documentation work.</p>
   </div>
   <div class="two-col">
     <div>
@@ -372,12 +372,12 @@
     </div>
     <div>
       <h3>Actions Taken</h3>
-      <p>The product resolves <code>econ</code>, reads the remote dataset detail record, and returns the saved briefing markdown from <code>dataset_briefing.md</code>.</p>
+      <p>The model selects the read-only dataset briefing tool. The product resolves <code>econ</code>, reads the remote dataset detail record, and returns the saved briefing markdown from <code>dataset_briefing.md</code>.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
-    <ul><li>The model is not called for a local describe shortcut.</li>
+    <ul><li>The AI path selects the read-only dataset briefing tool.</li>
 <li>No remote run is started.</li>
 <li>The response includes the saved briefing markdown.</li>
 <li>The response names <code>dataset_briefing.md</code> as the briefing source.</li>
@@ -2166,6 +2166,36 @@
 <li>The timeout path is deterministic.</li>
 <li>A still-running run is reported as still running.</li>
 <li>The product does not fabricate terminal results.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="whats-in-dataset-question-reads-briefing-markdown-without-starting-a-run" data-title="whats-in dataset question reads briefing markdown without starting a run" data-category="CLI Product">
+  <div class="section-head">
+    <span>75 · CLI Product</span>
+    <a href="#whats-in-dataset-question-reads-briefing-markdown-without-starting-a-run">#</a>
+  </div>
+  <h2>whats-in dataset question reads briefing markdown without starting a run</h2>
+  <p class="test-name"><span>Test name</span><code>whats-in dataset question reads briefing markdown without starting a run</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the intended AI-driven routing: the model may choose the read-only dataset briefing tool, but the CLI should not use a local phrase matcher and should not launch a remote briefing refresh.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks what is in the <code>econ</code> dataset using natural language instead of a literal describe command.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The model selects <code>describe_remote_dataset</code> for <code>econ</code>. The tool resolves the dataset, reads the saved dataset-owned briefing markdown, and returns it to the model for a concise user-facing answer.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The AI path selects the read-only dataset briefing tool.</li>
+<li>The dataset detail endpoint is read for <code>econ</code>.</li>
+<li>No remote run is started.</li>
+<li>The response includes the briefing contents and source.</li>
+<li>The response does not include run-start language or a run id.</li></ul>
   </div>
 </article>
     </section>
