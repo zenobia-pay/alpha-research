@@ -261,3 +261,18 @@ test("assistant display formatting turns inline pseudo-bullets into readable mar
   assert.match(formatted, /Do you want to:\n\n- Create a research environment,\n- Run a hypothesis\/analysis/u);
   assert.match(formatted, /Examples you can send:\n\n- “Import \/Users\/me\/data\/sales\.csv and profile it\.”\n- “Test: captions vs watch time\.”/u);
 });
+
+test("assistant display formatting structures dense dataset summaries", () => {
+  const formatted = formatAssistantDisplayText(
+    "/mnt/alpha-research/datasets/econ - Size: 23,837 files; ~8.54 GB - Canonical policy: raw provider-native files only (no merged panels) Coverage (key raw sources and paths) - FRED macro: CPI, Fed Funds (raw/fred/.csv) - Census microdata: ACS 2024 (raw/census/acs/csv_pus.zip) - Housing: FHFA HPI (raw/fhfa/hpi_at_.csv) Quality/provenance - Disk inventory proven true; latest expansion run: run-1 - Artifacts on volume: quality_report.md, dataset_briefing.md Limitations/blocks - Blocked/not found from runner: BLS CPI (403/DNS) - License-review: BIS, OECD Want me to: - Generate/refresh the Dataset Briefing doc, - Profile a specific file?",
+  );
+
+  assert.match(formatted, /^\/mnt\/alpha-research\/datasets\/econ\n\n\*\*Size:\*\* 23,837 files/u);
+  assert.match(formatted, /\*\*Canonical policy:\*\* raw provider-native files only/u);
+  assert.match(formatted, /\*\*Coverage\*\*\n- FRED macro: CPI/u);
+  assert.match(formatted, /\n- Census microdata: ACS 2024/u);
+  assert.match(formatted, /\n\n\*\*Quality\/provenance\*\*\n- Disk inventory proven true/u);
+  assert.match(formatted, /\n\n\*\*Limitations\/blocks\*\*\n- Blocked\/not found from runner/u);
+  assert.match(formatted, /\n- License-review: BIS, OECD/u);
+  assert.match(formatted, /Want me to:\n\n- Generate\/refresh the Dataset Briefing doc,\n- Profile a specific file\?/u);
+});

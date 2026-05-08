@@ -403,11 +403,30 @@ function AssistantMessage() {
 }
 
 export function formatAssistantDisplayText(text: string) {
-  return text
+  return formatDatasetSummaryDisplayText(text)
     .replace(/(\bDo you want to:)\s*-\s*/gu, "$1\n\n- ")
+    .replace(/(\bWant me to:)\s*-\s*/gu, "$1\n\n- ")
     .replace(/(\bExamples you can send:)\s*-\s*/gu, "$1\n\n- ")
     .replace(/[ \t]+or[ \t]+-[ \t]+(?=[A-Z“"`])/gu, "\n- ")
+    .replace(/([,\?])[ \t]+-[ \t]+(?=[A-Z])/gu, "$1\n- ")
     .replace(/[ \t]+-[ \t]+(?=[“"`])/gu, "\n- ");
+}
+
+function formatDatasetSummaryDisplayText(text: string) {
+  if (!/\b(?:Canonical policy|Coverage \(key raw sources and paths\)|Quality\/provenance|Limitations\/blocks)\b/u.test(text)) {
+    return text;
+  }
+
+  return text
+    .replace(/^(\S*\/(?:datasets|data\/instances)\/[^\s]+)\s+-\s+Size:\s*/u, "$1\n\n**Size:** ")
+    .replace(/\s+-\s+Canonical policy:\s*/u, "\n**Canonical policy:** ")
+    .replace(/\s+Coverage \(key raw sources and paths\)\s+-\s*/u, "\n\n**Coverage**\n- ")
+    .replace(/\s+Quality\/provenance\s+-\s*/u, "\n\n**Quality/provenance**\n- ")
+    .replace(/\s+Limitations\/blocks\s+-\s*/u, "\n\n**Limitations/blocks**\n- ")
+    .replace(/\s+License-review:\s*/u, "\n- License-review: ")
+    .replace(/\s+Runtime tooling present under\s+/u, "\n- Runtime tooling present under ")
+    .replace(/\s+Want me to:\s*/u, "\n\nWant me to: ")
+    .replace(/[ \t]+-[ \t]+(?=(?:FRED macro|Census microdata|Housing|Income|Global\/finance|Reference|Blocked\/not found|License-review|Runtime tooling)\b)/gu, "\n- ");
 }
 
 function ActivityIndicator() {
