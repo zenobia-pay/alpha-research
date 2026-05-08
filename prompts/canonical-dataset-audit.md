@@ -74,7 +74,7 @@ Write `slack_briefing.md` summarizing sent, pending, and failed Slack alerts, in
 
 Recursively inspect the mounted dataset volume after all writes. `volume_inventory.jsonl` is the source of truth for what is on disk and must include one row/object for every file.
 
-Before final inventory, remove or avoid writing remote agent runtime/tooling/cache directories to the dataset volume when possible, including `.remote-agent`, `.codex`, `.cache`, temporary plugin caches, and local virtual environments. If they remain on disk, include them in the inventory with `source_family_guess: runtime_tooling` and report them as non-dataset contamination in `dataset_briefing.md` and `quality_report.md`.
+Before final inventory, avoid creating new remote agent runtime/tooling/cache directories on the dataset volume when possible, including `.remote-agent`, `.codex`, `.cache`, temporary plugin caches, and local virtual environments. Do not delete active runtime directories during the run; on this platform deleting active runtime directories can kill artifact capture and make the run fail. If they remain on disk, include them in the inventory with `source_family_guess: runtime_tooling` and report them as non-dataset contamination in `dataset_briefing.md` and `quality_report.md`.
 
 For every file, capture:
 

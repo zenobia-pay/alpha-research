@@ -88,6 +88,7 @@ test("build prompt includes mandatory disk-backed inventory and docs contract", 
     "# Non-Data Artifacts On Disk",
     "POST /api/cli/datasets/medieval-studies/profile",
     "read back `GET /api/cli/datasets/medieval-studies`",
+    "Do not delete active runtime directories during the run",
     "what is not present",
     "not address-level, county-level, metro-level, or transaction-level unless the inventory proves it",
     "authenticated Codex CLI/session",
@@ -152,6 +153,7 @@ test("audit prompt requires rich Slack alert backfills", async () => {
     "# Non-Data Artifacts On Disk",
     "POST /api/cli/datasets/econ/profile",
     "read back `GET /api/cli/datasets/econ`",
+    "Do not delete active runtime directories during the run",
     "not address-level, county-level, metro-level, or transaction-level unless the inventory proves it",
     "rewrite or supersede it with an enriched row",
     "Update the CLI-visible dataset profile after the audit",
@@ -190,6 +192,7 @@ test("improve prompt requires docs mirrors and CLI proof update", async () => {
     "read back `GET /api/cli/datasets/econ`",
     "# Blocked Or Missing Data",
     "# Non-Data Artifacts On Disk",
+    "Do not delete active runtime directories during the run",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }

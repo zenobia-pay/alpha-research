@@ -135,7 +135,7 @@ After all writes are complete, recursively inspect the mounted dataset volume an
 
 `volume_inventory.jsonl` is the source of truth for what is on disk. It must contain one row/object for every file on the dataset volume.
 
-Exclude remote agent runtime/tooling/cache directories from the canonical dataset volume when possible before final inventory, including `.remote-agent`, `.codex`, `.cache`, temporary plugin caches, and local virtual environments. If a runtime directory already exists on the mounted volume and cannot be removed, include it in `volume_inventory.*` but mark it with `source_family_guess: runtime_tooling` and call it out as non-dataset contamination in `dataset_briefing.md`, `quality_report.md`, and the final result.
+Avoid creating new remote agent runtime/tooling/cache directories on the canonical dataset volume when possible, including `.remote-agent`, `.codex`, `.cache`, temporary plugin caches, and local virtual environments. Do not delete active runtime directories during the run; on this platform deleting active runtime directories can kill artifact capture and make the run fail. If runtime/tooling/cache directories are present, include them in `volume_inventory.*` but mark them with `source_family_guess: runtime_tooling` and call them out as non-dataset contamination in `dataset_briefing.md`, `quality_report.md`, and the final result.
 
 For every file, capture:
 
