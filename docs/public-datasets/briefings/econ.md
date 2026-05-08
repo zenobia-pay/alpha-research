@@ -1,44 +1,54 @@
-# Econ Dataset Briefing
+# Overview
+- Dataset `econ` aggregates publicly available U.S. macroeconomic and housing indicators captured on 2026-05-08 at 17:26:20Z.
+- Scope currently covers FRED macroeconomic series and FHFA house price index; additional Census, BLS, BEA, Zillow, and NBER sources remain planned but not yet ingested.
+- Collection emphasizes raw fidelity; no transformations or aggregations are applied beyond source-provided structures.
 
-## Overview
-- Dataset id: `econ`.
-- Canonical storage policy: raw public source data only. Do not publish canonical analysis tables, merged panels, shared entity models, or cross-source computed outputs.
-- Scope: Macroeconomics, labor, housing, inflation, credit, consumer behavior, regional economics, and business-cycle research.
-- The CLI-visible briefing is `dataset.briefing.markdown`, backed by dataset-root `dataset_briefing.md`.
-- Last docs contract update: 2026-05-07T04:53:58.913Z.
+# Data Inventory
+- `raw/fred/UNRATE.csv` — FRED unemployment rate monthly series (940 records, 2 columns, 14 KB, sha256 54b1cb60...d3d9af0).
+- `raw/fred/GDP.csv` — FRED nominal GDP quarterly series (317 records, 2 columns, 6 KB, sha256 1a78eef4...19e9221).
+- `raw/fhfa/hpi_at_state.csv` — FHFA all-transactions state house price index (10,404 records, 4 columns, 182 KB, sha256 00147d5...ff2e94).
+- `raw/bls/cu.data.1.AllItems` — BLS CPI bulk file attempt (blocked; HTML access-denied response captured, 1.3 KB).
+- Metadata assets: `manifest.json`, inventories (`download_*.{csv,jsonl}`, `raw_*.{csv,jsonl}`), `source_registry.*`, `data_dictionary.md`, `quality_report.md`, `volume_inventory*`, Slack alert mirrors.
 
-## Raw Data Inventory
-| Source family | Raw artifact shape | What the briefing must describe |
-| --- | --- | --- |
-| BEA county and regional income files | CSV/API extracts plus definitions/codebooks | County/year and regional economic measures; keep BEA native fields and line codes. |
-| Census Building Permits Survey | Monthly county text/CSV files and codebooks | Permit counts by county/month in Census source layout. |
-| BLS LAUS/CPI/ATUS/CEX and related public files | BLS flat files/API responses | Labor, price, time-use, and expenditure series in BLS-native series formats. |
-| FRED and Federal Reserve data | CSV/API responses | Mortgage rates, credit, bank survey, and macro-finance series with native series ids. |
-| Zillow, Redfin, FHFA, HUD, Treasury, IMF, OECD, BIS, NBER, Pew, GSS, PSID | Provider CSV/API/download artifacts when public and license-compatible | Housing, finance, demographic, international, and survey source data retained by provider. |
+# Sources
+- **FRED** — Federal Reserve Economic Data; direct CSV endpoints for UNRATE and GDP retrieved successfully on 2026-05-08.
+- **FHFA HPI** — Federal Housing Finance Agency, quarterly state all-transactions CSV retrieved successfully on 2026-05-08.
+- **BLS CPI** — Bureau of Labor Statistics; attempted bulk text download blocked by HTTP 403 (Akamai), HTML denial retained.
+- **Deferred/Planned** — Census portal, ACS, CPS, AHS, BLS LAUS, BEA, Zillow Research, NBER (status: not attempted or deferred pending licensing, access keys, or processing capacity).
 
-## Source Shape Requirements
-- Keep each provider's files/API responses in source-specific raw paths.
-- Record exact file/API shape for every raw artifact: path, format, byte count, hash, row/document/object count when measurable, native fields, native keys, time/geography/topic coverage, license/access status, retrieval timestamp, and request URL with secrets redacted.
-- Keep provider codebooks, README files, schemas, and data dictionaries beside the raw artifacts when public.
-- Do not rewrite fields into a shared schema as part of the canonical package. If an analysis needs a derived table, create it as a separate run artifact outside the canonical raw dataset.
+# Schemas
+- `UNRATE.csv`: columns `observation_date` (YYYY-MM-DD), `UNRATE` (percent, seasonally adjusted); primary key `observation_date`.
+- `GDP.csv`: columns `observation_date` (YYYY-MM-DD at quarter start), `GDP` (billions of dollars, nominal); primary key `observation_date`.
+- `hpi_at_state.csv`: columns `state` (two-letter code + DC), `year` (YYYY), `quarter` (1-4), `index_value` (index, not seasonally adjusted); composite primary key `state,year,quarter`.
+- `cu.data.1.AllItems`: HTML error body, no usable schema.
 
-## Deprecated Canonical Artifacts
-These may exist in older mounted versions, but they should be removed from the next published canonical raw version or moved to non-canonical analysis artifacts:
-- processed/econ.*.parquet panels
-- integrated county-month panels
-- cross-source year-over-year or month-over-month derived fields
+# Time Coverage
+- UNRATE: monthly observations from 1948-01-01 through 2026-04-01.
+- GDP: quarterly observations from 1947-01-01 through 2026-01-01.
+- FHFA HPI: quarterly observations from 1975Q1 through 2025Q4.
+- BLS CPI download blocked; no time coverage available in this snapshot.
 
-## Required Briefing Sections
-- Raw source inventory with exact source paths and source URLs.
-- Native file/API schemas and field descriptions, not shared cross-source schemas.
-- Native time, geography, topic, language, collection, or corpus coverage by source.
-- Provenance: retrieval method, timestamp, request URL, hash, license/access notes, and gating reason.
-- Quality: fetch success/failure, completeness notes, malformed files, source caveats, and redistribution limits.
-- Gaps and next refresh hints.
+# Geography Coverage
+- FRED UNRATE and GDP: United States national economic indicators.
+- FHFA HPI: All 50 U.S. states plus District of Columbia.
+- BLS CPI attempt: intended U.S. city average; unavailable due to access denial.
 
-## Current Gaps And Repair Notes
-- Several sources require API keys or license review; do not fetch gated sources into canonical raw packages.
-- Older processed panels should be removed from the next published canonical version or moved to non-canonical analysis artifacts.
+# Formats
+- Accessible data stored as CSV files encoded in UTF-8 without BOM.
+- Blocked BLS CPI attempt stored as HTML error response for auditing.
+- Metadata delivered as Markdown (`.md`), CSV, JSON, and JSONL support files.
 
-## Documentation Sync
-- The dataset refresh/improvement job must write this same content to dataset-root `dataset_briefing.md`, expose it as `dataset.briefing.markdown` in `GET /api/cli/datasets/econ`, and mirror it into `docs/public-datasets/briefings/econ.md` and `docs/public-datasets/econ.mdx`.
+# Transformations & Derived Fields
+- No transformations applied; files mirror source-provided layout.
+- FHFA CSV lacks header row; column order documented in `raw_inventory` and briefing for downstream parsing.
+
+# Quality & Validation
+- `quality_report.md` (2026-05-08T17:26:20Z) logs one outstanding issue: BLS CPI automated fetch blocked (HTTP 403).
+- Successful downloads verified via SHA-256 hashes recorded in inventories; byte sizes align with manifests.
+- Slack alert artifacts generated but unsent pending webhook configuration; serve as audit trail.
+
+# Limitations & Known Gaps
+- BLS CPI bulk file inaccessible without interactive session; automation requires alternative endpoint or credentialed access.
+- Major planned Census, BEA, Zillow, and NBER datasets remain absent, limiting coverage to three economic indicators.
+- `.remote-agent/` runtime tooling present on volume; exclude from canonical dataset releases.
+- FHFA schema depends on external layout documentation due to missing header row; downstream loaders must supply column names explicitly.
