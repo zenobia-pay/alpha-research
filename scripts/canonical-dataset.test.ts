@@ -73,6 +73,8 @@ test("build prompt includes mandatory disk-backed inventory and docs contract", 
     "for every attempted source download",
     "CANONICAL_DATASET_SLACK_WEBHOOK_URL",
     "Slack webhook message",
+    "Execute the work now",
+    "Do not stop after writing a plan",
     "plain-English data summary",
     "geographic coverage",
     "time coverage",
@@ -140,6 +142,8 @@ test("audit prompt requires rich Slack alert backfills", async () => {
   });
   for (const required of [
     "must understand what the data actually is, not just the file name or path",
+    "Execute the work now",
+    "Do not stop after writing a plan",
     "plain-English data summary",
     "observations/entities",
     "geographic coverage",
@@ -179,6 +183,8 @@ test("improve prompt requires docs mirrors and CLI proof update", async () => {
   });
   for (const required of [
     "update all three public/CLI surfaces from the same inventory-derived briefing",
+    "Execute the work now",
+    "Do not stop after writing a plan",
     "docs/public-datasets/briefings/econ.md",
     "docs/public-datasets/econ.mdx",
     "the CLI-visible dataset profile returned by `GET /api/cli/datasets/econ`",

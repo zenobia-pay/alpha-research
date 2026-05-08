@@ -1,5 +1,7 @@
 # Canonical Dataset Disk Audit: {datasetName} (`{datasetId}`)
 
+Execute the work now. Do not stop after writing a plan, checklist, or proposed steps. A response that only describes a plan without regenerating inventories, briefing files, CLI profile/readback, and artifacts is a failed run.
+
 Audit the mounted canonical dataset volume for `{datasetId}`. Do not fetch external sources and do not use private data.
 
 ## Goal

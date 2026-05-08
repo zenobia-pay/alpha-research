@@ -2,6 +2,8 @@
 
 You are building one canonical public Alpha Research dataset for this humanities or social-science field:
 
+Execute the work now. Do not stop after writing a plan, checklist, or proposed steps. A response that only describes a plan without creating/updating dataset files, inventories, briefing files, CLI profile/readback, and artifacts is a failed run.
+
 ```text
 {fieldBrief}
 ```
