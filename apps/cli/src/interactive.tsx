@@ -733,7 +733,7 @@ function ResearchThread({
 
 function StableComposerInput({
   submitOnEnter,
-  placeholder: _placeholder,
+  placeholder,
   autoFocus = true,
 }: {
   submitOnEnter?: boolean;
@@ -742,30 +742,14 @@ function StableComposerInput({
 }) {
   const aui = useAui();
   const { exit } = useApp();
-  const draftRef = useRef("");
+  const [draft, setDraft] = useState("");
   const { isFocused } = useFocus({ autoFocus });
-  const moveCursorToInput = () => {
-    if (isFocused) {
-      process.stdout.write("\x1b[2A\r\x1b[5C");
-    }
-  };
-  const clearDraftLine = () => {
-    if (draftRef.current.length > 0) {
-      process.stdout.write("\b \b".repeat(draftRef.current.length));
-    }
-    draftRef.current = "";
-  };
-
-  useEffect(() => {
-    const timer = setTimeout(moveCursorToInput, 0);
-    return () => clearTimeout(timer);
-  }, [isFocused]);
 
   useInput(
     (input, key) => {
       if ((key.ctrl || key.meta) && input === "c") {
-        if (draftRef.current.length > 0) {
-          clearDraftLine();
+        if (draft.length > 0) {
+          setDraft("");
         } else {
           exit();
         }
@@ -773,23 +757,18 @@ function StableComposerInput({
       }
       if (key.return) {
         if (submitOnEnter) {
-          const draft = draftRef.current;
-          draftRef.current = "";
           aui.composer().setText(draft);
           aui.composer().send();
+          setDraft("");
         }
         return;
       }
       if (key.backspace || key.delete) {
-        if (draftRef.current.length > 0) {
-          draftRef.current = draftRef.current.slice(0, -1);
-          process.stdout.write("\b \b");
-        }
+        setDraft((value) => value.slice(0, -1));
         return;
       }
       if (input && !key.ctrl && !key.meta) {
-        draftRef.current += input;
-        process.stdout.write(input);
+        setDraft((value) => value + input);
       }
     },
     { isActive: isFocused },
@@ -797,7 +776,8 @@ function StableComposerInput({
 
   return (
     <Box>
-      <Text> </Text>
+      <Text dimColor={!draft && !!placeholder}>{draft || placeholder}</Text>
+      {isFocused ? <Text>▋</Text> : null}
     </Box>
   );
 }
