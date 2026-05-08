@@ -15,7 +15,7 @@
       <p class="lede">Readable product explanations for every test contract. Each entry describes how the product is used, what actions are taken, and what assertions are made.</p>
     </header>
 
-    <section class="stat-grid"><div><span>Briefings</span><strong>75</strong></div><div><span>Assertions</span><strong>230</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
+    <section class="stat-grid"><div><span>Briefings</span><strong>75</strong></div><div><span>Assertions</span><strong>231</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
 
     <section class="panel controls">
       <div>
@@ -1500,37 +1500,9 @@
     <ul></ul>
   </div>
 </article>
-<article class="briefing-card" id="specific-viral-tweets-experiment-blocks-clearly-when-the-named-dataset-is-not-ready" data-title="specific viral tweets experiment blocks clearly when the named dataset is not ready" data-category="CLI Product">
-  <div class="section-head">
-    <span>53 · CLI Product</span>
-    <a href="#specific-viral-tweets-experiment-blocks-clearly-when-the-named-dataset-is-not-ready">#</a>
-  </div>
-  <h2>specific viral tweets experiment blocks clearly when the named dataset is not ready</h2>
-  <p class="test-name"><span>Test name</span><code>specific viral tweets experiment blocks clearly when the named dataset is not ready</code></p>
-  <div class="why-block">
-    <h3>Why This Test</h3>
-    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
-  </div>
-  <div class="two-col">
-    <div>
-      <h3>Product Use</h3>
-      <p>This product test exercises the CLI behavior for <code>specific viral tweets experiment blocks clearly when the named dataset is not ready</code> from the user's point of view.</p>
-    </div>
-    <div>
-      <h3>Actions Taken</h3>
-      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
-    </div>
-  </div>
-  <div class="assertions">
-    <h3>Assertions Made</h3>
-    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
-<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
-<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
-  </div>
-</article>
 <article class="briefing-card" id="specific-viral-tweets-experiment-starts-with-user-facing-analysis-summary-and-artifact-expectations" data-title="specific viral tweets experiment starts with user-facing analysis summary and artifact expectations" data-category="CLI Product">
   <div class="section-head">
-    <span>54 · CLI Product</span>
+    <span>53 · CLI Product</span>
     <a href="#specific-viral-tweets-experiment-starts-with-user-facing-analysis-summary-and-artifact-expectations">#</a>
   </div>
   <h2>specific viral tweets experiment starts with user-facing analysis summary and artifact expectations</h2>
@@ -1552,6 +1524,34 @@
   <div class="assertions">
     <h3>Assertions Made</h3>
     <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="specific-viral-tweets-experiment-uses-ai-selected-run-tool-even-when-dataset-state-is-unresolved" data-title="specific viral tweets experiment uses ai-selected run tool even when dataset state is unresolved" data-category="CLI Product">
+  <div class="section-head">
+    <span>54 · CLI Product</span>
+    <a href="#specific-viral-tweets-experiment-uses-ai-selected-run-tool-even-when-dataset-state-is-unresolved">#</a>
+  </div>
+  <h2>specific viral tweets experiment uses AI-selected run tool even when dataset state is unresolved</h2>
+  <p class="test-name"><span>Test name</span><code>specific viral tweets experiment uses AI-selected run tool even when dataset state is unresolved</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the contract that the CLI does not locally parse and compile a special viral-tweets experiment prompt. The model chooses the run tool and supplies the prompt.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user provides a fully specified viral-tweets experiment.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness has the model choose <code>run_remote_transformation</code> for <code>enriched-tweets</code>. The fake backend accepts the run.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The run starts through the model-selected tool.</li>
+<li>No local viral-tweets compiler runs.</li>
+<li>The run id and dashboard handoff are shown.</li></ul>
   </div>
 </article>
 <article class="briefing-card" id="stuck-run-question-escalates-stale-running-run-to-debug-now" data-title="stuck run question escalates stale running run to debug now" data-category="CLI Product">
@@ -2111,32 +2111,33 @@
 <li>No remote tool planning occurs before scope is chosen.</li></ul>
   </div>
 </article>
-<article class="briefing-card" id="viral-tweets-proposal-follow-up-starts-when-the-suggested-dataset-and-scope-are-confirmed" data-title="viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed" data-category="CLI Product">
+<article class="briefing-card" id="viral-tweets-follow-up-starts-through-the-ai-selected-run-tool" data-title="viral tweets follow-up starts through the ai-selected run tool" data-category="CLI Product">
   <div class="section-head">
     <span>73 · CLI Product</span>
-    <a href="#viral-tweets-proposal-follow-up-starts-when-the-suggested-dataset-and-scope-are-confirmed">#</a>
+    <a href="#viral-tweets-follow-up-starts-through-the-ai-selected-run-tool">#</a>
   </div>
-  <h2>viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed</h2>
-  <p class="test-name"><span>Test name</span><code>viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed</code></p>
+  <h2>viral tweets follow-up starts through the AI-selected run tool</h2>
+  <p class="test-name"><span>Test name</span><code>viral tweets follow-up starts through the AI-selected run tool</code></p>
   <div class="why-block">
     <h3>Why This Test</h3>
-    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+    <p>This protects the contract that experiment planning and run prompting are model-selected tool work, not a local hardcoded viral-tweets compiler.</p>
   </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
-      <p>This product test exercises the CLI behavior for <code>viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed</code> from the user's point of view.</p>
+      <p>A user asks for a viral-tweets experiment, then follows up with a metric and sample size.</p>
     </div>
     <div>
       <h3>Actions Taken</h3>
-      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+      <p>The deterministic harness has the model first return a scoped plan, then choose <code>run_remote_transformation</code> on the follow-up.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
-    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
-<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
-<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+    <ul><li>The first turn does not start a run.</li>
+<li>The follow-up starts through the model-selected run tool.</li>
+<li>The run id and dashboard handoff are shown.</li>
+<li>The old hardcoded viral-tweets derivation text does not appear.</li></ul>
   </div>
 </article>
 <article class="briefing-card" id="wait-for-run-completion-can-time-out-deterministically" data-title="wait for run completion can time out deterministically" data-category="CLI Product">

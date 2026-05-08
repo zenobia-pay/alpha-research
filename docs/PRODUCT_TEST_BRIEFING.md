@@ -122,5 +122,5 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [prompt mode exits cleanly after stuck-run local diagnosis](product-tests/prompt-mode-exits-cleanly-after-stuck-run-local-diagnosis.md)
 - [prompt-mode busy dataset shortcut uses backend active runs before planning](product-tests/prompt-mode-busy-dataset-shortcut-uses-backend-active-runs-before-planning.md)
 - [remote transport failures surface a concise blocked summary](product-tests/remote-transport-failures-surface-a-concise-blocked-summary.md)
-- [specific viral tweets experiment blocks clearly when the named dataset is not ready](product-tests/specific-viral-tweets-experiment-blocks-clearly-when-the-named-dataset-is-not-ready.md)
-- [viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed](product-tests/viral-tweets-proposal-follow-up-starts-when-the-suggested-dataset-and-scope-are-confirmed.md)
+- [specific viral tweets experiment uses AI-selected run tool even when dataset state is unresolved](product-tests/specific-viral-tweets-experiment-uses-ai-selected-run-tool-even-when-dataset-state-is-unresolved.md)
+- [viral tweets follow-up starts through the AI-selected run tool](product-tests/viral-tweets-follow-up-starts-through-the-ai-selected-run-tool.md)

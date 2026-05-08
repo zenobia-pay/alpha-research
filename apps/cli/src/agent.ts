@@ -53,14 +53,7 @@ export type AgentConversationState = {
 };
 
 type PendingConversationAction =
-  | {
-    type: "viral-tweets-proposal";
-    suggestedDatasetId: string | null;
-    datasetVerified: boolean;
-    defaultMetricField: string;
-    defaultSampleSize: number;
-  }
-  | {
+  {
     type: "delete-local-dataset";
     instanceId: string;
     datasetId: string;
@@ -2658,146 +2651,6 @@ function formatAmbiguousBusinessOpportunityProposal() {
   ].join("\n");
 }
 
-function shouldHandleVagueTweetsExperiment(input: string) {
-  const lower = input.toLowerCase();
-  if (!/\btweets?\b/.test(lower) || !/\bviral|virality\b/.test(lower) || !/\b(experiment|run|analy[sz]e|look into)\b/.test(lower)) {
-    return false;
-  }
-  if (/\btop\s*0\.1%|quote_tweet_count|sample\s+100|strict json\b/.test(lower)) {
-    return false;
-  }
-  return true;
-}
-
-function tweetDatasetLooksUsable(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
-  const metadata = datasetMetadataText(dataset);
-  return /\btweet/.test(metadata) && /\bquote_tweet_count\b/.test(metadata);
-}
-
-function formatViralTweetsExperimentProposal(dataset: RemoteDatasetSummary | RemoteDatasetDetail, wasVerified: boolean) {
-  const label = `\`${dataset.id}\`${dataset.name && dataset.name !== dataset.id ? ` (${dataset.name})` : ""}`;
-  const datasetLine = wasVerified
-    ? `Dataset: ${label} is available in RESEARCH now.`
-    : `Dataset: ${label} looks like the best current fit in RESEARCH.`;
-  const datasetWhy = wasVerified
-    ? "Why this dataset: it is present in RESEARCH and its metadata includes tweet engagement fields needed for a first-pass virality experiment."
-    : "Why this dataset: it looks like the closest tweet dataset currently available in RESEARCH for an engagement-based virality experiment.";
-  return [
-    "Before I start a remote run, here is the experiment I recommend.",
-    "",
-    "Plan",
-    datasetLine,
-    datasetWhy,
-    "Success looks like: a short report that explains which tweet patterns show up most often in the viral sample, with visualizations and concrete examples.",
-    "",
-    "Definition",
-    "Default metric: top 0.1% by `quote_tweet_count`.",
-    "Why this metric: quote tweets usually capture stronger downstream spread and commentary than likes alone, so it is a useful first viral proxy.",
-    "Sample: label 100 tweets from the viral set.",
-    "Why 100: it is enough for a first-pass pattern read without paying for a much larger labeling job up front.",
-    "Labels: `hook_type`, `emotional_tone`, `controversy_level`.",
-    "Outputs: a short summary, visualizations such as one bar chart per label, and 10 representative examples.",
-    "",
-    "Choose the virality rule",
-    "1. Top 0.1% by `quote_tweet_count` - best if you care about tweets that triggered visible discussion and response posts.",
-    "2. Top 0.1% by `retweet_count` - best if you care about raw resharing spread.",
-    "3. Top 0.1% by `favorite_count` - best if you care about broad lightweight approval rather than discussion.",
-    "",
-    "Waiting for your approval",
-    "Reply with 1, 2, or 3 to start with that metric.",
-    "Optional override: tell me a different sample size or ask for a control group before I launch anything.",
-  ].join("\n");
-}
-
-function looksLikeViralTweetsProposalReply(input: string) {
-  const lower = input.toLowerCase();
-  return /\bquote_tweet_count\b/.test(lower)
-    || /\bsample\s+\d+\s+tweets?\b/.test(lower)
-    || /^(?:1|2|3)$/.test(lower.trim())
-    || /\bretweet_count\b/.test(lower)
-    || /\bfavorite_count\b/.test(lower);
-}
-
-function formatViralTweetsProposalFollowUp(pending: Extract<PendingConversationAction, { type: "viral-tweets-proposal" }>) {
-  const datasetLabel = pending.suggestedDatasetId ? `\`${pending.suggestedDatasetId}\`` : "the tweets dataset";
-  return [
-    `I can use \`${pending.defaultMetricField}\` and sample ${pending.defaultSampleSize} tweets. No remote run has started yet.`,
-    "",
-    "Blocked on one setup detail",
-    `I need the dataset id before I can launch anything because RESEARCH runs against one mounted dataset at a time.${pending.datasetVerified && pending.suggestedDatasetId ? ` The best current match is ${datasetLabel}.` : ""}`,
-    "",
-    "Next reply",
-    pending.suggestedDatasetId
-      ? `Reply \`use ${pending.suggestedDatasetId}\` to use ${datasetLabel}, or send a different dataset id if you want another source.`
-      : "Reply with the dataset id you want me to use, or ask me to show tweet datasets first.",
-    "After that, I will inspect the dataset metadata to confirm whether `quote_tweet_count` is already present or needs to be derived from quote relationships before I start the run.",
-  ].join("\n");
-}
-
-function extractSuggestedViralTweetsDatasetId(response: string) {
-  return response.match(/Dataset:\s+`([^`]+)`/u)?.[1] ?? null;
-}
-
-function buildViralTweetsApprovedPrompt(pending: Extract<PendingConversationAction, { type: "viral-tweets-proposal" }>, input: string) {
-  const lower = input.toLowerCase();
-  const metricField = /\bretweet_count\b/.test(lower)
-    ? "retweet_count"
-    : /\bfavorite_count\b/.test(lower)
-      ? "favorite_count"
-      : pending.defaultMetricField;
-  const sampleSize = Number(input.match(/\bsample\s+(\d+)\s+tweets?\b/i)?.[1] ?? pending.defaultSampleSize);
-  const explicitDatasetId = input.match(/\buse\s+([a-z0-9][a-z0-9_-]*)\b/i)?.[1] ?? null;
-  const datasetId = explicitDatasetId && explicitDatasetId !== metricField ? explicitDatasetId : pending.suggestedDatasetId;
-  if (!datasetId || !pending.datasetVerified) {
-    return null;
-  }
-  return [
-    `Using ${datasetId}, define viral tweets as the top 0.1% by ${metricField}.`,
-    `Randomly sample ${sampleSize} viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.`,
-  ].join(" ");
-}
-
-async function maybeHandleVagueTweetsExperiment(
-  input: string,
-  initialSession: SessionRecord | null,
-  emit: (message: AgentMessage) => void,
-  deps: AgentRuntimeDeps,
-) {
-  if (!initialSession || !shouldHandleVagueTweetsExperiment(input)) {
-    return null;
-  }
-  const client = deps.createRemoteClient(initialSession);
-  emit({ role: "tool", content: "Checking remote datasets..." });
-  const listed = await client.listDatasets().catch(() => null);
-  if (!listed) {
-    return [
-      "Before I start a remote run, I need to confirm which tweets dataset is available in RESEARCH.",
-      "",
-      "Reply with the dataset you want me to use, or ask me to show tweet datasets first.",
-    ].join("\n");
-  }
-  emit({ role: "tool", content: `Found ${listed.datasets.length} remote datasets.` });
-  const selected = chooseDatasetBriefingTarget("enriched-tweets", listed.datasets)
-    ?? listed.datasets.find((dataset) => tweetDatasetLooksUsable(dataset))
-    ?? listed.datasets.find((dataset) => /\btweet/.test(datasetMetadataText(dataset)))
-    ?? null;
-  if (!selected) {
-    return [
-      "I did not find a usable tweets dataset in RESEARCH, so I should not launch this experiment yet.",
-      "",
-      "Next: ask me to show datasets or help build a tweets dataset with text, timestamps, authors, and engagement fields.",
-    ].join("\n");
-  }
-  emit({ role: "tool", content: `Inspecting dataset ${selected.id}...` });
-  const detail = await client.getDataset(selected.id).catch(() => null);
-  if (detail?.dataset) {
-    emit({ role: "tool", content: `Confirmed dataset ${selected.id} for tweet analysis.` });
-    return formatViralTweetsExperimentProposal(detail.dataset, true);
-  }
-  emit({ role: "tool", content: `Using dataset inventory evidence for ${selected.id}.` });
-  return formatViralTweetsExperimentProposal(selected, false);
-}
-
 function shouldHandleFieldDefinitionQuestion(input: string) {
   const lower = input.trim().toLowerCase();
   return /\bwhat does\b|\bmeaning\b|\bmean\b/.test(lower)
@@ -3062,48 +2915,6 @@ function extractRequestedDatasetReference(input: string) {
   return onOrUsing?.[1]?.toLowerCase() ?? null;
 }
 
-type SpecificViralTweetsRequest = {
-  datasetId: string;
-  metricField: string;
-  thresholdPercent: number;
-  sampleSize: number;
-  labelFields: string[];
-  wantsBarChart: boolean;
-  representativeExamples: number;
-};
-
-function parseSpecificViralTweetsRequest(input: string): SpecificViralTweetsRequest | null {
-  const explicitUsingMatch = input.match(/\busing\s+([a-z0-9][a-z0-9_-]*)(?:,|\s)/iu);
-  const datasetId = explicitUsingMatch?.[1]?.toLowerCase() ?? extractRequestedDatasetReference(input);
-  const lower = input.toLowerCase();
-  if (!datasetId || !/\bviral tweets?\b/.test(lower)) {
-    return null;
-  }
-  const thresholdMatch = input.match(/\btop\s+(\d+(?:\.\d+)?)%\s+by\s+([a-z][a-z0-9_]*)\b/i);
-  const sampleMatch = input.match(/\b(?:randomly\s+)?sample\s+(\d+)\s+viral tweets?\b/i);
-  const examplesMatch = input.match(/\b(\d+)\s+representative examples\b/i);
-  const labelMatch = input.match(/\blabel each for\s+(.+?)\s+using strict json\b/i);
-  if (!thresholdMatch?.[1] || !thresholdMatch[2] || !sampleMatch?.[1] || !labelMatch?.[1]) {
-    return null;
-  }
-  const labelFields = labelMatch[1]
-    .split(/,|\band\b/iu)
-    .map((value) => value.trim().replace(/[^a-z0-9_]/gi, "").toLowerCase())
-    .filter((value) => value.length > 0);
-  if (labelFields.length === 0) {
-    return null;
-  }
-  return {
-    datasetId,
-    metricField: thresholdMatch[2].toLowerCase(),
-    thresholdPercent: Number(thresholdMatch[1]),
-    sampleSize: Number(sampleMatch[1]),
-    labelFields,
-    wantsBarChart: /\bbar chart\b/i.test(input),
-    representativeExamples: Number(examplesMatch?.[1] ?? "0"),
-  };
-}
-
 function remoteDatasetFieldNames(dataset: RemoteDatasetDetail) {
   const profileFields = schemaFieldNames(dataset.profile?.schema);
   const recordDataset = dataset as Record<string, unknown>;
@@ -3114,158 +2925,6 @@ function remoteDatasetFieldNames(dataset: RemoteDatasetDetail) {
       .filter((field) => field.length > 0)
     : [];
   return [...new Set([...profileFields, ...explicitFields].map((field) => field.toLowerCase()))];
-}
-
-function datasetSelectionProgressLine(dataset: RemoteDatasetSummary | RemoteDatasetDetail) {
-  const lifecycle = formatDatasetLifecycleLabel(dataset.status, dataset.deploymentStatus);
-  const detail = lifecycle === "ready to use" ? "ready" : lifecycle;
-  return `Using ${dataset.id} (${detail}). Exact dataset match found in RESEARCH.`;
-}
-
-function buildSpecificViralTweetsRunPrompt(request: SpecificViralTweetsRequest) {
-  const labelList = request.labelFields.map((field) => `\`${field}\``).join(", ");
-  const outputLines = [
-    request.wantsBarChart ? "- a bar chart summarizing the label distribution" : null,
-    request.representativeExamples > 0 ? `- ${request.representativeExamples} representative tweet examples with their labels` : null,
-    "- a strict JSON result bundle for every labeled sample row",
-  ].filter(Boolean) as string[];
-  return [
-    `Use the mounted dataset \`${request.datasetId}\` for this analysis.`,
-    `Define viral tweets as the top ${request.thresholdPercent}% by \`${request.metricField}\`.`,
-    `Randomly sample ${request.sampleSize} viral tweets.`,
-    `For each sampled tweet, assign strict JSON labels for ${labelList}.`,
-    "Keep the output schema deterministic and machine-readable.",
-    "Work only from the mounted dataset fields; if a requested field is unavailable, say so explicitly in the summary and continue with the fields that are available.",
-    "Produce these outputs:",
-    ...outputLines,
-  ].join("\n");
-}
-
-async function maybeHandleSpecificViralTweetsExperiment(
-  input: string,
-  initialSession: SessionRecord | null,
-  emit: (message: AgentMessage) => void,
-  deps: AgentRuntimeDeps,
-) {
-  if (!initialSession) {
-    return null;
-  }
-  const request = parseSpecificViralTweetsRequest(input);
-  if (!request) {
-    return null;
-  }
-
-  const client = deps.createRemoteClient(initialSession);
-  emit({ role: "tool", content: "Checking remote datasets..." });
-  const listed = await client.listDatasets().catch(() => null);
-  if (!listed?.datasets?.length) {
-    return "I could not verify that the requested dataset exists in RESEARCH, so I did not start the run. Ask `show my datasets` if you want the current remote inventory first.";
-  }
-
-  const selected = chooseDatasetBriefingTarget(request.datasetId, listed.datasets);
-  if (!selected) {
-    return `I could not find a dataset matching \`${request.datasetId}\`, so I did not start the run. Ask \`show my datasets\` to inspect the available dataset ids.`;
-  }
-
-  emit({ role: "tool", content: datasetSelectionProgressLine(selected) });
-  emit({
-    role: "tool",
-    content: `Preserving request: top ${request.thresholdPercent}% by \`${request.metricField}\`, random sample ${request.sampleSize}, strict JSON labels for ${request.labelFields.map((field) => `\`${field}\``).join(", ")}, ${request.wantsBarChart ? "bar chart" : "analysis output"}${request.representativeExamples > 0 ? `, and ${request.representativeExamples} representative examples` : ""}.`,
-  });
-
-  const ready = normalizeRemoteDatasetState(selected) === "ready";
-  if (!ready) {
-    return [
-      `I accepted the experiment design, but I did not start the run because \`${selected.id}\` is ${formatDatasetLifecycleLabel(selected.status, selected.deploymentStatus)}.`,
-      `Dataset: ${selected.id}`,
-      `State: ${selected.status ?? selected.deploymentStatus ?? "unknown"}`,
-      `Preserved plan once it is ready: top ${request.thresholdPercent}% by \`${request.metricField}\`, random sample ${request.sampleSize}, strict JSON labels for ${request.labelFields.map((field) => `\`${field}\``).join(", ")}, ${request.wantsBarChart ? "bar chart" : "analysis output"}${request.representativeExamples > 0 ? `, and ${request.representativeExamples} representative examples` : ""}.`,
-      "Next: wait for the dataset to finish uploading/deploying, then rerun the same prompt.",
-    ].join("\n");
-  }
-
-  emit({ role: "tool", content: `Inspecting dataset ${selected.id}...` });
-  const detail = await client.getDataset(selected.id).catch(() => null);
-  if (!detail?.dataset) {
-    return `I found \`${selected.id}\` and it appears ready, but I could not inspect its metadata to verify the requested fields. Retry once dataset inspection is available.`;
-  }
-
-  const availableFields = remoteDatasetFieldNames(detail.dataset);
-  const requestedFields = [request.metricField, ...request.labelFields];
-  const missingFields = requestedFields.filter((field) => !availableFields.includes(field.toLowerCase()));
-  const fieldStatusLine = missingFields.length > 0
-    ? `Field check: missing ${missingFields.map((field) => `\`${field}\``).join(", ")}. I will warn in the run summary if those fields are unavailable.`
-    : `Field check: confirmed ${requestedFields.map((field) => `\`${field}\``).join(", ")}.`;
-  emit({ role: "tool", content: fieldStatusLine });
-
-  const toolContext: ToolExecutionContext = {
-    session: initialSession,
-    sessionId: null,
-    emit,
-    deps,
-  };
-  const target = await resolveRunnableEnvironmentDataset(toolContext, client, request.datasetId, { datasetId: request.datasetId, prompt: input });
-  const datasetId = target.datasetId;
-  emit({ role: "tool", content: summarizeResolvedDataset(target, "this analysis") });
-  emit({ role: "tool", content: `Starting remote analysis for ${datasetId}...` });
-
-  let result;
-  try {
-    result = await client.startRun(datasetId, buildSpecificViralTweetsRunPrompt(request), {
-      type: "transform",
-      config: withStandardAnalysisResources({
-        scriptOutline: [
-          `Compute viral threshold as the top ${request.thresholdPercent}% of rows by ${request.metricField}.`,
-          `Randomly sample ${request.sampleSize} viral tweets after thresholding.`,
-          `Label each sampled tweet with strict JSON fields: ${request.labelFields.join(", ")}.`,
-          request.wantsBarChart ? "Render a bar chart from the label counts." : null,
-          request.representativeExamples > 0 ? `Return ${request.representativeExamples} representative labeled examples.` : null,
-          missingFields.length > 0 ? `Warn explicitly if these requested fields are unavailable: ${missingFields.join(", ")}.` : null,
-        ].filter(Boolean).join("\n"),
-      }, datasetId),
-    });
-  } catch (error) {
-    if (error instanceof RemoteRequestError) {
-      const summary = summarizeBusyDatasetConflict(error, {
-        target,
-        purpose: "this viral-tweets analysis",
-        expectedArtifacts: ["bar chart", "structured JSON results", "representative examples"],
-      });
-      if (summary) {
-        return summary;
-      }
-    }
-    throw error;
-  }
-
-  if (initialSession) {
-    await trackRemoteRun({
-      id: result.run.id,
-      datasetId: result.run.datasetId,
-      origin: initialSession.origin,
-      status: result.run.status,
-      prompt: result.run.prompt,
-      createdAt: result.run.createdAt,
-      updatedAt: result.run.updatedAt,
-    });
-    spawnRunWatcher(result.run.id);
-  }
-
-  const summaryLines = [
-    `Started remote analysis on ${result.run.datasetId}.`,
-    `Dataset: ${result.run.datasetId}`,
-    `Run: ${result.run.id}`,
-    asyncRunStateLine(result.run.status),
-    `Preserved request: top ${request.thresholdPercent}% by \`${request.metricField}\`, random sample ${request.sampleSize}, strict JSON labels for ${request.labelFields.map((field) => `\`${field}\``).join(", ")}, then produce ${request.wantsBarChart ? "a bar chart" : "analysis outputs"}${request.representativeExamples > 0 ? ` and ${request.representativeExamples} representative examples` : ""}.`,
-    missingFields.length > 0
-      ? `Warning: requested fields not verified in dataset metadata: ${missingFields.map((field) => `\`${field}\``).join(", ")}. The run will need to confirm them at execution time.`
-      : "Field check: the requested metric and label fields were verified in dataset metadata before launch.",
-    "Expected artifacts: bar chart, structured JSON results, representative examples.",
-    "Handoff: this CLI launch is complete and the run will keep processing in the background.",
-    "Next: follow it in the dashboard or ask `research show active runs`.",
-    `Dashboard: ${dashboardRunUrl(initialSession.origin, result.run.id)}`,
-  ];
-  return summaryLines.join("\n");
 }
 
 function matchesDatasetReference(dataset: RemoteDatasetSummary, reference: string) {
@@ -5520,9 +5179,6 @@ export async function runAgentTurn(
   deps: AgentRuntimeDeps = createDefaultAgentRuntimeDeps(),
 ): Promise<AgentConversationState> {
   const resolvedDeps = deps;
-  const pendingViralTweetsProposal = conversationState?.pendingAction?.type === "viral-tweets-proposal"
-    ? conversationState.pendingAction
-    : null;
   const localDatasetDeletion = await maybeHandleLocalDatasetDeletion(input, resolvedDeps, conversationState);
   if (localDatasetDeletion) {
     emit({ role: "assistant", content: localDatasetDeletion.summary });
@@ -5531,29 +5187,6 @@ export async function runAgentTurn(
       previousResponseId: conversationState?.previousResponseId ?? null,
       datasetContext: conversationState?.datasetContext ?? null,
       pendingAction: localDatasetDeletion.pendingAction,
-    };
-  }
-
-  if (pendingViralTweetsProposal && looksLikeViralTweetsProposalReply(input)) {
-    const approvedPrompt = buildViralTweetsApprovedPrompt(pendingViralTweetsProposal, input);
-    if (approvedPrompt) {
-      const response = await maybeHandleSpecificViralTweetsExperiment(approvedPrompt, initialSession, emit, deps);
-      if (response) {
-        emit({ role: "assistant", content: response });
-        return {
-          sessionId: conversationState?.sessionId ?? null,
-          previousResponseId: conversationState?.previousResponseId ?? null,
-          datasetContext: conversationState?.datasetContext ?? null,
-          pendingAction: null,
-        };
-      }
-    }
-    emit({ role: "assistant", content: formatViralTweetsProposalFollowUp(pendingViralTweetsProposal) });
-    return {
-      sessionId: conversationState?.sessionId ?? null,
-      previousResponseId: conversationState?.previousResponseId ?? null,
-      datasetContext: conversationState?.datasetContext ?? null,
-      pendingAction: pendingViralTweetsProposal,
     };
   }
 
@@ -5606,39 +5239,12 @@ export async function runAgentTurn(
     };
   }
 
-  const specificViralTweetsResponse = await maybeHandleSpecificViralTweetsExperiment(input, initialSession, emit, deps);
-  if (specificViralTweetsResponse) {
-    emit({ role: "assistant", content: specificViralTweetsResponse });
-    return {
-      sessionId: conversationState?.sessionId ?? null,
-      previousResponseId: conversationState?.previousResponseId ?? null,
-      pendingAction: null,
-    };
-  }
-
   const fieldDefinitionResponse = await maybeHandleFieldDefinitionQuestion(input, initialSession, emit, deps);
   if (fieldDefinitionResponse) {
     emit({ role: "assistant", content: fieldDefinitionResponse });
     return {
       sessionId: conversationState?.sessionId ?? null,
       previousResponseId: conversationState?.previousResponseId ?? null,
-    };
-  }
-
-  const vagueTweetsResponse = await maybeHandleVagueTweetsExperiment(input, initialSession, emit, deps);
-  if (vagueTweetsResponse) {
-    emit({ role: "assistant", content: vagueTweetsResponse });
-    emit({ role: "tool", content: "Waiting for your approval before starting a run." });
-    return {
-      sessionId: conversationState?.sessionId ?? null,
-      previousResponseId: conversationState?.previousResponseId ?? null,
-      pendingAction: {
-        type: "viral-tweets-proposal",
-        suggestedDatasetId: extractSuggestedViralTweetsDatasetId(vagueTweetsResponse),
-        datasetVerified: /is available in RESEARCH now\./u.test(vagueTweetsResponse),
-        defaultMetricField: "quote_tweet_count",
-        defaultSampleSize: 100,
-      },
     };
   }
 

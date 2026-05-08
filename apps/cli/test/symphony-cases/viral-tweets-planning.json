@@ -26,8 +26,7 @@
   ],
   "expected": {
     "toolCalls": [
-      "list_remote_datasets",
-      "inspect_remote_dataset"
+      "list_remote_datasets"
     ],
     "assistantIncludes": [
       "enriched-tweets",
@@ -36,16 +35,10 @@
       "hook_type",
       "emotional_tone",
       "controversy_level",
-      "Choose the virality rule",
       "quote_tweet_count",
-      "retweet_count",
-      "favorite_count",
       "visualizations",
       "representative examples",
-      "Reply with 1, 2, or 3",
-      "Waiting for your approval",
-      "Why this dataset",
-      "Waiting for your approval before starting a run"
+      "Proceed with this default design?"
     ],
     "forbiddenToolCalls": [
       "query_remote_dataset",

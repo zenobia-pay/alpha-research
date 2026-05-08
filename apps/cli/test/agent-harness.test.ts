@@ -173,8 +173,9 @@ test("county-month housing-cycle dataset requests reuse a strong economics base 
   assert.match(String(created?.body.prompt ?? ""), /data dictionary, manifest, validation report, and source catalog/i);
 });
 
-test("viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed", async () => {
+test("viral tweets follow-up starts through the AI-selected run tool", async () => {
   let startedRun = false;
+  let respondCount = 0;
   const fakeClient = {
     async listDatasets() {
       return {
@@ -220,7 +221,43 @@ test("viral tweets proposal follow-up starts when the suggested dataset and scop
       };
     },
     async respond() {
-      throw new Error("Local viral-tweets flow should handle this without generic model fallback.");
+      respondCount += 1;
+      if (respondCount === 1) {
+        return {
+          sessionId: "viral-ai-session",
+          payload: {
+            id: "viral-plan",
+            output: [{
+              type: "message",
+              content: [{
+                type: "output_text",
+                text: [
+                  "Before I start a remote run, here is a scoped experiment design.",
+                  "",
+                  "Dataset: enriched-tweets.",
+                  "Metric: use quote_tweet_count unless you choose another virality proxy.",
+                  "Approval: reply with the metric and sample size to start.",
+                ].join("\n"),
+              }],
+            }],
+          },
+        };
+      }
+      return {
+        sessionId: "viral-ai-session",
+        payload: {
+          id: "viral-start",
+          output: [{
+            type: "function_call",
+            call_id: "call-transform",
+            name: "run_remote_transformation",
+            arguments: JSON.stringify({
+              datasetId: "enriched-tweets",
+              prompt: "Use quote_tweet_count and sample 100 tweets.",
+            }),
+          }],
+        },
+      };
     },
   };
   const deps: AgentRuntimeDeps = {
@@ -248,9 +285,7 @@ test("viral tweets proposal follow-up starts when the suggested dataset and scop
 
   const firstJoined = firstTurn.messages.map((message) => message.content).join("\n");
   const secondJoined = secondTurn.messages.map((message) => message.content).join("\n");
-  assert.match(firstJoined, /Before I start a remote run, here is the experiment I recommend\./);
-  assert.match(firstJoined, /Waiting for your approval before starting a run\./);
-  assert.match(secondJoined, /Starting remote analysis for enriched-tweets/i);
+  assert.match(firstJoined, /scoped experiment design/i);
   assert.match(secondJoined, /Started remote analysis on enriched-tweets/i);
   assert.match(secondJoined, /Run: run-viral-approved/i);
   assert.equal(startedRun, true);
@@ -1218,6 +1253,7 @@ test("whats-in dataset question reads briefing markdown without starting a run",
 });
 
 test("specific viral tweets experiment starts with user-facing analysis summary and artifact expectations", async () => {
+  let startedPrompt = "";
   const fakeClient = {
     async respond() {
       return {
@@ -1264,6 +1300,7 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
       };
     },
     async startRun(datasetId: string, prompt: string, options?: Record<string, unknown>) {
+      startedPrompt = prompt;
       return {
         run: {
           id: "run-transform-viral",
@@ -1302,28 +1339,39 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
 
   const joinedMessages = messages.map((message) => message.content).join("\n");
   assert.match(joinedMessages, /Checking remote datasets/);
-  assert.match(joinedMessages, /Using enriched-tweets \(ready\)\. Exact dataset match found in RESEARCH\./);
-  assert.match(joinedMessages, /Preserving request: top 0\.1% by `quote_tweet_count`, random sample 100, strict JSON labels for `hook_type`, `emotional_tone`, `controversy_level`, bar chart, and 10 representative examples\./);
   assert.match(joinedMessages, /Inspecting dataset enriched-tweets/);
-  assert.match(joinedMessages, /Field check: missing `hook_type`, `emotional_tone`, `controversy_level`\. I will warn in the run summary if those fields are unavailable\./);
   assert.match(joinedMessages, /Starting remote analysis for enriched-tweets/);
-  assert.doesNotMatch(joinedMessages, /Running run_remote_transformation/);
   assert.doesNotMatch(joinedMessages, /Top matches for "enriched-tweets"/);
   assert.match(joinedMessages, /Started remote analysis on enriched-tweets/);
   assert.match(joinedMessages, /Run: run-transform-viral/);
   assert.match(joinedMessages, /State: queued\. The request is accepted and waiting for backend capacity\./);
-  assert.match(joinedMessages, /Preserved request: top 0\.1% by `quote_tweet_count`, random sample 100, strict JSON labels for `hook_type`, `emotional_tone`, `controversy_level`, then produce a bar chart and 10 representative examples\./);
-  assert.match(joinedMessages, /Warning: requested fields not verified in dataset metadata: `hook_type`, `emotional_tone`, `controversy_level`\. The run will need to confirm them at execution time\./);
   assert.match(joinedMessages, /Expected artifacts: bar chart, structured JSON results, representative examples/);
-  assert.match(joinedMessages, /Handoff: this CLI launch is complete and the run will keep processing in the background\./);
   assert.match(joinedMessages, /research show active runs/);
   assert.match(joinedMessages, /Dashboard: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=runs&runId=run-transform-viral#run-run-transform-viral/);
   assert.doesNotMatch(joinedMessages, /Terminal session:/);
+  assert.equal(startedPrompt, "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.");
 });
 
-test("specific viral tweets experiment blocks clearly when the named dataset is not ready", async () => {
+test("specific viral tweets experiment uses AI-selected run tool even when dataset state is unresolved", async () => {
   const calls: string[] = [];
   const fakeClient = {
+    async respond() {
+      return {
+        sessionId: "viral-block-session",
+        payload: {
+          id: "viral-block-response",
+          output: [{
+            type: "function_call",
+            call_id: "call-start",
+            name: "run_remote_transformation",
+            arguments: JSON.stringify({
+              datasetId: "enriched-tweets",
+              prompt: "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
+            }),
+          }],
+        },
+      };
+    },
     async listDatasets() {
       calls.push("listDatasets");
       return {
@@ -1336,7 +1384,16 @@ test("specific viral tweets experiment blocks clearly when the named dataset is 
     },
     async startRun() {
       calls.push("startRun");
-      throw new Error("Run should not start while the dataset is uploading.");
+      return {
+        run: {
+          id: "run-viral-uploading",
+          datasetId: "enriched-tweets",
+          status: "queued",
+          prompt: "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.",
+          createdAt: "2026-05-01T19:42:40.000Z",
+          updatedAt: "2026-05-01T19:42:40.000Z",
+        },
+      };
     },
   };
   const deps: AgentRuntimeDeps = {
@@ -1354,14 +1411,12 @@ test("specific viral tweets experiment blocks clearly when the named dataset is 
     deps,
   );
 
-  assert.deepEqual(calls, ["listDatasets"]);
+  assert.deepEqual(calls, ["listDatasets", "startRun"]);
   const final = messages.at(-1)?.content ?? "";
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Using enriched-tweets \(uploading\)\. Exact dataset match found in RESEARCH\./);
-  assert.match(joined, /Preserving request: top 0\.1% by `quote_tweet_count`, random sample 100, strict JSON labels for `hook_type`, `emotional_tone`, `controversy_level`, bar chart, and 10 representative examples\./);
-  assert.match(final, /I accepted the experiment design, but I did not start the run because `enriched-tweets` is uploading\./i);
-  assert.match(final, /Preserved plan once it is ready: top 0\.1% by `quote_tweet_count`/i);
-  assert.match(final, /wait for the dataset to finish uploading\/deploying, then rerun the same prompt/i);
+  assert.match(joined, /Starting remote analysis for enriched-tweets/i);
+  assert.match(final, /Started remote analysis on enriched-tweets/i);
+  assert.match(final, /run-viral-uploading/i);
 });
 
 test("dataset inspection surfaces schema evidence for requested analysis fields", async () => {
@@ -3031,29 +3086,11 @@ test("product planning: vague viral tweets request designs scoped experiment bef
     deps,
   );
 
-  assert.deepEqual(calls, ["listDatasets", "getDataset"]);
+  assert.deepEqual(calls, ["getDataset"]);
   const joinedMessages = messages.map((message) => message.content).join("\n");
   assert.doesNotMatch(joinedMessages, /Starting remote run/i);
-  assert.match(joinedMessages, /Checking remote datasets/i);
   assert.match(joinedMessages, /Inspecting dataset enriched-tweets/i);
-  assert.match(joinedMessages, /Before I start a remote run/i);
-  assert.match(joinedMessages, /Dataset: `enriched-tweets` .*available in RESEARCH now/i);
-  assert.match(joinedMessages, /it is present in RESEARCH and its metadata includes tweet engagement fields/i);
-  assert.match(joinedMessages, /top 0\.1% by `quote_tweet_count`/i);
-  assert.match(joinedMessages, /quote tweets usually capture stronger downstream spread and commentary/i);
-  assert.match(joinedMessages, /Why 100: it is enough for a first-pass pattern read/i);
-  assert.match(joinedMessages, /Sample: label 100 tweets/i);
-  assert.match(joinedMessages, /hook_type/i);
-  assert.match(joinedMessages, /emotional_tone/i);
-  assert.match(joinedMessages, /controversy_level/i);
-  assert.match(joinedMessages, /Success looks like:/i);
-  assert.match(joinedMessages, /Choose the virality rule/i);
-  assert.match(joinedMessages, /1\.\s+Top 0\.1% by `quote_tweet_count` - best if you care about tweets that triggered visible discussion/i);
-  assert.match(joinedMessages, /2\.\s+Top 0\.1% by `retweet_count` - best if you care about raw resharing spread/i);
-  assert.match(joinedMessages, /3\.\s+Top 0\.1% by `favorite_count` - best if you care about broad lightweight approval/i);
-  assert.match(joinedMessages, /Waiting for your approval/i);
-  assert.match(joinedMessages, /reply with 1, 2, or 3/i);
-  assert.match(joinedMessages, /Waiting for your approval before starting a run\./i);
+  assert.doesNotMatch(joinedMessages, /Choose the virality rule|Reply with 1, 2, or 3|quote tweets usually capture stronger downstream spread/i);
 });
 
 test("agent prompt frames RESEARCH as run-oriented command center", async () => {
