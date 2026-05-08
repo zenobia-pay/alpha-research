@@ -2882,7 +2882,7 @@ function describeLocalDataset(instance: DatasetInstanceSummary, bootstrap: Await
   return lines.join("\n");
 }
 
-async function startDatasetBriefingRun(
+async function readRemoteDatasetBriefing(
   context: ToolExecutionContext,
   input: Record<string, unknown>,
 ): Promise<AgentToolResult> {
@@ -3967,7 +3967,7 @@ export function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "describe_remote_dataset",
-      description: "Read the dataset-owned briefing markdown for a remote dataset. Use this when the user wants to describe, document, inventory, or inspect what data, sources, schemas, time scales, formats, QA status, and limitations exist in a dataset. This is read-only and does not start a remote run.",
+      description: "Read the saved dataset-owned briefing markdown for a remote dataset. Use this when the user wants to describe, document, inventory, or inspect what data, sources, schemas, time scales, formats, QA status, and limitations exist in a dataset. This is strictly read-only: never start or refresh a remote run from this tool.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -3977,7 +3977,7 @@ export function createToolRegistry(): ToolDefinition[] {
         required: ["datasetId"],
       },
       async execute(context, input) {
-        return startDatasetBriefingRun(context, input);
+        return readRemoteDatasetBriefing(context, input);
       },
     },
     {

@@ -1309,6 +1309,82 @@ test("whats-in dataset question reads briefing markdown without starting a run",
   assert.doesNotMatch(transcript, /Started dataset briefing refresh|Run: [a-z0-9-]{8}/i);
 });
 
+test("missing dataset briefing does not start a remote refresh run", async () => {
+  const calls: string[] = [];
+  let respondCount = 0;
+  const fakeClient = {
+    async respond() {
+      calls.push("respond");
+      respondCount += 1;
+      if (respondCount > 1) {
+        return {
+          sessionId: "terminal-session-missing-briefing",
+          payload: {
+            id: "response-missing-briefing-final",
+            output: [{
+              type: "message",
+              content: [{
+                type: "output_text",
+                text: [
+                  "No saved briefing is available for econ.",
+                  "I did not start a remote run.",
+                ].join("\n"),
+              }],
+            }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-missing-briefing",
+        payload: {
+          id: "response-missing-briefing",
+          output: [{
+            type: "function_call",
+            call_id: "call-missing-briefing",
+            name: "describe_remote_dataset",
+            arguments: JSON.stringify({ datasetId: "econ" }),
+          }],
+        },
+      };
+    },
+    async listDatasets() {
+      calls.push("listDatasets");
+      return { datasets: [{ id: "econ", name: "Econ", status: "ready" }] };
+    },
+    async getDataset(datasetId: string) {
+      calls.push(`getDataset:${datasetId}`);
+      return {
+        dataset: {
+          id: datasetId,
+          name: "Econ",
+          status: "ready",
+        },
+      };
+    },
+    async startRun() {
+      calls.push("startRun");
+      throw new Error("Missing briefing markdown must not start a remote refresh run.");
+    },
+    async appendSessionEntry() {
+      return { id: "entry-missing-briefing" };
+    },
+  };
+  const deps: AgentRuntimeDeps = {
+    ...createDefaultAgentRuntimeDeps(),
+    createRemoteClient: () => fakeClient as never,
+    readSession: async () => session,
+  };
+  const { messages, emit } = collect();
+
+  await runAgentTurn("what's on the econ dataset?", session, emit, undefined, deps);
+
+  assert.deepEqual(calls, ["respond", "listDatasets", "getDataset:econ", "respond"]);
+  const transcript = messages.map((message) => message.content).join("\n");
+  assert.match(transcript, /No dataset briefing markdown is available for econ/i);
+  assert.match(transcript, /No remote describe run was started/i);
+  assert.doesNotMatch(transcript, /Started dataset briefing refresh|Run: [a-z0-9-]{8}|startRun/i);
+});
+
 test("specific viral tweets experiment starts with user-facing analysis summary and artifact expectations", async () => {
   let startedPrompt = "";
   const fakeClient = {

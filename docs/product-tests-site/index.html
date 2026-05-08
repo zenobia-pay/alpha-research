@@ -15,12 +15,12 @@
       <p class="lede">Readable product explanations for every test contract. Each entry describes how the product is used, what actions are taken, and what assertions are made.</p>
     </header>
 
-    <section class="stat-grid"><div><span>Briefings</span><strong>74</strong></div><div><span>Assertions</span><strong>228</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
+    <section class="stat-grid"><div><span>Briefings</span><strong>75</strong></div><div><span>Assertions</span><strong>234</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
 
     <section class="panel controls">
       <div>
         <h2>Browse The Tests</h2>
-        <p class="lede"><span id="visible-count">74</span> briefings visible. Search by feature, assertion, dataset, run type, or artifact.</p>
+        <p class="lede"><span id="visible-count">75</span> briefings visible. Search by feature, assertion, dataset, run type, or artifact.</p>
       </div>
       <label>
         <span>Search</span>
@@ -33,7 +33,7 @@
       <div>
         <h2>Coverage Mix</h2>
         <table class="hypothesis-table">
-          <tbody><tr><td>CLI Product</td><td>56</td></tr><tr><td>Golden Transcript</td><td>5</td></tr><tr><td>Registry Contract</td><td>3</td></tr><tr><td>Slow E2E</td><td>8</td></tr><tr><td>Symphony Case</td><td>2</td></tr></tbody>
+          <tbody><tr><td>CLI Product</td><td>57</td></tr><tr><td>Golden Transcript</td><td>5</td></tr><tr><td>Registry Contract</td><td>3</td></tr><tr><td>Slow E2E</td><td>8</td></tr><tr><td>Symphony Case</td><td>2</td></tr></tbody>
         </table>
       </div>
       <div>
@@ -1015,9 +1015,40 @@
 <li>The flow avoids remote model planning for this local filesystem action.</li></ul>
   </div>
 </article>
-<article class="briefing-card" id="mixed-source-intake-asks-for-all-sources-and-approval-before-any-build" data-title="mixed-source intake asks for all sources and approval before any build" data-category="CLI Product">
+<article class="briefing-card" id="missing-dataset-briefing-does-not-start-a-remote-refresh-run" data-title="missing dataset briefing does not start a remote refresh run" data-category="CLI Product">
   <div class="section-head">
     <span>36 · CLI Product</span>
+    <a href="#missing-dataset-briefing-does-not-start-a-remote-refresh-run">#</a>
+  </div>
+  <h2>missing dataset briefing does not start a remote refresh run</h2>
+  <p class="test-name"><span>Test name</span><code>missing dataset briefing does not start a remote refresh run</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the read-only contract for dataset inventory questions. A missing briefing is not permission to kick off remote work; the CLI should report that the saved briefing is unavailable instead of silently starting a background refresh.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks what is on the <code>econ</code> dataset, but the remote dataset detail record does not currently include saved <code>dataset_briefing.md</code> markdown.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The model selects <code>describe_remote_dataset</code> for <code>econ</code>. The tool resolves the dataset, reads the remote dataset detail record, detects that no saved briefing markdown is present, and returns a clear no-briefing status to the model.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The AI path selects the read-only dataset briefing tool.</li>
+<li>The dataset detail endpoint is read for <code>econ</code>.</li>
+<li>No remote run is started when the saved briefing is missing.</li>
+<li>The transcript says no dataset briefing markdown is available.</li>
+<li>The transcript says no remote describe run was started.</li>
+<li>The response does not include run-start language or a generated run id.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="mixed-source-intake-asks-for-all-sources-and-approval-before-any-build" data-title="mixed-source intake asks for all sources and approval before any build" data-category="CLI Product">
+  <div class="section-head">
+    <span>37 · CLI Product</span>
     <a href="#mixed-source-intake-asks-for-all-sources-and-approval-before-any-build">#</a>
   </div>
   <h2>mixed-source intake asks for all sources and approval before any build</h2>
@@ -1045,7 +1076,7 @@
 </article>
 <article class="briefing-card" id="product-orientation-presents-command-center-identities-without-tools" data-title="product orientation presents command center identities without tools" data-category="CLI Product">
   <div class="section-head">
-    <span>37 · CLI Product</span>
+    <span>38 · CLI Product</span>
     <a href="#product-orientation-presents-command-center-identities-without-tools">#</a>
   </div>
   <h2>product orientation presents command center identities without tools</h2>
@@ -1074,7 +1105,7 @@
 </article>
 <article class="briefing-card" id="product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running" data-title="product planning: vague viral tweets request designs scoped experiment before running" data-category="CLI Product">
   <div class="section-head">
-    <span>38 · CLI Product</span>
+    <span>39 · CLI Product</span>
     <a href="#product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running">#</a>
   </div>
   <h2>A vague viral-tweets question becomes a scoped experiment plan</h2>
@@ -1109,7 +1140,7 @@
 </article>
 <article class="briefing-card" id="product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts" data-title="product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts" data-category="CLI Product">
   <div class="section-head">
-    <span>39 · CLI Product</span>
+    <span>40 · CLI Product</span>
     <a href="#product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts">#</a>
   </div>
   <h2>An economics hypothesis runs through the full research workflow</h2>
@@ -1142,7 +1173,7 @@
 </article>
 <article class="briefing-card" id="prompt-mode-busy-dataset-shortcut-shows-age-health-and-clear-actions" data-title="prompt-mode busy dataset shortcut shows age, health, and clear actions" data-category="CLI Product">
   <div class="section-head">
-    <span>40 · CLI Product</span>
+    <span>41 · CLI Product</span>
     <a href="#prompt-mode-busy-dataset-shortcut-shows-age-health-and-clear-actions">#</a>
   </div>
   <h2>prompt-mode busy dataset shortcut shows age, health, and clear actions</h2>
@@ -1168,7 +1199,7 @@
 </article>
 <article class="briefing-card" id="prompt-mode-busy-dataset-shortcut-uses-backend-active-runs-before-planning" data-title="prompt-mode busy dataset shortcut uses backend active runs before planning" data-category="CLI Product">
   <div class="section-head">
-    <span>41 · CLI Product</span>
+    <span>42 · CLI Product</span>
     <a href="#prompt-mode-busy-dataset-shortcut-uses-backend-active-runs-before-planning">#</a>
   </div>
   <h2>prompt-mode busy dataset shortcut uses backend active runs before planning</h2>
@@ -1196,7 +1227,7 @@
 </article>
 <article class="briefing-card" id="prompt-mode-exits-cleanly-after-local-orientation-response" data-title="prompt mode exits cleanly after local orientation response" data-category="CLI Product">
   <div class="section-head">
-    <span>42 · CLI Product</span>
+    <span>43 · CLI Product</span>
     <a href="#prompt-mode-exits-cleanly-after-local-orientation-response">#</a>
   </div>
   <h2>prompt mode exits cleanly after local orientation response</h2>
@@ -1224,7 +1255,7 @@
 </article>
 <article class="briefing-card" id="prompt-mode-exits-cleanly-after-stuck-run-local-diagnosis" data-title="prompt mode exits cleanly after stuck-run local diagnosis" data-category="CLI Product">
   <div class="section-head">
-    <span>43 · CLI Product</span>
+    <span>44 · CLI Product</span>
     <a href="#prompt-mode-exits-cleanly-after-stuck-run-local-diagnosis">#</a>
   </div>
   <h2>prompt mode exits cleanly after stuck-run local diagnosis</h2>
@@ -1252,7 +1283,7 @@
 </article>
 <article class="briefing-card" id="remote-planning-emits-immediate-progress-before-waiting-on-backend-response" data-title="remote planning emits immediate progress before waiting on backend response" data-category="CLI Product">
   <div class="section-head">
-    <span>44 · CLI Product</span>
+    <span>45 · CLI Product</span>
     <a href="#remote-planning-emits-immediate-progress-before-waiting-on-backend-response">#</a>
   </div>
   <h2>remote planning emits immediate progress before waiting on backend response</h2>
@@ -1278,7 +1309,7 @@
 </article>
 <article class="briefing-card" id="remote-transport-failures-surface-a-concise-blocked-summary" data-title="remote transport failures surface a concise blocked summary" data-category="CLI Product">
   <div class="section-head">
-    <span>45 · CLI Product</span>
+    <span>46 · CLI Product</span>
     <a href="#remote-transport-failures-surface-a-concise-blocked-summary">#</a>
   </div>
   <h2>remote transport failures surface a concise blocked summary</h2>
@@ -1306,7 +1337,7 @@
 </article>
 <article class="briefing-card" id="run-debug-bundle-classifies-worker-unreachable-state-as-lifecycle-uncertain" data-title="run debug bundle classifies worker-unreachable state as lifecycle-uncertain" data-category="CLI Product">
   <div class="section-head">
-    <span>46 · CLI Product</span>
+    <span>47 · CLI Product</span>
     <a href="#run-debug-bundle-classifies-worker-unreachable-state-as-lifecycle-uncertain">#</a>
   </div>
   <h2>run debug bundle classifies worker-unreachable state as lifecycle-uncertain</h2>
@@ -1337,7 +1368,7 @@
 </article>
 <article class="briefing-card" id="run-debug-bundle-redacts-session-token-and-includes-remote-evidence" data-title="run debug bundle redacts session token and includes remote evidence" data-category="CLI Product">
   <div class="section-head">
-    <span>47 · CLI Product</span>
+    <span>48 · CLI Product</span>
     <a href="#run-debug-bundle-redacts-session-token-and-includes-remote-evidence">#</a>
   </div>
   <h2>Run debug bundles preserve evidence without leaking tokens</h2>
@@ -1367,7 +1398,7 @@
 </article>
 <article class="briefing-card" id="run-result-retrieval-includes-selected-run-context-and-artifacts" data-title="run result retrieval includes selected run context and artifacts" data-category="CLI Product">
   <div class="section-head">
-    <span>48 · CLI Product</span>
+    <span>49 · CLI Product</span>
     <a href="#run-result-retrieval-includes-selected-run-context-and-artifacts">#</a>
   </div>
   <h2>run result retrieval includes selected run context and artifacts</h2>
@@ -1393,7 +1424,7 @@
 </article>
 <article class="briefing-card" id="signed-out-cold-start-orientation-shows-login-hint" data-title="signed-out cold-start orientation shows login hint" data-category="CLI Product">
   <div class="section-head">
-    <span>49 · CLI Product</span>
+    <span>50 · CLI Product</span>
     <a href="#signed-out-cold-start-orientation-shows-login-hint">#</a>
   </div>
   <h2>signed-out cold-start orientation shows login hint</h2>
@@ -1419,7 +1450,7 @@
 </article>
 <article class="briefing-card" id="signed-out-composer-placeholder-is-contextual" data-title="signed-out composer placeholder is contextual" data-category="CLI Product">
   <div class="section-head">
-    <span>50 · CLI Product</span>
+    <span>51 · CLI Product</span>
     <a href="#signed-out-composer-placeholder-is-contextual">#</a>
   </div>
   <h2>signed-out composer placeholder is contextual</h2>
@@ -1445,7 +1476,7 @@
 </article>
 <article class="briefing-card" id="signed-out-remote-dataset-request-explains-auth-recovery-and-preserves-intent" data-title="signed-out remote dataset request explains auth recovery and preserves intent" data-category="CLI Product">
   <div class="section-head">
-    <span>51 · CLI Product</span>
+    <span>52 · CLI Product</span>
     <a href="#signed-out-remote-dataset-request-explains-auth-recovery-and-preserves-intent">#</a>
   </div>
   <h2>signed-out remote dataset request explains auth recovery and preserves intent</h2>
@@ -1471,7 +1502,7 @@
 </article>
 <article class="briefing-card" id="specific-viral-tweets-experiment-starts-with-user-facing-analysis-summary-and-artifact-expectations" data-title="specific viral tweets experiment starts with user-facing analysis summary and artifact expectations" data-category="CLI Product">
   <div class="section-head">
-    <span>52 · CLI Product</span>
+    <span>53 · CLI Product</span>
     <a href="#specific-viral-tweets-experiment-starts-with-user-facing-analysis-summary-and-artifact-expectations">#</a>
   </div>
   <h2>specific viral tweets experiment starts with user-facing analysis summary and artifact expectations</h2>
@@ -1497,7 +1528,7 @@
 </article>
 <article class="briefing-card" id="specific-viral-tweets-experiment-uses-ai-selected-run-tool-even-when-dataset-state-is-unresolved" data-title="specific viral tweets experiment uses ai-selected run tool even when dataset state is unresolved" data-category="CLI Product">
   <div class="section-head">
-    <span>53 · CLI Product</span>
+    <span>54 · CLI Product</span>
     <a href="#specific-viral-tweets-experiment-uses-ai-selected-run-tool-even-when-dataset-state-is-unresolved">#</a>
   </div>
   <h2>specific viral tweets experiment uses AI-selected run tool even when dataset state is unresolved</h2>
@@ -1525,7 +1556,7 @@
 </article>
 <article class="briefing-card" id="stuck-run-question-escalates-stale-running-run-to-debug-now" data-title="stuck run question escalates stale running run to debug now" data-category="CLI Product">
   <div class="section-head">
-    <span>54 · CLI Product</span>
+    <span>55 · CLI Product</span>
     <a href="#stuck-run-question-escalates-stale-running-run-to-debug-now">#</a>
   </div>
   <h2>stuck run question escalates stale running run to debug now</h2>
@@ -1551,7 +1582,7 @@
 </article>
 <article class="briefing-card" id="stuck-run-question-explains-fresh-booting-run-in-plain-language" data-title="stuck run question explains fresh booting run in plain language" data-category="CLI Product">
   <div class="section-head">
-    <span>55 · CLI Product</span>
+    <span>56 · CLI Product</span>
     <a href="#stuck-run-question-explains-fresh-booting-run-in-plain-language">#</a>
   </div>
   <h2>stuck run question explains fresh booting run in plain language</h2>
@@ -1577,7 +1608,7 @@
 </article>
 <article class="briefing-card" id="symphony-case-econ-housing-cycle-dataset-build" data-title="symphony case: econ housing cycle dataset build" data-category="Symphony Case">
   <div class="section-head">
-    <span>56 · Symphony Case</span>
+    <span>57 · Symphony Case</span>
     <a href="#symphony-case-econ-housing-cycle-dataset-build">#</a>
   </div>
   <h2>Housing-cycle dataset requests become concrete environment plans</h2>
@@ -1608,7 +1639,7 @@
 </article>
 <article class="briefing-card" id="symphony-case-viral-tweets-experiment-planning" data-title="symphony case: viral tweets experiment planning" data-category="Symphony Case">
   <div class="section-head">
-    <span>57 · Symphony Case</span>
+    <span>58 · Symphony Case</span>
     <a href="#symphony-case-viral-tweets-experiment-planning">#</a>
   </div>
   <h2>Viral tweet experiments are planned before work starts</h2>
@@ -1642,7 +1673,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-discover" data-title="test:slow:econ:discover" data-category="Slow E2E">
   <div class="section-head">
-    <span>58 · Slow E2E</span>
+    <span>59 · Slow E2E</span>
     <a href="#test-slow-econ-discover">#</a>
   </div>
   <h2>Economics discovery classifies source fetchability</h2>
@@ -1677,7 +1708,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-environment" data-title="test:slow:econ:environment" data-category="Slow E2E">
   <div class="section-head">
-    <span>59 · Slow E2E</span>
+    <span>60 · Slow E2E</span>
     <a href="#test-slow-econ-environment">#</a>
   </div>
   <h2>The economics environment builds end to end</h2>
@@ -1712,7 +1743,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-hypothesis" data-title="test:slow:econ:hypothesis" data-category="Slow E2E">
   <div class="section-head">
-    <span>60 · Slow E2E</span>
+    <span>61 · Slow E2E</span>
     <a href="#test-slow-econ-hypothesis">#</a>
   </div>
   <h2>The economics dataset supports hypothesis analysis</h2>
@@ -1744,7 +1775,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-normalization-execution" data-title="test:slow:econ:normalization-execution" data-category="Slow E2E">
   <div class="section-head">
-    <span>61 · Slow E2E</span>
+    <span>62 · Slow E2E</span>
     <a href="#test-slow-econ-normalization-execution">#</a>
   </div>
   <h2>Economics normalization produces validated tables</h2>
@@ -1782,7 +1813,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-normalization-plan" data-title="test:slow:econ:normalization-plan" data-category="Slow E2E">
   <div class="section-head">
-    <span>62 · Slow E2E</span>
+    <span>63 · Slow E2E</span>
     <a href="#test-slow-econ-normalization-plan">#</a>
   </div>
   <h2>Economics discovery becomes an executable normalization plan</h2>
@@ -1817,7 +1848,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ" data-title="test:slow:econ" data-category="Slow E2E">
   <div class="section-head">
-    <span>63 · Slow E2E</span>
+    <span>64 · Slow E2E</span>
     <a href="#test-slow-econ">#</a>
   </div>
   <h2>The staged economics journey works as a suite</h2>
@@ -1851,7 +1882,7 @@
 </article>
 <article class="briefing-card" id="test-slow-tweets" data-title="test:slow:tweets" data-category="Slow E2E">
   <div class="section-head">
-    <span>64 · Slow E2E</span>
+    <span>65 · Slow E2E</span>
     <a href="#test-slow-tweets">#</a>
   </div>
   <h2>The viral tweets workflow uses mounted enriched-tweets data</h2>
@@ -1885,7 +1916,7 @@
 </article>
 <article class="briefing-card" id="test-slow" data-title="test:slow" data-category="Slow E2E">
   <div class="section-head">
-    <span>65 · Slow E2E</span>
+    <span>66 · Slow E2E</span>
     <a href="#test-slow">#</a>
   </div>
   <h2>The full slow product suite completes</h2>
@@ -1913,7 +1944,7 @@
 </article>
 <article class="briefing-card" id="tool-registry-is-structurally-valid-and-serializable" data-title="tool registry is structurally valid and serializable" data-category="Registry Contract">
   <div class="section-head">
-    <span>66 · Registry Contract</span>
+    <span>67 · Registry Contract</span>
     <a href="#tool-registry-is-structurally-valid-and-serializable">#</a>
   </div>
   <h2>The tool registry stays stable for product actions</h2>
@@ -1942,7 +1973,7 @@
 </article>
 <article class="briefing-card" id="tool-registry-metadata-exposes-async-run-start-tools" data-title="tool registry metadata exposes async run-start tools" data-category="Registry Contract">
   <div class="section-head">
-    <span>67 · Registry Contract</span>
+    <span>68 · Registry Contract</span>
     <a href="#tool-registry-metadata-exposes-async-run-start-tools">#</a>
   </div>
   <h2>Async run-start tools are marked for progress tracking</h2>
@@ -1969,7 +2000,7 @@
 </article>
 <article class="briefing-card" id="unauthenticated-local-run-request-bypasses-remote-planning" data-title="unauthenticated local run request bypasses remote planning" data-category="CLI Product">
   <div class="section-head">
-    <span>68 · CLI Product</span>
+    <span>69 · CLI Product</span>
     <a href="#unauthenticated-local-run-request-bypasses-remote-planning">#</a>
   </div>
   <h2>Local run status works without sign-in</h2>
@@ -1997,7 +2028,7 @@
 </article>
 <article class="briefing-card" id="uploaded-dataset-deployment-flow-uses-user-facing-stage-updates-and-upload-progress" data-title="uploaded dataset deployment flow uses user-facing stage updates and upload progress" data-category="CLI Product">
   <div class="section-head">
-    <span>69 · CLI Product</span>
+    <span>70 · CLI Product</span>
     <a href="#uploaded-dataset-deployment-flow-uses-user-facing-stage-updates-and-upload-progress">#</a>
   </div>
   <h2>uploaded dataset deployment flow uses user-facing stage updates and upload progress</h2>
@@ -2023,7 +2054,7 @@
 </article>
 <article class="briefing-card" id="vague-dataset-interesting-request-gives-a-concise-briefing-and-focused-choice-without-starting-a-run" data-title="vague dataset interesting request gives a concise briefing and focused choice without starting a run" data-category="CLI Product">
   <div class="section-head">
-    <span>70 · CLI Product</span>
+    <span>71 · CLI Product</span>
     <a href="#vague-dataset-interesting-request-gives-a-concise-briefing-and-focused-choice-without-starting-a-run">#</a>
   </div>
   <h2>vague dataset interesting request gives a concise briefing and focused choice without starting a run</h2>
@@ -2049,7 +2080,7 @@
 </article>
 <article class="briefing-card" id="vague-housing-risk-request-asks-scope-before-costly-work" data-title="vague housing risk request asks scope before costly work" data-category="CLI Product">
   <div class="section-head">
-    <span>71 · CLI Product</span>
+    <span>72 · CLI Product</span>
     <a href="#vague-housing-risk-request-asks-scope-before-costly-work">#</a>
   </div>
   <h2>vague housing risk request asks scope before costly work</h2>
@@ -2082,7 +2113,7 @@
 </article>
 <article class="briefing-card" id="viral-tweets-follow-up-starts-through-the-ai-selected-run-tool" data-title="viral tweets follow-up starts through the ai-selected run tool" data-category="CLI Product">
   <div class="section-head">
-    <span>72 · CLI Product</span>
+    <span>73 · CLI Product</span>
     <a href="#viral-tweets-follow-up-starts-through-the-ai-selected-run-tool">#</a>
   </div>
   <h2>viral tweets follow-up starts through the AI-selected run tool</h2>
@@ -2111,7 +2142,7 @@
 </article>
 <article class="briefing-card" id="wait-for-run-completion-can-time-out-deterministically" data-title="wait for run completion can time out deterministically" data-category="CLI Product">
   <div class="section-head">
-    <span>73 · CLI Product</span>
+    <span>74 · CLI Product</span>
     <a href="#wait-for-run-completion-can-time-out-deterministically">#</a>
   </div>
   <h2>Waiting on a run reports still-running state clearly</h2>
@@ -2140,7 +2171,7 @@
 </article>
 <article class="briefing-card" id="whats-in-dataset-question-reads-briefing-markdown-without-starting-a-run" data-title="whats-in dataset question reads briefing markdown without starting a run" data-category="CLI Product">
   <div class="section-head">
-    <span>74 · CLI Product</span>
+    <span>75 · CLI Product</span>
     <a href="#whats-in-dataset-question-reads-briefing-markdown-without-starting-a-run">#</a>
   </div>
   <h2>whats-in dataset question reads briefing markdown without starting a run</h2>
