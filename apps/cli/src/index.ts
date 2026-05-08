@@ -412,7 +412,7 @@ export async function main() {
   }
 
   if (!command || command === "agent" || command === "chat") {
-    const altScreen = flags["alt-screen"] === "true";
+    const altScreen = flags["no-alt-screen"] !== "true";
     if (altScreen) {
       enterAltScreen();
       const restore = () => {

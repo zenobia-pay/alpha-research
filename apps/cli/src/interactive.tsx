@@ -33,6 +33,9 @@ type InteractiveAppProps = {
   altScreen?: boolean;
 };
 
+const PROGRESS_RENDER_THROTTLE_MS = 200;
+const RUN_FRESHNESS_REFRESH_MS = 15_000;
+
 export function composerPlaceholder(session: SessionRecord | null) {
   return session ? "Ask about datasets, runs, or artifacts" : "Ask about datasets, runs, or sign-in";
 }
@@ -633,7 +636,7 @@ function RunStatusPanel({
     if (!focused) return undefined;
     const timer = setInterval(() => {
       setNow(Date.now());
-    }, 1000);
+    }, RUN_FRESHNESS_REFRESH_MS);
     return () => clearInterval(timer);
   }, [focused]);
 
@@ -808,6 +811,8 @@ function createResearchAdapter({
       let liveTaskState = createIdleTaskState();
       let visibleText = "";
       let changed = false;
+      let lastYieldedText = "";
+      let lastYieldedAt = 0;
       let wake: (() => void) | null = null;
       const markChanged = () => {
         changed = true;
@@ -820,14 +825,22 @@ function createResearchAdapter({
       const emit = (message: AgentMessage) => {
         liveTaskState = applyAgentMessageToTaskState(liveTaskState, message);
         setTaskState(liveTaskState);
+        const nextVisibleText = message.role === "assistant"
+          ? cleanUiLine(message.content)
+          : buildLiveSummary(liveTaskState);
+        if (nextVisibleText === visibleText) {
+          return;
+        }
         if (message.role === "assistant") {
-          visibleText = cleanUiLine(message.content);
+          visibleText = nextVisibleText;
         } else {
-          visibleText = buildLiveSummary(liveTaskState);
+          visibleText = nextVisibleText;
         }
         markChanged();
       };
       const flush = function* () {
+        lastYieldedText = visibleText || " ";
+        lastYieldedAt = Date.now();
         yield { content: assistantContent(visibleText || " ") };
       };
       async function* runWithProgress(operation: () => Promise<void>) {
@@ -839,7 +852,13 @@ function createResearchAdapter({
           ]);
           if (changed) {
             changed = false;
-            yield { content: assistantContent(visibleText || " ") };
+            const nextText = visibleText || " ";
+            const now = Date.now();
+            if (nextText !== lastYieldedText && now - lastYieldedAt >= PROGRESS_RENDER_THROTTLE_MS) {
+              lastYieldedText = nextText;
+              lastYieldedAt = now;
+              yield { content: assistantContent(nextText) };
+            }
           }
           if (result === "done") {
             break;
@@ -849,6 +868,12 @@ function createResearchAdapter({
           }
         }
         await task;
+        const finalText = visibleText || " ";
+        if (finalText !== lastYieldedText) {
+          lastYieldedText = finalText;
+          lastYieldedAt = Date.now();
+          yield { content: assistantContent(finalText) };
+        }
       }
 
       if (!prompt) {
