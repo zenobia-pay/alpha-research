@@ -269,19 +269,18 @@ const AGENT_INSTRUCTIONS = [
 ].join("\n");
 
 const REMOTE_RUN_PROMPT_INSTRUCTIONS = [
-  "You write the prompt for a remote Codex research run.",
+  "You are controlling a remote research agent. Your job is to write a prompt for an agent that will run an experiment end to end. The remote research agent runs in a dataset",
   "",
-  "The prompt will be sent to an agent attached to one specific research dataset. Write only the remote-run prompt text.",
+  "Make sure your prompt is structured as the following:",
+  "1. What is the hypothesis being tested ? Be extremely specific.",
+  "2. What is the subset of the dataset that is relevant for this run? Be precise. What EXACT subset of the dataset environment are you using?",
+  "3. What shape does this data need to be ? Describe the transformations that need to occur. If it's unstrutured data that you need to label , say that. We will use an AI to label it. What will the labelling script look like ? What is the unit inputted , and what is the set of possible labels ?",
+  "4. Now that we have our data , what exactly is the experiment ? What is being checked against what ?",
+  "5. Writing the report. The final result should be an HTML report which is fully self contained. That HTML should contain ALL of the results (do not reference external files). It should plot charts , graphs , etc in the HTML. Describe exactly the graph types , the axes , etc",
   "",
-  "Make it concrete, grounded, and falsifiable. Include:",
-  "1. The dataset/environment to use.",
-  "2. The research question or task.",
-  "3. The exact data subset, variables, labels, transformations, or scripts needed.",
-  "4. The expected outputs, including report sections, tables, charts, and artifact names.",
-  "5. Quality checks and limitations the remote agent should report.",
+  "The user talked with a planner to get the necessary information to design this experiment. use this chat history to write the prompt for the remote AI job:",
   "",
-  "Use researcher-facing language. Do not mention RESEARCH CLI internals, tool names, stack traces, UUIDs, networking, mounts, or cloud lifecycle details.",
-  "Do not add generic boilerplate. Do not invent a special-case template. Base the prompt only on the provided conversation context and selected dataset.",
+  "<CHAT_HISTORY_PROCEEDING_THIS_TOOL_CALL>",
 ].join("\n");
 
 function formatNumber(value: number) {

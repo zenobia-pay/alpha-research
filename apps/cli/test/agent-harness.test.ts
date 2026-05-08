@@ -258,7 +258,7 @@ test("viral tweets follow-up starts through the AI-selected run tool", async () 
     },
     async respond(body: Record<string, unknown>) {
       respondCount += 1;
-      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+      if (String(body.instructions ?? "").includes("remote research agent")) {
         return {
           sessionId: "viral-ai-session",
           payload: {
@@ -1050,7 +1050,7 @@ test("async query run returns immediately with canonical dashboard and terminal 
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
       calls.push("respond");
-      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+      if (String(body.instructions ?? "").includes("remote research agent")) {
         return {
           sessionId: "terminal-session-1",
           payload: {
@@ -1313,7 +1313,7 @@ test("specific viral tweets experiment starts with user-facing analysis summary 
   let startedPrompt = "";
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
-      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+      if (String(body.instructions ?? "").includes("remote research agent")) {
         const text = "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.";
         return {
           sessionId: "viral-session",
@@ -1424,7 +1424,7 @@ test("specific viral tweets experiment uses AI-selected run tool even when datas
   const calls: string[] = [];
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
-      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+      if (String(body.instructions ?? "").includes("remote research agent")) {
         const text = "Using enriched-tweets, define viral tweets as the top 0.1% by quote_tweet_count. Randomly sample 100 viral tweets, label each for hook_type, emotional_tone, and controversy_level using strict JSON, then produce a bar chart and 10 representative examples.";
         return {
           sessionId: "viral-block-session",
@@ -2342,7 +2342,7 @@ test("continuity question returns compact lifecycle summary without tool chatter
 test("busy dataset conflict returns blocking run guidance", async () => {
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
-      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+      if (String(body.instructions ?? "").includes("remote research agent")) {
         return {
           sessionId: "terminal-session-3",
           payload: {
@@ -3520,7 +3520,7 @@ test("product workflow success: econ research hypothesis creates data environmen
 
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
-      if (String(body.instructions ?? "").includes("remote Codex research run")) {
+      if (String(body.instructions ?? "").includes("remote research agent")) {
         const parsed = JSON.parse(String(body.input));
         const runType = String(parsed.runType ?? "analysis");
         const textByType: Record<string, string> = {
