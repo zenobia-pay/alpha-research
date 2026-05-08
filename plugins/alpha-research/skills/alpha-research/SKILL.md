@@ -38,8 +38,8 @@ Common flows:
 - Account/session: `research_login_status`, then `research_login` only if needed.
 - Inventory: `research_list_datasets`, then `research_get_dataset` for candidates.
 - Runs: `research_list_runs`, `research_get_run_results`, `research_list_run_artifacts`.
-- New work: design the study first, then use `research_start_agent_run` or `research_start_run`.
-- Continuation: use `research_continue_agent_run` only when a prior run has a resumable remote agent session; otherwise start a new run with context from artifacts.
+- New work: design the study first, then use `research_start_run`.
+- Continuation: inspect prior results/artifacts and start a new run with the needed context.
 - Waiting: remote runs are async by default. Use `research_wait_for_run` when the user asks to wait or the next step requires final artifacts.
 - Cancellation: use `research_cancel_run` for in-progress work the user no longer wants.
 

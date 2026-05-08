@@ -74,24 +74,6 @@ const toolSchemas = [
     }, ["datasetId", "prompt"]),
   },
   {
-    name: "research_start_agent_run",
-    description: "Start a remote agent run on a dataset-attached environment and track it locally.",
-    inputSchema: objectSchema({
-      datasetId: { type: "string" },
-      prompt: { type: "string" },
-      artifacts: { type: "array", items: { type: "object" } },
-    }, ["datasetId", "prompt"]),
-  },
-  {
-    name: "research_continue_agent_run",
-    description: "Continue a previous remote agent run when it has a resumable remote agent session artifact.",
-    inputSchema: objectSchema({
-      runId: { type: "string" },
-      prompt: { type: "string" },
-      artifacts: { type: "array", items: { type: "object" } },
-    }, ["runId", "prompt"]),
-  },
-  {
     name: "research_wait_for_run",
     description: "Poll a run until it reaches a terminal status or the timeout expires.",
     inputSchema: objectSchema({
@@ -113,21 +95,6 @@ const toolSchemas = [
     name: "research_cancel_run",
     description: "Cancel an in-progress remote run and terminate its worker when possible.",
     inputSchema: objectSchema({ runId: { type: "string" } }, ["runId"]),
-  },
-  {
-    name: "research_list_research_specs",
-    description: "List saved research specs or hypothesis plans, optionally scoped to a dataset.",
-    inputSchema: objectSchema({ datasetId: { type: "string" } }),
-  },
-  {
-    name: "research_create_research_spec",
-    description: "Save a concrete research design or hypothesis plan for a dataset.",
-    inputSchema: objectSchema({
-      datasetId: { type: "string" },
-      hypothesis: { type: "string" },
-      spec: { type: "object" },
-      status: { type: "string" },
-    }, ["datasetId", "hypothesis"]),
   },
 ];
 
@@ -203,38 +170,6 @@ async function runTool(name, input = {}) {
       const dashboardUrl = await track(result.run);
       return { ...result, dashboardUrl, pending: true };
     }
-    case "research_start_agent_run": {
-      const api = await client();
-      const result = await api.startRun(requiredString(input, "datasetId"), requiredString(input, "prompt"), {
-        type: "agent",
-        artifacts: arrayOrUndefined(input.artifacts),
-      });
-      const dashboardUrl = await track(result.run);
-      return { ...result, dashboardUrl, pending: true };
-    }
-    case "research_continue_agent_run": {
-      const api = await client();
-      const previous = await api.getRunResults(requiredString(input, "runId"));
-      const sessionArtifact = previous.artifacts.find((artifact) => artifact.type === "remote_agent_session");
-      const remoteAgentSessionId = sessionArtifact?.content && typeof sessionArtifact.content === "object"
-        ? String(sessionArtifact.content.sessionId ?? "")
-        : "";
-      if (!remoteAgentSessionId) {
-        return {
-          ok: false,
-          reason: "not_resumable",
-          run: previous.run,
-          producedArtifacts: previous.artifacts.filter((artifact) => artifact.type !== "requested_artifact"),
-        };
-      }
-      const result = await api.startRun(previous.run.datasetId, requiredString(input, "prompt"), {
-        type: "agent",
-        config: { remoteAgentSessionId, parentRunId: previous.run.id },
-        artifacts: arrayOrUndefined(input.artifacts),
-      });
-      const dashboardUrl = await track(result.run);
-      return { ...result, dashboardUrl, remoteAgentSessionId, pending: true };
-    }
     case "research_wait_for_run":
       return await waitForRun(requiredString(input, "runId"), Number(input.timeoutSeconds ?? 180));
     case "research_get_run_results": {
@@ -249,15 +184,6 @@ async function runTool(name, input = {}) {
       await track(result.run);
       return result;
     }
-    case "research_list_research_specs":
-      return await (await client()).listResearchSpecs(optionalString(input, "datasetId"));
-    case "research_create_research_spec":
-      return await (await client()).createResearchSpec({
-        datasetId: requiredString(input, "datasetId"),
-        hypothesis: requiredString(input, "hypothesis"),
-        spec: objectOrUndefined(input.spec),
-        status: optionalString(input, "status"),
-      });
     default:
       throw new Error(`Unknown tool: ${name}`);
   }

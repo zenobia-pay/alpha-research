@@ -29,7 +29,6 @@ const metadata = getToolRegistryMetadata();
 const toolNames = new Set(metadata.map((tool) => tool.name));
 for (const requiredTool of [
   "create_research_environment",
-  "create_public_data_environment",
   "start_research_run",
   "get_run_results",
   "cancel_remote_run",
@@ -44,7 +43,7 @@ for (const tool of metadata) {
   assert.doesNotThrow(() => JSON.stringify(tool.inputSchema), `Tool ${tool.name} schema must be JSON serializable`);
 }
 
-for (const asyncTool of ["start_research_run", "create_public_data_environment", "create_research_environment"]) {
+for (const asyncTool of ["start_research_run", "create_research_environment"]) {
   assert.equal(metadata.find((tool) => tool.name === asyncTool)?.asyncRunStart, true, `${asyncTool} should be classified as async run-start`);
 }
 

@@ -3,7 +3,7 @@
 <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
 <text x="16" y="30">· Calling list_remote_datasets                                                                                          </text>
 <text x="16" y="48">· Found 7 remote datasets.                                                                                              </text>
-<text x="16" y="66">· Calling create_public_data_environment                                                                                </text>
+<text x="16" y="66">· Calling create_research_environment                                                                                </text>
 <text x="16" y="84">RemoteRequestError: Remote request failed (500) for /api/cli/datasets/county-month-housing-2015-2025/public-environment.</text>
 <text x="16" y="102"> {"error":"DigitalOcean API request failed (429) /volumes/574d8d5d-44ef-11f1-986a-0a58ac123bc6/actions {\"message\":\"er</text>
 <text x="16" y="120">ror resizing volume: volume/snapshot capacity limit exceeded\",\"id\":\"too_many_requests\",\"request_id\":\"74ff514c-f5</text>

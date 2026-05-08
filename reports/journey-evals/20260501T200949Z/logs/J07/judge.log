@@ -217,7 +217,7 @@ exec
  succeeded in 0ms:
 · Resolving local file...
 · Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.
-· Running profile_local_dataset...
+· Running create_research_environment...
 · Inspected local dataset Enriched Tweets.parquet.
 · Creating dataset record...
 · Registered remote dataset enriched-tweets.
@@ -312,7 +312,7 @@ exec
  succeeded in 122ms:
 · Resolving local file...                                                                                               
 · Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   
-· Running profile_local_dataset...                                                                                      
+· Running create_research_environment...                                                                                      
 · Inspected local dataset Enriched Tweets.parquet.                                                                      
 · Creating dataset record...                                                                                            
 · Registered remote dataset enriched-tweets.                                                                            
@@ -324,7 +324,7 @@ exec
 ### 0032-160s.txt
 · Resolving local file...                                                                                               
 · Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   
-· Running profile_local_dataset...                                                                                      
+· Running create_research_environment...                                                                                      
 · Inspected local dataset Enriched Tweets.parquet.                                                                      
 · Creating dataset record...                                                                                            
 · Registered remote dataset enriched-tweets.                                                                            
@@ -336,7 +336,7 @@ exec
 ### 0033-165s.txt
 · Resolving local file...                                                                                               
 · Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   
-· Running profile_local_dataset...                                                                                      
+· Running create_research_environment...                                                                                      
 · Inspected local dataset Enriched Tweets.parquet.                                                                      
 · Creating dataset record...                                                                                            
 · Registered remote dataset enriched-tweets.                                                                            
@@ -348,7 +348,7 @@ exec
 ### 0034-170s.txt
 · Resolving local file...                                                                                               
 · Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   
-· Running profile_local_dataset...                                                                                      
+· Running create_research_environment...                                                                                      
 · Inspected local dataset Enriched Tweets.parquet.                                                                      
 · Creating dataset record...                                                                                            
 · Registered remote dataset enriched-tweets.                                                                            
@@ -360,7 +360,7 @@ exec
 ### 0035-175s.txt
 · Resolving local file...                                                                                               
 · Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   
-· Running profile_local_dataset...                                                                                      
+· Running create_research_environment...                                                                                      
 · Inspected local dataset Enriched Tweets.parquet.                                                                      
 · Creating dataset record...                                                                                            
 · Registered remote dataset enriched-tweets.                                                                            
@@ -372,7 +372,7 @@ exec
 ### 0036-final.txt
 · Resolving local file...                                                                                               
 · Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   
-· Running profile_local_dataset...                                                                                      
+· Running create_research_environment...                                                                                      
 · Inspected local dataset Enriched Tweets.parquet.                                                                      
 · Creating dataset record...                                                                                            
 · Registered remote dataset enriched-tweets.                                                                            
@@ -400,7 +400,7 @@ exec
 <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
 <text x="16" y="30">· Resolving local file...                                                                                               </text>
 <text x="16" y="48">· Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   </text>
-<text x="16" y="66">· Running profile_local_dataset...                                                                                      </text>
+<text x="16" y="66">· Running create_research_environment...                                                                                      </text>
 <text x="16" y="84">· Inspected local dataset Enriched Tweets.parquet.                                                                      </text>
 <text x="16" y="102">· Creating dataset record...                                                                                            </text>
 <text x="16" y="120">· Registered remote dataset enriched-tweets.                                                                            </text>
@@ -419,7 +419,7 @@ exec
 <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
 <text x="16" y="30">· Resolving local file...                                                                                               </text>
 <text x="16" y="48">· Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   </text>
-<text x="16" y="66">· Running profile_local_dataset...                                                                                      </text>
+<text x="16" y="66">· Running create_research_environment...                                                                                      </text>
 <text x="16" y="84">· Inspected local dataset Enriched Tweets.parquet.                                                                      </text>
 <text x="16" y="102">· Creating dataset record...                                                                                            </text>
 <text x="16" y="120">· Registered remote dataset enriched-tweets.                                                                            </text>
@@ -535,7 +535,7 @@ Partial
 1. High: The interface became visually static for more than 2.5 minutes while uploading a large file. The last meaningful visible state was `Uploading ... (845 MB)`, and the screens at `[0005-25s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J07/20260501T193940Z/snapshots/0005-25s.txt)` and `[0035-175s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J07/20260501T193940Z/snapshots/0035-175s.txt)` are effectively identical. A normal user would reasonably wonder if the app froze.
 2. High: The prompt asked to “deploy it,” but the UI never reached or distinguished a deploy stage. The visible lifecycle stopped at upload, so the user could not tell whether deployment was queued, automatic, or omitted.
 3. Medium: The file resolution was opaque. The prompt named `/Users/me/Downloads/enriched_tweets.parquet`, but the CLI surfaced `/Users/ryanprendergast/Downloads/Enriched Tweets.parquet`. That may be correct resolution, but it is not explained, so a normal user could briefly question whether the right file was found.
-4. Medium: The UI leaked implementation terms like `profile_local_dataset` and `Registered remote dataset enriched-tweets`. That is readable for technical users, but it is not user-centered feedback and makes the flow feel more internal than necessary.
+4. Medium: The UI leaked implementation terms like `create_research_environment` and `Registered remote dataset enriched-tweets`. That is readable for technical users, but it is not user-centered feedback and makes the flow feel more internal than necessary.
 5. Low: The progress output repeated the same lines without any new state signal. Repetition here reads like stalling rather than ongoing work.
 
 **Category Notes**
@@ -554,7 +554,7 @@ Partial
 - A clear statement that deploy would start automatically after upload completed, if that is the intended behavior.
 
 **Information That Should Be Removed or De-emphasized**
-- Internal function names such as `profile_local_dataset`.
+- Internal function names such as `create_research_environment`.
 - Repeating the fully qualified local path after the file has already been resolved.
 - Slug-only messages like `enriched-tweets` unless paired with the human dataset name.
 - Status lines that do not change state for long periods without adding progress information.
@@ -598,7 +598,7 @@ Partial
 1. High: The interface became visually static for more than 2.5 minutes while uploading a large file. The last meaningful visible state was `Uploading ... (845 MB)`, and the screens at `[0005-25s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J07/20260501T193940Z/snapshots/0005-25s.txt)` and `[0035-175s.txt](/Users/ryanprendergast/Documents/Zenobia%20Pay/alpha-datasets/.tmp/journey-runs-all/J07/20260501T193940Z/snapshots/0035-175s.txt)` are effectively identical. A normal user would reasonably wonder if the app froze.
 2. High: The prompt asked to “deploy it,” but the UI never reached or distinguished a deploy stage. The visible lifecycle stopped at upload, so the user could not tell whether deployment was queued, automatic, or omitted.
 3. Medium: The file resolution was opaque. The prompt named `/Users/me/Downloads/enriched_tweets.parquet`, but the CLI surfaced `/Users/ryanprendergast/Downloads/Enriched Tweets.parquet`. That may be correct resolution, but it is not explained, so a normal user could briefly question whether the right file was found.
-4. Medium: The UI leaked implementation terms like `profile_local_dataset` and `Registered remote dataset enriched-tweets`. That is readable for technical users, but it is not user-centered feedback and makes the flow feel more internal than necessary.
+4. Medium: The UI leaked implementation terms like `create_research_environment` and `Registered remote dataset enriched-tweets`. That is readable for technical users, but it is not user-centered feedback and makes the flow feel more internal than necessary.
 5. Low: The progress output repeated the same lines without any new state signal. Repetition here reads like stalling rather than ongoing work.
 
 **Category Notes**
@@ -617,7 +617,7 @@ Partial
 - A clear statement that deploy would start automatically after upload completed, if that is the intended behavior.
 
 **Information That Should Be Removed or De-emphasized**
-- Internal function names such as `profile_local_dataset`.
+- Internal function names such as `create_research_environment`.
 - Repeating the fully qualified local path after the file has already been resolved.
 - Slug-only messages like `enriched-tweets` unless paired with the human dataset name.
 - Status lines that do not change state for long periods without adding progress information.

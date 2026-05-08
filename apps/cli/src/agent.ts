@@ -1,11 +1,11 @@
-import { access, readdir, rm, stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
 import { getInstanceBootstrap, listInstanceBundles, type DatasetInstanceSummary } from "@rprend/alpha-storage";
 
-import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, dashboardTerminalSessionUrl, type SessionRecord } from "./config.js";
-import { inferDatasetDefaults, inferDatasetIngestFlags, inspectLocalDatasetFile, uploadFileToPresignedUrl } from "./local-tools.js";
+import { DEFAULT_INSTANCE_ROOT, DEFAULT_WEB_ORIGIN, dashboardRunUrl, type SessionRecord } from "./config.js";
+import { uploadFileToPresignedUrl } from "./local-tools.js";
 import {
   RemoteApiClient,
   RemoteRequestError,
@@ -229,13 +229,9 @@ type ResponsesApiPayload = {
   output?: Array<ResponseFunctionCall | ResponseMessage | Record<string, unknown>>;
 };
 
-const DATASET_EXTENSIONS = [".parquet", ".csv", ".json", ".txt", ".md", ".markdown", ".html", ".htm", ".pdf"];
 const MAX_TOOL_ROUNDS = 12;
 const ASYNC_RUN_START_TOOLS = new Set([
   "start_research_run",
-  "deploy_remote_dataset",
-  "deploy_local_instance",
-  "create_public_data_environment",
   "create_research_environment",
 ]);
 
@@ -1794,20 +1790,10 @@ function summarizeExpectedArtifacts(input: Record<string, unknown>) {
 
 function progressHeartbeat(toolName: string, input: Record<string, unknown>, elapsedSeconds: number) {
   const datasetId = typeof input.datasetId === "string" && input.datasetId.trim() ? input.datasetId.trim() : "the dataset";
-  const inputPath = typeof input.inputPath === "string" && input.inputPath.trim() ? basename(input.inputPath.trim()) : "the file";
   if (toolName === "inspect_remote_dataset") {
     return `Still inspecting ${datasetId} for schema, time coverage, and geography fields (${elapsedSeconds}s elapsed).`;
   }
-  if (toolName === "request_dataset_source_upload") {
-    return `Still preparing the upload for ${datasetId}. Deployment will start after the file is uploaded (${elapsedSeconds}s elapsed).`;
-  }
-  if (toolName === "upload_local_file") {
-    return `Still uploading ${inputPath}. Deployment will start automatically after the upload finishes (${elapsedSeconds}s elapsed).`;
-  }
-  if (toolName === "complete_dataset_source_upload") {
-    return `Still verifying the uploaded source for ${datasetId} so deployment can start (${elapsedSeconds}s elapsed).`;
-  }
-  if (toolName === "create_research_environment" || toolName === "create_public_data_environment") {
+  if (toolName === "create_research_environment") {
     return `Still preparing the ${datasetId} environment and checking whether the dataset volume is free (${elapsedSeconds}s elapsed).`;
   }
   if (ASYNC_RUN_START_TOOLS.has(toolName)) {
@@ -2023,89 +2009,6 @@ async function waitForRunCompletion(
   };
 }
 
-async function fileExists(path: string) {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function inferLocalDatasetPath(input: string): Promise<string | null> {
-  const lower = input.toLowerCase();
-  const quotedPathMatch = input.match(/"([^"]+\.(parquet|csv|json|txt|md|markdown|html|htm|pdf))"/iu);
-  if (quotedPathMatch?.[1]) {
-    return quotedPathMatch[1];
-  }
-
-  const explicitFilenameMatch = input.match(/([A-Za-z0-9 _-]+\.(parquet|csv|json|txt|md|markdown|html|htm|pdf))/iu);
-  if (explicitFilenameMatch?.[1]) {
-    const explicitName = explicitFilenameMatch[1].trim();
-    const candidates = [
-      explicitName,
-      join(homedir(), "Downloads", explicitName),
-      join(homedir(), "Desktop", explicitName),
-    ];
-    for (const candidate of candidates) {
-      if (await fileExists(candidate)) {
-        return candidate;
-      }
-    }
-  }
-
-  const mentionsDownloads = /downloads?/.test(lower);
-  const mentionsDesktop = /desktop/.test(lower);
-  const directory = mentionsDesktop ? join(homedir(), "Desktop") : join(homedir(), "Downloads");
-  const wantsDataset = /dataset|file|parquet|csv|json|pdf|tweets?|text|download/.test(lower);
-  if (!wantsDataset) {
-    return null;
-  }
-
-  try {
-    const entries = await readdir(directory, { withFileTypes: true });
-    const files = entries
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
-      .filter((name) => DATASET_EXTENSIONS.some((extension) => name.toLowerCase().endsWith(extension)));
-
-    if (files.length === 0) {
-      return null;
-    }
-
-    const scored = files
-      .map((name) => {
-        let score = 0;
-        const normalized = name.toLowerCase();
-        if (lower.includes("tweet") && normalized.includes("tweet")) score += 5;
-        if (lower.includes("parquet") && normalized.endsWith(".parquet")) score += 4;
-        if (lower.includes("enriched") && normalized.includes("enriched")) score += 3;
-        if (mentionsDownloads) score += 1;
-        return { name, score };
-      })
-      .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name));
-
-    const best = scored[0];
-    if (!best) {
-      return null;
-    }
-    if (best.score <= 0 && lower.includes("tweet")) {
-      return null;
-    }
-    return join(directory, best.name);
-  } catch {
-    return null;
-  }
-}
-
-function inferModeFromPath(path: string): "tabular" | "unstructured" {
-  const lower = path.toLowerCase();
-  if (lower.endsWith(".parquet") || lower.endsWith(".csv") || lower.endsWith(".json")) {
-    return "tabular";
-  }
-  return "unstructured";
-}
-
 function requireSession(context: ToolExecutionContext) {
   if (!context.session) {
     throw new Error("You need to sign in first. Run `research login`.");
@@ -2170,9 +2073,6 @@ function maybeAutoLoginRequest(input: string) {
 
 function maybeHandleUnauthenticatedLocalRequest(input: string) {
   const lower = input.toLowerCase();
-  if (/list .*local|show .*local|local datasets|instances/.test(lower)) {
-    return "list_local_datasets";
-  }
   if (/show .*runs|list .*runs|tracked runs|active runs/.test(lower)) {
     return "list_tracked_runs";
   }
@@ -3532,8 +3432,6 @@ async function maybeHandleStuckRunQuestion(input: string, initialSession: Sessio
 
 function progressLabel(toolName: string, input: Record<string, unknown>) {
   switch (toolName) {
-    case "list_local_datasets":
-      return "Checking local datasets...";
     case "list_remote_datasets":
       return "Checking remote datasets...";
     case "inspect_remote_dataset":
@@ -3547,22 +3445,7 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
     case "start_research_run":
       return `Starting remote run for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
     case "create_research_environment":
-    case "create_public_data_environment":
       return "Starting dataset build...";
-    case "resolve_local_dataset":
-      return "Resolving local file...";
-    case "profile_local_dataset":
-      return `Inspecting ${basename(String(input.inputPath ?? "file"))}...`;
-    case "register_remote_dataset":
-      return "Creating dataset...";
-    case "request_dataset_source_upload":
-      return "Preparing upload target...";
-    case "upload_local_file":
-      return `Uploading ${basename(String(input.inputPath ?? "file"))}...`;
-    case "complete_dataset_source_upload":
-      return "Upload complete. Verifying source...";
-    case "deploy_remote_dataset":
-      return `Starting deployment for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
     default:
       return `Running ${toolName}...`;
   }
@@ -3660,7 +3543,7 @@ function asyncRunLaunchSummary(
   result: AgentToolResult,
   context: ToolExecutionContext,
 ) {
-  if (toolName === "create_research_environment" || toolName === "create_public_data_environment" || toolName === "deploy_remote_dataset" || toolName === "deploy_local_instance") {
+  if (toolName === "create_research_environment") {
     return result.summary;
   }
   const resultData = isRecord(result.data) ? result.data : {};
@@ -3674,8 +3557,6 @@ function asyncRunLaunchSummary(
     switch (toolName) {
       case "create_research_environment":
         return `Started research environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
-      case "create_public_data_environment":
-        return `Started public-data environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
       case "start_research_run":
         return `Started research run${datasetId ? ` on ${datasetId}` : ""}.`;
       default:
@@ -3721,82 +3602,6 @@ export function createToolRegistry(): ToolDefinition[] {
         return {
           summary: `Signed in to ${session.origin}.`,
           data: { origin: session.origin, createdAt: session.createdAt },
-        };
-      },
-    },
-    {
-      name: "resolve_local_dataset",
-      description: "Resolve a vague local dataset description to an absolute file path and inferred ingest defaults.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          hint: { type: "string" },
-        },
-        required: ["hint"],
-      },
-      async execute(_context, input) {
-        const hint = typeof input.hint === "string" ? input.hint : "";
-        const resolvedPath = await inferLocalDatasetPath(hint);
-        if (!resolvedPath) {
-          return {
-            summary: "Could not resolve a local dataset file from that description.",
-            data: { ok: false },
-          };
-        }
-        const defaults = inferDatasetDefaults(resolvedPath);
-        const ingestFlags = inferDatasetIngestFlags(resolvedPath);
-        const metadata = await stat(resolvedPath);
-        return {
-          summary: `Using local file ${basename(resolvedPath)}.\nPath: ${resolvedPath}`,
-          data: {
-            ok: true,
-            inputPath: resolvedPath,
-            mode: inferModeFromPath(resolvedPath),
-            instanceId: defaults.id,
-            datasetId: defaults.datasetId,
-            name: defaults.name,
-            sizeBytes: metadata.size,
-            ingestConfig: ingestFlags ?? undefined,
-          },
-        };
-      },
-    },
-    {
-      name: "profile_local_dataset",
-      description: "Inspect a local dataset file and return a schema summary plus sample rows for remote profiling and experiment planning.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          inputPath: { type: "string" },
-        },
-        required: ["inputPath"],
-      },
-      async execute(_context, input) {
-        const inputPath = String(input.inputPath);
-        const profile = await inspectLocalDatasetFile(inputPath);
-        return {
-          summary: `Checked the file structure for ${basename(inputPath)}.`,
-          data: profile,
-        };
-      },
-    },
-    {
-      name: "list_local_datasets",
-      description: "List local dataset instances available in the CLI workspace.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {},
-      },
-      async execute() {
-        const instances = await listInstanceBundles(DEFAULT_INSTANCE_ROOT);
-        return {
-          summary: instances.length > 0
-            ? `Found ${instances.length} local dataset${instances.length === 1 ? "" : "s"}.`
-            : "No local datasets found.",
-          data: { instances },
         };
       },
     },
@@ -3926,133 +3731,6 @@ export function createToolRegistry(): ToolDefinition[] {
               ? "Loaded run history."
               : "No tracked runs yet.",
           data: { runs },
-        };
-      },
-    },
-    {
-      name: "list_research_specs",
-      description: "List saved research specs or hypothesis plans for a dataset or account.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-        },
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const datasetId = typeof input.datasetId === "string" ? input.datasetId : undefined;
-        const payload = await client.listResearchSpecs(datasetId);
-        return {
-          summary: payload.specs.length > 0
-            ? `Found ${payload.specs.length} research spec${payload.specs.length === 1 ? "" : "s"}.`
-            : "No research specs found.",
-          data: payload,
-        };
-      },
-    },
-    {
-      name: "create_research_spec",
-      description: "Create a structured research or hypothesis plan for a dataset, including subset, shaping, labeling, and result artifact requirements.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          hypothesis: { type: "string" },
-          spec: { type: "object" },
-          status: { type: "string" },
-        },
-        required: ["datasetId", "hypothesis"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const payload = await client.createResearchSpec({
-          datasetId: String(input.datasetId),
-          hypothesis: String(input.hypothesis),
-          spec: input.spec && typeof input.spec === "object" ? input.spec as Record<string, unknown> : undefined,
-          status: typeof input.status === "string" ? input.status : undefined,
-        });
-        return {
-          summary: `Created research spec ${payload.spec.id}.`,
-          data: payload,
-        };
-      },
-    },
-    {
-      name: "register_remote_dataset",
-      description: "Create or update a remote dataset record before source upload and deploy.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          name: { type: "string" },
-          inputPath: { type: "string" },
-          mode: { type: "string", enum: ["auto", "tabular", "unstructured"] },
-          description: { type: "string" },
-        },
-        required: ["datasetId", "name"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const datasetId = String(input.datasetId);
-        const name = String(input.name);
-        const inputPath = typeof input.inputPath === "string" ? input.inputPath : "";
-        const isPublicPlaceholder = inputPath.startsWith("public://");
-        const inferredFlags = inputPath ? inferDatasetIngestFlags(inputPath) : null;
-        const result = await client.createDataset({
-          datasetId,
-          name,
-          sourceType: isPublicPlaceholder ? "public_data" : "uploaded_source",
-          sourceFilename: inputPath ? (isPublicPlaceholder ? "internet" : basename(inputPath)) : undefined,
-          mode: (typeof input.mode === "string" ? input.mode : (inputPath ? inferModeFromPath(inputPath) : "auto")) as
-            "auto" | "tabular" | "unstructured",
-          description: typeof input.description === "string"
-            ? input.description
-            : inputPath
-              ? `Uploaded from ${inputPath}`
-              : undefined,
-          ingestConfig: inferredFlags
-            ? {
-                entityType: inferredFlags.entityType,
-                titleField: inferredFlags.titleField,
-                summaryField: inferredFlags.summaryField,
-                textFields: inferredFlags.textFields,
-                dateField: inferredFlags.dateField,
-              }
-            : undefined,
-        });
-        return {
-          summary: `Created dataset ${name} (dataset id: ${datasetId}).`,
-          data: result,
-        };
-      },
-    },
-    {
-      name: "update_remote_dataset_profile",
-      description: "Attach schema, sample rows, and notes to a remote dataset so future hypothesis planning can inspect the dataset content.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          schema: {},
-          sampleRows: {},
-          notes: { type: "string" },
-        },
-        required: ["datasetId"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const payload = await client.updateDatasetProfile(String(input.datasetId), {
-          schema: input.schema,
-          sampleRows: input.sampleRows,
-          notes: typeof input.notes === "string" ? input.notes : undefined,
-        });
-        return {
-          summary: `Updated profile for remote dataset ${String(input.datasetId)}.`,
-          data: payload,
         };
       },
     },
@@ -4187,260 +3865,6 @@ export function createToolRegistry(): ToolDefinition[] {
             origin: requireSession(context).origin,
           }),
           data: result,
-        };
-      },
-    },
-    {
-      name: "create_public_data_environment",
-      description: "Create or extend a remote research environment from public internet/API data by provisioning a dataset volume and prompting a remote agent to fetch, normalize, validate, and document the data. Prefer an existing semantically matching datasetId from list_remote_datasets when extending the same domain or source catalog.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          name: { type: "string" },
-          description: { type: "string" },
-          sourceDescription: { type: "string" },
-          prompt: { type: "string" },
-          resourceProfile: {
-            type: "string",
-            enum: Object.keys(RESOURCE_PROFILES),
-          },
-          resources: {
-            type: "object",
-          },
-          artifacts: {
-            type: "array",
-            items: { type: "object" },
-          },
-        },
-        required: ["datasetId", "name", "sourceDescription", "prompt"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const requestedDatasetId = String(input.datasetId);
-        const existingDatasets = await client.listDatasets().catch(() => ({ datasets: [] }));
-        const datasetId = selectReusableEnvironmentDatasetId(requestedDatasetId, input, existingDatasets.datasets);
-        const matchedDataset = existingDatasets.datasets.find((dataset) => dataset.id === datasetId);
-        context.emit({
-          role: "tool",
-          content: explainEnvironmentSelection({
-            requestedDatasetId,
-            datasetId,
-            datasetName: matchedDataset?.name,
-            reusedExisting: datasetId !== requestedDatasetId,
-          }),
-        });
-        if (datasetId !== requestedDatasetId) {
-          context.emit({ role: "tool", content: `Reusing existing research environment ${datasetId} instead of creating duplicate ${requestedDatasetId}.` });
-        }
-        const prompt = String(input.prompt);
-        let result;
-        try {
-          result = await client.createPublicDataEnvironment(datasetId, {
-            name: String(input.name),
-            description: typeof input.description === "string" ? input.description : undefined,
-            sourceDescription: String(input.sourceDescription),
-            prompt,
-            resources: environmentResources(input, true),
-            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
-          });
-        } catch (error) {
-          if (error instanceof RemoteRequestError) {
-            const summary = summarizeBusyDatasetConflict(error);
-            if (summary) {
-              return { summary, data: { ok: false, reason: "dataset_busy" } };
-            }
-          }
-          throw error;
-        }
-        if (context.session) {
-          await trackRemoteRun({
-            id: result.run.id,
-            datasetId: result.run.datasetId,
-            origin: context.session.origin,
-            status: result.run.status,
-            prompt: result.run.prompt ?? prompt,
-            createdAt: result.run.createdAt,
-            updatedAt: result.run.updatedAt,
-          });
-          spawnRunWatcher(result.run.id);
-        }
-        return {
-          summary: formatEnvironmentBuildSummary({
-            buildKind: "public-data environment",
-            datasetId: result.run.datasetId,
-            datasetName: typeof input.name === "string" ? input.name : undefined,
-            prompt,
-            artifacts: Array.isArray(input.artifacts) ? input.artifacts as Array<Record<string, unknown>> : undefined,
-            run: result.run,
-            origin: requireSession(context).origin,
-          }),
-          data: result,
-        };
-      },
-    },
-    {
-      name: "request_dataset_source_upload",
-      description: "Request a presigned upload target for a local dataset file.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          inputPath: { type: "string" },
-          filename: { type: "string" },
-        },
-        required: ["datasetId"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const datasetId = String(input.datasetId);
-        const inputPath = typeof input.inputPath === "string" ? input.inputPath : "";
-        const filename = typeof input.filename === "string" && input.filename.trim()
-          ? input.filename.trim()
-          : inputPath
-            ? basename(inputPath)
-            : "";
-        if (!filename) {
-          throw new Error("request_dataset_source_upload requires inputPath or filename.");
-        }
-        const sizeBytes = inputPath ? (await stat(inputPath)).size : undefined;
-        const upload = await client.requestDatasetSourceUpload(datasetId, { filename, sizeBytes });
-        return {
-          summary: `Upload target ready for ${filename}.`,
-          data: upload,
-        };
-      },
-    },
-    {
-      name: "upload_local_file",
-      description: "Upload a local file to a presigned object-store URL.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          inputPath: { type: "string" },
-          uploadUrl: { type: "string" },
-        },
-        required: ["inputPath", "uploadUrl"],
-      },
-      async execute(context, input) {
-        const inputPath = String(input.inputPath);
-        const uploadUrl = String(input.uploadUrl);
-        const sizeBytes = await uploadFileToPresignedUrl(inputPath, uploadUrl, (message) => {
-          context.emit({ role: "tool", content: message });
-        });
-        return {
-          summary: `Finished uploading ${basename(inputPath)}.`,
-          data: { inputPath, sizeBytes },
-        };
-      },
-    },
-    {
-      name: "complete_dataset_source_upload",
-      description: "Mark the uploaded dataset source as complete on the remote control plane.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-          sizeBytes: { type: "number" },
-        },
-        required: ["datasetId"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const datasetId = String(input.datasetId);
-        const sizeBytes = typeof input.sizeBytes === "number" ? input.sizeBytes : undefined;
-        await client.completeDatasetSourceUpload(datasetId, { sizeBytes });
-        return {
-          summary: `Source upload verified for dataset ${datasetId}.`,
-          data: { datasetId, sizeBytes },
-        };
-      },
-    },
-    {
-      name: "deploy_remote_dataset",
-      description: "Provision remote infrastructure and start normalization for a registered dataset.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          datasetId: { type: "string" },
-        },
-        required: ["datasetId"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const datasetId = String(input.datasetId);
-        const deployment = await client.deployDataset(datasetId);
-        if (deployment.run && context.session) {
-          await trackRemoteRun({
-            id: deployment.run.id,
-            datasetId: deployment.run.datasetId,
-            origin: context.session.origin,
-            status: deployment.run.status,
-            prompt: deployment.run.prompt,
-            createdAt: deployment.run.createdAt,
-            updatedAt: deployment.run.updatedAt,
-          });
-        }
-        const runId = deployment.run?.id;
-        const terminalSessionUrl = context.session && context.sessionId && runId
-          ? dashboardTerminalSessionUrl(context.session.origin, context.sessionId, runId)
-          : null;
-        return {
-          summary: [
-            `Deployment started for dataset ${datasetId}.${deployment.run ? ` Run: ${deployment.run.id}.` : ""}${deployment.deployment.status ? ` Status: ${deployment.deployment.status}.` : ""}`,
-            terminalSessionUrl ? `Terminal session: ${terminalSessionUrl}` : null,
-          ].filter(Boolean).join("\n"),
-          data: deployment,
-        };
-      },
-    },
-    {
-      name: "deploy_local_instance",
-      description: "Register and deploy an existing local normalized instance bundle.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          instanceId: { type: "string" },
-          datasetId: { type: "string" },
-        },
-        required: ["instanceId"],
-      },
-      async execute(context, input) {
-        const client = createRemoteClient(context);
-        const instanceId = String(input.instanceId);
-        const bootstrap = await getInstanceBootstrap(DEFAULT_INSTANCE_ROOT, instanceId);
-        const datasetId = typeof input.datasetId === "string" && input.datasetId.trim()
-          ? input.datasetId.trim()
-          : bootstrap.descriptor.id;
-        await client.createDataset({
-          name: bootstrap.implementation.productName,
-          datasetId,
-          sourceType: "local_instance",
-          instanceId,
-          manifestPath: `${DEFAULT_INSTANCE_ROOT}/${instanceId}/manifest.json`,
-          description: bootstrap.descriptor.description,
-        });
-        const deployment = await client.deployDataset(datasetId);
-        if (deployment.run && context.session) {
-          await trackRemoteRun({
-            id: deployment.run.id,
-            datasetId: deployment.run.datasetId,
-            origin: context.session.origin,
-            status: deployment.run.status,
-            prompt: deployment.run.prompt,
-            createdAt: deployment.run.createdAt,
-            updatedAt: deployment.run.updatedAt,
-          });
-        }
-        return {
-          summary: `Started deployment for local instance ${instanceId}.`,
-          data: deployment,
         };
       },
     },

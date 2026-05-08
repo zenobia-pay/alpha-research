@@ -319,7 +319,7 @@ Priority normalized tables/documents:
 
 ## Initial CLI Prompts
 
-Use these prompts with `create_public_data_environment` or the signed-in `research --prompt` flow.
+Use these prompts with `create_research_environment` or the signed-in `research --prompt` flow.
 
 ### Econ
 

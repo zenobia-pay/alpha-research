@@ -85,19 +85,6 @@ for (const fixture of await readFixtures()) {
           },
         };
       },
-      async createPublicDataEnvironment() {
-        toolCalls.push("create_public_data_environment");
-        return {
-          dataset: null,
-          environment: { datasetId: fixture.run?.datasetId ?? "public-dataset", status: "booting" },
-          run: fixture.run ?? {
-            id: "run-public",
-            datasetId: "public-dataset",
-            status: "booting",
-            prompt: "Fetch public data.",
-          },
-        };
-      },
       async startRun() {
         toolCalls.push("start_research_run");
         return {

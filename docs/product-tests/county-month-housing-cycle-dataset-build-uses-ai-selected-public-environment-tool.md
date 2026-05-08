@@ -10,11 +10,11 @@ This protects the core research-design path: experiment and dataset-build instru
 
 ## Actions Taken
 
-The deterministic harness simulates a signed-in session, available remote datasets, and a model response that calls `create_public_data_environment`. The fake backend records the exact body sent to the public-data environment endpoint.
+The deterministic harness simulates a signed-in session, available remote datasets, and a model response that calls `create_research_environment`. The fake backend records the exact body sent to the public research environment endpoint.
 
 ## Assertions Made
 
 - The request reaches the AI tool-selection path.
-- The CLI starts a public-data environment build for the AI-selected dataset.
+- The CLI starts a public research environment build for the AI-selected dataset.
 - The prompt sent to the backend exactly matches the model-provided `prompt` argument.
 - The CLI still returns a durable run handoff with dataset id, run id, validation summary, and follow-up commands.

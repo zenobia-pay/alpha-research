@@ -7,7 +7,7 @@
       {
         "type": "function_call",
         "call_id": "call-public-env-1",
-        "name": "create_public_data_environment",
+        "name": "create_research_environment",
         "arguments": "{\"datasetId\":\"sec-risk-factors\",\"name\":\"SEC Risk Factors\",\"sourceDescription\":\"Public SEC filings for payment companies\",\"prompt\":\"Fetch public SEC filings for payment companies, normalize risk factor sections, write a manifest, and validate source coverage.\"}"
       }
     ]
@@ -20,10 +20,10 @@
   },
   "expectedToolCalls": [
     "list_remote_datasets",
-    "create_public_data_environment"
+    "create_research_environment"
   ],
   "expectedSummaryIncludes": [
-    "Started public-data environment build for SEC Risk Factors.",
+    "Started research environment build for SEC Risk Factors.",
     "Dataset: sec-risk-factors",
     "Run: run-public-env-1",
     "Monitor: research debug run run-public-env-1",

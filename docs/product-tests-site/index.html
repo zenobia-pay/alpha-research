@@ -290,13 +290,13 @@
     </div>
     <div>
       <h3>Actions Taken</h3>
-      <p>The deterministic harness simulates a signed-in session, available remote datasets, and a model response that calls <code>create_public_data_environment</code>. The fake backend records the exact body sent to the public-data environment endpoint.</p>
+      <p>The deterministic harness simulates a signed-in session, available remote datasets, and a model response that calls <code>create_research_environment</code>. The fake backend records the exact body sent to the public research environment endpoint.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
     <ul><li>The request reaches the AI tool-selection path.</li>
-<li>The CLI starts a public-data environment build for the AI-selected dataset.</li>
+<li>The CLI starts a public research environment build for the AI-selected dataset.</li>
 <li>The prompt sent to the backend exactly matches the model-provided <code>prompt</code> argument.</li>
 <li>The CLI still returns a durable run handoff with dataset id, run id, validation summary, and follow-up commands.</li></ul>
   </div>

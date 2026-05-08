@@ -129,7 +129,10 @@ test("county-month housing-cycle dataset build uses AI-selected public environme
         ],
       };
     },
-    async createPublicDataEnvironment(datasetId: string, body: Record<string, unknown>) {
+    async createDataset() {
+      return { dataset: { id: "econ", name: "Economics Base", status: "ready" } };
+    },
+    async createResearchEnvironment(datasetId: string, body: Record<string, unknown>) {
       created = { datasetId, body };
       return {
         dataset: null,
@@ -163,7 +166,7 @@ test("county-month housing-cycle dataset build uses AI-selected public environme
           output: [{
             type: "function_call",
             call_id: "call-county-month-build",
-            name: "create_public_data_environment",
+            name: "create_research_environment",
             arguments: JSON.stringify({
               datasetId: "econ",
               name: "Econ housing-cycle extension",
@@ -196,12 +199,12 @@ test("county-month housing-cycle dataset build uses AI-selected public environme
   );
 
   const joinedMessages = messages.map((message) => message.content).join("\n");
-  assert.match(joinedMessages, /Started public-data environment build for Econ housing-cycle extension\./i);
+  assert.match(joinedMessages, /Started research environment build for Econ housing-cycle extension\./i);
   assert.match(joinedMessages, /Dataset: econ/i);
   assert.match(joinedMessages, /Run: run-housing-cycle-build/i);
   assert.match(joinedMessages, /Validation preserved: source URLs, row counts, missingness, join keys, temporal coverage\./i);
   assert.ok(respondCount > 0, "Expected the request to go through the AI tool-selection path");
-  assert.ok(created, "Expected a public-data environment build");
+  assert.ok(created, "Expected a research environment build");
   assert.equal(created?.datasetId, "econ");
   assert.equal(created?.body.prompt, generatedPrompt);
 });
@@ -2866,7 +2869,7 @@ test("canonical public environments use small versioned object-store resource pr
           output: [{
             type: "function_call",
             call_id: "call-canonical-resources",
-            name: "create_public_data_environment",
+            name: "create_research_environment",
             arguments: JSON.stringify({
               datasetId: "sociology",
               name: "Sociology",
@@ -2881,8 +2884,12 @@ test("canonical public environments use small versioned object-store resource pr
       calls.push({ name: "listDatasets" });
       return { datasets: [] };
     },
-    async createPublicDataEnvironment(datasetId: string, body: Record<string, unknown>) {
-      calls.push({ name: "createPublicDataEnvironment", body: { datasetId, ...body } });
+    async createDataset(body: Record<string, unknown>) {
+      calls.push({ name: "createDataset", body });
+      return { dataset: { id: String(body.datasetId ?? "sociology"), name: String(body.name ?? "Sociology"), status: "draft" } };
+    },
+    async createResearchEnvironment(datasetId: string, body: Record<string, unknown>) {
+      calls.push({ name: "createResearchEnvironment", body: { datasetId, ...body } });
       return {
         dataset: null,
         environment: { datasetId, status: "booting" },
@@ -2909,7 +2916,7 @@ test("canonical public environments use small versioned object-store resource pr
 
   await runAgentTurn("Create the canonical sociology dataset.", session, emit, undefined, deps);
 
-  const environmentCall = calls.find((call) => call.name === "createPublicDataEnvironment");
+  const environmentCall = calls.find((call) => call.name === "createResearchEnvironment");
   assert.deepEqual(environmentCall?.body?.resources, {
     profile: "canonical-public",
     runnerSize: "s-4vcpu-8gb",
@@ -3452,49 +3459,15 @@ test("product workflow success: econ research hypothesis creates data environmen
       arguments: { runId: "run-env", timeoutSeconds: 0 },
     },
     {
-      name: "create_research_spec",
-      arguments: {
-        datasetId: "econ-housing-cycle",
-        hypothesis: "Rising mortgage rates reduce housing permits most in counties with weaker income growth.",
-        spec: {
-          subset: {
-            geography: "county",
-            frequency: "monthly",
-            startDate: "2000-01-01",
-            requiredFields: [
-              "mortgage_rate_30y",
-              "housing_permits",
-              "median_household_income",
-              "unemployment_rate",
-              "house_price_index",
-            ],
-          },
-          shaping: {
-            panel: "county_month",
-            joins: ["date", "county_fips"],
-            transforms: ["rate deltas", "income growth", "permit growth", "lagged controls"],
-          },
-          labeling: {
-            required: true,
-            outputField: "market_regime_label",
-            prompt: "Label each county-month as expansion, slowdown, or stress using rates, unemployment, permits, and HPI movement.",
-          },
-          artifacts: [
-            { type: "table", title: "County-month regression-ready panel" },
-            { type: "chart", title: "Permit sensitivity by income-growth quartile", chart: "line", x: "month", y: "permit_growth" },
-            { type: "chart", title: "Rate shock response by market regime", chart: "bar", x: "market_regime_label", y: "permit_response" },
-          ],
-        },
-        status: "ready",
-      },
-    },
-    {
       name: "start_research_run",
       arguments: {
         datasetId: "econ-housing-cycle",
         runType: "transform",
-        prompt: "Create the county-month analysis panel for the housing-rate hypothesis.",
-        scriptOutline: "Join FRED mortgage rates, FHFA HPI, Census permits/income, BLS unemployment, and BEA income by county_fips/month; compute lags, deltas, quartiles, and missingness flags.",
+        researchIntent: "Create the county-month analysis panel for the housing-rate hypothesis.",
+        conversationSummary: "The researcher wants to test whether rising mortgage rates reduce housing permits most in counties with weaker income growth.",
+        dataPlan: "Join FRED mortgage rates, FHFA HPI, Census permits/income, BLS unemployment, and BEA income by county_fips/month; compute lags, deltas, quartiles, and missingness flags.",
+        outputPlan: "Save a county-month regression-ready panel.",
+        qualityPlan: "Report coverage, missingness, join keys, and row counts.",
       },
     },
     {
@@ -3506,8 +3479,11 @@ test("product workflow success: econ research hypothesis creates data environmen
       arguments: {
         datasetId: "econ-housing-cycle",
         runType: "label",
-        prompt: "Label market regimes on the county-month panel.",
-        labelingPrompt: "For each county-month, assign expansion, slowdown, or stress using mortgage-rate changes, unemployment trend, HPI trend, permit growth, and income growth. Return the label and short rationale.",
+        researchIntent: "Label market regimes on the county-month panel.",
+        conversationSummary: "The researcher needs a market-regime label before testing the housing-rate hypothesis.",
+        dataPlan: "Use mortgage-rate changes, unemployment trend, HPI trend, permit growth, and income growth.",
+        outputPlan: "Return expansion, slowdown, or stress labels with a short rationale.",
+        qualityPlan: "Report label distribution and ambiguous cases.",
       },
     },
     {
@@ -3519,13 +3495,11 @@ test("product workflow success: econ research hypothesis creates data environmen
       arguments: {
         datasetId: "econ-housing-cycle",
         runType: "hypothesis",
-        prompt: "Test whether rising mortgage rates reduce housing permits most in counties with weaker income growth, using the labeled county-month panel.",
-        type: "hypothesis",
-        config: {
-          hypothesis: "Rising mortgage rates reduce housing permits most in counties with weaker income growth.",
-          subset: "county_month_panel_2000_present",
-          model: "fixed effects panel regression with lagged controls",
-        },
+        researchIntent: "Test whether rising mortgage rates reduce housing permits most in counties with weaker income growth, using the labeled county-month panel.",
+        conversationSummary: "The dataset has been built, shaped, and labeled for a county-month housing-rate hypothesis.",
+        dataPlan: "Use the county_month_panel_2000_present panel with fixed effects and lagged controls.",
+        outputPlan: "Produce a regression summary, two charts, and a markdown hypothesis report.",
+        qualityPlan: "Report model assumptions, missingness, and robustness limitations.",
         artifacts: [
           { type: "table", title: "Regression summary" },
           { type: "chart", title: "Permit sensitivity by income-growth quartile", chart: "line", x: "month", y: "permit_growth" },
@@ -3638,18 +3612,6 @@ test("product workflow success: econ research hypothesis creates data environmen
         },
       };
     },
-    async createResearchSpec(body: unknown) {
-      calls.push({ name: "createResearchSpec", body });
-      return {
-        spec: {
-          id: "spec-housing-rates",
-          datasetId: "econ-housing-cycle",
-          hypothesis: "Rising mortgage rates reduce housing permits most in counties with weaker income growth.",
-          spec: (body as { spec?: Record<string, unknown> }).spec,
-          status: "ready",
-        },
-      };
-    },
     async startRun(datasetId: string, prompt: string, options?: { type?: string }) {
       calls.push({ name: "startRun", prompt, options });
       const idByType: Record<string, string> = {
@@ -3742,7 +3704,6 @@ test("product workflow success: econ research hypothesis creates data environmen
     "listDatasets",
     "createDataset",
     "createResearchEnvironment",
-    "createResearchSpec",
     "listDatasets",
     "startRun",
     "listDatasets",
@@ -3767,30 +3728,6 @@ test("product workflow success: econ research hypothesis creates data environmen
   assert.match(environmentBody.prompt ?? "", /Validate coverage, row counts, missingness, join keys, source URLs/i);
   assert.deepEqual(environmentBody.artifacts?.map((artifact) => artifact.type), ["manifest", "coverage_report"]);
 
-  const specBody = calls.find((call) => call.name === "createResearchSpec")?.body as {
-    spec?: {
-      subset?: { requiredFields?: string[] };
-      shaping?: { transforms?: string[] };
-      labeling?: { required?: boolean; prompt?: string };
-      artifacts?: Array<{ type?: string; title?: string; chart?: string; x?: string; y?: string }>;
-    };
-  };
-  assert.deepEqual(specBody.spec?.subset?.requiredFields, [
-    "mortgage_rate_30y",
-    "housing_permits",
-    "median_household_income",
-    "unemployment_rate",
-    "house_price_index",
-  ]);
-  assert.equal(specBody.spec?.labeling?.required, true);
-  assert.match(specBody.spec?.labeling?.prompt ?? "", /expansion, slowdown, or stress/i);
-  assert.ok(specBody.spec?.artifacts?.some((artifact) =>
-    artifact.type === "chart"
-    && artifact.title === "Permit sensitivity by income-growth quartile"
-    && artifact.x === "month"
-    && artifact.y === "permit_growth"
-  ));
-
   const runTypes = calls
     .filter((call) => call.name === "startRun")
     .map((call) => (call.options as { type?: string }).type);
@@ -3799,7 +3736,6 @@ test("product workflow success: econ research hypothesis creates data environmen
   const joinedMessages = messages.map((message) => message.content).join("\n");
   assert.match(joinedMessages, /No remote datasets found; a new build will be needed if the plan proceeds\./);
   assert.doesNotMatch(joinedMessages, /Reviewing remote datasets and drafting the next step\.\.\./);
-  assert.match(joinedMessages, /Created research spec spec-housing-rates/);
   assert.match(joinedMessages, /Starting remote run for econ-housing-cycle\.\.\./);
   assert.match(joinedMessages, /Starting remote run for econ-housing-cycle\.\.\./);
   assert.match(joinedMessages, /Regression summary/);
@@ -3835,13 +3771,19 @@ test("uploaded dataset deployment flow uses user-facing stage updates and upload
           payload: {
             id: "response-upload-1",
             output: [
-              { type: "function_call", call_id: "call-1", name: "resolve_local_dataset", arguments: JSON.stringify({ hint: `"${datasetPath}"` }) },
-              { type: "function_call", call_id: "call-2", name: "profile_local_dataset", arguments: JSON.stringify({ inputPath: datasetPath }) },
-              { type: "function_call", call_id: "call-3", name: "register_remote_dataset", arguments: JSON.stringify({ datasetId: "enriched-tweets", name: "Enriched Tweets", inputPath: datasetPath, mode: "tabular" }) },
-              { type: "function_call", call_id: "call-4", name: "request_dataset_source_upload", arguments: JSON.stringify({ datasetId: "enriched-tweets", inputPath: datasetPath }) },
-              { type: "function_call", call_id: "call-5", name: "upload_local_file", arguments: JSON.stringify({ inputPath: datasetPath, uploadUrl: "https://upload.example.test/object" }) },
-              { type: "function_call", call_id: "call-6", name: "complete_dataset_source_upload", arguments: JSON.stringify({ datasetId: "enriched-tweets" }) },
-              { type: "function_call", call_id: "call-7", name: "deploy_remote_dataset", arguments: JSON.stringify({ datasetId: "enriched-tweets" }) },
+              {
+                type: "function_call",
+                call_id: "call-1",
+                name: "create_research_environment",
+                arguments: JSON.stringify({
+                  datasetId: "enriched-tweets",
+                  name: "Enriched Tweets",
+                  description: "Tweet dataset with authors, timestamps, text, and engagement counts.",
+                  sourceDescription: "User-provided local tweet CSV.",
+                  localPaths: [datasetPath],
+                  prompt: "Create a research environment from the uploaded tweet CSV and document its schema, sample rows, and limitations.",
+                }),
+              },
             ],
           },
         };
@@ -3849,20 +3791,21 @@ test("uploaded dataset deployment flow uses user-facing stage updates and upload
       async createDataset() {
         return { dataset: { id: "enriched-tweets", name: "Enriched Tweets", status: "created" } };
       },
+      async listDatasets() {
+        return { datasets: [] };
+      },
       async requestDatasetSourceUpload() {
         return { upload: { method: "PUT", url: "https://upload.example.test/object", key: "uploads/enriched-tweets.csv" } };
       },
-      async completeDatasetSourceUpload() {
-        return { ok: true };
-      },
-      async deployDataset() {
+      async createResearchEnvironment() {
         return {
-          deployment: { datasetId: "enriched-tweets", status: "booting" },
+          dataset: { id: "enriched-tweets", name: "Enriched Tweets", status: "building" },
+          environment: { datasetId: "enriched-tweets", status: "booting" },
           run: {
-            id: "run-deploy",
+            id: "run-env-upload",
             datasetId: "enriched-tweets",
             status: "booting",
-            prompt: "Deploy dataset",
+            prompt: "Create a research environment from the uploaded tweet CSV and document its schema, sample rows, and limitations.",
             createdAt: "2026-05-01T00:00:00.000Z",
             updatedAt: "2026-05-01T00:00:00.000Z",
           },
@@ -3888,19 +3831,12 @@ test("uploaded dataset deployment flow uses user-facing stage updates and upload
     );
 
     const joinedMessages = messages.map((message) => message.content).join("\n");
-    assert.match(joinedMessages, /Using local file Enriched Tweets\.csv\./);
-    assert.match(joinedMessages, new RegExp(`Path: ${datasetPath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
-    assert.match(joinedMessages, /Inspecting Enriched Tweets\.csv/);
-    assert.match(joinedMessages, /Checked the file structure for Enriched Tweets\.csv/);
-    assert.match(joinedMessages, /Created dataset Enriched Tweets \(dataset id: enriched-tweets\)\./);
-    assert.match(joinedMessages, /Upload target ready for Enriched Tweets\.csv\./);
-    assert.match(joinedMessages, /Deployment will start after the upload finishes\./);
+    assert.match(joinedMessages, /Starting dataset build/);
+    assert.match(joinedMessages, new RegExp(`Uploading ${datasetPath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
     assert.match(joinedMessages, /Upload progress: 100%/);
-    assert.match(joinedMessages, /Finished uploading Enriched Tweets\.csv.*Verifying the source so deployment can start\./);
-    assert.match(joinedMessages, /Source upload verified for dataset enriched-tweets\./);
-    assert.match(joinedMessages, /Deployment started for dataset enriched-tweets\. Run: run-deploy\. Status: booting\./);
-    assert.match(joinedMessages, /Terminal session: https:\/\/dashboard\.alpharesearch\.nyc\/\?view=terminal-sessions&sessionId=terminal-session-upload&runId=run-deploy#run-run-deploy/);
-    assert.doesNotMatch(joinedMessages, /profile_local_dataset|Registered remote dataset|upload_local_file/);
+    assert.match(joinedMessages, /Started research environment build for Enriched Tweets/);
+    assert.match(joinedMessages, /Run: run-env-upload/);
+    assert.doesNotMatch(joinedMessages, /Registered remote dataset/);
   } finally {
     globalThis.fetch = originalFetch;
     await rm(tempDir, { recursive: true, force: true });

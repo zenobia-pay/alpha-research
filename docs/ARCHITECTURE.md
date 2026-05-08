@@ -32,8 +32,8 @@ The executable tools are implemented in `apps/cli/src/agent.ts`. The stable harn
 Core tool groups:
 
 - Auth and session: `login`.
-- Local discovery: `resolve_local_dataset`, `profile_local_dataset`, `list_local_datasets`.
-- Remote dataset/environment: `list_remote_datasets`, `inspect_remote_dataset`, `create_research_environment`, `create_public_data_environment`, upload/deploy tools.
+- Local datasets: local deletion remains available for explicit delete requests; local file intake is handled through `create_research_environment`.
+- Remote dataset/environment: `list_remote_datasets`, `inspect_remote_dataset`, `describe_remote_dataset`, and `create_research_environment`.
 - Research/run operations: `start_research_run`, `start_research_run`, `start_research_run`, `start_research_run`, transform/labeling tools.
 - Run management: `list_tracked_runs`, `get_run_results`, `list_run_artifacts`, `wait_for_run_completion`, `cancel_remote_run`.
 

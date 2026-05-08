@@ -333,29 +333,6 @@ export class RemoteApiClient {
     });
   }
 
-  async createPublicDataEnvironment(datasetId: string, body: {
-    name?: string;
-    description?: string;
-    sourceDescription: string;
-    prompt: string;
-    resources?: Record<string, unknown>;
-    artifacts?: Array<Record<string, unknown>>;
-  }) {
-    return this.request<{
-      dataset: RemoteDatasetSummary | null;
-      environment: {
-        datasetId: string;
-        status: string;
-        volume?: RemoteDatasetVolume;
-        manifestPath?: string;
-      };
-      run: RemoteRunSummary;
-    }>(`/api/cli/datasets/${encodeURIComponent(datasetId)}/public-environment`, {
-      method: "POST",
-      body,
-    });
-  }
-
   async createResearchEnvironment(datasetId: string, body: {
     name?: string;
     description?: string;

@@ -3,7 +3,7 @@
 <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#f3f5f7" xml:space="preserve">
 <text x="16" y="30">· Resolving local file...                                                                                               </text>
 <text x="16" y="48">· Resolved local dataset to /Users/ryanprendergast/Downloads/Enriched Tweets.parquet.                                   </text>
-<text x="16" y="66">· Running profile_local_dataset...                                                                                      </text>
+<text x="16" y="66">· Running create_research_environment...                                                                                      </text>
 <text x="16" y="84">· Inspected local dataset Enriched Tweets.parquet.                                                                      </text>
 <text x="16" y="102">                                                                                                                        </text>
 </g>

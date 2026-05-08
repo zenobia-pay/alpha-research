@@ -23,7 +23,6 @@ type SymphonyCase = {
   remote?: {
     datasets?: RemoteDatasetSummary[];
     createResearchEnvironmentRun?: RemoteRunSummary;
-    createPublicDataEnvironmentRun?: RemoteRunSummary;
     startRun?: RemoteRunSummary;
     runResults?: {
       run: RemoteRunSummary;
@@ -146,19 +145,6 @@ function createFakeClient(fixture: SymphonyCase, recorded: RecordedCall[]) {
           datasetId,
           status: "booting",
           prompt: typeof body.prompt === "string" ? body.prompt : "Build research environment.",
-        },
-      };
-    },
-    async createPublicDataEnvironment(datasetId: string, body: Record<string, unknown>) {
-      recorded.push({ name: "createPublicDataEnvironment", args: [datasetId, body] });
-      return {
-        dataset: null,
-        environment: { datasetId, status: "booting" },
-        run: fixture.remote?.createPublicDataEnvironmentRun ?? {
-          id: "run-public-data",
-          datasetId,
-          status: "booting",
-          prompt: typeof body.prompt === "string" ? body.prompt : "Build public data environment.",
         },
       };
     },
