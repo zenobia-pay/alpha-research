@@ -109,7 +109,7 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 
 - [blocked-or-failed recovery prompt stays focused on the current run and next action](product-tests/blocked-or-failed-recovery-prompt-stays-focused-on-the-current-run-and-next-action.md)
 - [broad business-opportunity prompts stop at a scoped approval gate before any inventory or run work](product-tests/broad-business-opportunity-prompts-stop-at-a-scoped-approval-gate-before-any-inventory-or-run-work.md)
-- [county-month housing-cycle dataset requests reuse a strong economics base and start the build immediately](product-tests/county-month-housing-cycle-dataset-requests-reuse-a-strong-economics-base-and-start-the-build-immediately.md)
+- [county-month housing-cycle dataset build uses AI-selected public environment tool](product-tests/county-month-housing-cycle-dataset-build-uses-ai-selected-public-environment-tool.md)
 - [dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching](product-tests/dataset-follow-up-keeps-the-exact-prior-inventory-match-instead-of-fuzzy-overlap-switching.md)
 - [local dataset deletion confirms and then removes the selected instance](product-tests/local-dataset-deletion-confirms-and-then-removes-the-selected-instance.md)
 - [dataset-owned canonical briefing describes available data without processed-table wording](product-tests/dataset-owned-canonical-briefing-describes-available-data-without-processed-table-wording.md)

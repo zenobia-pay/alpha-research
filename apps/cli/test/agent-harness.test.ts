@@ -96,8 +96,14 @@ test("broad business-opportunity prompts stop at a scoped approval gate before a
   assert.doesNotMatch(joinedMessages, /Checking remote datasets|Loaded run history|Found \d+ remote datasets|Starting remote/i);
 });
 
-test("county-month housing-cycle dataset requests reuse a strong economics base and start the build immediately", async () => {
+test("county-month housing-cycle dataset build uses AI-selected public environment tool", async () => {
   let created: { datasetId: string; body: Record<string, unknown> } | null = null;
+  let respondCount = 0;
+  const generatedPrompt = [
+    "Make me a county-month economics dataset for testing a housing-cycle hypothesis from 2015 to 2025.",
+    "Include FRED rates, Census population/income, Zillow home values and rents, BLS employment/unemployment/CPI, FHFA HPI, and NBER recession indicators.",
+    "Validate source URLs, row counts, missingness, join keys, temporal coverage, and produce a data dictionary and manifest.",
+  ].join(" ");
   const fakeClient = {
     async listDatasets() {
       return {
@@ -138,8 +144,40 @@ test("county-month housing-cycle dataset requests reuse a strong economics base 
         },
       };
     },
-    async respond() {
-      throw new Error("This request should be handled locally without generic model fallback.");
+    async respond(body: Record<string, unknown>) {
+      respondCount += 1;
+      if (Array.isArray(body.input)) {
+        return {
+          sessionId: "terminal-session-county-month-ai",
+          payload: {
+            id: "response-county-month-final",
+            output_text: "Started the build.",
+            output: [{ type: "message", content: [{ type: "output_text", text: "Started the build." }] }],
+          },
+        };
+      }
+      return {
+        sessionId: "terminal-session-county-month-ai",
+        payload: {
+          id: "response-county-month-tool",
+          output: [{
+            type: "function_call",
+            call_id: "call-county-month-build",
+            name: "create_public_data_environment",
+            arguments: JSON.stringify({
+              datasetId: "econ",
+              name: "Econ housing-cycle extension",
+              description: "County-month economics panel for housing-cycle research.",
+              sourceDescription: "Public macro, housing, labor, demographic, inflation, and recession indicators.",
+              prompt: generatedPrompt,
+              artifacts: [
+                { type: "manifest", title: "Dataset manifest" },
+                { type: "data_dictionary", title: "Data dictionary" },
+              ],
+            }),
+          }],
+        },
+      };
     },
   };
   const deps: AgentRuntimeDeps = {
@@ -158,19 +196,14 @@ test("county-month housing-cycle dataset requests reuse a strong economics base 
   );
 
   const joinedMessages = messages.map((message) => message.content).join("\n");
-  assert.match(joinedMessages, /Checking remote datasets/i);
-  assert.match(joinedMessages, /Using dataset econ \(ready to use\)\./i);
-  assert.match(joinedMessages, /Build target: county-month panel/i);
-  assert.match(joinedMessages, /Starting dataset build/i);
   assert.match(joinedMessages, /Started public-data environment build for Econ housing-cycle extension\./i);
   assert.match(joinedMessages, /Dataset: econ/i);
   assert.match(joinedMessages, /Run: run-housing-cycle-build/i);
   assert.match(joinedMessages, /Validation preserved: source URLs, row counts, missingness, join keys, temporal coverage\./i);
+  assert.ok(respondCount > 0, "Expected the request to go through the AI tool-selection path");
   assert.ok(created, "Expected a public-data environment build");
   assert.equal(created?.datasetId, "econ");
-  assert.match(String(created?.body.prompt ?? ""), /county-month housing-cycle research dataset from 2015 to 2025/i);
-  assert.match(String(created?.body.prompt ?? ""), /FRED interest-rate and macro series/i);
-  assert.match(String(created?.body.prompt ?? ""), /data dictionary, manifest, validation report, and source catalog/i);
+  assert.equal(created?.body.prompt, generatedPrompt);
 });
 
 test("viral tweets follow-up starts through the AI-selected run tool", async () => {
