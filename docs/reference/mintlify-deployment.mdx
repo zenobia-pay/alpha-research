@@ -1,0 +1,32 @@
+---
+title: "Mintlify Deployment"
+description: "Repository setup for publishing these docs at docs.alpharesearch.nyc."
+---
+
+This repository is now structured as the Mintlify source for `docs.alpharesearch.nyc`.
+
+Mintlify expects:
+
+- `docs.json` at the repository root
+- MDX pages referenced from `docs.json`
+- custom domain configured in Mintlify project settings as `docs.alpharesearch.nyc`
+
+Local preview:
+
+```bash
+npx mint@latest dev
+```
+
+After the Mintlify project is connected to this repository, configure the custom domain in Mintlify and add the DNS record Mintlify provides for `docs.alpharesearch.nyc`.
+
+Mintlify's current default DNS target for a docs subdomain is:
+
+```text
+CNAME docs cname.mintlify.builders
+```
+
+In Mintlify, set the project root or docs directory to:
+
+```text
+docs
+```

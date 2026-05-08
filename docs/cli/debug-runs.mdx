@@ -1,0 +1,27 @@
+---
+title: "Debug Runs"
+description: "Use the debug command before guessing about a failed or stuck remote run."
+---
+
+When a remote run fails or appears stuck, start with:
+
+```bash
+research debug run <run-id>
+```
+
+Write the debug bundle to a file:
+
+```bash
+research debug run <run-id> --output /tmp/research-run-debug.json
+```
+
+Inspect:
+
+- `remote.run`
+- `remote.results`
+- `remote.events`
+- `remote.artifacts`
+- `trackedRun`
+
+The debug command redacts the saved CLI session token. Use it before debugging DigitalOcean, dashboard state, or remote-agent lifecycle issues.
+

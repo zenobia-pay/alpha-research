@@ -1,0 +1,35 @@
+---
+title: "Public Datasets"
+description: "Canonical Alpha Research datasets for broad humanities and social-science fields."
+---
+
+Canonical datasets are remote mounted raw public source packages. Each dataset owns a comprehensive `dataset_briefing.md` that the CLI can read through `dataset.briefing.markdown`. The docs pages mirror those briefing files so the public documentation carries the same current understanding of exact raw source files/API responses, native source shapes, coverage, provenance, quality checks, and gaps.
+
+| Dataset | ID | Current raw-source profile | Source families | Canonical shape |
+| --- | --- | --- | ---: | --- |
+| [Econ](/public-datasets/econ) | `econ` | Economics, housing, labor, credit, and macro-finance | 40 | raw provider files/API responses |
+| [Sociology](/public-datasets/sociology) | `sociology` | Social structure, inequality, demographics, institutions, health, crime, and social attitudes | 10 | raw provider files, codebooks, and registry entries |
+| [Philosophy](/public-datasets/philosophy) | `philosophy` | Philosophy references, bibliography, works, concepts, and citations | 7 | raw metadata/text source records |
+| [History](/public-datasets/history) | `history` | Archives, newspapers, documents, people, places, events, and time series | 9 | raw archive/API records |
+| [Literature](/public-datasets/literature) | `literature` | Public-domain texts, works, authors, editions, and reception metadata | 7 | raw catalog/text metadata records |
+| [Political Science](/public-datasets/political-science) | `political-science` | Elections, public opinion, legislators, campaign finance, institutions, and conflict | 11 | raw provider files/API responses |
+| [Anthropology](/public-datasets/anthropology) | `anthropology` | Cultural traits, ethnographic metadata, archaeology, languages, and places | 14 | raw repository/collection records |
+| [Linguistics](/public-datasets/linguistics) | `linguistics` | Language registry, typology, phonology, lexicons, treebanks, and archives | 11 | raw upstream packages/releases |
+| [Classics](/public-datasets/classics) | `classics` | Greek and Latin texts, inscriptions, papyri, ancient places, and Wikidata snapshots | 5 | raw TEI/XML/CSV/GeoJSON/API records |
+
+## Refresh contract
+
+Every canonical refresh should publish:
+
+- `manifest.json`
+- `source_registry.csv`
+- `source_registry.plan.json`
+- `download_inventory.jsonl` and `download_inventory.csv`
+- `raw_inventory.jsonl` and `raw_inventory.csv`
+- `data_dictionary.md`
+- `quality_report.md`
+- `dataset_briefing.md`
+- `docs/public-datasets/briefings/<datasetId>.md`
+- `docs/public-datasets/<datasetId>.mdx`
+
+Canonical datasets should not publish analysis-ready tables, merged panels, shared entity models, cross-source joins, or derived fields. They should preserve the exact native shape of each source-specific file/API response/document collection, with provenance and source-shape details in the briefing.
