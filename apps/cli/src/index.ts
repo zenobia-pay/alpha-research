@@ -404,7 +404,10 @@ export async function main() {
   }
 
   if (!command || command === "agent" || command === "chat") {
-    render(React.createElement(InteractiveApp));
+    render(React.createElement(InteractiveApp), {
+      exitOnCtrlC: false,
+      incrementalRendering: true,
+    });
     return;
   }
 

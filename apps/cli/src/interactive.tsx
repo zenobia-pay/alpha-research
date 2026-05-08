@@ -741,6 +741,7 @@ function StableComposerInput({
   autoFocus?: boolean;
 }) {
   const aui = useAui();
+  const { exit } = useApp();
   const [draft, setDraft] = useState("");
   const { isFocused } = useFocus({ autoFocus });
 
@@ -749,6 +750,8 @@ function StableComposerInput({
       if ((key.ctrl || key.meta) && input === "c") {
         if (draft.length > 0) {
           setDraft("");
+        } else {
+          exit();
         }
         return;
       }
