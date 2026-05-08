@@ -2867,7 +2867,7 @@ test("product planning: vague viral tweets request designs scoped experiment bef
   assert.match(joinedMessages, /Waiting for your approval before starting a run\./i);
 });
 
-test("field-definition prompt instructions enforce concise verdict-first answers", async () => {
+test("agent prompt frames RESEARCH as run-oriented command center", async () => {
   let capturedInstructions = "";
   const fakeClient = {
     async respond(body: Record<string, unknown>) {
@@ -2906,10 +2906,12 @@ test("field-definition prompt instructions enforce concise verdict-first answers
     deps,
   );
 
-  assert.match(capturedInstructions, /answer the concept question before proposing any work/i);
-  assert.match(capturedInstructions, /lead with a one-line verdict, then one short caveat/i);
-  assert.match(capturedInstructions, /do not include composite formulas, top-N proposals, or offers to start analysis/i);
-  assert.match(capturedInstructions, /do not use vague labels like 'typical'/i);
+  assert.match(capturedInstructions, /command center for research/i);
+  assert.match(capturedInstructions, /turn vague research intent into durable, grounded research work/i);
+  assert.match(capturedInstructions, /planning and executing RUNS/i);
+  assert.match(capturedInstructions, /Research runs are driven by hypotheses/i);
+  assert.match(capturedInstructions, /What research environment to run it on/i);
+  assert.match(capturedInstructions, /Return immediately with the run id and dashboard link/i);
 });
 
 test("field-definition questions use verified dataset metadata when available", async () => {

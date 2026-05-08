@@ -47,7 +47,7 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [canonical public environments use small versioned object-store resource profile](product-tests/canonical-public-environments-use-small-versioned-object-store-resource-profile.md)
 - [environment builds support explicit large-ingest resource profile](product-tests/environment-builds-support-explicit-large-ingest-resource-profile.md)
 - [product planning: vague viral tweets request designs scoped experiment before running](product-tests/product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running.md)
-- [field-definition prompt instructions enforce concise verdict-first answers](product-tests/field-definition-prompt-instructions-enforce-concise-verdict-first-answers.md)
+- [agent prompt frames RESEARCH as run-oriented command center](product-tests/agent-prompt-frames-research-as-run-oriented-command-center.md)
 - [vague dataset interesting request gives a concise briefing and focused choice without starting a run](product-tests/vague-dataset-interesting-request-gives-a-concise-briefing-and-focused-choice-without-starting-a-run.md)
 - [product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts](product-tests/product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts.md)
 - [uploaded dataset deployment flow uses user-facing stage updates and upload progress](product-tests/uploaded-dataset-deployment-flow-uses-user-facing-stage-updates-and-upload-progress.md)
