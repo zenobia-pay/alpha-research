@@ -1,11 +1,11 @@
-# Canonical Dataset Self-Improvement: {datasetName} (`{datasetId}`)
+# Canonical Dataset Self-Improvement: Econ (`econ`)
 
 You are running a self-improvement pass for one canonical public Alpha Research dataset.
 
 Field brief:
 
 ```text
-{fieldBrief}
+Economics canonical dataset expansion. Work through the full planned public-source catalog, not just the currently downloaded files. Target raw provider-native public source packages for: FRED/Federal Reserve macro and finance series; BLS CPI, LAUS, ATUS, CEX and related public flat files/API responses; Census ACS, CPS, AHS, Building Permits Survey, population and income tables; BEA county/regional income and NIPA/regional accounts; FHFA HPI county/metro/state; HUD CHAS, FMR, Income Limits and housing affordability tables; Zillow Research ZHVI/ZORI/inventory public CSVs; Redfin Data Center public CSVs; Treasury rates; IMF, OECD and BIS public macro/finance datasets; NBER recession indicators and public macro histories; Pew, GSS and PSID public survey/data extracts where license/access allows. Keep the dataset raw-only, no processed panels. For every candidate classify active_fetchable/deferred_fetchable/license_review/credential_required/not_found/reject. Download all stable public machine-fetchable sources that are allowed, including license_review sources with caveats. Log every attempted download, send rich Slack alerts, regenerate raw/volume/download inventories, dataset briefing, docs mirrors, and CLI-visible profile proof fields.
 ```
 
 ## First, Ground In Disk Truth
@@ -33,7 +33,7 @@ If `volume_inventory.*` is missing or stale, regenerate it before doing external
 ## Dataset Contract
 
 - Public data only. Do not use private user data.
-- Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH` when set; otherwise use `/mnt/alpha-research/datasets/{datasetId}`. Do not write canonical artifacts under a local throwaway `dataset/` directory unless it is a symlink or bind mount to the mounted dataset volume.
+- Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH` when set; otherwise use `/mnt/alpha-research/datasets/econ`. Do not write canonical artifacts under a local throwaway `dataset/` directory unless it is a symlink or bind mount to the mounted dataset volume.
 - Before any fetch, verify the remote runner has an authenticated Codex CLI/session available. If Codex is not logged in, stop before downloads, write the exact blocker to `improvement_result.json`, and set `diskInventoryProven: false`.
 - Before any fetch, check `CANONICAL_DATASET_SLACK_WEBHOOK_URL` is present in the environment. Never print, log, persist, or expose the webhook URL. If it is missing or delivery fails, continue only if every alert payload is written to `slack_download_alerts.jsonl` with `delivery_status: pending` or `delivery_status: failed` and the exact non-secret failure reason.
 - This canonical dataset is a raw public source package.
@@ -48,7 +48,7 @@ If `volume_inventory.*` is missing or stale, regenerate it before doing external
 
 ## Candidate Classification
 
-Use Exa and public web/API searches to find newly relevant public sources for `{datasetName}`. Classify each candidate as exactly one of:
+Use Exa and public web/API searches to find newly relevant public sources for `Econ`. Classify each candidate as exactly one of:
 
 - `active_fetchable`
 - `deferred_fetchable`
@@ -60,8 +60,6 @@ Use Exa and public web/API searches to find newly relevant public sources for `{
 If a source is public and machine-fetchable but license-unclear, download it only with `license_status: needs_review` and explicit caveats in all inventories, result files, and the briefing.
 
 Do not bypass paywalls, login walls, robots restrictions, anti-bot systems, institutional access controls, or private credential requirements.
-
-Provider-level access failures are not run-level blockers. If one provider blocks or fails, write the exact attempted URL, HTTP status, response class, and source-specific blocker to `download_inventory.*`, `download_events.jsonl`, `candidate_sources.csv`, `quality_report.md`, `dataset_briefing.md`, docs mirrors, Slack alerts, and `improvement_result.json`, then continue through the rest of the planned source catalog. Do not stop the whole run after BLS, FHFA, Treasury, or any other single provider blocks. A run may return `status: blocked` only if the mounted dataset volume cannot be read/written, Codex login is unavailable before any fetch, required inventories cannot be generated at all, or every planned source candidate has been classified/attempted and no further work remains possible.
 
 ## Required Outputs
 
@@ -88,15 +86,15 @@ Write or update these files at the dataset root:
 - `data_dictionary.md`
 - `quality_report.md`
 - `dataset_briefing.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
+- `docs/public-datasets/briefings/econ.md`
+- `docs/public-datasets/econ.mdx`
 
 `improvement_result.json` must include:
 
 ```json
 {
-  "datasetId": "{datasetId}",
-  "datasetName": "{datasetName}",
+  "datasetId": "econ",
+  "datasetName": "Econ",
   "status": "completed|blocked",
   "checkedAt": "ISO-8601 timestamp",
   "diskInventoryProven": true,
@@ -124,9 +122,9 @@ Write or update these files at the dataset root:
 After downloads, inventories, and briefing regeneration, update all three public/CLI surfaces from the same inventory-derived briefing:
 
 - dataset-root `dataset_briefing.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
-- the CLI-visible dataset profile returned by `GET /api/cli/datasets/{datasetId}`
+- `docs/public-datasets/briefings/econ.md`
+- `docs/public-datasets/econ.mdx`
+- the CLI-visible dataset profile returned by `GET /api/cli/datasets/econ`
 
 The CLI-visible profile update must include:
 

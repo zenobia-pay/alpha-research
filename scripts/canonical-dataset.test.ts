@@ -160,6 +160,8 @@ test("improve prompt requires docs mirrors and CLI proof update", async () => {
     "quality.slackAlertsSent",
     "quality.slackAlertsPending",
     "Do not mark Slack as sent unless delivery was actually confirmed",
+    "Provider-level access failures are not run-level blockers",
+    "Do not stop the whole run after BLS, FHFA, Treasury, or any other single provider blocks",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }
