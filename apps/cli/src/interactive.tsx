@@ -738,7 +738,7 @@ function StableComposerInput({
 
   useInput(
     (input, key) => {
-      if (key.ctrl && input === "c") {
+      if ((key.ctrl || key.meta) && input === "c") {
         if (draft.length > 0) {
           setDraft("");
         }
