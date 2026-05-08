@@ -1022,17 +1022,7 @@ test("async query run returns immediately with canonical dashboard and terminal 
   assert.doesNotMatch(final, /Terminal session:/);
   assert.equal(calls.includes("startRun"), true);
   assert.equal(startedPrompt, "Return 10 viral tweets.");
-  assert.deepEqual((startedOptions?.config as Record<string, unknown>)?.mountedDatasetGrounding, {
-    required: true,
-    datasetId: "enriched-tweets",
-    mountPaths: [
-      "/mnt/alpha-research/data/instances/enriched-tweets",
-      "/mnt/alpha-research/datasets/enriched-tweets",
-      "dataset",
-    ],
-    failOnUnreadable: true,
-    disallowExternalFallback: true,
-  });
+  assert.equal((startedOptions?.config as Record<string, unknown>)?.mountedDatasetGrounding, undefined);
 });
 
 test("dataset describe request reads briefing markdown without starting a run", async () => {

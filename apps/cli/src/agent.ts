@@ -183,21 +183,7 @@ function environmentResources(input: Record<string, unknown>, publicOnly: boolea
   };
 }
 
-function mountedDatasetGrounding(datasetId: string) {
-  return {
-    required: true,
-    datasetId,
-    mountPaths: [
-      `/mnt/alpha-research/data/instances/${datasetId}`,
-      `/mnt/alpha-research/datasets/${datasetId}`,
-      "dataset",
-    ],
-    failOnUnreadable: true,
-    disallowExternalFallback: true,
-  };
-}
-
-function withStandardAnalysisResources(config?: Record<string, unknown>, datasetId?: string) {
+function withStandardAnalysisResources(config?: Record<string, unknown>, _datasetId?: string) {
   return {
     ...(config ?? {}),
     resources: {
@@ -206,7 +192,6 @@ function withStandardAnalysisResources(config?: Record<string, unknown>, dataset
         ? config.resources as Record<string, unknown>
         : {}),
     },
-    ...(datasetId ? { mountedDatasetGrounding: mountedDatasetGrounding(datasetId) } : {}),
   };
 }
 
