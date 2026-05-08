@@ -142,6 +142,10 @@ Update the CLI-visible dataset profile after the audit using the same inventory-
 
 The CLI-visible profile update is mandatory. Use the authenticated backend session available to the runner to update the dataset profile endpoint, for example `POST /api/cli/datasets/{datasetId}/profile`, with `briefingMarkdown` set to the exact `dataset_briefing.md` body. Then read back `GET /api/cli/datasets/{datasetId}` and verify that the returned profile/briefing markdown exactly contains the new `# Literal Data Inventory` section and the current run id. If this readback fails, mark `diskInventoryProven: false` and write the exact non-secret blocker.
 
+If the Codex tool/function `update_remote_dataset_profile` is available, use that tool for the profile update. Do not try to satisfy this requirement only with shell `curl`, localhost URLs, guessed service hostnames, or a nonexistent `codex datasets profile` subcommand. Shell HTTP attempts may be used only as diagnostics after the tool is unavailable or fails.
+
+Before final response, copy `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `volume_inventory_summary.json`, and the structured result into the remote run artifact directory as produced artifacts so the orchestrator can recover the exact briefing even if profile sync fails. If the artifact directory path is not obvious, use the active remote-agent workspace artifacts directory under `.remote-agent/workspaces/<run-id>/artifacts/`.
+
 If Slack alerts are pending or failed, the profile briefing and quality fields must say that directly. Do not mark Slack as sent unless delivery was actually confirmed.
 
 ## Final Response

@@ -1,11 +1,11 @@
-# Canonical Dataset Self-Improvement: {datasetName} (`{datasetId}`)
+# Canonical Dataset Self-Improvement: Econ (`econ`)
 
 You are running a self-improvement pass for one canonical public Alpha Research dataset.
 
 Field brief:
 
 ```text
-{fieldBrief}
+Economics canonical dataset expansion and briefing repair. Do not prioritize new downloads over the required proof task. First regenerate the mounted-volume inventories from disk. Then rewrite dataset_briefing.md, docs mirrors, and CLI briefingMarkdown as a comprehensive # Literal Data Inventory: one English bullet per concrete source data artifact or logical package, explaining literally what the data measures/contains, observed entities, grain, geography, time coverage, row/object counts or bytes, columns/units, source URL, raw path, license/access caveats, and explicit not-present caveats. Separate blocked/missing attempts and non-data artifacts. Do not delete .remote-agent, .codex, .cache, or any active runtime directory. Update POST /api/cli/datasets/econ/profile and verify readback from GET /api/cli/datasets/econ contains # Literal Data Inventory and this run id. After the briefing repair is proven, continue public-source expansion attempts for missing Econ families.
 ```
 
 ## First, Ground In Disk Truth
@@ -33,7 +33,7 @@ If `volume_inventory.*` is missing or stale, regenerate it before doing external
 ## Dataset Contract
 
 - Public data only. Do not use private user data.
-- Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH` when set; otherwise use `/mnt/alpha-research/datasets/{datasetId}`. Do not write canonical artifacts under a local throwaway `dataset/` directory unless it is a symlink or bind mount to the mounted dataset volume.
+- Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH` when set; otherwise use `/mnt/alpha-research/datasets/econ`. Do not write canonical artifacts under a local throwaway `dataset/` directory unless it is a symlink or bind mount to the mounted dataset volume.
 - Before any fetch, verify the remote runner has an authenticated Codex CLI/session available. If Codex is not logged in, stop before downloads, write the exact blocker to `improvement_result.json`, and set `diskInventoryProven: false`.
 - Before any fetch, check `CANONICAL_DATASET_SLACK_WEBHOOK_URL` is present in the environment. Never print, log, persist, or expose the webhook URL. If it is missing or delivery fails, continue only if every alert payload is written to `slack_download_alerts.jsonl` with `delivery_status: pending` or `delivery_status: failed` and the exact non-secret failure reason.
 - This canonical dataset is a raw public source package.
@@ -49,7 +49,7 @@ If `volume_inventory.*` is missing or stale, regenerate it before doing external
 
 ## Candidate Classification
 
-Use Exa and public web/API searches to find newly relevant public sources for `{datasetName}`. Classify each candidate as exactly one of:
+Use Exa and public web/API searches to find newly relevant public sources for `Econ`. Classify each candidate as exactly one of:
 
 - `active_fetchable`
 - `deferred_fetchable`
@@ -89,15 +89,15 @@ Write or update these files at the dataset root:
 - `data_dictionary.md`
 - `quality_report.md`
 - `dataset_briefing.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
+- `docs/public-datasets/briefings/econ.md`
+- `docs/public-datasets/econ.mdx`
 
 `improvement_result.json` must include:
 
 ```json
 {
-  "datasetId": "{datasetId}",
-  "datasetName": "{datasetName}",
+  "datasetId": "econ",
+  "datasetName": "Econ",
   "status": "completed|blocked",
   "checkedAt": "ISO-8601 timestamp",
   "diskInventoryProven": true,
@@ -125,13 +125,11 @@ Write or update these files at the dataset root:
 After downloads, inventories, and briefing regeneration, update all three public/CLI surfaces from the same inventory-derived briefing:
 
 - dataset-root `dataset_briefing.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
-- the CLI-visible dataset profile returned by `GET /api/cli/datasets/{datasetId}`
+- `docs/public-datasets/briefings/econ.md`
+- `docs/public-datasets/econ.mdx`
+- the CLI-visible dataset profile returned by `GET /api/cli/datasets/econ`
 
-The CLI-visible profile update is mandatory. Use the authenticated backend session available to the runner to update the dataset profile endpoint, for example `POST /api/cli/datasets/{datasetId}/profile`, with `briefingMarkdown` set to the exact `dataset_briefing.md` body. Then read back `GET /api/cli/datasets/{datasetId}` and verify that the returned profile/briefing markdown exactly contains the new `# Literal Data Inventory` section and the current run id. If this readback fails, mark `status: "blocked"`, set `diskInventoryProven: false`, and write the exact non-secret blocker to `improvement_result.json`.
-
-If the Codex tool/function `update_remote_dataset_profile` is available, use that tool for the profile update. Do not try to satisfy this requirement only with shell `curl`, localhost URLs, guessed service hostnames, or a nonexistent `codex datasets profile` subcommand. Shell HTTP attempts may be used only as diagnostics after the tool is unavailable or fails.
+The CLI-visible profile update is mandatory. Use the authenticated backend session available to the runner to update the dataset profile endpoint, for example `POST /api/cli/datasets/econ/profile`, with `briefingMarkdown` set to the exact `dataset_briefing.md` body. Then read back `GET /api/cli/datasets/econ` and verify that the returned profile/briefing markdown exactly contains the new `# Literal Data Inventory` section and the current run id. If this readback fails, mark `status: "blocked"`, set `diskInventoryProven: false`, and write the exact non-secret blocker to `improvement_result.json`.
 
 The CLI-visible profile update must include:
 
@@ -154,7 +152,7 @@ If any required inventory is missing, stale, or not generated from the current m
 
 The briefing exists to answer one question: what data is actually there?
 
-Write `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, and `briefingMarkdown` as a comprehensive literal data inventory. Do not start with filenames, provider acronyms, or vague category names such as `BIS`, `FRED`, `housing`, or `microdata`.
+Write `dataset_briefing.md`, `docs/public-datasets/briefings/econ.md`, `docs/public-datasets/econ.mdx`, and `briefingMarkdown` as a comprehensive literal data inventory. Do not start with filenames, provider acronyms, or vague category names such as `BIS`, `FRED`, `housing`, or `microdata`.
 
 Use this shape:
 
@@ -182,16 +180,6 @@ Group bullets only after each bullet remains self-contained. If there are multip
 Add a `# Blocked Or Missing Data` section with one bullet per failed/blocked/deferred terminal attempt. Each bullet must describe the intended data that is not on disk, the exact URL/status/error, why it matters, and the next route to try.
 
 Add a `# Non-Data Artifacts On Disk` section for inventories, manifests, docs mirrors, quality reports, Slack logs, runtime/tooling contamination, and any unreadable files. These must not be mixed into the source-data inventory.
-
-Before final response, copy these files into the remote run artifact directory as produced artifacts so the orchestrator can recover the exact briefing even if profile sync fails:
-
-- `dataset_briefing.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
-- `improvement_result.json`
-- `volume_inventory_summary.json`
-
-If the artifact directory path is not obvious, use the active remote-agent workspace artifacts directory under `.remote-agent/workspaces/<run-id>/artifacts/`. Do not omit these artifacts just because the same files also exist at the dataset root.
 
 ## Slack Alert Rules
 
