@@ -1000,11 +1000,9 @@ test("async query run returns immediately with canonical dashboard and terminal 
   });
 });
 
-test("dataset describe request starts briefing run with required artifacts", async () => {
-  let startedDatasetId = "";
-  let startedPrompt = "";
-  let startedOptions: Record<string, unknown> | undefined;
+test("dataset describe request reads briefing markdown without starting a run", async () => {
   let respondCalled = false;
+  let startRunCalled = false;
   const fakeClient = {
     async respond() {
       respondCalled = true;
@@ -1024,20 +1022,29 @@ test("dataset describe request starts briefing run with required artifacts", asy
     async listDatasets() {
       return { datasets: [{ id: "econ", name: "Economics", status: "ready" }] };
     },
-    async startRun(datasetId: string, prompt: string, options?: Record<string, unknown>) {
-      startedDatasetId = datasetId;
-      startedPrompt = prompt;
-      startedOptions = options;
+    async getDataset(datasetId: string) {
       return {
-        run: {
-          id: "run-describe",
-          datasetId,
-          status: "booting",
-          prompt,
-          createdAt: "2026-04-29T00:00:00.000Z",
-          updatedAt: "2026-04-29T00:00:00.000Z",
+        dataset: {
+          id: datasetId,
+          name: "Economics",
+          status: "ready",
+          briefing: {
+            path: "dataset_briefing.md",
+            updatedAt: "2026-04-29T00:00:00.000Z",
+            markdown: [
+              "Readiness check, not analysis.",
+              "Verdict: usable now.",
+              "",
+              "Data Inventory",
+              "- Central table: county_month_panel, 120 rows, county-month grain.",
+            ].join("\n"),
+          },
         },
       };
+    },
+    async startRun() {
+      startRunCalled = true;
+      throw new Error("describe_remote_dataset should read briefing markdown, not start a run.");
     },
     async appendSessionEntry() {
       return { id: "entry-describe" };
@@ -1053,50 +1060,21 @@ test("dataset describe request starts briefing run with required artifacts", asy
   await runAgentTurn("describe dataset econ", session, emit, undefined, deps);
 
   assert.equal(respondCalled, false);
-  assert.equal(startedDatasetId, "econ");
-  assert.equal(startedOptions?.type, "describe");
-  assert.deepEqual(startedOptions?.artifacts, [
-    { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },
-    { type: "json", title: "Dataset Profile" },
-  ]);
-  assert.equal((startedOptions?.config as Record<string, unknown>)?.describeDataset, true);
-  assert.deepEqual((startedOptions?.config as Record<string, unknown>)?.mountedDatasetGrounding, {
-    required: true,
-    datasetId: "econ",
-    mountPaths: [
-      "/mnt/alpha-research/data/instances/econ",
-      "/mnt/alpha-research/datasets/econ",
-      "dataset",
-    ],
-    failOnUnreadable: true,
-    disallowExternalFallback: true,
-  });
-  assert.match(startedPrompt, /dataset_briefing\.md/);
-  assert.match(startedPrompt, /Dataset Profile/);
-  assert.match(startedPrompt, /Overview; Readiness & Trust; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps; Usable Next Steps/);
-  assert.match(startedPrompt, /Treat this as a readiness\/trust check, not an analysis run/);
-  assert.match(startedPrompt, /Readiness check, not analysis\./);
-  assert.match(startedPrompt, /Verdict: usable now/);
-  assert.match(startedPrompt, /whether the dataset is usable right now/);
-  assert.match(startedPrompt, /what evidence supports that judgment/);
-  assert.match(startedPrompt, /what evidence is still missing/);
-  assert.match(startedPrompt, /what would make it unsafe or premature to use/);
-  assert.match(startedPrompt, /row counts, primary grain, join keys/);
-  assert.match(startedPrompt, /Do not include query instructions, starter analyses, or suggestions/);
-  assert.doesNotMatch(startedPrompt, /Suggested follow-ups/);
+  assert.equal(startRunCalled, false);
 
   const final = messages.at(-1)?.content ?? "";
   const joined = messages.map((message) => message.content).join("\n");
   assert.match(joined, /Locating dataset econ for a readiness check/);
   assert.match(joined, /Selected econ for this readiness check \(Economics\)/);
-  assert.match(joined, /No dataset-owned briefing file found\. Starting a briefing refresh to write dataset_briefing\.md/);
-  assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
+  assert.match(joined, /Reading dataset-owned briefing for econ/);
   assert.doesNotMatch(joined, /Top matches for/);
-  assert.match(final, /Started dataset briefing refresh run-describe for econ/);
-  assert.match(final, /Expected output: dataset_briefing\.md at the dataset root, plus Dataset Profile JSON/);
-  assert.match(final, /Run: run-describe/);
-  assert.match(final, /State: starting\. The backend worker is initializing now\./);
-  assert.match(final, /research show active runs/);
+  assert.match(final, /Readiness check, not analysis\./);
+  assert.match(final, /Verdict: usable now/);
+  assert.match(final, /county_month_panel/);
+  assert.match(final, /Briefing source: dataset_briefing\.md · updated 2026-04-29T00:00:00\.000Z/);
+  assert.doesNotMatch(final, /Started dataset briefing refresh/);
+  assert.doesNotMatch(final, /Expected output: dataset_briefing\.md/);
+  assert.doesNotMatch(final, /Run: run-describe/);
   assert.doesNotMatch(final, /Terminal session:/);
 });
 
@@ -1396,9 +1374,27 @@ test("busy dataset conflict explains active run and emits heartbeat while waitin
   }
 });
 
-test("dataset describe request falls back to saved briefing when dataset is busy", async () => {
+test("dataset describe tool reads saved briefing without starting a run", async () => {
+  let respondCount = 0;
+  let startRunCalled = false;
   const fakeClient = {
     async respond() {
+      respondCount += 1;
+      if (respondCount > 1) {
+        return {
+          sessionId: "terminal-session-describe-busy",
+          payload: {
+            id: "response-describe-final",
+            output: [{
+              type: "message",
+              content: [{
+                type: "output_text",
+                text: "Readiness & Trust\nUsable now.\n\nSources\nFRED\n\nBriefing source: dataset_briefing.md and Dataset Profile",
+              }],
+            }],
+          },
+        };
+      }
       return {
         sessionId: "terminal-session-describe-busy",
         payload: {
@@ -1413,11 +1409,8 @@ test("dataset describe request falls back to saved briefing when dataset is busy
       };
     },
     async startRun() {
-      throw new RemoteRequestError(
-        'Remote request failed (409) for /api/cli/datasets/econ/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-econ-busy","status":"running"}]}',
-        409,
-        "/api/cli/datasets/econ/runs",
-      );
+      startRunCalled = true;
+      throw new Error("describe_remote_dataset should read the saved briefing, not start a run.");
     },
     async getDataset() {
       return {
@@ -1460,11 +1453,12 @@ test("dataset describe request falls back to saved briefing when dataset is busy
   await runAgentTurn("describe the econ dataset", session, emit, undefined, deps);
 
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /Using dataset_briefing\.md for econ while run run-econ-busy is running/);
+  assert.equal(startRunCalled, false);
   assert.match(final, /Readiness & Trust/);
   assert.match(final, /FRED/);
   assert.match(final, /Briefing source: dataset_briefing\.md and Dataset Profile/);
-  assert.doesNotMatch(final, /Started dataset briefing run/);
+  assert.doesNotMatch(final, /Started dataset briefing/);
+  assert.doesNotMatch(final, /run-econ-busy/);
 });
 
 test("dataset trust briefing reuses dataset-owned briefing before starting a new run", async () => {
@@ -2181,7 +2175,8 @@ test("busy dataset conflict returns blocking run guidance", async () => {
   assert.match(joined, /When it finishes, ask: show results from run-blocking/);
 });
 
-test("dataset describe conflict keeps guidance anchored on briefing artifacts", async () => {
+test("dataset describe reads saved briefing without starting duplicate run", async () => {
+  let startRunCalled = false;
   const fakeClient = {
     async respond() {
       return {
@@ -2200,12 +2195,32 @@ test("dataset describe conflict keeps guidance anchored on briefing artifacts", 
     async listDatasets() {
       return { datasets: [{ id: "econ", name: "Economics", status: "ready" }] };
     },
+    async getDataset(datasetId: string) {
+      return {
+        dataset: {
+          id: datasetId,
+          name: "Economics",
+          status: "ready",
+          briefing: {
+            path: "dataset_briefing.md",
+            updatedAt: "2026-05-01T00:00:00.000Z",
+            markdown: [
+              "Readiness check, not analysis.",
+              "Verdict: usable now.",
+              "",
+              "Data Inventory",
+              "- Central table: fred_macro, monthly grain.",
+            ].join("\n"),
+          },
+          profile: {
+            profileArtifactId: "artifact-profile",
+          },
+        },
+      };
+    },
     async startRun() {
-      throw new RemoteRequestError(
-        'Remote request failed (409) for /api/cli/datasets/econ/runs. {"error":"dataset has an active run holding its volume","activeRuns":[{"id":"run-briefing","status":"running"}]}',
-        409,
-        "/api/cli/datasets/econ/runs",
-      );
+      startRunCalled = true;
+      throw new Error("describe_remote_dataset should not start a duplicate run.");
     },
     async appendSessionEntry() {
       return { id: "entry-describe-busy" };
@@ -2221,11 +2236,13 @@ test("dataset describe conflict keeps guidance anchored on briefing artifacts", 
   await runAgentTurn("Describe the econ dataset for me.", session, emit, undefined, deps);
 
   const joined = messages.map((message) => message.content).join("\n");
-  assert.match(joined, /Using dataset Economics \(econ\) for this briefing/);
-  assert.match(joined, /Blocked: this dataset briefing is already running on this dataset\./);
-  assert.match(joined, /Expected artifacts once the run finishes: dataset_briefing\.md, Dataset Profile/);
-  assert.match(joined, /When it finishes, ask: show results from run-briefing/);
-  assert.match(joined, /Inspect now: research debug run run-briefing/);
+  assert.equal(startRunCalled, false);
+  assert.match(joined, /Reading dataset-owned briefing for econ/);
+  assert.match(joined, /Readiness check, not analysis\./);
+  assert.match(joined, /fred_macro/);
+  assert.match(joined, /Briefing source: dataset_briefing\.md and Dataset Profile · updated 2026-05-01T00:00:00\.000Z/);
+  assert.doesNotMatch(joined, /Blocked: this dataset briefing is already running/);
+  assert.doesNotMatch(joined, /Expected artifacts once the run finishes/);
 });
 
 test("prompt-mode busy dataset shortcut shows age, health, and clear actions", { concurrency: false }, async () => {

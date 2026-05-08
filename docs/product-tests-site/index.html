@@ -15,7 +15,7 @@
       <p class="lede">Readable product explanations for every test contract. Each entry describes how the product is used, what actions are taken, and what assertions are made.</p>
     </header>
 
-    <section class="stat-grid"><div><span>Briefings</span><strong>74</strong></div><div><span>Assertions</span><strong>228</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
+    <section class="stat-grid"><div><span>Briefings</span><strong>74</strong></div><div><span>Assertions</span><strong>225</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
 
     <section class="panel controls">
       <div>
@@ -354,25 +354,25 @@
 <li>The link includes the run id fragment.</li></ul>
   </div>
 </article>
-<article class="briefing-card" id="dataset-describe-conflict-keeps-guidance-anchored-on-briefing-artifacts" data-title="dataset describe conflict keeps guidance anchored on briefing artifacts" data-category="CLI Product">
+<article class="briefing-card" id="dataset-describe-reads-saved-briefing-without-starting-duplicate-run" data-title="dataset describe reads saved briefing without starting duplicate run" data-category="CLI Product">
   <div class="section-head">
     <span>12 · CLI Product</span>
-    <a href="#dataset-describe-conflict-keeps-guidance-anchored-on-briefing-artifacts">#</a>
+    <a href="#dataset-describe-reads-saved-briefing-without-starting-duplicate-run">#</a>
   </div>
-  <h2>dataset describe conflict keeps guidance anchored on briefing artifacts</h2>
-  <p class="test-name"><span>Test name</span><code>dataset describe conflict keeps guidance anchored on briefing artifacts</code></p>
+  <h2>dataset describe reads saved briefing without starting duplicate run</h2>
+  <p class="test-name"><span>Test name</span><code>dataset describe reads saved briefing without starting duplicate run</code></p>
   <div class="why-block">
     <h3>Why This Test</h3>
-    <p>Dataset documentation is a distinct workflow. Busy guidance should preserve the user's intent and tell them what artifacts to expect.</p>
+    <p>Dataset documentation is owned by the dataset record. The CLI should reuse that saved markdown directly and avoid duplicate remote work.</p>
   </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
-      <p>A dataset describe request can conflict with an active run. The product should keep the guidance anchored on the requested briefing artifacts rather than drifting into generic analysis advice.</p>
+      <p>A user asks to describe a dataset while other remote work may exist. The product should read the saved dataset briefing instead of starting another run.</p>
     </div>
     <div>
       <h3>Actions Taken</h3>
-      <p>The fake backend returns an active-run conflict for a dataset briefing run.</p>
+      <p>The fake backend returns a dataset detail record with <code>dataset_briefing.md</code> markdown and Dataset Profile metadata. The test fails if the CLI tries to start a run.</p>
     </div>
   </div>
   <div class="assertions">
@@ -380,42 +380,16 @@
     <ul></ul>
   </div>
 </article>
-<article class="briefing-card" id="dataset-describe-request-falls-back-to-saved-briefing-when-dataset-is-busy" data-title="dataset describe request falls back to saved briefing when dataset is busy" data-category="CLI Product">
+<article class="briefing-card" id="dataset-describe-request-reads-briefing-markdown-without-starting-a-run" data-title="dataset describe request reads briefing markdown without starting a run" data-category="CLI Product">
   <div class="section-head">
     <span>13 · CLI Product</span>
-    <a href="#dataset-describe-request-falls-back-to-saved-briefing-when-dataset-is-busy">#</a>
+    <a href="#dataset-describe-request-reads-briefing-markdown-without-starting-a-run">#</a>
   </div>
-  <h2>dataset describe request falls back to saved briefing when dataset is busy</h2>
-  <p class="test-name"><span>Test name</span><code>dataset describe request falls back to saved briefing when dataset is busy</code></p>
+  <h2>Describe dataset reads the saved briefing</h2>
+  <p class="test-name"><span>Test name</span><code>dataset describe request reads briefing markdown without starting a run</code></p>
   <div class="why-block">
     <h3>Why This Test</h3>
-    <p>Dataset understanding should remain useful during active work. Saved profile artifacts are durable product value and should be reused.</p>
-  </div>
-  <div class="two-col">
-    <div>
-      <h3>Product Use</h3>
-      <p>A user asks to describe a dataset while another run is holding the dataset. If a saved briefing exists, the product should return that useful documentation instead of only reporting a conflict.</p>
-    </div>
-    <div>
-      <h3>Actions Taken</h3>
-      <p>The harness makes the describe run hit an active-run conflict and provides a saved dataset briefing/profile.</p>
-    </div>
-  </div>
-  <div class="assertions">
-    <h3>Assertions Made</h3>
-    <ul></ul>
-  </div>
-</article>
-<article class="briefing-card" id="dataset-describe-request-starts-briefing-run-with-required-artifacts" data-title="dataset describe request starts briefing run with required artifacts" data-category="CLI Product">
-  <div class="section-head">
-    <span>14 · CLI Product</span>
-    <a href="#dataset-describe-request-starts-briefing-run-with-required-artifacts">#</a>
-  </div>
-  <h2>Describe dataset creates briefing and profile artifacts</h2>
-  <p class="test-name"><span>Test name</span><code>dataset describe request starts briefing run with required artifacts</code></p>
-  <div class="why-block">
-    <h3>Why This Test</h3>
-    <p>This protects the dataset-description workflow as a documentation product. A describe request should produce inventory, readiness, trust, limitation, and profile artifacts, not drift into ad hoc analysis or suggestions.</p>
+    <p>This protects the dataset-description workflow as a read-only briefing lookup. A describe request should present the dataset-owned <code>dataset_briefing.md</code> markdown when it exists and should not launch remote documentation work.</p>
   </div>
   <div class="two-col">
     <div>
@@ -424,19 +398,42 @@
     </div>
     <div>
       <h3>Actions Taken</h3>
-      <p>The product starts a dataset briefing run for <code>econ</code>. It asks for a human-readable <code>Dataset Briefing</code> artifact and a structured <code>Dataset Profile</code> artifact. The prompt is scoped to inventory, readiness, evidence, trust, caveats, and documentation, not analysis suggestions.</p>
+      <p>The product resolves <code>econ</code>, reads the remote dataset detail record, and returns the saved briefing markdown from <code>dataset_briefing.md</code>.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
-    <ul><li>The run starts on dataset <code>econ</code>.</li>
-<li>The run type is <code>describe</code>.</li>
-<li>Requested artifacts are <code>Dataset Briefing</code> and <code>Dataset Profile</code>.</li>
-<li>The config marks the run as a dataset-description task.</li>
-<li>The prompt includes the required briefing sections.</li>
-<li>The prompt requires <code>Readiness &amp; Trust</code>, including whether the dataset is usable right now, what evidence supports that judgment, and what would make use unsafe or premature.</li>
-<li>The prompt excludes query instructions and suggested follow-ups.</li>
-<li>The response includes the briefing run id and terminal-session link.</li></ul>
+    <ul><li>The model is not called for a local describe shortcut.</li>
+<li>No remote run is started.</li>
+<li>The response includes the saved briefing markdown.</li>
+<li>The response names <code>dataset_briefing.md</code> as the briefing source.</li>
+<li>The response does not include run-start language, expected run artifacts, or terminal-session details.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dataset-describe-tool-reads-saved-briefing-without-starting-a-run" data-title="dataset describe tool reads saved briefing without starting a run" data-category="CLI Product">
+  <div class="section-head">
+    <span>14 · CLI Product</span>
+    <a href="#dataset-describe-tool-reads-saved-briefing-without-starting-a-run">#</a>
+  </div>
+  <h2>dataset describe tool reads saved briefing without starting a run</h2>
+  <p class="test-name"><span>Test name</span><code>dataset describe tool reads saved briefing without starting a run</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Dataset understanding should come from the durable dataset-owned briefing. The describe tool is now a read-only lookup, not a remote documentation job.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A model tool call asks to describe a dataset. If a saved briefing exists, the tool should return that markdown directly instead of starting a remote run.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness returns a saved dataset briefing/profile and fails if <code>startRun</code> is called.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
   </div>
 </article>
 <article class="briefing-card" id="dataset-follow-up-keeps-the-exact-prior-inventory-match-instead-of-fuzzy-overlap-switching" data-title="dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching" data-category="CLI Product">

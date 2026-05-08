@@ -183,11 +183,6 @@ function environmentResources(input: Record<string, unknown>, publicOnly: boolea
   };
 }
 
-const DATASET_BRIEFING_ARTIFACTS = [
-  { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },
-  { type: "json", title: "Dataset Profile" },
-] as const;
-
 function mountedDatasetGrounding(datasetId: string) {
   return {
     required: true,
@@ -213,38 +208,6 @@ function withStandardAnalysisResources(config?: Record<string, unknown>, dataset
     },
     ...(datasetId ? { mountedDatasetGrounding: mountedDatasetGrounding(datasetId) } : {}),
   };
-}
-
-function datasetBriefingPrompt(datasetId: string) {
-  return [
-    `Describe dataset ${datasetId}.`,
-    "",
-    "Produce or update the dataset-owned briefing file for humans. Treat this as a readiness/trust check, not an analysis run. Do not include query instructions, starter analyses, or suggestions for how to use agents; this is a dataset documentation task only.",
-    "",
-    "The dataset is responsible for knowing what it has. Write the canonical briefing to `dataset_briefing.md` at the dataset root and make it comprehensive enough for the CLI to answer dataset-inventory questions by reading that file directly. Do not leave the briefing only as a run artifact or transient summary.",
-    "",
-    "Inspect the mounted dataset exhaustively before writing:",
-    "- Mounted files and directory structure.",
-    "- Manifest files, source registries, table catalogs, README files, data dictionaries, normalization reports, and QA reports.",
-    "- Parquet, CSV, JSON, DuckDB, and other stored data formats.",
-    "- Table schemas, column types, units, nullable/null-share fields when available, primary keys, join keys, grains, and sample rows.",
-    "- Source provenance, exact source URLs or API endpoints, direct/proxy/metadata-only status, license/access notes, fetch dates, row counts, freshness, and coverage.",
-    "- Native and normalized time scales, first/last observations, update cadences, geography levels, crosswalks, transformations, derived fields, QA checks, limitations, known gaps, and county/month panel coverage when relevant.",
-    "",
-    "Create these artifacts:",
-    "1. dataset_briefing.md — markdown document at the dataset root with these exact sections: Overview; Readiness & Trust; Data Inventory; Sources; Schemas; Time Coverage; Geography Coverage; Formats; Transformations & Derived Fields; Quality & Validation; Limitations & Known Gaps; Usable Next Steps.",
-    "2. Dataset Profile — structured JSON backing data with summary, sources, tables, schemas/columns, timeCoverage, geographyCoverage, formats, transformations, quality, limitations, and generatedAt.",
-    "",
-    "Overview must start with the exact sentence `Readiness check, not analysis.` followed by a one-line verdict: `Verdict: usable now` or `Verdict: fix first`, plus the intended study grain if it is evident.",
-    "Readiness & Trust must explicitly state whether the dataset is usable right now, what evidence supports that judgment, what evidence is still missing, and what would make it unsafe or premature to use.",
-    "Data Inventory must name the actual inspected tables/files with row counts, primary grain, join keys, and which tables are central versus supporting.",
-    "Schemas must call out the columns most relevant to trust and joins, including nullable or sparse fields when known.",
-    "Time Coverage and Geography Coverage must report exact ranges plus completeness at the grain the data claims to support; when county-month use is plausible, state county coverage, month coverage, and whether the panel is complete enough.",
-    "Quality & Validation must separate known facts from inferred or unverified claims, and include missingness percentages or counts when available.",
-    "Usable Next Steps must be limited to dataset-state actions such as inspect artifacts, fix missing sources, normalize a table, or run a clearly scoped analysis after approval; do not drift into generic research ideas.",
-    "",
-    "The briefing should be detailed enough that a reader can understand exactly what data exists, where it came from, what shape it is in, what caveats apply, and whether it is ready for research without opening the raw files.",
-  ].join("\n");
 }
 
 export function createDefaultAgentRuntimeDeps(): AgentRuntimeDeps {
@@ -297,7 +260,6 @@ const ASYNC_RUN_START_TOOLS = new Set([
   "fetch_public_data",
   "deploy_remote_dataset",
   "deploy_local_instance",
-  "describe_remote_dataset",
   "start_remote_agent_run",
   "continue_remote_agent_run",
   "run_remote_transformation",
@@ -3520,69 +3482,31 @@ async function startDatasetBriefingRun(
   const target = await resolveRunnableEnvironmentDataset(context, client, String(input.datasetId), input);
   const datasetId = target.datasetId;
   context.emit({ role: "tool", content: summarizeResolvedDataset(target, "this briefing") });
-  let result;
-  try {
-    result = await withAuthRetry(context, () => client.startRun(
-      datasetId,
-      datasetBriefingPrompt(datasetId),
-      {
-        type: "describe",
-        config: withStandardAnalysisResources({ describeDataset: true }, datasetId),
-        artifacts: [...DATASET_BRIEFING_ARTIFACTS],
-      },
-    ));
-  } catch (error) {
-    if (error instanceof RemoteRequestError) {
-      const conflict = parseBusyDatasetConflict(error);
-      if (conflict) {
-        const existing = typeof client.getDataset === "function"
-          ? await withAuthRetry(context, () => client.getDataset(datasetId).catch(() => null))
-          : null;
-        const fallback = existing?.dataset ? formatDatasetProfileFallback(existing.dataset, conflict) : null;
-        if (fallback) {
-          return {
-            summary: fallback,
-            data: {
-              ok: true,
-              reusedSavedProfile: true,
-              blockingRunId: conflict.runId,
-              dataset: existing?.dataset,
-            },
-          };
-        }
-        const summary = summarizeBusyDatasetConflict(error, {
-          target,
-          purpose: "this dataset briefing",
-          expectedArtifacts: DATASET_BRIEFING_ARTIFACTS.map((artifact) => artifact.title),
-        });
-        return {
-          summary: summary ?? [
-            `Blocked: ${datasetId} is already busy.`,
-            `Holding run: ${conflict.runId} (${conflict.status})`,
-            "A dataset-owned briefing file is not available yet.",
-            `Next: research debug run ${conflict.runId}`,
-          ].join("\n"),
-          data: { ok: false, reason: "dataset_busy", blockingRunId: conflict.runId },
-        };
-      }
-    }
-    throw error;
+  if (typeof client.getDataset !== "function") {
+    return {
+      summary: [
+        `No dataset briefing is available for ${datasetId}.`,
+        "The current backend client cannot read dataset details, so no remote describe run was started.",
+      ].join("\n"),
+      data: { ok: false, reason: "dataset_detail_unavailable", datasetId },
+    };
   }
-  if (context.session) {
-    await trackRemoteRun({
-      id: result.run.id,
-      datasetId: result.run.datasetId,
-      origin: context.session.origin,
-      status: result.run.status,
-      prompt: result.run.prompt ?? datasetBriefingPrompt(datasetId),
-      createdAt: result.run.createdAt,
-      updatedAt: result.run.updatedAt,
-    });
-    spawnRunWatcher(result.run.id);
+  context.emit({ role: "tool", content: `Reading dataset-owned briefing for ${datasetId}...` });
+  const detail = await withAuthRetry(context, () => client.getDataset(datasetId));
+  const briefing = detail?.dataset ? formatDatasetProfileFallback(detail.dataset) : null;
+  if (briefing) {
+    return {
+      summary: briefing,
+      data: { ok: true, dataset: detail.dataset, source: "dataset_briefing.md" },
+    };
   }
   return {
-    summary: `Started dataset briefing refresh ${result.run.id} for ${datasetId}. Expected output: dataset_briefing.md at the dataset root, plus Dataset Profile JSON. Dashboard: ${dashboardRunUrl(requireSession(context).origin, result.run.id)}`,
-    data: result,
+    summary: [
+      `No dataset briefing markdown is available for ${datasetId}.`,
+      "Expected source: dataset_briefing.md on the dataset record.",
+      "No remote describe run was started.",
+    ].join("\n"),
+    data: { ok: false, reason: "briefing_missing", datasetId, dataset: detail?.dataset },
   };
 }
 
@@ -3873,23 +3797,10 @@ async function maybeHandleDatasetBriefingRequest(
     emit,
     deps,
   };
-  emit({ role: "tool", content: "No dataset-owned briefing file found. Starting a briefing refresh to write dataset_briefing.md..." });
+  emit({ role: "tool", content: "No dataset-owned briefing file found. Reading stopped; no remote describe run was started." });
   const result = await startDatasetBriefingRun(toolContext, { datasetId: selected.id });
-  const resultData = isRecord(result.data) ? result.data : {};
-  if (resultData.ok === false || resultData.reusedSavedProfile === true) {
-    return {
-      summary: result.summary,
-      resolvedDataset: {
-        id: selected.id,
-        name: selected.name?.trim() || selected.id,
-        scope: "remote" as const,
-        state: normalizeRemoteDatasetState(selected),
-        description: null,
-      },
-    };
-  }
   return {
-    summary: asyncRunLaunchSummary("describe_remote_dataset", result, toolContext),
+    summary: result.summary,
     resolvedDataset: {
       id: selected.id,
       name: selected.name?.trim() || selected.id,
@@ -4214,7 +4125,7 @@ function progressLabel(toolName: string, input: Record<string, unknown>) {
     case "inspect_remote_dataset":
       return `Inspecting dataset ${String(input.datasetId ?? "").trim() || ""}...`.trim();
     case "describe_remote_dataset":
-      return `Running readiness check for ${String(input.datasetId ?? "").trim() || "dataset"}: profile, coverage, joins, and trust evidence...`;
+      return `Reading dataset briefing for ${String(input.datasetId ?? "").trim() || "dataset"}...`;
     case "list_tracked_runs":
       return "Checking run history...";
     case "get_run_results":
@@ -4319,8 +4230,6 @@ function asyncRunLaunchSummary(
         return `Started remote analysis${datasetId ? ` on ${datasetId}` : ""}.`;
       case "run_remote_labeling":
         return `Started remote labeling${datasetId ? ` on ${datasetId}` : ""}.`;
-      case "describe_remote_dataset":
-        return `Started dataset briefing refresh ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
       case "create_research_environment":
         return `Started research environment build ${runId ?? "unknown"}${datasetId ? ` for ${datasetId}` : ""}.`;
       case "create_public_data_environment":
@@ -4340,8 +4249,6 @@ function asyncRunLaunchSummary(
   lines.push(stateLine);
   if (expectations.length > 0) {
     lines.push(`Expected artifacts: ${expectations.join(", ")}.`);
-  } else if (toolName === "describe_remote_dataset") {
-    lines.push("Expected output: dataset_briefing.md at the dataset root, plus Dataset Profile JSON.");
   }
   lines.push("Next: the run will keep processing in the background. Follow it in the dashboard or ask `research show active runs`.");
   if (context.session && runId) {
@@ -5343,7 +5250,7 @@ export function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "describe_remote_dataset",
-      description: "Start a remote Codex CLI describe run that generates durable dataset documentation artifacts: a human Dataset Briefing markdown document and structured Dataset Profile JSON. Use this when the user wants to describe, document, inventory, or inspect what data, sources, schemas, time scales, formats, QA status, and limitations exist in a dataset.",
+      description: "Read the dataset-owned briefing markdown for a remote dataset. Use this when the user wants to describe, document, inventory, or inspect what data, sources, schemas, time scales, formats, QA status, and limitations exist in a dataset. This is read-only and does not start a remote run.",
       inputSchema: {
         type: "object",
         additionalProperties: false,

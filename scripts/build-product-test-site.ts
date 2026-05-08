@@ -53,7 +53,7 @@ function displayTitleFor(title: string) {
     "async query run returns immediately with canonical dashboard and terminal links": "A tweet query starts a trackable run and returns usable links",
     "busy dataset conflict returns blocking run guidance": "A busy dataset points the user to the blocking run",
     "dashboard run links use canonical dashboard route": "Run links always open the right dashboard page",
-    "dataset describe request starts briefing run with required artifacts": "Describe dataset creates briefing and profile artifacts",
+    "dataset describe request reads briefing markdown without starting a run": "Describe dataset reads the saved briefing",
     "golden: cancel active run": "Canceling a run gives a clear confirmation",
     "golden: mixed public private environment": "Mixed public and private sources start a research environment build",
     "golden: public data environment": "Public SEC data setup starts an environment build",
