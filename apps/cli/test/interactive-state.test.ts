@@ -106,7 +106,7 @@ test("final assistant answers do not get duplicated into recent progress", () =>
   });
   state = applyAgentMessageToTaskState(state, {
     role: "assistant",
-    content: "RESEARCH is a dataset-backed research agent.\n\nBest first step: start with `Show my datasets`.",
+    content: "RESEARCH is a command center for agentic research.\n\nSuggestions to get started:\n- `What can i do here?` if you have no clue.",
   });
 
   assert.deepEqual(state.activity, ["Checking the main actions RESEARCH can help with."]);

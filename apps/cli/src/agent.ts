@@ -2217,28 +2217,28 @@ export function isOrientationPrompt(input: string) {
   return /\bhow\b.*\b(start|begin)\b/u.test(lower) && /\bresearch\b/u.test(lower);
 }
 
-function maybeHandleOrientation(input: string) {
+function maybeHandleOrientation(input: string, session?: SessionRecord | null) {
   if (!isOrientationPrompt(input)) {
     return null;
   }
-  return [
-    "RESEARCH is a dataset-backed research agent.",
+  const lines = [
+    "RESEARCH is a command center for agentic research.",
     "",
-    "Here are the main things I can do:",
-    "",
-    "- `Show my datasets` to see what is ready to use.",
-    "- `Create a dataset from /full/path/to/file.csv` to turn a file into something researchable.",
-    "- `Describe the econ dataset` to inspect what is inside, where it came from, and whether it is trustworthy.",
-    "- `Analyze the econ dataset for housing affordability trends` to start a scoped research task.",
+    "Suggestions to get started:",
+    "- `What can i do here?` if you have no clue. This will reason over the available data and provide ideas.",
+    "- `Hey i have a hypothesis for how housing prices affect economic productivity` RESEARCH will help you plan and run your experiment for you.",
+    "- `What economics data do you have` to inspect the canonical datasets RESEARCH has available for different fields.",
+    "- `Hey i have my own data i want to do research over` to automatically upload and create a research environment with personal data.",
     "- `Show my latest results` to reopen recent results and saved outputs.",
-    "",
-    "Best first step: start with `Show my datasets`.",
-    "Optional: use `/login` only when you want account datasets or cloud-backed runs.",
-  ].join("\n");
+  ];
+  if (!session) {
+    lines.push("", "`/login` to access your account.");
+  }
+  return lines.join("\n");
 }
 
-export function getLocalDirectResponse(input: string) {
-  return maybeHandleOrientation(input)
+export function getLocalDirectResponse(input: string, session?: SessionRecord | null) {
+  return maybeHandleOrientation(input, session)
     ?? maybeHandleMixedSourceDatasetIntake(input)
     ?? maybeHandleCsvImportHowTo(input)
     ?? maybeHandleVagueMarketQuestion(input);
@@ -5690,7 +5690,7 @@ export async function runAgentTurn(
     };
   }
 
-  const directResponse = getLocalDirectResponse(input);
+  const directResponse = getLocalDirectResponse(input, initialSession);
   if (directResponse) {
     emit({ role: "assistant", content: directResponse });
     return {

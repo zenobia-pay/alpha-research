@@ -6,7 +6,7 @@ A user asks `What can you help me do?` before choosing a dataset, file, research
 
 ## Why This Test
 
-This protects the top-level product framing. `research` should explain itself in plain language, with a clear first step and a short list of useful next actions. It should orient the user around the jobs they care about without making them learn product jargon first.
+This protects the top-level product framing. `research` should describe itself as a command center for agentic research and show concrete natural-language prompts the user can try.
 
 ## Actions Taken
 
@@ -14,7 +14,7 @@ The agent answers the orientation question locally. The fake remote client throw
 
 ## Assertions Made
 
-- The answer explains `research` in simple user language.
-- The answer includes one clear `Start here` command and 3-5 concrete next actions.
-- The answer covers dataset creation, dataset inspection/briefing, analysis, and reviewing earlier results.
+- The answer says RESEARCH is a command center for agentic research.
+- The answer includes concrete prompt examples for idea generation, hypotheses, canonical economics data, personal data, and latest results.
+- The answer hides `/login` when the user is already signed in.
 - The answer avoids implementation-heavy language such as mounted datasets, lifecycle statuses, manifest internals, remote runs, or artifacts.

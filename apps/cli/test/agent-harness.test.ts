@@ -274,19 +274,17 @@ test("product orientation presents command center identities without tools", asy
 
   assert.equal(messages.length, 1);
   const final = messages.at(-1)?.content ?? "";
-  assert.match(final, /dataset-backed research agent/i);
-  assert.match(final, /Here are the main things I can do:/i);
-  assert.match(final, /`Show my datasets` to see what is ready to use\./i);
-  assert.match(final, /Best first step: start with `Show my datasets`\./i);
-  assert.match(final, /Optional: use `\/login` only when you want account datasets or cloud-backed runs\./i);
-  assert.match(final, /Create a dataset from \/full\/path\/to\/file\.csv/i);
-  assert.match(final, /Describe the econ dataset/i);
-  assert.match(final, /Analyze the econ dataset for housing affordability trends/i);
+  assert.match(final, /RESEARCH is a command center for agentic research\./i);
+  assert.match(final, /Suggestions to get started:/i);
+  assert.match(final, /`What can i do here\?` if you have no clue/i);
+  assert.match(final, /housing prices affect economic productivity/i);
+  assert.match(final, /`What economics data do you have`/i);
+  assert.match(final, /`Hey i have my own data i want to do research over`/i);
   assert.match(final, /Show my latest results/i);
-  assert.doesNotMatch(final, /artifacts|labeling jobs|remote run|manifest-backed|mounted dataset|worker_unreachable|lifecycle|remote environments?|normalize/i);
+  assert.doesNotMatch(final, /\/login|artifacts|labeling jobs|remote run|manifest-backed|mounted dataset|worker_unreachable|lifecycle|normalize/i);
 });
 
-test("cold-start orientation prompt stays local and recommends first steps", async () => {
+test("signed-out cold-start orientation shows login hint", async () => {
   const fakeClient = {
     async respond() {
       throw new Error("Cold-start orientation should be answered locally.");
@@ -301,7 +299,7 @@ test("cold-start orientation prompt stays local and recommends first steps", asy
 
   await runAgentTurn(
     "I just opened research. What is this, and what should I type first?",
-    session,
+    null,
     emit,
     undefined,
     deps,
@@ -309,10 +307,10 @@ test("cold-start orientation prompt stays local and recommends first steps", asy
 
   assert.equal(messages.length, 1);
   const coldStart = messages.at(-1)?.content ?? "";
-  assert.match(coldStart, /^RESEARCH is a dataset-backed research agent\./i);
-  assert.match(coldStart, /Best first step: start with `Show my datasets`\./i);
-  assert.match(coldStart, /Optional: use `\/login` only when you want account datasets or cloud-backed runs\./i);
-  assert.match(coldStart, /Describe the econ dataset/i);
+  assert.match(coldStart, /^RESEARCH is a command center for agentic research\./i);
+  assert.match(coldStart, /Suggestions to get started:/i);
+  assert.match(coldStart, /`\/login` to access your account\./i);
+  assert.match(coldStart, /What economics data do you have/i);
   assert.doesNotMatch(coldStart, /datasets ls|local ls|env create|normalize|remote datasets|artifacts/u);
 });
 
@@ -352,9 +350,10 @@ test("prompt mode exits cleanly after local orientation response", async () => {
   assert.equal(result.signal, null);
   assert.equal(result.code, 0);
   assert.match(stdout, /^research/m);
-  assert.match(stdout, /dataset-backed research\s+agent/i);
-  assert.match(stdout, /Best first step: start with `Show my[\s\S]*datasets`\./i);
-  assert.match(stdout, /Show my datasets/);
+  assert.match(stdout, /command center for agentic\s+research/i);
+  assert.match(stdout, /Suggestions to get started:/i);
+  assert.match(stdout, /What economics data do you have/);
+  assert.match(stdout, /`\/login` to access your account\./);
   assert.doesNotMatch(stdout, /working\.\.\.|Thinking\.\.\./);
   assert.equal(stderr, "");
 });

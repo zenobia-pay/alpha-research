@@ -337,14 +337,14 @@ async function watchPromptModeDatasetBriefing(session: SessionRecord, runId: str
 }
 
 async function runPromptMode(prompt: string) {
-  const localDirectResponse = getLocalDirectResponse(prompt);
+  const session = await readSession();
+  const localDirectResponse = getLocalDirectResponse(prompt, session);
   if (localDirectResponse) {
     console.log("research");
     printAgentMessage({ role: "assistant", content: localDirectResponse });
     return null;
   }
   printPromptModeHeader();
-  const session = await readSession();
   const messages: AgentMessage[] = [];
   const emit = (message: AgentMessage) => {
     const formatted = formatPromptModeMessage(message, messages);

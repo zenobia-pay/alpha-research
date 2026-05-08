@@ -16,7 +16,7 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 - [signed-out remote dataset request explains auth recovery and preserves intent](product-tests/signed-out-remote-dataset-request-explains-auth-recovery-and-preserves-intent.md)
 - [signed-out composer placeholder is contextual](product-tests/signed-out-composer-placeholder-is-contextual.md)
 - [product orientation presents command center identities without tools](product-tests/product-orientation-presents-command-center-identities-without-tools.md)
-- [cold-start orientation prompt stays local and recommends first steps](product-tests/cold-start-orientation-prompt-stays-local-and-recommends-first-steps.md)
+- [signed-out cold-start orientation shows login hint](product-tests/signed-out-cold-start-orientation-shows-login-hint.md)
 - [file import how-to asks for path before ingesting](product-tests/file-import-how-to-asks-for-path-before-ingesting.md)
 - [journey P02 wording resolves locally without remote planning](product-tests/journey-p02-wording-resolves-locally-without-remote-planning.md)
 - [vague housing risk request asks scope before costly work](product-tests/vague-housing-risk-request-asks-scope-before-costly-work.md)
@@ -54,7 +54,7 @@ For a readable HTML version, run `npm run docs:product-tests:site` and open `doc
 
 - [signed-out remote dataset request explains auth recovery and preserves intent](product-tests/signed-out-remote-dataset-request-explains-auth-recovery-and-preserves-intent.md)
 - [signed-out composer placeholder is contextual](product-tests/signed-out-composer-placeholder-is-contextual.md)
-- [cold-start orientation prompt stays local and recommends first steps](product-tests/cold-start-orientation-prompt-stays-local-and-recommends-first-steps.md)
+- [signed-out cold-start orientation shows login hint](product-tests/signed-out-cold-start-orientation-shows-login-hint.md)
 - [journey P02 wording resolves locally without remote planning](product-tests/journey-p02-wording-resolves-locally-without-remote-planning.md)
 - [dataset inventory is recommendation-first, name-first, and de-emphasizes noisy datasets](product-tests/dataset-inventory-is-recommendation-first-name-first-and-de-emphasizes-noisy-datasets.md)
 - [dataset selection from topic uses dataset metadata and asks one focused follow-up](product-tests/dataset-selection-from-topic-uses-dataset-metadata-and-asks-one-focused-follow-up.md)
