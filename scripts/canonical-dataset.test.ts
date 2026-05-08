@@ -169,7 +169,7 @@ test("audit prompt requires rich Slack alert backfills", async () => {
   }
 });
 
-test("improve prompt requires docs mirrors and CLI proof update", async () => {
+test("improve prompt requires remote data-only briefing update", async () => {
   const prompt = await renderPrompt("improve", {
     datasetId: "econ",
     datasetName: "Economics",
@@ -177,27 +177,21 @@ test("improve prompt requires docs mirrors and CLI proof update", async () => {
     sourceCatalog: "- fred: https://fred.stlouisfed.org/",
   });
   for (const required of [
-    "update all three public/CLI surfaces from the same inventory-derived briefing",
     "Execute the work now",
     "Do not stop after writing a plan",
-    "docs/public-datasets/briefings/econ.md",
-    "docs/public-datasets/econ.mdx",
-    "the CLI-visible dataset profile returned by `GET /api/cli/datasets/econ`",
-    "briefingMarkdown",
-    "quality.diskInventoryProven: true",
-    "quality.volumeInventoryRunId",
-    "quality.slackAlertsSent",
-    "quality.slackAlertsPending",
+    "slackAlertsSent",
+    "slackAlertsPending",
     "Do not mark Slack as sent unless delivery was actually confirmed",
     "Provider-level access failures are not run-level blockers",
     "Do not stop the whole run after BLS, FHFA, Treasury, or any other single provider blocks",
     "Do not send thin alerts",
     "what data is actually on disk, at what grain, where, for what dates, and with what caveats",
-    "# Literal Data Inventory",
+    "## Keep The Briefing Up To Date",
+    "Write the dataset briefing as a comprehensive literal data inventory.",
+    "Make it comprehensive but concise and human readable.",
+    "# Data Inventory",
+    "Data comes from FRED",
     "Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored.",
-    "briefingMarkdown` set to the exact `dataset_briefing.md` body",
-    "read back `GET /api/cli/datasets/econ`",
-    "update_remote_dataset_profile",
     "copy these files into the remote run artifact directory",
     ".remote-agent/workspaces/<run-id>/artifacts/",
     "Do not add a `# Blocked Or Missing Data` section",
@@ -206,6 +200,13 @@ test("improve prompt requires docs mirrors and CLI proof update", async () => {
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }
+  assert.doesNotMatch(prompt, /Docs And CLI Profile Update/u);
+  assert.doesNotMatch(prompt, /This canonical dataset is a raw public source package/u);
+  assert.doesNotMatch(prompt, /Do not publish processed tables, merged panels/u);
+  assert.doesNotMatch(prompt, /GET \/api\/cli\/datasets\/econ/u);
+  assert.doesNotMatch(prompt, /POST \/api\/cli\/datasets\/econ\/profile/u);
+  assert.doesNotMatch(prompt, /briefingMarkdown/u);
+  assert.doesNotMatch(prompt, /docs mirrors/u);
 });
 
 test("runtime contract requires Codex login and Slack webhook", () => {

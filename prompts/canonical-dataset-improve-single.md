@@ -38,8 +38,6 @@ If `volume_inventory.*` is missing or stale, regenerate it before doing external
 - Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH` when set; otherwise use `/mnt/alpha-research/datasets/{datasetId}`. Do not write canonical artifacts under a local throwaway `dataset/` directory unless it is a symlink or bind mount to the mounted dataset volume.
 - Before any fetch, verify the remote runner has an authenticated Codex CLI/session available. If Codex is not logged in, stop before downloads, write the exact blocker to `improvement_result.json`, and set `diskInventoryProven: false`.
 - Before any fetch, check `CANONICAL_DATASET_SLACK_WEBHOOK_URL` is present in the environment. Never print, log, persist, or expose the webhook URL. If it is missing or delivery fails, continue only if every alert payload is written to `slack_download_alerts.jsonl` with `delivery_status: pending` or `delivery_status: failed` and the exact non-secret failure reason.
-- This canonical dataset is a raw public source package.
-- Do not publish processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready outputs as canonical dataset artifacts.
 - Keep provider-native files/API responses, codebooks, schemas, documentation, and raw source artifacts in source-specific paths.
 - Every attempted download must be logged in `download_inventory.*`.
 - Every download lifecycle event must be appended to `download_events.jsonl`.
@@ -47,7 +45,7 @@ If `volume_inventory.*` is missing or stale, regenerate it before doing external
 - Every raw source artifact on disk must be logged in `raw_inventory.*`.
 - Every file on the dataset volume must be logged in `volume_inventory.*`.
 - `dataset_briefing.md` must be regenerated from the inventories, not from memory or narrative assumptions.
-- `dataset_briefing.md` must be a literal English inventory of the data, not a provider/file list. The first useful section must be `# Literal Data Inventory`, and every bullet must describe one concrete dataset/API response/document collection in plain English.
+- `dataset_briefing.md` must be a literal English inventory of the data, not a provider/file list. The first useful section must be `# Data Inventory`, and every bullet must describe one concrete dataset/API response/document collection in plain English.
 
 ## Candidate Classification
 
@@ -91,8 +89,6 @@ Write or update these files at the dataset root:
 - `data_dictionary.md`
 - `quality_report.md`
 - `dataset_briefing.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
 
 `improvement_result.json` must include:
 
@@ -122,49 +118,23 @@ Write or update these files at the dataset root:
 }
 ```
 
-## Docs And CLI Profile Update
-
-After downloads, inventories, and briefing regeneration, update all three public/CLI surfaces from the same inventory-derived briefing:
-
-- dataset-root `dataset_briefing.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
-- the CLI-visible dataset profile returned by `GET /api/cli/datasets/{datasetId}`
-
-The CLI-visible profile update is mandatory. Use the authenticated backend session available to the runner to update the dataset profile endpoint, for example `POST /api/cli/datasets/{datasetId}/profile`, with `briefingMarkdown` set to the exact `dataset_briefing.md` body. Then read back `GET /api/cli/datasets/{datasetId}` and verify that the returned profile/briefing markdown exactly contains the new `# Literal Data Inventory` section and the current run id. If this readback fails, mark `status: "blocked"`, set `diskInventoryProven: false`, and write the exact non-secret blocker to `improvement_result.json`.
-
-If the Codex tool/function `update_remote_dataset_profile` is available, use that tool for the profile update. Do not try to satisfy this requirement only with shell `curl`, localhost URLs, guessed service hostnames, or a nonexistent `codex datasets profile` subcommand. Shell HTTP attempts may be used only as diagnostics after the tool is unavailable or fails.
-
-The CLI-visible profile update must include:
-
-- `briefingMarkdown`
-- `sources`
-- `tables`
-- `quality.diskInventoryProven: true`
-- `quality.volumeInventoryRunId`
-- `quality.volumeInventoryUpdatedAt`
-- `quality.downloadEventLogPath`
-- `quality.slackDownloadAlertsPath`
-- `quality.slackBriefingPath`
-- `quality.slackAlertsSent`
-- `quality.slackAlertsPending`
-- `limitations`
-
-If any required inventory is missing, stale, or not generated from the current mounted volume, set `diskInventoryProven: false`, explain the exact blocker in `improvement_result.json`, and do not claim docs or CLI proof are current. If Slack alerts are pending or failed, the quality fields and result JSON must say that directly. Do not mark Slack as sent unless delivery was actually confirmed.
-
-## Literal Briefing Rules
+## Keep The Briefing Up To Date
 
 The briefing exists to answer one question: what data is actually there?
 
-Write `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, and `briefingMarkdown` as a comprehensive literal data inventory. Do not start with filenames, provider acronyms, or vague category names such as `BIS`, `FRED`, `housing`, or `microdata`.
+Write the dataset briefing as a comprehensive literal data inventory.
 
-Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored. The briefing must not include paths, URLs, licenses, byte sizes, run ids, dashboard links, required artifact status, Slack status, inventory status, runtime/tooling files, docs mirrors, manifests, quality reports, failed inspection rows, or non-data artifacts. Keep blocked attempts and operational metadata in `download_inventory.*`, `download_events.jsonl`, `quality_report.md`, `slack_briefing.md`, and `improvement_result.json`, not in `dataset_briefing.md`, docs mirrors, or `briefingMarkdown`.
+Write a comprehensive summary of every piece of data that is on this dataset. Make it comprehensive but concise and human readable. Phrase it as legible sentences.
+
+Do not start with filenames, provider acronyms, or vague category names such as `BIS`, `FRED`, `housing`, or `microdata`.
+
+Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored. The briefing must not include paths, URLs, licenses, byte sizes, run ids, dashboard links, required artifact status, Slack status, inventory status, runtime/tooling files, manifests, quality reports, failed inspection rows, or non-data artifacts. Keep blocked attempts and operational metadata in `download_inventory.*`, `download_events.jsonl`, `quality_report.md`, `slack_briefing.md`, and `improvement_result.json`, not in `dataset_briefing.md`.
 
 Use this shape:
 
 ```md
-# Literal Data Inventory
-- Consumer Price Index for All Urban Consumers, seasonally adjusted U.S. national monthly price index observations; one row per month; United States; 1947-01 through 2026-03; columns ...; unit ...
+# Data Inventory
+- Consumer Price Index for All Urban Consumers, seasonally adjusted U.S. national monthly price index observations; one row per month; United States; 1947-01 through 2026-03. Data comes from FRED. The data fields are ... . The units are ...
 ```
 
 For every raw inventory record that represents actual source data, include one bullet with:
@@ -181,11 +151,9 @@ Group bullets only after each bullet remains self-contained. If there are multip
 
 Do not add a `# Blocked Or Missing Data` section. Do not add a `# Non-Data Artifacts On Disk` section. The briefing is only a list of data that is actually stored.
 
-Before final response, copy these files into the remote run artifact directory as produced artifacts so the orchestrator can recover the exact briefing even if profile sync fails:
+Before final response, copy these files into the remote run artifact directory as produced artifacts so the orchestrator can recover the exact briefing:
 
 - `dataset_briefing.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
 - `improvement_result.json`
 - `volume_inventory_summary.json`
 
@@ -214,10 +182,12 @@ Do not send thin alerts like `Download succeeded for raw/path.csv`. If a Slack m
 
 Log every Slack alert attempt to `slack_download_alerts.jsonl` with `delivery_status: sent|pending|failed`, `delivery_at`, non-secret HTTP status/error, and the complete structured message payload including `plain_english_data_summary`, `observations_or_entities`, `geographic_coverage`, `time_coverage`, `frequency_or_granularity`, `unit_or_measure`, `schema_or_columns`, `not_present_caveats`, and `blocker`.
 
+Do not mark Slack as sent unless delivery was actually confirmed.
+
 Do not fail the whole run just because Slack is unavailable. Instead, write the pending/failed message payload and non-secret delivery error to `slack_download_alerts.jsonl`, add it to `slackAlertsPending`, and call it out in `slack_briefing.md` and the final response.
 
 Before final volume inventory, avoid creating new remote agent runtime/tooling/cache directories on the dataset volume when possible. Do not delete active runtime directories during the run, including `.remote-agent`, `.codex`, `.cache`, temporary plugin caches, or local virtual environments; on this platform deleting active runtime directories can kill artifact capture and make the run fail. If runtime/tooling/cache directories are present on disk, inventory them as `runtime_tooling` contamination and make the briefing say clearly that they are not dataset data.
 
 ## Final Response
 
-Return a concise summary with run status, new sources downloaded, deferred/rejected sources, files written, docs updated, and whether `diskInventoryProven` is true.
+Return a concise summary with run status, new sources downloaded, deferred/rejected sources, files written, and whether `diskInventoryProven` is true.
