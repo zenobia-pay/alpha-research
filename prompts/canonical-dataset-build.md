@@ -165,24 +165,19 @@ If a file cannot be inspected, keep the row and set `inventory_error` to the exa
 
 Generate `dataset_briefing.md` only from `download_inventory.*`, `raw_inventory.*`, and `volume_inventory.*`. Do not infer volume contents from memory, the plan, or prior narratives.
 
-The briefing must be a literal English inventory of the data, not a provider/file list. The first useful section must be `# Literal Data Inventory`, and every bullet must describe one concrete dataset/file/API response/document collection in plain English before mentioning its path.
+The briefing must be a literal English inventory of the data, not a provider/file list. The first useful section must be `# Literal Data Inventory`, and every bullet must describe one concrete dataset/API response/document collection in plain English.
 
 The briefing must explain:
 
-- what is physically on disk;
-- top-level directory tree;
+- what data is physically stored;
 - source families present;
-- exact raw files and API responses;
-- exact docs, manifests, inventories, codebooks, and schema files;
+- exact raw datasets and API responses represented;
 - row/object counts and schemas when measurable;
-- files that failed inspection;
-- required artifacts present and missing;
-- whether the dataset is raw data, source registry only, metadata/index package, normalized tables, or mixed;
-- what is not present.
+- whether the dataset is raw data, source registry only, normalized tables, or mixed.
 
-For every raw inventory record that represents actual source data, include one bullet with what the data literally measures or contains; observed entities/records; grain/frequency; geography and geography level; time coverage or collection vintage; row/document/object count and bytes when measurable; important columns/fields and units/measures; source name/id and redacted request URL; raw path after the English description; license/access status; and explicit not-present caveats. Do not collapse concrete datasets into vague provider names.
+For every raw inventory record that represents actual source data, include one bullet with what the data literally measures or contains; observed entities/records; grain/frequency; geography and geography level; time coverage or collection vintage; row/document/object count when measurable; and important columns/fields and units/measures. Do not collapse concrete datasets into vague provider names.
 
-Add a `# Blocked Or Missing Data` section with one bullet per failed/blocked/deferred terminal attempt. Add a `# Non-Data Artifacts On Disk` section for inventories, manifests, docs mirrors, quality reports, Slack logs, runtime/tooling contamination, and unreadable files.
+Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored. Do not include paths, URLs, licenses, byte sizes, run ids, dashboard links, required artifact status, Slack status, inventory status, runtime/tooling files, docs mirrors, manifests, quality reports, failed inspection rows, or non-data artifacts in `dataset_briefing.md`, docs mirrors, or `briefingMarkdown`. Keep those facts in inventories, quality reports, result JSON, Slack logs, and final run summaries instead.
 
 Mirror the final briefing into:
 

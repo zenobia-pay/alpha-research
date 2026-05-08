@@ -47,7 +47,7 @@ If `volume_inventory.*` is missing or stale, regenerate it before doing external
 - Every raw source artifact on disk must be logged in `raw_inventory.*`.
 - Every file on the dataset volume must be logged in `volume_inventory.*`.
 - `dataset_briefing.md` must be regenerated from the inventories, not from memory or narrative assumptions.
-- `dataset_briefing.md` must be a literal English inventory of the data, not a provider/file list. The first useful section must be `# Literal Data Inventory`, and every bullet must describe one concrete dataset/file/API response/document collection in plain English before mentioning its path.
+- `dataset_briefing.md` must be a literal English inventory of the data, not a provider/file list. The first useful section must be `# Literal Data Inventory`, and every bullet must describe one concrete dataset/API response/document collection in plain English.
 
 ## Candidate Classification
 
@@ -60,11 +60,11 @@ Use Exa and public web/API searches to find newly relevant public sources for `{
 - `not_found`
 - `reject`
 
-If a source is public and machine-fetchable but license-unclear, download it only with `license_status: needs_review` and explicit caveats in all inventories, result files, and the briefing.
+If a source is public and machine-fetchable but license-unclear, download it only with `license_status: needs_review` and explicit caveats in inventories and result files.
 
 Do not bypass paywalls, login walls, robots restrictions, anti-bot systems, institutional access controls, or private credential requirements.
 
-Provider-level access failures are not run-level blockers. If one provider blocks or fails, write the exact attempted URL, HTTP status, response class, and source-specific blocker to `download_inventory.*`, `download_events.jsonl`, `candidate_sources.csv`, `quality_report.md`, `dataset_briefing.md`, docs mirrors, Slack alerts, and `improvement_result.json`, then continue through the rest of the planned source catalog. Do not stop the whole run after BLS, FHFA, Treasury, or any other single provider blocks. A run may return `status: blocked` only if the mounted dataset volume cannot be read/written, Codex login is unavailable before any fetch, required inventories cannot be generated at all, or every planned source candidate has been classified/attempted and no further work remains possible.
+Provider-level access failures are not run-level blockers. If one provider blocks or fails, write the exact attempted URL, HTTP status, response class, and source-specific blocker to `download_inventory.*`, `download_events.jsonl`, `candidate_sources.csv`, `quality_report.md`, Slack alerts, and `improvement_result.json`, then continue through the rest of the planned source catalog. Do not stop the whole run after BLS, FHFA, Treasury, or any other single provider blocks. A run may return `status: blocked` only if the mounted dataset volume cannot be read/written, Codex login is unavailable before any fetch, required inventories cannot be generated at all, or every planned source candidate has been classified/attempted and no further work remains possible.
 
 ## Required Outputs
 
@@ -150,7 +150,7 @@ The CLI-visible profile update must include:
 - `quality.slackAlertsPending`
 - `limitations`
 
-If any required inventory is missing, stale, or not generated from the current mounted volume, set `diskInventoryProven: false`, explain the exact blocker in `improvement_result.json`, and do not claim docs or CLI proof are current. If Slack alerts are pending or failed, the profile briefing and quality fields must say that directly. Do not mark Slack as sent unless delivery was actually confirmed.
+If any required inventory is missing, stale, or not generated from the current mounted volume, set `diskInventoryProven: false`, explain the exact blocker in `improvement_result.json`, and do not claim docs or CLI proof are current. If Slack alerts are pending or failed, the quality fields and result JSON must say that directly. Do not mark Slack as sent unless delivery was actually confirmed.
 
 ## Literal Briefing Rules
 
@@ -158,11 +158,13 @@ The briefing exists to answer one question: what data is actually there?
 
 Write `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, and `briefingMarkdown` as a comprehensive literal data inventory. Do not start with filenames, provider acronyms, or vague category names such as `BIS`, `FRED`, `housing`, or `microdata`.
 
+Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored. The briefing must not include paths, URLs, licenses, byte sizes, run ids, dashboard links, required artifact status, Slack status, inventory status, runtime/tooling files, docs mirrors, manifests, quality reports, failed inspection rows, or non-data artifacts. Keep blocked attempts and operational metadata in `download_inventory.*`, `download_events.jsonl`, `quality_report.md`, `slack_briefing.md`, and `improvement_result.json`, not in `dataset_briefing.md`, docs mirrors, or `briefingMarkdown`.
+
 Use this shape:
 
 ```md
 # Literal Data Inventory
-- Consumer Price Index for All Urban Consumers, seasonally adjusted U.S. national monthly price index observations; one row per month; United States; 1947-01 through 2026-03; columns ...; unit ...; source FRED CPIAUCSL; stored at `raw/fred/CPIAUCSL.csv`; license/access ...; caveats/not present ...
+- Consumer Price Index for All Urban Consumers, seasonally adjusted U.S. national monthly price index observations; one row per month; United States; 1947-01 through 2026-03; columns ...; unit ...
 ```
 
 For every raw inventory record that represents actual source data, include one bullet with:
@@ -172,18 +174,12 @@ For every raw inventory record that represents actual source data, include one b
 - grain/frequency, e.g. person-level, household-level, housing-unit-level, city-month, state-quarter, metro-quarter, country-quarter, national-month, national-day;
 - geography covered and the exact level of geography;
 - time coverage or collection vintage;
-- row/document/object count and bytes when measurable;
+- row/document/object count when measurable;
 - important columns/fields and units/measures;
-- source name/id and request URL with secrets redacted;
-- raw path after the English description;
-- license/access status and redistribution caveats;
-- explicit not-present caveats when a reader might otherwise assume address-level records, transaction-level records, county coverage, metros, microdata, or analysis-ready joins.
 
-Group bullets only after each bullet remains self-contained. If there are multiple files for one source, do not collapse them into one vague provider line unless the inventory proves they are one logical package and the bullet still names all concrete data contents, grains, geographies, coverage, paths, and counts.
+Group bullets only after each bullet remains self-contained. If there are multiple files for one source, do not collapse them into one vague provider line unless the inventory proves they are one logical package and the bullet still names all concrete data contents, grains, geographies, coverage, and counts.
 
-Add a `# Blocked Or Missing Data` section with one bullet per failed/blocked/deferred terminal attempt. Each bullet must describe the intended data that is not on disk, the exact URL/status/error, why it matters, and the next route to try.
-
-Add a `# Non-Data Artifacts On Disk` section for inventories, manifests, docs mirrors, quality reports, Slack logs, runtime/tooling contamination, and any unreadable files. These must not be mixed into the source-data inventory.
+Do not add a `# Blocked Or Missing Data` section. Do not add a `# Non-Data Artifacts On Disk` section. The briefing is only a list of data that is actually stored.
 
 Before final response, copy these files into the remote run artifact directory as produced artifacts so the orchestrator can recover the exact briefing even if profile sync fails:
 
