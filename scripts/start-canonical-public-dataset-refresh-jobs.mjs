@@ -17,17 +17,12 @@ const alphaResearchFallbackIps = (process.env.ALPHA_RESEARCH_FALLBACK_IPS ?? "10
   .map((ip) => ip.trim())
   .filter(Boolean);
 
-const canonicalDatasets = [
-  { id: "econ", name: "Econ" },
-  { id: "sociology", name: "Sociology" },
-  { id: "philosophy", name: "Philosophy" },
-  { id: "history", name: "History" },
-  { id: "literature", name: "Literature" },
-  { id: "political-science", name: "Political Science" },
-  { id: "anthropology", name: "Anthropology" },
-  { id: "linguistics", name: "Linguistics" },
-  { id: "classics", name: "Classics" },
-];
+const canonicalDatasetIds = (process.env.CANONICAL_DATASET_IDS ?? "econ")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
+
+const canonicalDatasets = canonicalDatasetIds.map((id) => ({ id, name: id }));
 
 const CANONICAL_PUBLIC_RESOURCES = {
   profile: "canonical-public",
