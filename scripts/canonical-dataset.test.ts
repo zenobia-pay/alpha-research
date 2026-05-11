@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   artifactContract,
   CANONICAL_RUNTIME_CONTRACT,
+  CANONICAL_PUBLIC_RESOURCES,
   classifyDatasetStatus,
   loadSourceCatalog,
   parseArgs,
@@ -226,6 +227,12 @@ test("improve prompt requires remote data-only briefing update", async () => {
 test("runtime contract requires Codex login and Slack webhook", () => {
   assert.equal(CANONICAL_RUNTIME_CONTRACT.requiresCodexLogin, true);
   assert.ok(CANONICAL_RUNTIME_CONTRACT.requiredEnvironment.includes("CANONICAL_DATASET_SLACK_WEBHOOK_URL"));
+});
+
+test("canonical resource contract targets Modal instead of DigitalOcean runner slugs", () => {
+  assert.equal(CANONICAL_PUBLIC_RESOURCES.backend, "modal");
+  assert.equal(CANONICAL_PUBLIC_RESOURCES.resourceProfile, "canonical-public");
+  assert.equal("runnerSize" in CANONICAL_PUBLIC_RESOURCES, false);
 });
 
 test("status classifier distinguishes missing, active, failed, unproven, and disk-proven datasets", () => {

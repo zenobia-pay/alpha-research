@@ -40,7 +40,7 @@ npm run deploy:check
 
 `smoke:local` starts the local API against fixture instances and verifies health, instance listing, and bootstrap payloads.
 
-`deploy:check` validates DigitalOcean service files and confirms built API/frontend artifacts exist after `npm run build`.
+`deploy:check` validates deployment readiness files and confirms built API/frontend artifacts exist after `npm run build`.
 
 `test:slow` runs the live product E2E suite. It currently includes `test:slow:econ` and `test:slow:tweets`. These tests call the real Alpha Research backend, can provision cloud resources, and can run for a long time while async jobs complete. They require either an existing `research login` session or `RESEARCH_E2E_TOKEN`.
 
@@ -67,11 +67,11 @@ Use this loop when developing the Alpha Research CLI with Symphony:
 3. Implement the smallest CLI/runtime change needed.
 4. Re-run `npm run symphony:test`, then the broader relevant gate.
 
-These tests are hermetic. They do not call Linear, OpenAI, DigitalOcean, or the live Alpha Research backend. Live validation still belongs in the explicit slow product E2E tests.
+These tests are hermetic. They do not call Linear, OpenAI, Modal, object storage, or the live Alpha Research backend. Live validation still belongs in the explicit slow product E2E tests.
 
 ## Deterministic Test Rules
 
-CLI harness tests must not call the real Alpha Research API, OpenAI, DigitalOcean, or the user's real session directory.
+CLI harness tests must not call the real Alpha Research API, OpenAI, Modal, object storage, or the user's real session directory.
 
 Use:
 
@@ -127,7 +127,7 @@ The success case proves the CLI can orchestrate the full promised workflow again
 9. run the hypothesis analysis with requested table, chart, and markdown artifacts
 10. wait for the analysis run and retrieve final artifacts
 
-This hermetic product workflow test validates the CLI orchestration contract and the shape of the plan/results without calling live public data APIs, Alpha Research production, OpenAI, or DigitalOcean.
+This hermetic product workflow test validates the CLI orchestration contract and the shape of the plan/results without calling live public data APIs, Alpha Research production, OpenAI, Modal, or object storage.
 
 The same harness also includes a planning-quality contract for vague experiment requests:
 
@@ -221,7 +221,10 @@ For non-query product runs, the CLI sends a first-class runtime resource contrac
 ```json
 {
   "profile": "standard-analysis",
-  "runnerSize": "s-8vcpu-16gb",
+  "backend": "modal",
+  "resourceProfile": "standard-analysis",
+  "cpu": 8,
+  "memoryGb": 16,
   "workspaceDiskGb": 100,
   "storageMode": "object-store-versioned",
   "datasetAccess": "read-only-version"
@@ -233,7 +236,10 @@ Canonical public-data builds use the smaller `canonical-public` profile by defau
 ```json
 {
   "profile": "canonical-public",
-  "runnerSize": "s-4vcpu-8gb",
+  "backend": "modal",
+  "resourceProfile": "canonical-public",
+  "cpu": 4,
+  "memoryGb": 8,
   "workspaceDiskGb": 50,
   "storageMode": "object-store-versioned",
   "datasetAccess": "read-only-version",
@@ -271,4 +277,4 @@ This bundle is intended for agents and engineers to debug failures without scree
 
 ## Live Smoke Tests
 
-Live tests against `alpharesearch.nyc` and DigitalOcean should be explicit manual smoke tests with real credentials. They do not belong in default CI because they are slower, stateful, and depend on external infrastructure.
+Live tests against `alpharesearch.nyc`, Modal, and object storage should be explicit manual smoke tests with real credentials. They do not belong in default CI because they are slower, stateful, and depend on external infrastructure.

@@ -1,13 +1,13 @@
 # Remote Run Lifecycle
 
-Remote runs are backend-owned jobs that operate on dataset-backed cloud environments. The CLI starts, tracks, cancels, and debugs runs, but the backend owns cloud provisioning, DigitalOcean volume attachment, remote agent execution, and artifact persistence.
+Remote runs are backend-owned jobs that operate on dataset-backed cloud environments. The CLI starts, tracks, cancels, and debugs runs, but the backend owns Modal runner provisioning, dataset storage attachment, remote agent execution, and artifact persistence.
 
 ## Statuses
 
 Canonical statuses:
 
 - `queued`: accepted by the backend but not yet assigned infrastructure.
-- `booting`: droplet or pooled runner is being prepared.
+- `booting`: Modal runner or pooled worker capacity is being prepared.
 - `running`: remote agent or script is executing.
 - `reporting_delayed`: worker execution may still be healthy, but callback/report delivery to the control plane is delayed.
 - `reconciling`: backend is inspecting durable worker state, logs, and dataset-volume artifacts before deciding terminal status.
@@ -63,7 +63,7 @@ A failed run must have enough persisted evidence to debug:
 - remote agent transcript or equivalent logs
 - produced and requested artifact metadata
 - run prompt and config
-- droplet/runner identifier when available
+- backend runner identifier when available
 - terminal error message
 
 Use:

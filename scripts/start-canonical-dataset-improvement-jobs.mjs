@@ -57,7 +57,10 @@ const canonicalDatasets = [
 
 const resources = {
   profile: 'standard-analysis',
-  runnerSize: 's-8vcpu-16gb',
+  backend: 'modal',
+  resourceProfile: 'standard-analysis',
+  cpu: 8,
+  memoryGb: 16,
   workspaceDiskGb: 100,
   storageMode: 'object-store-versioned',
   datasetAccess: 'write-version',
@@ -149,7 +152,8 @@ for (const dataset of canonicalDatasets) {
     results.push({ datasetId: dataset.id, status: 'missing_dataset' })
     continue
   }
-  if (liveDataset.status !== 'ready' || liveDataset.deploymentStatus !== 'ready') {
+  const deploymentReady = liveDataset.deploymentStatus === undefined || liveDataset.deploymentStatus === null || liveDataset.deploymentStatus === 'ready'
+  if (liveDataset.status !== 'ready' || !deploymentReady) {
     results.push({
       datasetId: dataset.id,
       status: 'skipped_not_ready',

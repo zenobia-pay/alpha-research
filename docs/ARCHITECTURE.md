@@ -49,11 +49,11 @@ Async run-start tools return immediately unless the user explicitly asks to wait
 - `/api/cli/runs/:runId/results`: run status, events, artifacts, and metadata.
 - `/api/cli/sessions/:sessionId/entries`: dashboard terminal-session log persistence.
 
-The backend is responsible for using platform secrets and provisioning cloud infrastructure. The CLI should not require DigitalOcean or OpenAI secrets locally.
+The backend is responsible for using platform secrets and provisioning cloud infrastructure. The CLI should not require Modal, object-storage, or OpenAI secrets locally.
 
 ## Remote Environment Shape
 
-Datasets are normalized onto DigitalOcean volumes. Remote agent runs attach or operate against dataset-backed cloud environments. Different run types can request different droplet sizes, but from the CLI perspective a run is a cataloged backend object with:
+Datasets are normalized into durable dataset-backed storage and executed by backend-owned Modal runners. Different run types can request different resource profiles, but from the CLI perspective a run is a cataloged backend object with:
 
 - run id
 - dataset id
