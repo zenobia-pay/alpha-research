@@ -34,15 +34,7 @@
             "root": "public-datasets/index",
             "directory": "card",
             "pages": [
-              "public-datasets/econ",
-              "public-datasets/sociology",
-              "public-datasets/philosophy",
-              "public-datasets/history",
-              "public-datasets/literature",
-              "public-datasets/political-science",
-              "public-datasets/anthropology",
-              "public-datasets/linguistics",
-              "public-datasets/classics"
+              "public-datasets/econ"
             ]
           },
           {
