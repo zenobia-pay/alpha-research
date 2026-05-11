@@ -23,17 +23,19 @@ Field brief:
 11. Update `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `data_dictionary.md`, `quality_report.md`, `slack_briefing.md`, `improvement_plan.md`, and `improvement_result.json`.
 12. Regenerate `dataset_briefing.md` from the current inventories.
 
-## Archive And Package Inspection
+## Archive And Package Extraction
 
-Canonical datasets often store provider ZIP, tar, gzip, bulk, or SDMX packages. A package name is not an inventory.
+Canonical datasets should not preserve opaque provider ZIP, tar, gzip, bulk, or SDMX packages as the primary stored data. A package name is not an inventory.
 
 For every stored archive or packaged provider payload that contains source data:
 
-- inspect the package members directly with `zipinfo`, `unzip -l`, `tar -tf`, provider manifests, codebooks, or equivalent tools before writing the briefing;
-- record member-level facts in the inventories whenever possible: member path/name, compressed/uncompressed size, detected format, row count when measurable, schema/columns when measurable, geography fields, time fields, and unit/measure fields;
-- when members are too large to fully parse, sample headers/first rows and record the exact inspection limit;
-- if a package cannot be opened, keep the package in the inventory but mark the briefing fact as `unknown/not inspected` instead of making a broad claim;
-- do not write briefing bullets like `ZIP contents`, `bulk archive`, `provider ZIP packaging`, `microdata archive`, or `SDMX payload` unless the same bullet also states the exact tables/files/responses inside and what each one contains.
+- extract the package into a stable source-specific directory on the mounted dataset volume;
+- preserve provider filenames and internal directory structure where useful for provenance;
+- after successful extraction and inventory, delete the original archive/package file so the dataset stores explicit data files rather than opaque containers;
+- inventory the extracted files directly: extracted relative path, detected format, row count, schema/columns, geography fields, time fields, and unit/measure fields;
+- parse the extracted data-bearing files fully enough to support exact briefing claims; do not leave archive contents summarized only from filenames;
+- if extraction fails, keep the archive only as a blocked source artifact, record the exact extraction error in quality/result files, and do not include the source in `dataset_briefing.md` as stored usable data;
+- do not write briefing bullets like `ZIP contents`, `ZIP archive`, `bulk archive`, `provider ZIP packaging`, `microdata archive`, or `SDMX payload`. The briefing must describe the extracted tables/files/responses and what each one contains.
 
 `improvement_result.json` must include:
 
@@ -74,7 +76,7 @@ Write a comprehensive summary of every piece of data that is on this dataset. Ma
 
 Every bullet must be specific enough that a reader can answer: what exact table/API response/document collection is stored, what the records represent, what grain/frequency it has, what geography it covers, what dates/vintages it covers, how many rows/objects are present when measurable, and what the important columns/fields/units mean.
 
-If a source is stored as an archive, the bullet must name the data-bearing archive members or tables and summarize each member's contents. Do not collapse archives into opaque phrases such as `ZIP contents`, `ZIP archive`, `bulk archive`, `provider packaging`, `microdata files`, or `source package`.
+If a source arrives as an archive, extract it first and delete the archive after successful extraction. The briefing bullet must describe the extracted data-bearing files or tables and summarize each file/table's contents. Do not collapse archives into opaque phrases such as `ZIP contents`, `ZIP archive`, `bulk archive`, `provider packaging`, `microdata files`, or `source package`.
 
 Bad:
 
@@ -85,7 +87,7 @@ Bad:
 Good:
 
 ```md
-- Bureau of Economic Analysis CAINC1 state annual personal income package: the stored archive contains table CAINC1 data files for annual state personal income and per-capita personal income observations by state and line code for 1969-2024, plus provider layout/codebook files defining fields such as GeoFIPS, GeoName, LineCode, Description, Unit, TimePeriod, and DataValue. The data rows are annual state-level BEA regional income measures; units vary by line and are defined in the included layout/codebook.
+- Bureau of Economic Analysis CAINC1 state annual personal income files: extracted CAINC1 data files contain annual state personal income and per-capita personal income observations by state and line code for 1969-2024, with provider layout/codebook files defining fields such as GeoFIPS, GeoName, LineCode, Description, Unit, TimePeriod, and DataValue. The data rows are annual state-level BEA regional income measures; units vary by line and are defined in the extracted layout/codebook.
 ```
 
 Use this shape:
