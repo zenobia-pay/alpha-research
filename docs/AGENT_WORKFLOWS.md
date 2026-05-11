@@ -49,5 +49,5 @@ Use these recipes when changing this repository. Keep them short and update them
 
 1. Run `npm run build`.
 2. Run `npm run deploy:check`.
-3. Read `ops/digitalocean/README.md` and the relevant systemd unit.
+3. Read `ops/modal/README.md` and the external deploy workflow notes for the touched surface.
 4. Only run a real deploy when a deploy workflow exists and the current change targets that deployed surface.

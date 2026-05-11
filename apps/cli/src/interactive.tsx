@@ -189,7 +189,7 @@ function summarizeRunActivity(run: TrackedRunRecord) {
   if (!latest) {
     return "No remote milestone yet.";
   }
-  if (/Remote agent droplet .* launched in /i.test(latest)) {
+  if (/Modal worker .* started/i.test(latest)) {
     return "Worker started and is still getting ready.";
   }
   if (/mounted dataset grounding is mandatory/i.test(latest)) {

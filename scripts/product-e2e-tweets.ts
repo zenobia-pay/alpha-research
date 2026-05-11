@@ -61,7 +61,7 @@ const prompt = [
   "Mounted dataset grounding is mandatory: every remote analysis, transform, and labeling step must read enriched-tweets from the attached mounted dataset volume.",
   "If enriched-tweets cannot be found, opened, parsed, or contains no readable tweet rows, fail loudly with the exact mounted paths checked and do not use external fallback data.",
   "Do not download or use GitHub sample CSVs, web search results, synthetic tweets, or any public replacement dataset.",
-  "For this test, treat the following design as approved and then actually run it end to end on DigitalOcean:",
+  "For this test, treat the following design as approved and then actually run it end to end on the Modal-backed remote runner:",
   "Define viral as tweets in the top 0.1% by quote_tweet_count.",
   "Pick 100 random viral tweets from that top 0.1%, stratified by month if timestamps are available.",
   "Run LLM labeling on each sampled tweet.",

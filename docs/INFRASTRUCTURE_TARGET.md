@@ -25,7 +25,7 @@ Alpha API / dashboard
   |     run logs, run artifacts
   |
   +-- Worker pool
-  |     ephemeral droplets with small scratch volumes by default
+  |     Modal runners with small scratch volumes by default
   |
   +-- Retrieval services
         Qdrant/vector indexes and optional keyword indexes, keyed by dataset version
@@ -72,23 +72,23 @@ Workers should stream events and logs while running. If a worker dies, the dashb
 
 Use named profiles instead of one hard-coded workspace size:
 
-| Profile | Runner | Scratch | Use |
+| Profile | Modal CPU / Memory | Scratch | Use |
 | --- | --- | ---: | --- |
-| `briefing` | `s-2vcpu-4gb` | 20GiB | dataset documentation, profile reads |
-| `canonical-public` | `s-4vcpu-8gb` | 50GiB | public source discovery, small refreshes, expansion planning |
-| `standard-analysis` | `s-8vcpu-16gb` | 100GiB | normal analysis and transformation runs |
-| `large-ingest` | `s-8vcpu-16gb` | 500GiB | explicit large backfills after size estimation |
+| `briefing` | 2 CPU / 4GiB | 20GiB | dataset documentation, profile reads |
+| `canonical-public` | 4 CPU / 8GiB | 50GiB | public source discovery, small refreshes, expansion planning |
+| `standard-analysis` | 8 CPU / 16GiB | 100GiB | normal analysis and transformation runs |
+| `large-ingest` | 8 CPU / 16GiB | 500GiB | explicit large backfills after size estimation |
 
 Large storage should be opt-in. Canonical public datasets should start small and publish durable objects to object storage.
 
-## DigitalOcean Mapping
+## Modal Mapping
 
-Recommended DigitalOcean resources:
+Recommended backend resources:
 
-- Spaces bucket for canonical dataset versions and run artifacts.
+- Object storage for canonical dataset versions and run artifacts.
 - Managed Postgres for catalog and run/event state.
-- Worker pool droplets in the same region as storage.
-- Optional Qdrant droplet with local NVMe or a managed vector database.
+- Modal runners with profile-specific CPU, memory, and scratch settings.
+- Optional Qdrant worker with local NVMe or a managed vector database.
 - Block volumes only for scratch, hot cache, and stateful retrieval services.
 
 Avoid:

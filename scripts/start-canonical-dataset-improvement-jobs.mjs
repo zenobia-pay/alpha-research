@@ -13,46 +13,6 @@ const canonicalDatasets = [
     name: 'Econ',
     fieldBrief: 'Economics: macroeconomics, labor, housing, inflation, credit, consumer behavior, regional economics, and business-cycle research.',
   },
-  {
-    id: 'sociology',
-    name: 'Sociology',
-    fieldBrief: 'Sociology: social structure, inequality, demographics, institutions, family, work, religion, politics, mobility, health, crime, and social attitudes.',
-  },
-  {
-    id: 'philosophy',
-    name: 'Philosophy',
-    fieldBrief: 'Philosophy: canonical texts, contemporary papers, concepts, argument structures, author networks, bibliographic metadata, and teaching/research corpora.',
-  },
-  {
-    id: 'history',
-    name: 'History',
-    fieldBrief: 'History: archives, events, people, places, timelines, public records, texts, gazetteers, historical newspapers, and public-domain primary-source corpora.',
-  },
-  {
-    id: 'literature',
-    name: 'Literature',
-    fieldBrief: 'Literature: public-domain texts, bibliographic metadata, authors, works, genres, corpora, teaching syllabi, editions, and literary-history datasets.',
-  },
-  {
-    id: 'political-science',
-    name: 'Political Science',
-    fieldBrief: 'Political science: elections, parties, legislatures, governance, institutions, public opinion, comparative politics, conflict, democracy, and policy datasets.',
-  },
-  {
-    id: 'anthropology',
-    name: 'Anthropology',
-    fieldBrief: 'Anthropology: cultures, languages, archaeology, ethnography metadata, places, cultural traits, material culture, comparative datasets, and open repository records.',
-  },
-  {
-    id: 'linguistics',
-    name: 'Linguistics',
-    fieldBrief: 'Linguistics: languages, typology, phonology, lexicons, syntax, corpora, CLDF datasets, treebanks, language metadata, and documentation archives.',
-  },
-  {
-    id: 'classics',
-    name: 'Classics',
-    fieldBrief: 'Classics: Greek and Latin texts, classical authors and works, editions, inscriptions, papyri, ancient places, prosopography, and public classical corpora.',
-  },
 ]
 
 const resources = {

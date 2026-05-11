@@ -16,7 +16,7 @@ This command builds every workspace, typechecks, runs deterministic tests, valid
 
 - Keep `AGENTS.md` short and map-like. Put deeper context in `docs/`.
 - Keep repository knowledge versioned. Important product, architecture, run lifecycle, and debugging facts belong in markdown or executable checks, not chat.
-- Prefer deterministic harness tests over live checks. Live Alpha Research, OpenAI, or DigitalOcean tests must be explicit opt-in smoke tests.
+- Prefer deterministic harness tests over live checks. Live Alpha Research, OpenAI, Modal, or object-storage tests must be explicit opt-in smoke tests.
 - Preserve the normal CLI path without requiring a local `OPENAI_API_KEY`.
 - Add or update golden tests when changing durable CLI behavior.
 - Update `docs/RUN_LIFECYCLE.md` when run status semantics or ownership rules change.

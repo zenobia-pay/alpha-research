@@ -100,10 +100,10 @@ test("run expectations and last update stay actionable when there is no event hi
 test("run last update clamps long event messages", () => {
   const run = makeRun({
     lastEventMessage:
-      "Remote agent droplet ar-run-enriched-tweets-926412 launched in nyc1 (s-8vcpu-16gb) and is now downloading dependencies before starting execution.",
+      "Modal worker ar-run-enriched-tweets-926412 started with standard-analysis resources and is now downloading dependencies before starting execution.",
   });
   const summary = formatRunLastUpdate(run);
-  assert.match(summary, /Remote agent droplet/);
+  assert.match(summary, /Modal worker/);
   assert.equal(summary.endsWith("..."), true);
   assert.ok(summary.length <= 120);
 });

@@ -380,7 +380,7 @@ test("prompt mode exits cleanly after stuck-run local diagnosis", async () => {
       createdAt: updatedAt,
       updatedAt,
       lastSeenAt: updatedAt,
-      lastEventMessage: "Remote agent droplet ar-run-econ-707673 launched in nyc1 (s-8vcpu-16gb).",
+      lastEventMessage: "Modal worker ar-run-econ-707673 started with standard-analysis resources.",
     }]),
     "utf8",
   );
@@ -2637,10 +2637,10 @@ test("canonical public environments use small versioned object-store resource pr
             call_id: "call-canonical-resources",
             name: "create_public_data_environment",
             arguments: JSON.stringify({
-              datasetId: "sociology",
-              name: "Sociology",
-              sourceDescription: "Canonical public sociology sources.",
-              prompt: "Build the canonical public Sociology dataset.",
+              datasetId: "econ",
+              name: "Econ",
+              sourceDescription: "Canonical public economics sources.",
+              prompt: "Build the canonical public Econ dataset.",
             }),
           }],
         },
@@ -2676,12 +2676,15 @@ test("canonical public environments use small versioned object-store resource pr
   };
   const { emit } = collect();
 
-  await runAgentTurn("Create the canonical sociology dataset.", session, emit, undefined, deps);
+  await runAgentTurn("Create the canonical econ dataset.", session, emit, undefined, deps);
 
   const environmentCall = calls.find((call) => call.name === "createPublicDataEnvironment");
   assert.deepEqual(environmentCall?.body?.resources, {
     profile: "canonical-public",
-    runnerSize: "s-4vcpu-8gb",
+    backend: "modal",
+    resourceProfile: "canonical-public",
+    cpu: 4,
+    memoryGb: 8,
     workspaceDiskGb: 50,
     storageMode: "object-store-versioned",
     datasetAccess: "read-only-version",
@@ -2761,7 +2764,10 @@ test("environment builds support explicit large-ingest resource profile", async 
   const environmentCall = calls.find((call) => call.name === "createResearchEnvironment");
   assert.deepEqual(environmentCall?.body?.resources, {
     profile: "large-ingest",
-    runnerSize: "s-8vcpu-16gb",
+    backend: "modal",
+    resourceProfile: "large-ingest",
+    cpu: 8,
+    memoryGb: 16,
     workspaceDiskGb: 500,
     storageMode: "object-store-versioned",
     publishMode: "versioned",

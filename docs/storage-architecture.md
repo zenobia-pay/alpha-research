@@ -17,7 +17,7 @@
 - optional keyword search: Typesense, Meilisearch, or OpenSearch
 - tabular/time-series source data: partitioned Parquet
 - text projections: sharded JSONL, ideally zstd-compressed in production
-- normalized working set: ephemeral worker scratch plus optional mounted DigitalOcean cache volumes
+- normalized working set: ephemeral Modal worker scratch plus optional mounted cache volumes
 
 ## Remote Ingest Direction
 
@@ -30,7 +30,7 @@ Recommended flow:
 3. source data is uploaded or otherwise made reachable to a remote ingest worker
 4. the ingest worker writes raw snapshots, normalized shards, manifests, and artifacts to object storage
 5. Postgres records the dataset version, source registry, shard inventory, quality reports, and latest-version pointer
-6. serving and runner droplets hydrate only the needed partitions into local scratch/cache
+6. serving processes and Modal runners hydrate only the needed partitions into local scratch/cache
 
 This avoids making the user's laptop or any single mounted volume the source of truth for deployment. It also allows multiple read-only analysis runs to use the same dataset version concurrently while a refresh builds the next version.
 

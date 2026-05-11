@@ -100,26 +100,24 @@ export type AgentRuntimeDeps = {
 
 const CANONICAL_PUBLIC_DATASET_IDS = new Set([
   "econ",
-  "sociology",
-  "philosophy",
-  "history",
-  "literature",
-  "political-science",
-  "anthropology",
-  "linguistics",
-  "classics",
 ]);
 
 const RESOURCE_PROFILES = {
   "briefing": {
     profile: "briefing",
-    runnerSize: "s-2vcpu-4gb",
+    backend: "modal",
+    resourceProfile: "briefing",
+    cpu: 2,
+    memoryGb: 4,
     workspaceDiskGb: 20,
     storageMode: "object-store-versioned",
   },
   "canonical-public": {
     profile: "canonical-public",
-    runnerSize: "s-4vcpu-8gb",
+    backend: "modal",
+    resourceProfile: "canonical-public",
+    cpu: 4,
+    memoryGb: 8,
     workspaceDiskGb: 50,
     storageMode: "object-store-versioned",
     datasetAccess: "read-only-version",
@@ -127,14 +125,20 @@ const RESOURCE_PROFILES = {
   },
   "standard-analysis": {
     profile: "standard-analysis",
-    runnerSize: "s-8vcpu-16gb",
+    backend: "modal",
+    resourceProfile: "standard-analysis",
+    cpu: 8,
+    memoryGb: 16,
     workspaceDiskGb: 100,
     storageMode: "object-store-versioned",
     datasetAccess: "read-only-version",
   },
   "large-ingest": {
     profile: "large-ingest",
-    runnerSize: "s-8vcpu-16gb",
+    backend: "modal",
+    resourceProfile: "large-ingest",
+    cpu: 8,
+    memoryGb: 16,
     workspaceDiskGb: 500,
     storageMode: "object-store-versioned",
     publishMode: "versioned",
@@ -3965,7 +3969,7 @@ function summarizeTrackedRunWork(run: { datasetId: string; prompt?: string; last
 }
 
 function summarizeRunEventForHumans(message: string) {
-  if (/Remote agent droplet .* launched in /i.test(message)) {
+  if (/Modal worker .* started/i.test(message)) {
     return "Worker started and is still getting ready.";
   }
   if (/mounted dataset grounding is mandatory/i.test(message)) {
@@ -5568,7 +5572,7 @@ export function createToolRegistry(): ToolDefinition[] {
     },
     {
       name: "cancel_remote_run",
-      description: "Cancel an in-progress remote run and terminate its cloud droplet when possible.",
+      description: "Cancel an in-progress remote run and stop its backend worker when possible.",
       inputSchema: {
         type: "object",
         additionalProperties: false,

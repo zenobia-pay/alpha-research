@@ -7,7 +7,7 @@ This repo-bundled plugin makes Alpha Research available inside Codex threads as 
 - research design from fuzzy intent into concrete study plans
 - research operations for remote runs, artifacts, cancellation, recovery, and follow-up decisions
 
-The plugin reuses the existing RESEARCH CLI session and Alpha Research dashboard API. It does not require local OpenAI, DigitalOcean, or dashboard secrets.
+The plugin reuses the existing RESEARCH CLI session and Alpha Research dashboard API. It does not require local OpenAI, Modal, object-storage, or dashboard secrets.
 
 ## Files
 

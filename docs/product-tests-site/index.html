@@ -11,16 +11,16 @@
     <header class="page-header">
       <p class="nav"><a href="../PRODUCT_TEST_BRIEFING.md">Markdown index</a></p>
       <h1>Product Test Briefings</h1>
-      <p class="eyebrow">Alpha Research · generated from docs/product-tests · 2026-04-30</p>
+      <p class="eyebrow">Alpha Research · generated from docs/product-tests · 2026-05-11</p>
       <p class="lede">Readable product explanations for every test contract. Each entry describes how the product is used, what actions are taken, and what assertions are made.</p>
     </header>
 
-    <section class="stat-grid"><div><span>Briefings</span><strong>29</strong></div><div><span>Assertions</span><strong>160</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
+    <section class="stat-grid"><div><span>Briefings</span><strong>73</strong></div><div><span>Assertions</span><strong>223</strong></div><div><span>Categories</span><strong>5</strong></div><div><span>Source</span><strong>MD</strong></div></section>
 
     <section class="panel controls">
       <div>
         <h2>Browse The Tests</h2>
-        <p class="lede"><span id="visible-count">29</span> briefings visible. Search by feature, assertion, dataset, run type, or artifact.</p>
+        <p class="lede"><span id="visible-count">73</span> briefings visible. Search by feature, assertion, dataset, run type, or artifact.</p>
       </div>
       <label>
         <span>Search</span>
@@ -33,7 +33,7 @@
       <div>
         <h2>Coverage Mix</h2>
         <table class="hypothesis-table">
-          <tbody><tr><td>CLI Product</td><td>11</td></tr><tr><td>Golden Transcript</td><td>5</td></tr><tr><td>Registry Contract</td><td>3</td></tr><tr><td>Slow E2E</td><td>8</td></tr><tr><td>Symphony Case</td><td>2</td></tr></tbody>
+          <tbody><tr><td>CLI Product</td><td>55</td></tr><tr><td>Golden Transcript</td><td>5</td></tr><tr><td>Registry Contract</td><td>3</td></tr><tr><td>Slow E2E</td><td>8</td></tr><tr><td>Symphony Case</td><td>2</td></tr></tbody>
         </table>
       </div>
       <div>
@@ -79,9 +79,91 @@
 <li>The workflow must not use public sample data, GitHub CSVs, or external fallback data.</li></ul>
   </div>
 </article>
-<article class="briefing-card" id="busy-dataset-conflict-returns-blocking-run-guidance" data-title="busy dataset conflict returns blocking run guidance" data-category="CLI Product">
+<article class="briefing-card" id="blocked-or-failed-recovery-prompt-stays-focused-on-the-current-run-and-next-action" data-title="blocked-or-failed recovery prompt stays focused on the current run and next action" data-category="CLI Product">
   <div class="section-head">
     <span>02 · CLI Product</span>
+    <a href="#blocked-or-failed-recovery-prompt-stays-focused-on-the-current-run-and-next-action">#</a>
+  </div>
+  <h2>blocked-or-failed recovery prompt stays focused on the current run and next action</h2>
+  <p class="test-name"><span>Test name</span><code>blocked-or-failed recovery prompt stays focused on the current run and next action</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>blocked-or-failed recovery prompt stays focused on the current run and next action</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="broad-business-opportunity-prompts-stop-at-a-scoped-approval-gate-before-any-inventory-or-run-work" data-title="broad business-opportunity prompts stop at a scoped approval gate before any inventory or run work" data-category="CLI Product">
+  <div class="section-head">
+    <span>03 · CLI Product</span>
+    <a href="#broad-business-opportunity-prompts-stop-at-a-scoped-approval-gate-before-any-inventory-or-run-work">#</a>
+  </div>
+  <h2>broad business-opportunity prompts stop at a scoped approval gate before any inventory or run work</h2>
+  <p class="test-name"><span>Test name</span><code>broad business-opportunity prompts stop at a scoped approval gate before any inventory or run work</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>broad business-opportunity prompts stop at a scoped approval gate before any inventory or run work</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="busy-dataset-conflict-explains-active-run-and-emits-heartbeat-while-waiting" data-title="busy dataset conflict explains active run and emits heartbeat while waiting" data-category="CLI Product">
+  <div class="section-head">
+    <span>04 · CLI Product</span>
+    <a href="#busy-dataset-conflict-explains-active-run-and-emits-heartbeat-while-waiting">#</a>
+  </div>
+  <h2>busy dataset conflict explains active run and emits heartbeat while waiting</h2>
+  <p class="test-name"><span>Test name</span><code>busy dataset conflict explains active run and emits heartbeat while waiting</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Without good conflict handling, users can create duplicate work or think the CLI failed mysteriously. Busy states need an actionable run id and recovery path.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user starts work on a dataset that is locked by an active run. The product should show progress while attempting the action, then explain the active run conflict clearly.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The fake backend delays the environment request and then returns a dataset-volume conflict with an active run.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="busy-dataset-conflict-returns-blocking-run-guidance" data-title="busy dataset conflict returns blocking run guidance" data-category="CLI Product">
+  <div class="section-head">
+    <span>05 · CLI Product</span>
     <a href="#busy-dataset-conflict-returns-blocking-run-guidance">#</a>
   </div>
   <h2>A busy dataset points the user to the blocking run</h2>
@@ -108,9 +190,115 @@
 <li>No replacement run is presented as if it succeeded.</li></ul>
   </div>
 </article>
+<article class="briefing-card" id="canonical-public-environments-use-small-versioned-object-store-resource-profile" data-title="canonical public environments use small versioned object-store resource profile" data-category="CLI Product">
+  <div class="section-head">
+    <span>06 · CLI Product</span>
+    <a href="#canonical-public-environments-use-small-versioned-object-store-resource-profile">#</a>
+  </div>
+  <h2>canonical public environments use small versioned object-store resource profile</h2>
+  <p class="test-name"><span>Test name</span><code>canonical public environments use small versioned object-store resource profile</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Canonical public datasets need daily refreshes and many fields. Preallocating 500GiB per dataset causes quota failures and prevents scaling.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>Creating a canonical public dataset should use a small versioned object-store resource profile instead of a large block-volume workspace.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness starts the canonical <code>econ</code> public environment and captures the resource contract sent to the backend.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="cold-start-orientation-prompt-stays-local-and-recommends-first-steps" data-title="cold-start orientation prompt stays local and recommends first steps" data-category="CLI Product">
+  <div class="section-head">
+    <span>07 · CLI Product</span>
+    <a href="#cold-start-orientation-prompt-stays-local-and-recommends-first-steps">#</a>
+  </div>
+  <h2>cold-start orientation prompt stays local and recommends first steps</h2>
+  <p class="test-name"><span>Test name</span><code>cold-start orientation prompt stays local and recommends first steps</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Orientation should be fast, understandable, and safe. A cold-start product explanation should not depend on backend availability or account state.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A new user asks an orientation question before choosing a dataset or signing in. The product should answer locally with a practical overview instead of calling remote planning.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness injects a remote client that would fail if called, then asks a broad orientation prompt.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="continuity-question-returns-compact-lifecycle-summary-without-tool-chatter" data-title="continuity question returns compact lifecycle summary without tool chatter" data-category="CLI Product">
+  <div class="section-head">
+    <span>08 · CLI Product</span>
+    <a href="#continuity-question-returns-compact-lifecycle-summary-without-tool-chatter">#</a>
+  </div>
+  <h2>continuity question returns compact lifecycle summary without tool chatter</h2>
+  <p class="test-name"><span>Test name</span><code>continuity question returns compact lifecycle summary without tool chatter</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Continuity questions happen in long-running async workflows. The answer should be compact and useful, not a dump of tool calls.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks what is going on or where things stand. The product should summarize active and recent runs in plain language.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness provides tracked run state and asks a continuity-style question.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="county-month-housing-cycle-dataset-requests-reuse-a-strong-economics-base-and-start-the-build-immediately" data-title="county-month housing-cycle dataset requests reuse a strong economics base and start the build immediately" data-category="CLI Product">
+  <div class="section-head">
+    <span>09 · CLI Product</span>
+    <a href="#county-month-housing-cycle-dataset-requests-reuse-a-strong-economics-base-and-start-the-build-immediately">#</a>
+  </div>
+  <h2>county-month housing-cycle dataset requests reuse a strong economics base and start the build immediately</h2>
+  <p class="test-name"><span>Test name</span><code>county-month housing-cycle dataset requests reuse a strong economics base and start the build immediately</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>county-month housing-cycle dataset requests reuse a strong economics base and start the build immediately</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
 <article class="briefing-card" id="dashboard-run-links-use-canonical-dashboard-route" data-title="dashboard run links use canonical dashboard route" data-category="Registry Contract">
   <div class="section-head">
-    <span>03 · Registry Contract</span>
+    <span>10 · Registry Contract</span>
     <a href="#dashboard-run-links-use-canonical-dashboard-route">#</a>
   </div>
   <h2>Run links always open the right dashboard page</h2>
@@ -136,16 +324,68 @@
 <li>The link includes the run id fragment.</li></ul>
   </div>
 </article>
+<article class="briefing-card" id="dataset-describe-conflict-keeps-guidance-anchored-on-briefing-artifacts" data-title="dataset describe conflict keeps guidance anchored on briefing artifacts" data-category="CLI Product">
+  <div class="section-head">
+    <span>11 · CLI Product</span>
+    <a href="#dataset-describe-conflict-keeps-guidance-anchored-on-briefing-artifacts">#</a>
+  </div>
+  <h2>dataset describe conflict keeps guidance anchored on briefing artifacts</h2>
+  <p class="test-name"><span>Test name</span><code>dataset describe conflict keeps guidance anchored on briefing artifacts</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Dataset documentation is a distinct workflow. Busy guidance should preserve the user's intent and tell them what artifacts to expect.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A dataset describe request can conflict with an active run. The product should keep the guidance anchored on the requested briefing artifacts rather than drifting into generic analysis advice.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The fake backend returns an active-run conflict for a dataset briefing run.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dataset-describe-request-falls-back-to-saved-briefing-when-dataset-is-busy" data-title="dataset describe request falls back to saved briefing when dataset is busy" data-category="CLI Product">
+  <div class="section-head">
+    <span>12 · CLI Product</span>
+    <a href="#dataset-describe-request-falls-back-to-saved-briefing-when-dataset-is-busy">#</a>
+  </div>
+  <h2>dataset describe request falls back to saved briefing when dataset is busy</h2>
+  <p class="test-name"><span>Test name</span><code>dataset describe request falls back to saved briefing when dataset is busy</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Dataset understanding should remain useful during active work. Saved profile artifacts are durable product value and should be reused.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks to describe a dataset while another run is holding the dataset. If a saved briefing exists, the product should return that useful documentation instead of only reporting a conflict.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness makes the describe run hit an active-run conflict and provides a saved dataset briefing/profile.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
 <article class="briefing-card" id="dataset-describe-request-starts-briefing-run-with-required-artifacts" data-title="dataset describe request starts briefing run with required artifacts" data-category="CLI Product">
   <div class="section-head">
-    <span>04 · CLI Product</span>
+    <span>13 · CLI Product</span>
     <a href="#dataset-describe-request-starts-briefing-run-with-required-artifacts">#</a>
   </div>
   <h2>Describe dataset creates briefing and profile artifacts</h2>
   <p class="test-name"><span>Test name</span><code>dataset describe request starts briefing run with required artifacts</code></p>
   <div class="why-block">
     <h3>Why This Test</h3>
-    <p>This protects the dataset-description workflow as a documentation product. A describe request should produce inventory and profile artifacts, not drift into ad hoc analysis or suggestions.</p>
+    <p>This protects the dataset-description workflow as a documentation product. A describe request should produce inventory, readiness, trust, limitation, and profile artifacts, not drift into ad hoc analysis or suggestions.</p>
   </div>
   <div class="two-col">
     <div>
@@ -154,7 +394,7 @@
     </div>
     <div>
       <h3>Actions Taken</h3>
-      <p>The product starts a dataset briefing run for <code>econ</code>. It asks for a human-readable <code>Dataset Briefing</code> artifact and a structured <code>Dataset Profile</code> artifact. The prompt is scoped to inventory and documentation, not analysis suggestions.</p>
+      <p>The product starts a dataset briefing run for <code>econ</code>. It asks for a human-readable <code>Dataset Briefing</code> artifact and a structured <code>Dataset Profile</code> artifact. The prompt is scoped to inventory, readiness, evidence, trust, caveats, and documentation, not analysis suggestions.</p>
     </div>
   </div>
   <div class="assertions">
@@ -165,13 +405,341 @@
 <li>The config marks the run as a dataset-description task.</li>
 <li>Mounted dataset grounding is required.</li>
 <li>The prompt includes the required briefing sections.</li>
+<li>The prompt requires <code>Readiness &amp; Trust</code>, including whether the dataset is usable right now, what evidence supports that judgment, and what would make use unsafe or premature.</li>
 <li>The prompt excludes query instructions and suggested follow-ups.</li>
 <li>The response includes the briefing run id and terminal-session link.</li></ul>
   </div>
 </article>
+<article class="briefing-card" id="dataset-follow-up-keeps-the-exact-prior-inventory-match-instead-of-fuzzy-overlap-switching" data-title="dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching" data-category="CLI Product">
+  <div class="section-head">
+    <span>14 · CLI Product</span>
+    <a href="#dataset-follow-up-keeps-the-exact-prior-inventory-match-instead-of-fuzzy-overlap-switching">#</a>
+  </div>
+  <h2>dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching</h2>
+  <p class="test-name"><span>Test name</span><code>dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>dataset follow-up keeps the exact prior inventory match instead of fuzzy-overlap switching</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dataset-inspection-surfaces-schema-evidence-for-requested-analysis-fields" data-title="dataset inspection surfaces schema evidence for requested analysis fields" data-category="CLI Product">
+  <div class="section-head">
+    <span>15 · CLI Product</span>
+    <a href="#dataset-inspection-surfaces-schema-evidence-for-requested-analysis-fields">#</a>
+  </div>
+  <h2>dataset inspection surfaces schema evidence for requested analysis fields</h2>
+  <p class="test-name"><span>Test name</span><code>dataset inspection surfaces schema evidence for requested analysis fields</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Trustworthy dataset selection depends on concrete evidence. The assistant should not merely assert that a dataset is suitable.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks whether a dataset can support a specific analysis. The product should inspect schema/profile evidence and surface the relevant fields.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness provides a profile containing fields related to county, time, unemployment, and home values.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dataset-inventory-is-recommendation-first-name-first-and-de-emphasizes-noisy-datasets" data-title="dataset inventory is recommendation-first, name-first, and de-emphasizes noisy datasets" data-category="CLI Product">
+  <div class="section-head">
+    <span>16 · CLI Product</span>
+    <a href="#dataset-inventory-is-recommendation-first-name-first-and-de-emphasizes-noisy-datasets">#</a>
+  </div>
+  <h2>dataset inventory is recommendation-first, name-first, and de-emphasizes noisy datasets</h2>
+  <p class="test-name"><span>Test name</span><code>dataset inventory is recommendation-first, name-first, and de-emphasizes noisy datasets</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Dataset choice is a core workflow. A raw id dump makes users choose from implementation details instead of product names, readiness, and likely next actions.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks what datasets they have. The product should present a scannable inventory that foregrounds useful ready datasets and de-emphasizes draft, upload-test, or noisy internal datasets.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness returns a mixed catalog of ready, draft, uploaded, and noisy datasets.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dataset-recommendation-inventory-includes-ranked-shortlist-for-the-topic" data-title="dataset recommendation inventory includes ranked shortlist for the topic" data-category="CLI Product">
+  <div class="section-head">
+    <span>17 · CLI Product</span>
+    <a href="#dataset-recommendation-inventory-includes-ranked-shortlist-for-the-topic">#</a>
+  </div>
+  <h2>dataset recommendation inventory includes ranked shortlist for the topic</h2>
+  <p class="test-name"><span>Test name</span><code>dataset recommendation inventory includes ranked shortlist for the topic</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Recommendation transparency matters when multiple datasets could fit. A shortlist helps users understand why one dataset was preferred and what tradeoffs remain.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks for a dataset recommendation around a research topic. The product should show a ranked shortlist so the user can see the chosen dataset and plausible alternatives.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness returns several remote datasets with differing topic fit and readiness.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dataset-selection-from-topic-uses-dataset-metadata-and-asks-one-focused-follow-up" data-title="dataset selection from topic uses dataset metadata and asks one focused follow-up" data-category="CLI Product">
+  <div class="section-head">
+    <span>18 · CLI Product</span>
+    <a href="#dataset-selection-from-topic-uses-dataset-metadata-and-asks-one-focused-follow-up">#</a>
+  </div>
+  <h2>dataset selection from topic uses dataset metadata and asks one focused follow-up</h2>
+  <p class="test-name"><span>Test name</span><code>dataset selection from topic uses dataset metadata and asks one focused follow-up</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Topic-to-dataset routing should be grounded in the user's real catalog. Guessing from generic public sources before checking existing datasets makes the product feel detached from its own data.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks which dataset to use for a topic. The product should inspect available dataset metadata, choose the strongest fit, explain why, and ask for the smallest useful clarification.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness provides candidate dataset metadata and asks for a dataset recommendation for a topic.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dataset-trust-briefing-renders-saved-profile-briefing-markdown" data-title="dataset trust briefing renders saved profile briefing markdown" data-category="CLI Product">
+  <div class="section-head">
+    <span>19 · CLI Product</span>
+    <a href="#dataset-trust-briefing-renders-saved-profile-briefing-markdown">#</a>
+  </div>
+  <h2>dataset trust briefing renders saved profile briefing markdown</h2>
+  <p class="test-name"><span>Test name</span><code>dataset trust briefing renders saved profile briefing markdown</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Dataset briefings are the product-facing explanation of what a dataset contains. The CLI must use the saved briefing body when it is available instead of falling back to a synthetic profile summary or starting another remote describe run.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks the CLI to describe or evaluate a remote dataset. The backend has already saved a human dataset briefing in the dataset profile as <code>briefingMarkdown</code>.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness provides a ready <code>econ</code> dataset whose profile includes <code>briefingMarkdown</code>, a briefing artifact id, and a profile artifact id. The user asks to describe the dataset, and the CLI handles the request locally from saved dataset metadata.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The rendered response includes the saved briefing markdown body.</li>
+<li>The response names the saved Dataset Briefing and Dataset Profile artifacts.</li>
+<li>The flow does not start a duplicate dataset briefing run.</li>
+<li>The flow does not replace the saved markdown with the generic profile fallback.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="dataset-trust-briefing-reuses-saved-profile-before-starting-a-new-run" data-title="dataset trust briefing reuses saved profile before starting a new run" data-category="CLI Product">
+  <div class="section-head">
+    <span>20 · CLI Product</span>
+    <a href="#dataset-trust-briefing-reuses-saved-profile-before-starting-a-new-run">#</a>
+  </div>
+  <h2>dataset trust briefing reuses saved profile before starting a new run</h2>
+  <p class="test-name"><span>Test name</span><code>dataset trust briefing reuses saved profile before starting a new run</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>dataset trust briefing reuses saved profile before starting a new run</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="environment-builds-support-explicit-large-ingest-resource-profile" data-title="environment builds support explicit large-ingest resource profile" data-category="CLI Product">
+  <div class="section-head">
+    <span>21 · CLI Product</span>
+    <a href="#environment-builds-support-explicit-large-ingest-resource-profile">#</a>
+  </div>
+  <h2>environment builds support explicit large-ingest resource profile</h2>
+  <p class="test-name"><span>Test name</span><code>environment builds support explicit large-ingest resource profile</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Large storage must be deliberate. This protects both resource efficiency and the ability to run large jobs when justified.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>Some backfills genuinely need a large workspace. The product should support an explicit large-ingest profile rather than making every environment large by default.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness asks for a research environment with <code>resourceProfile</code> set to <code>large-ingest</code>.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="field-definition-prompt-instructions-enforce-concise-verdict-first-answers" data-title="field-definition prompt instructions enforce concise verdict-first answers" data-category="CLI Product">
+  <div class="section-head">
+    <span>22 · CLI Product</span>
+    <a href="#field-definition-prompt-instructions-enforce-concise-verdict-first-answers">#</a>
+  </div>
+  <h2>field-definition prompt instructions enforce concise verdict-first answers</h2>
+  <p class="test-name"><span>Test name</span><code>field-definition prompt instructions enforce concise verdict-first answers</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Field-definition questions are common before analysis. Long speculative explanations or incorrect derived-field definitions lead to bad research choices.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>When a user asks what a field means, the answer should be concise, verdict-first, and grounded in schema evidence.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness exercises prompt instructions for a field-definition request.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="field-definition-questions-use-verified-dataset-metadata-when-available" data-title="field-definition questions use verified dataset metadata when available" data-category="CLI Product">
+  <div class="section-head">
+    <span>23 · CLI Product</span>
+    <a href="#field-definition-questions-use-verified-dataset-metadata-when-available">#</a>
+  </div>
+  <h2>field-definition questions use verified dataset metadata when available</h2>
+  <p class="test-name"><span>Test name</span><code>field-definition questions use verified dataset metadata when available</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>field-definition questions use verified dataset metadata when available</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="file-import-how-to-asks-for-path-before-ingesting" data-title="file import how-to asks for path before ingesting" data-category="CLI Product">
+  <div class="section-head">
+    <span>24 · CLI Product</span>
+    <a href="#file-import-how-to-asks-for-path-before-ingesting">#</a>
+  </div>
+  <h2>file import how-to asks for path before ingesting</h2>
+  <p class="test-name"><span>Test name</span><code>file import how-to asks for path before ingesting</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Dataset intake should be helpful without pretending the product can ingest data that has not been identified. The lifecycle starts with a concrete file path and a short description, then proceeds through schema inference, registration, upload, and deployment. Skipping that source-of-truth step creates confusing or fake intake flows.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user says they have a CSV on their desktop and asks how to turn it into something they can research.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The agent receives a raw-file onboarding question with no exact path. The fake remote client throws if called, so the test verifies that the agent does not start remote planning or dataset deployment prematurely.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The answer asks for an absolute path.</li>
+<li>The answer asks for a one-line data description.</li>
+<li>The answer explains that the next lifecycle steps are schema inference, dataset registration, upload, and deployment.</li>
+<li>No run id, started-run message, or dashboard link appears.</li>
+<li>No remote planning call is made before the user provides the file source of truth.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="file-to-dataset-onboarding-asks-only-for-path-and-description" data-title="file-to-dataset onboarding asks only for path and description" data-category="CLI Product">
+  <div class="section-head">
+    <span>25 · CLI Product</span>
+    <a href="#file-to-dataset-onboarding-asks-only-for-path-and-description">#</a>
+  </div>
+  <h2>file-to-dataset onboarding asks only for path and description</h2>
+  <p class="test-name"><span>Test name</span><code>file-to-dataset onboarding asks only for path and description</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>file-to-dataset onboarding asks only for path and description</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
 <article class="briefing-card" id="golden-cancel-active-run" data-title="golden: cancel active run" data-category="Golden Transcript">
   <div class="section-head">
-    <span>05 · Golden Transcript</span>
+    <span>26 · Golden Transcript</span>
     <a href="#golden-cancel-active-run">#</a>
   </div>
   <h2>Canceling a run gives a clear confirmation</h2>
@@ -198,7 +766,7 @@
 </article>
 <article class="briefing-card" id="golden-mixed-public-private-environment" data-title="golden: mixed public private environment" data-category="Golden Transcript">
   <div class="section-head">
-    <span>06 · Golden Transcript</span>
+    <span>27 · Golden Transcript</span>
     <a href="#golden-mixed-public-private-environment">#</a>
   </div>
   <h2>Mixed public and private sources start a research environment build</h2>
@@ -228,7 +796,7 @@
 </article>
 <article class="briefing-card" id="golden-public-data-environment" data-title="golden: public data environment" data-category="Golden Transcript">
   <div class="section-head">
-    <span>07 · Golden Transcript</span>
+    <span>28 · Golden Transcript</span>
     <a href="#golden-public-data-environment">#</a>
   </div>
   <h2>Public SEC data setup starts an environment build</h2>
@@ -258,7 +826,7 @@
 </article>
 <article class="briefing-card" id="golden-retrieve-run-result" data-title="golden: retrieve run result" data-category="Golden Transcript">
   <div class="section-head">
-    <span>08 · Golden Transcript</span>
+    <span>29 · Golden Transcript</span>
     <a href="#golden-retrieve-run-result">#</a>
   </div>
   <h2>Completed run results are readable and artifact-aware</h2>
@@ -287,7 +855,7 @@
 </article>
 <article class="briefing-card" id="golden-show-remote-datasets" data-title="golden: show remote datasets" data-category="Golden Transcript">
   <div class="section-head">
-    <span>09 · Golden Transcript</span>
+    <span>30 · Golden Transcript</span>
     <a href="#golden-show-remote-datasets">#</a>
   </div>
   <h2>Dataset discovery shows what is available</h2>
@@ -312,9 +880,169 @@
 <li>The response says one remote dataset was found.</li></ul>
   </div>
 </article>
+<article class="briefing-card" id="journey-p02-wording-resolves-locally-without-remote-planning" data-title="journey p02 wording resolves locally without remote planning" data-category="CLI Product">
+  <div class="section-head">
+    <span>31 · CLI Product</span>
+    <a href="#journey-p02-wording-resolves-locally-without-remote-planning">#</a>
+  </div>
+  <h2>journey P02 wording resolves locally without remote planning</h2>
+  <p class="test-name"><span>Test name</span><code>journey P02 wording resolves locally without remote planning</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Journey prompts are used to evaluate the product experience. If simple orientation routes through remote planning, the UI can appear slow or fail for reasons unrelated to the user's task.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>The journey wording for a basic product-orientation prompt should be handled as a local help request. The user is trying to understand the product, not start a remote run.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The test sends the P02-style wording through the agent with a fake remote client.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="last-completed-run-decision-summary-explains-changes-artifacts-trust-and-next-decisions" data-title="last completed run decision summary explains changes, artifacts, trust, and next decisions" data-category="CLI Product">
+  <div class="section-head">
+    <span>32 · CLI Product</span>
+    <a href="#last-completed-run-decision-summary-explains-changes-artifacts-trust-and-next-decisions">#</a>
+  </div>
+  <h2>last completed run decision summary explains changes, artifacts, trust, and next decisions</h2>
+  <p class="test-name"><span>Test name</span><code>last completed run decision summary explains changes, artifacts, trust, and next decisions</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>last completed run decision summary explains changes, artifacts, trust, and next decisions</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="last-run-results-report-a-failed-latest-run-when-nothing-completed-successfully" data-title="last run results report a failed latest run when nothing completed successfully" data-category="CLI Product">
+  <div class="section-head">
+    <span>33 · CLI Product</span>
+    <a href="#last-run-results-report-a-failed-latest-run-when-nothing-completed-successfully">#</a>
+  </div>
+  <h2>last run results report a failed latest run when nothing completed successfully</h2>
+  <p class="test-name"><span>Test name</span><code>last run results report a failed latest run when nothing completed successfully</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Failure states are part of the research lifecycle. The user needs to understand what failed and how to inspect it.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks for last results after the latest relevant work failed. The product should surface the failure and diagnostics rather than searching for unrelated success.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness returns failed run history without a successful completed run.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="last-run-results-report-an-in-progress-latest-run-when-nothing-has-completed" data-title="last run results report an in-progress latest run when nothing has completed" data-category="CLI Product">
+  <div class="section-head">
+    <span>34 · CLI Product</span>
+    <a href="#last-run-results-report-an-in-progress-latest-run-when-nothing-has-completed">#</a>
+  </div>
+  <h2>last run results report an in-progress latest run when nothing has completed</h2>
+  <p class="test-name"><span>Test name</span><code>last run results report an in-progress latest run when nothing has completed</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Async workflows must handle waiting states honestly. Fabricated or premature results would undermine trust.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks for last results when all recent work is still running. The product should report in-progress status instead of pretending results exist.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness returns only in-progress run history.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="last-run-results-select-the-latest-completed-run-and-explain-newer-active-runs" data-title="last run results select the latest completed run and explain newer active runs" data-category="CLI Product">
+  <div class="section-head">
+    <span>35 · CLI Product</span>
+    <a href="#last-run-results-select-the-latest-completed-run-and-explain-newer-active-runs">#</a>
+  </div>
+  <h2>last run results select the latest completed run and explain newer active runs</h2>
+  <p class="test-name"><span>Test name</span><code>last run results select the latest completed run and explain newer active runs</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Users often return after starting work asynchronously. The CLI needs to distinguish a completed result from a newer in-progress run.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks for the last run's results while newer runs may still be active. The product should avoid blending active and completed work.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness provides run history with completed and active runs.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="mixed-source-intake-asks-for-all-sources-and-approval-before-any-build" data-title="mixed-source intake asks for all sources and approval before any build" data-category="CLI Product">
+  <div class="section-head">
+    <span>36 · CLI Product</span>
+    <a href="#mixed-source-intake-asks-for-all-sources-and-approval-before-any-build">#</a>
+  </div>
+  <h2>mixed-source intake asks for all sources and approval before any build</h2>
+  <p class="test-name"><span>Test name</span><code>mixed-source intake asks for all sources and approval before any build</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>mixed-source intake asks for all sources and approval before any build</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
 <article class="briefing-card" id="non-resumable-run-continuation-returns-artifacts-instead-of-crashing" data-title="non-resumable run continuation returns artifacts instead of crashing" data-category="CLI Product">
   <div class="section-head">
-    <span>10 · CLI Product</span>
+    <span>37 · CLI Product</span>
     <a href="#non-resumable-run-continuation-returns-artifacts-instead-of-crashing">#</a>
   </div>
   <h2>non-resumable run continuation returns artifacts instead of crashing</h2>
@@ -344,9 +1072,38 @@
 <li>The final assistant message includes that the run does not have a resumable remote agent session.</li></ul>
   </div>
 </article>
+<article class="briefing-card" id="product-orientation-presents-command-center-identities-without-tools" data-title="product orientation presents command center identities without tools" data-category="CLI Product">
+  <div class="section-head">
+    <span>38 · CLI Product</span>
+    <a href="#product-orientation-presents-command-center-identities-without-tools">#</a>
+  </div>
+  <h2>product orientation presents command center identities without tools</h2>
+  <p class="test-name"><span>Test name</span><code>product orientation presents command center identities without tools</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the top-level product framing. <code>research</code> should explain itself in plain language, with a clear first step and a short list of useful next actions. It should orient the user around the jobs they care about without making them learn product jargon first.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks <code>What can you help me do?</code> before choosing a dataset, file, research question, or run.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The agent answers the orientation question locally. The fake remote client throws if it is called, so the test proves orientation does not require backend planning, tool calls, dashboard state, or run ids.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The answer explains <code>research</code> in simple user language.</li>
+<li>The answer includes one clear <code>Start here</code> command and 3-5 concrete next actions.</li>
+<li>The answer covers dataset creation, dataset inspection/briefing, analysis, and reviewing earlier results.</li>
+<li>The answer avoids implementation-heavy language such as mounted datasets, lifecycle statuses, manifest internals, remote runs, or artifacts.</li></ul>
+  </div>
+</article>
 <article class="briefing-card" id="product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running" data-title="product planning: vague viral tweets request designs scoped experiment before running" data-category="CLI Product">
   <div class="section-head">
-    <span>11 · CLI Product</span>
+    <span>39 · CLI Product</span>
     <a href="#product-planning-vague-viral-tweets-request-designs-scoped-experiment-before-running">#</a>
   </div>
   <h2>A vague viral-tweets question becomes a scoped experiment plan</h2>
@@ -381,7 +1138,7 @@
 </article>
 <article class="briefing-card" id="product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts" data-title="product workflow success: econ research hypothesis creates data environment, specs, scripts, labels, and artifacts" data-category="CLI Product">
   <div class="section-head">
-    <span>12 · CLI Product</span>
+    <span>40 · CLI Product</span>
     <a href="#product-workflow-success-econ-research-hypothesis-creates-data-environment-specs-scripts-labels-and-artifacts">#</a>
   </div>
   <h2>An economics hypothesis runs through the full research workflow</h2>
@@ -412,16 +1169,180 @@
 <li>Final results include table, chart, and markdown artifacts.</li></ul>
   </div>
 </article>
+<article class="briefing-card" id="prompt-mode-busy-dataset-shortcut-shows-age-health-and-clear-actions" data-title="prompt-mode busy dataset shortcut shows age, health, and clear actions" data-category="CLI Product">
+  <div class="section-head">
+    <span>41 · CLI Product</span>
+    <a href="#prompt-mode-busy-dataset-shortcut-shows-age-health-and-clear-actions">#</a>
+  </div>
+  <h2>prompt-mode busy dataset shortcut shows age, health, and clear actions</h2>
+  <p class="test-name"><span>Test name</span><code>prompt-mode busy dataset shortcut shows age, health, and clear actions</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Prompt mode has limited interaction. The single response must help users decide whether to wait, inspect, or cancel.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>In prompt mode, a busy dataset shortcut should summarize the blocking run's age, health, and available actions.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness returns an active blocking run with timestamps.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="prompt-mode-busy-dataset-shortcut-uses-backend-active-runs-before-planning" data-title="prompt-mode busy dataset shortcut uses backend active runs before planning" data-category="CLI Product">
+  <div class="section-head">
+    <span>42 · CLI Product</span>
+    <a href="#prompt-mode-busy-dataset-shortcut-uses-backend-active-runs-before-planning">#</a>
+  </div>
+  <h2>prompt-mode busy dataset shortcut uses backend active runs before planning</h2>
+  <p class="test-name"><span>Test name</span><code>prompt-mode busy dataset shortcut uses backend active runs before planning</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>prompt-mode busy dataset shortcut uses backend active runs before planning</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="prompt-mode-exits-cleanly-after-local-orientation-response" data-title="prompt mode exits cleanly after local orientation response" data-category="CLI Product">
+  <div class="section-head">
+    <span>43 · CLI Product</span>
+    <a href="#prompt-mode-exits-cleanly-after-local-orientation-response">#</a>
+  </div>
+  <h2>prompt mode exits cleanly after local orientation response</h2>
+  <p class="test-name"><span>Test name</span><code>prompt mode exits cleanly after local orientation response</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>prompt mode exits cleanly after local orientation response</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="prompt-mode-exits-cleanly-after-stuck-run-local-diagnosis" data-title="prompt mode exits cleanly after stuck-run local diagnosis" data-category="CLI Product">
+  <div class="section-head">
+    <span>44 · CLI Product</span>
+    <a href="#prompt-mode-exits-cleanly-after-stuck-run-local-diagnosis">#</a>
+  </div>
+  <h2>prompt mode exits cleanly after stuck-run local diagnosis</h2>
+  <p class="test-name"><span>Test name</span><code>prompt mode exits cleanly after stuck-run local diagnosis</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>prompt mode exits cleanly after stuck-run local diagnosis</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="remote-planning-emits-immediate-progress-before-waiting-on-backend-response" data-title="remote planning emits immediate progress before waiting on backend response" data-category="CLI Product">
+  <div class="section-head">
+    <span>45 · CLI Product</span>
+    <a href="#remote-planning-emits-immediate-progress-before-waiting-on-backend-response">#</a>
+  </div>
+  <h2>remote planning emits immediate progress before waiting on backend response</h2>
+  <p class="test-name"><span>Test name</span><code>remote planning emits immediate progress before waiting on backend response</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Silent waits feel like hangs. The product needs responsive terminal behavior even when the backend model or planner is still working.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>When a remote planning request may take several seconds, the CLI should emit immediate progress so the user knows work has started.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness delays the remote planning response and observes emitted messages.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="remote-transport-failures-surface-a-concise-blocked-summary" data-title="remote transport failures surface a concise blocked summary" data-category="CLI Product">
+  <div class="section-head">
+    <span>46 · CLI Product</span>
+    <a href="#remote-transport-failures-surface-a-concise-blocked-summary">#</a>
+  </div>
+  <h2>remote transport failures surface a concise blocked summary</h2>
+  <p class="test-name"><span>Test name</span><code>remote transport failures surface a concise blocked summary</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>remote transport failures surface a concise blocked summary</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
 <article class="briefing-card" id="run-debug-bundle-classifies-worker-unreachable-state-as-lifecycle-uncertain" data-title="run debug bundle classifies worker-unreachable state as lifecycle-uncertain" data-category="CLI Product">
   <div class="section-head">
-    <span>13 · CLI Product</span>
+    <span>47 · CLI Product</span>
     <a href="#run-debug-bundle-classifies-worker-unreachable-state-as-lifecycle-uncertain">#</a>
   </div>
   <h2>run debug bundle classifies worker-unreachable state as lifecycle-uncertain</h2>
   <p class="test-name"><span>Test name</span><code>run debug bundle classifies worker-unreachable state as lifecycle-uncertain</code></p>
   <div class="why-block">
     <h3>Why This Test</h3>
-    <p>Remote workers can lose callback connectivity to the backend even when execution state on the droplet or dataset volume may still contain useful evidence. Treating that transport loss as a normal <code>failed</code> run hides the real lifecycle question.</p>
+    <p>Remote workers can lose callback connectivity to the backend even when execution state in the Modal runner or dataset storage may still contain useful evidence. Treating that transport loss as a normal <code>failed</code> run hides the real lifecycle question.</p>
 <p>This test protects the source-of-truth model: backend run status, durable worker state, and dataset artifacts need reconciliation before lifecycle-uncertain runs are classified as product failures.</p>
   </div>
   <div class="two-col">
@@ -445,7 +1366,7 @@
 </article>
 <article class="briefing-card" id="run-debug-bundle-redacts-session-token-and-includes-remote-evidence" data-title="run debug bundle redacts session token and includes remote evidence" data-category="CLI Product">
   <div class="section-head">
-    <span>14 · CLI Product</span>
+    <span>48 · CLI Product</span>
     <a href="#run-debug-bundle-redacts-session-token-and-includes-remote-evidence">#</a>
   </div>
   <h2>Run debug bundles preserve evidence without leaking tokens</h2>
@@ -473,39 +1394,193 @@
 <li>Events and run evidence are included.</li></ul>
   </div>
 </article>
-<article class="briefing-card" id="run-result-retrieval-includes-original-prompt-and-artifacts" data-title="run result retrieval includes original prompt and artifacts" data-category="CLI Product">
+<article class="briefing-card" id="run-result-retrieval-includes-selected-run-context-and-artifacts" data-title="run result retrieval includes selected run context and artifacts" data-category="CLI Product">
   <div class="section-head">
-    <span>15 · CLI Product</span>
-    <a href="#run-result-retrieval-includes-original-prompt-and-artifacts">#</a>
+    <span>49 · CLI Product</span>
+    <a href="#run-result-retrieval-includes-selected-run-context-and-artifacts">#</a>
   </div>
-  <h2>Run results include the original request and saved artifacts</h2>
-  <p class="test-name"><span>Test name</span><code>run result retrieval includes original prompt and artifacts</code></p>
+  <h2>run result retrieval includes selected run context and artifacts</h2>
+  <p class="test-name"><span>Test name</span><code>run result retrieval includes selected run context and artifacts</code></p>
   <div class="why-block">
     <h3>Why This Test</h3>
-    <p>This protects the result-reading experience. Users should understand what a completed run did and what artifacts were produced without manually reconstructing context.</p>
+    <p>Run ids are only useful if the CLI turns them back into understandable research outputs. Artifact context is part of the product result.</p>
   </div>
   <div class="two-col">
     <div>
       <h3>Product Use</h3>
-      <p>A user asks to see the result of a previous run.</p>
+      <p>A user asks for results from a specific run. The product should present the selected run, original request, key results, artifacts, and dashboard link.</p>
     </div>
     <div>
       <h3>Actions Taken</h3>
-      <p>The product retrieves the run result bundle and turns it into a readable report. It includes the original request, summarizes structured result fields, explains saved artifacts, and suggests grounded next steps.</p>
+      <p>The harness returns a completed run with events, artifacts, and result content.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
-    <ul><li>The original run prompt is shown.</li>
-<li>Structured row-count evidence is summarized.</li>
-<li>Artifacts are described as saved run outputs.</li>
-<li>Suggested follow-ups are included.</li>
-<li>The user is not shown an undigested raw JSON dump.</li></ul>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="signed-out-composer-placeholder-is-contextual" data-title="signed-out composer placeholder is contextual" data-category="CLI Product">
+  <div class="section-head">
+    <span>50 · CLI Product</span>
+    <a href="#signed-out-composer-placeholder-is-contextual">#</a>
+  </div>
+  <h2>signed-out composer placeholder is contextual</h2>
+  <p class="test-name"><span>Test name</span><code>signed-out composer placeholder is contextual</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The first empty-state text is part of the product surface. If it suggests unavailable remote actions while signed out, the user can start with a failing path.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>The composer placeholder changes based on whether the user is signed in. Signed-out users need a prompt that points them toward sign-in or local dataset questions; signed-in users can be invited to ask about datasets, runs, or artifacts.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The test calls the placeholder helper with no session and with a valid session.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="signed-out-remote-dataset-request-explains-auth-recovery-and-preserves-intent" data-title="signed-out remote dataset request explains auth recovery and preserves intent" data-category="CLI Product">
+  <div class="section-head">
+    <span>51 · CLI Product</span>
+    <a href="#signed-out-remote-dataset-request-explains-auth-recovery-and-preserves-intent">#</a>
+  </div>
+  <h2>signed-out remote dataset request explains auth recovery and preserves intent</h2>
+  <p class="test-name"><span>Test name</span><code>signed-out remote dataset request explains auth recovery and preserves intent</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Remote catalog access depends on authentication. A confusing auth failure would make onboarding feel broken, especially for users who do not know whether the CLI is local-only or connected to Alpha Research.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A signed-out user asks to view remote datasets. The product should not attempt remote catalog calls without a session, and it should preserve the user's original intent so the same request can be retried after login.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness runs a remote dataset request without a saved session and observes the assistant response.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="specific-viral-tweets-experiment-blocks-clearly-when-the-named-dataset-is-not-ready" data-title="specific viral tweets experiment blocks clearly when the named dataset is not ready" data-category="CLI Product">
+  <div class="section-head">
+    <span>52 · CLI Product</span>
+    <a href="#specific-viral-tweets-experiment-blocks-clearly-when-the-named-dataset-is-not-ready">#</a>
+  </div>
+  <h2>specific viral tweets experiment blocks clearly when the named dataset is not ready</h2>
+  <p class="test-name"><span>Test name</span><code>specific viral tweets experiment blocks clearly when the named dataset is not ready</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>specific viral tweets experiment blocks clearly when the named dataset is not ready</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="specific-viral-tweets-experiment-starts-with-user-facing-analysis-summary-and-artifact-expectations" data-title="specific viral tweets experiment starts with user-facing analysis summary and artifact expectations" data-category="CLI Product">
+  <div class="section-head">
+    <span>53 · CLI Product</span>
+    <a href="#specific-viral-tweets-experiment-starts-with-user-facing-analysis-summary-and-artifact-expectations">#</a>
+  </div>
+  <h2>specific viral tweets experiment starts with user-facing analysis summary and artifact expectations</h2>
+  <p class="test-name"><span>Test name</span><code>specific viral tweets experiment starts with user-facing analysis summary and artifact expectations</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>For well-scoped research work, the CLI should move directly into execution while keeping the user informed about outputs and monitoring links.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user provides a specific viral-tweets experiment. The product should start the remote run and clearly summarize what analysis and artifacts were requested.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness asks for a concrete viral-tweets experiment with dataset, metric, sample, labels, and outputs.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="stuck-run-question-escalates-stale-running-run-to-debug-now" data-title="stuck run question escalates stale running run to debug now" data-category="CLI Product">
+  <div class="section-head">
+    <span>54 · CLI Product</span>
+    <a href="#stuck-run-question-escalates-stale-running-run-to-debug-now">#</a>
+  </div>
+  <h2>stuck run question escalates stale running run to debug now</h2>
+  <p class="test-name"><span>Test name</span><code>stuck run question escalates stale running run to debug now</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Long-running work can fail silently. The CLI should distinguish normal boot time from stale execution that needs diagnostics.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks about a stale running run. The product should escalate to debugging when the run has not updated recently.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness provides a running run with an old update timestamp.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="stuck-run-question-explains-fresh-booting-run-in-plain-language" data-title="stuck run question explains fresh booting run in plain language" data-category="CLI Product">
+  <div class="section-head">
+    <span>55 · CLI Product</span>
+    <a href="#stuck-run-question-explains-fresh-booting-run-in-plain-language">#</a>
+  </div>
+  <h2>stuck run question explains fresh booting run in plain language</h2>
+  <p class="test-name"><span>Test name</span><code>stuck run question explains fresh booting run in plain language</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Prematurely calling fresh provisioning stuck creates noise. Users need calibrated status based on age and state.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks whether a fresh booting run is stuck. The product should explain that booting can be normal before escalating.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness provides a recently updated booting run and asks a stuck-run question.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
   </div>
 </article>
 <article class="briefing-card" id="symphony-case-econ-housing-cycle-dataset-build" data-title="symphony case: econ housing cycle dataset build" data-category="Symphony Case">
   <div class="section-head">
-    <span>16 · Symphony Case</span>
+    <span>56 · Symphony Case</span>
     <a href="#symphony-case-econ-housing-cycle-dataset-build">#</a>
   </div>
   <h2>Housing-cycle dataset requests become concrete environment plans</h2>
@@ -536,7 +1611,7 @@
 </article>
 <article class="briefing-card" id="symphony-case-viral-tweets-experiment-planning" data-title="symphony case: viral tweets experiment planning" data-category="Symphony Case">
   <div class="section-head">
-    <span>17 · Symphony Case</span>
+    <span>57 · Symphony Case</span>
     <a href="#symphony-case-viral-tweets-experiment-planning">#</a>
   </div>
   <h2>Viral tweet experiments are planned before work starts</h2>
@@ -552,24 +1627,25 @@
     </div>
     <div>
       <h3>Actions Taken</h3>
-      <p>The product finds <code>enriched-tweets</code> and proposes a scoped experiment design before launching work.</p>
+      <p>The product lists remote datasets, inspects <code>enriched-tweets</code>, and proposes a scoped experiment design before launching work.</p>
     </div>
   </div>
   <div class="assertions">
     <h3>Assertions Made</h3>
     <ul><li>Existing datasets are listed.</li>
+<li>The selected tweets dataset is inspected before the plan is proposed.</li>
 <li>The response names <code>enriched-tweets</code>.</li>
 <li>Viral tweets are defined as the top <code>0.1%</code> by <code>quote_tweet_count</code>.</li>
 <li>The plan samples <code>100</code> random viral tweets.</li>
-<li>The plan uses strict JSON labeling.</li>
-<li>Visualizations and control-group alternatives are mentioned.</li>
-<li>The product asks whether to proceed.</li>
+<li>The plan labels <code>hook_type</code>, <code>emotional_tone</code>, and <code>controversy_level</code>.</li>
+<li>Bar charts and representative examples are included in the expected outputs.</li>
+<li>The product asks the user to choose a virality rule and waits for approval before starting a run.</li>
 <li>Query, run-start, labeling, and agent-run tools are not called.</li></ul>
   </div>
 </article>
 <article class="briefing-card" id="test-slow-econ-discover" data-title="test:slow:econ:discover" data-category="Slow E2E">
   <div class="section-head">
-    <span>18 · Slow E2E</span>
+    <span>58 · Slow E2E</span>
     <a href="#test-slow-econ-discover">#</a>
   </div>
   <h2>Economics discovery classifies source fetchability</h2>
@@ -604,7 +1680,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-environment" data-title="test:slow:econ:environment" data-category="Slow E2E">
   <div class="section-head">
-    <span>19 · Slow E2E</span>
+    <span>59 · Slow E2E</span>
     <a href="#test-slow-econ-environment">#</a>
   </div>
   <h2>The economics environment builds end to end</h2>
@@ -639,7 +1715,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-hypothesis" data-title="test:slow:econ:hypothesis" data-category="Slow E2E">
   <div class="section-head">
-    <span>20 · Slow E2E</span>
+    <span>60 · Slow E2E</span>
     <a href="#test-slow-econ-hypothesis">#</a>
   </div>
   <h2>The economics dataset supports hypothesis analysis</h2>
@@ -671,7 +1747,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-normalization-execution" data-title="test:slow:econ:normalization-execution" data-category="Slow E2E">
   <div class="section-head">
-    <span>21 · Slow E2E</span>
+    <span>61 · Slow E2E</span>
     <a href="#test-slow-econ-normalization-execution">#</a>
   </div>
   <h2>Economics normalization produces validated tables</h2>
@@ -709,7 +1785,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ-normalization-plan" data-title="test:slow:econ:normalization-plan" data-category="Slow E2E">
   <div class="section-head">
-    <span>22 · Slow E2E</span>
+    <span>62 · Slow E2E</span>
     <a href="#test-slow-econ-normalization-plan">#</a>
   </div>
   <h2>Economics discovery becomes an executable normalization plan</h2>
@@ -744,7 +1820,7 @@
 </article>
 <article class="briefing-card" id="test-slow-econ" data-title="test:slow:econ" data-category="Slow E2E">
   <div class="section-head">
-    <span>23 · Slow E2E</span>
+    <span>63 · Slow E2E</span>
     <a href="#test-slow-econ">#</a>
   </div>
   <h2>The staged economics journey works as a suite</h2>
@@ -778,7 +1854,7 @@
 </article>
 <article class="briefing-card" id="test-slow-tweets" data-title="test:slow:tweets" data-category="Slow E2E">
   <div class="section-head">
-    <span>24 · Slow E2E</span>
+    <span>64 · Slow E2E</span>
     <a href="#test-slow-tweets">#</a>
   </div>
   <h2>The viral tweets workflow uses mounted enriched-tweets data</h2>
@@ -814,7 +1890,7 @@
 </article>
 <article class="briefing-card" id="test-slow" data-title="test:slow" data-category="Slow E2E">
   <div class="section-head">
-    <span>25 · Slow E2E</span>
+    <span>65 · Slow E2E</span>
     <a href="#test-slow">#</a>
   </div>
   <h2>The full slow product suite completes</h2>
@@ -842,7 +1918,7 @@
 </article>
 <article class="briefing-card" id="tool-registry-is-structurally-valid-and-serializable" data-title="tool registry is structurally valid and serializable" data-category="Registry Contract">
   <div class="section-head">
-    <span>26 · Registry Contract</span>
+    <span>66 · Registry Contract</span>
     <a href="#tool-registry-is-structurally-valid-and-serializable">#</a>
   </div>
   <h2>The tool registry stays stable for product actions</h2>
@@ -871,7 +1947,7 @@
 </article>
 <article class="briefing-card" id="tool-registry-metadata-exposes-async-run-start-tools" data-title="tool registry metadata exposes async run-start tools" data-category="Registry Contract">
   <div class="section-head">
-    <span>27 · Registry Contract</span>
+    <span>67 · Registry Contract</span>
     <a href="#tool-registry-metadata-exposes-async-run-start-tools">#</a>
   </div>
   <h2>Async run-start tools are marked for progress tracking</h2>
@@ -898,7 +1974,7 @@
 </article>
 <article class="briefing-card" id="unauthenticated-local-run-request-bypasses-remote-planning" data-title="unauthenticated local run request bypasses remote planning" data-category="CLI Product">
   <div class="section-head">
-    <span>28 · CLI Product</span>
+    <span>68 · CLI Product</span>
     <a href="#unauthenticated-local-run-request-bypasses-remote-planning">#</a>
   </div>
   <h2>Local run status works without sign-in</h2>
@@ -924,9 +2000,122 @@
 <li>The request is handled without remote planning.</li></ul>
   </div>
 </article>
+<article class="briefing-card" id="uploaded-dataset-deployment-flow-uses-user-facing-stage-updates-and-upload-progress" data-title="uploaded dataset deployment flow uses user-facing stage updates and upload progress" data-category="CLI Product">
+  <div class="section-head">
+    <span>69 · CLI Product</span>
+    <a href="#uploaded-dataset-deployment-flow-uses-user-facing-stage-updates-and-upload-progress">#</a>
+  </div>
+  <h2>uploaded dataset deployment flow uses user-facing stage updates and upload progress</h2>
+  <p class="test-name"><span>Test name</span><code>uploaded dataset deployment flow uses user-facing stage updates and upload progress</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>File upload and deployment can take time. Users need progress, verification, and a run id without being exposed to internal tool names.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user uploads a local file and deploys it as a dataset. The product should show each lifecycle stage in human language.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness creates a temporary CSV, resolves it, profiles it, registers the dataset, uploads it through a presigned URL, verifies completion, and starts deployment.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="vague-dataset-interesting-request-gives-a-concise-briefing-and-focused-choice-without-starting-a-run" data-title="vague dataset interesting request gives a concise briefing and focused choice without starting a run" data-category="CLI Product">
+  <div class="section-head">
+    <span>70 · CLI Product</span>
+    <a href="#vague-dataset-interesting-request-gives-a-concise-briefing-and-focused-choice-without-starting-a-run">#</a>
+  </div>
+  <h2>vague dataset interesting request gives a concise briefing and focused choice without starting a run</h2>
+  <p class="test-name"><span>Test name</span><code>vague dataset interesting request gives a concise briefing and focused choice without starting a run</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>Open-ended exploration can become costly and unfocused. The CLI should turn ambiguity into a focused choice or briefing.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks what is interesting in a dataset without a research question. The product should not launch broad expensive analysis by default.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The harness asks an intentionally vague dataset-interesting question.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul></ul>
+  </div>
+</article>
+<article class="briefing-card" id="vague-housing-risk-request-asks-scope-before-costly-work" data-title="vague housing risk request asks scope before costly work" data-category="CLI Product">
+  <div class="section-head">
+    <span>71 · CLI Product</span>
+    <a href="#vague-housing-risk-request-asks-scope-before-costly-work">#</a>
+  </div>
+  <h2>vague housing risk request asks scope before costly work</h2>
+  <p class="test-name"><span>Test name</span><code>vague housing risk request asks scope before costly work</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>This protects the research-designer identity. A vague research question should slow the product down before it spends time or money. The agent should turn ambiguity into a small scoping choice instead of launching a broad public-data build or analysis run.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>A user asks whether the housing market is in trouble without specifying geography, outcome, time range, or depth of analysis.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The agent receives a broad housing-risk prompt. The fake remote client throws if called, so the test proves the response is a clarification/design step rather than an accidental remote workflow.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The answer asks whether the user means the U.S. housing market.</li>
+<li>The answer asks for the smallest scoping decision before work starts.</li>
+<li>The answer offers a concrete geography choice such as national vs metro/region.</li>
+<li>The answer distinguishes a quick current-state read from a deeper risk analysis.</li>
+<li>The answer asks what &quot;in trouble&quot; should mean, with options such as affordability stress, price decline risk, weak demand/inventory imbalance, or credit stress.</li>
+<li>The answer names concrete operational dimensions such as affordability, mortgage rates, prices, inventory, delinquencies, employment, regional differences, and price/rent divergence.</li>
+<li>No run, queue, or dashboard language appears.</li>
+<li>No remote tool planning occurs before scope is chosen.</li></ul>
+  </div>
+</article>
+<article class="briefing-card" id="viral-tweets-proposal-follow-up-starts-when-the-suggested-dataset-and-scope-are-confirmed" data-title="viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed" data-category="CLI Product">
+  <div class="section-head">
+    <span>72 · CLI Product</span>
+    <a href="#viral-tweets-proposal-follow-up-starts-when-the-suggested-dataset-and-scope-are-confirmed">#</a>
+  </div>
+  <h2>viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed</h2>
+  <p class="test-name"><span>Test name</span><code>viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed</code></p>
+  <div class="why-block">
+    <h3>Why This Test</h3>
+    <p>The scenario protects a user-facing contract in the research CLI. It keeps the product response understandable, avoids accidental remote work, and makes sure the user sees the right state, artifact, or recovery guidance for this workflow.</p>
+  </div>
+  <div class="two-col">
+    <div>
+      <h3>Product Use</h3>
+      <p>This product test exercises the CLI behavior for <code>viral tweets proposal follow-up starts when the suggested dataset and scope are confirmed</code> from the user's point of view.</p>
+    </div>
+    <div>
+      <h3>Actions Taken</h3>
+      <p>The deterministic harness simulates the relevant CLI request and backend state. It then runs the local product logic or tool flow that should handle the request without relying on live services.</p>
+    </div>
+  </div>
+  <div class="assertions">
+    <h3>Assertions Made</h3>
+    <ul><li>The CLI chooses the intended product behavior for this scenario.</li>
+<li>User-facing text includes the important state, action, artifact, or recovery detail.</li>
+<li>The flow avoids unrelated remote calls, duplicate work, raw internals, or missing handoff information.</li></ul>
+  </div>
+</article>
 <article class="briefing-card" id="wait-for-run-completion-can-time-out-deterministically" data-title="wait for run completion can time out deterministically" data-category="CLI Product">
   <div class="section-head">
-    <span>29 · CLI Product</span>
+    <span>73 · CLI Product</span>
     <a href="#wait-for-run-completion-can-time-out-deterministically">#</a>
   </div>
   <h2>Waiting on a run reports still-running state clearly</h2>

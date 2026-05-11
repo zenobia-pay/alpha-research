@@ -192,22 +192,22 @@ The local runtime serves sharded dataset packages from `DATASET_INSTANCE_ROOT`, 
 - Postgres for the metadata catalog
 - Qdrant on local NVMe for vector retrieval
 - optional keyword index in Typesense, Meilisearch, or OpenSearch
-- DigitalOcean volumes as the attached normalized-cache layer for ingest and serving droplets
+- Modal worker scratch and object-storage hydration for ingest and serving jobs
 
 The intended remote ingest flow is:
 
 1. user signs in through `research`
 2. CLI sends planning/orchestration requests to Alpha Research backend
-3. backend schedules dataset normalization on a droplet with a mounted DigitalOcean volume
-4. ingest writes the normalized manifest plus shard set onto that mounted volume
-5. serving/orchestrator droplets attach the same volume or hydrate from object storage as needed
-6. the volume-backed normalized package is then mirrored or promoted into canonical object storage
+3. backend schedules dataset normalization on a Modal runner with profile-specific scratch
+4. ingest writes raw snapshots, manifests, shard sets, and artifacts into object storage
+5. serving/orchestrator jobs hydrate the needed partitions from object storage as needed
+6. the object-storage package becomes the canonical source for later runs
 
 The local package format is still the bridge between ingest and production:
 
 1. normalize a source file with `apps/ingest`
 2. write a manifest plus shard set under `data/instances/<instance-id>/`
-3. treat that format as the same shape the remote ingest job will place onto the attached volume
+3. treat that format as the same shape the remote ingest job will publish to object storage
 4. optionally mirror that package into object storage for long-term canonical storage
 
 ## Testing
@@ -267,18 +267,16 @@ The storage model is documented in [docs/storage-architecture.md](docs/storage-a
 
 The RESEARCH CLI login flow targets `https://alpharesearch.nyc/cli/login` by default and stores the session locally in `~/.research/session.json`. Once signed in, the CLI should use the Alpha Research backend for planning instead of relying on a local `OPENAI_API_KEY`. See [docs/cli-auth.md](docs/cli-auth.md).
 
-## DigitalOcean Deployment
+## Modal Deployment
 
 The recommended production topology is:
 
 - one object storage bucket for canonical dataset packages
 - one Postgres instance for dataset catalog and shard metadata
-- one Qdrant droplet with local NVMe for vector search
-- one API/orchestrator droplet that reads from a local shard cache or synchronized object-store mirror
-- one optional ingest/worker droplet for heavier normalization or scheduled refreshes
-- one frontend deployment, either:
-  - static assets on a small droplet behind Nginx, or
-  - object storage/CDN if you want the frontend completely decoupled
+- managed Qdrant or a dedicated retrieval worker with local NVMe
+- API/orchestrator services that read from object storage and local cache
+- Modal workers for heavier normalization, scheduled refreshes, and remote research runs
+- one frontend deployment, typically static assets on object storage/CDN
 
 The current architecture works especially well when:
 
@@ -287,7 +285,7 @@ The current architecture works especially well when:
 - API nodes stay stateless apart from a local package cache
 - vector retrieval needs Qdrant performance characteristics instead of block storage
 
-See [ops/digitalocean/README.md](ops/digitalocean/README.md) for the concrete layout and service templates.
+See [docs/INFRASTRUCTURE_TARGET.md](docs/INFRASTRUCTURE_TARGET.md) for the current infrastructure target.
 
 ## Initial Direction
 

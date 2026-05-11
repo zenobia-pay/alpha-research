@@ -11,7 +11,7 @@ This repo contains the RESEARCH CLI and the dataset substrate it operates over. 
 - `packages/core`: dataset records, query, aggregation, and text projection contracts.
 - `packages/storage`: sharded manifest loading and local instance storage.
 - `packages/fixture`: small demo datasets for deterministic local testing.
-- `ops/digitalocean`: production service notes for the DigitalOcean API/frontend stack.
+- `ops/modal`: production service notes for the Modal-backed remote runner stack.
 
 ## Important CLI Entry Points
 
@@ -56,13 +56,13 @@ When a remote run fails or appears stuck:
 3. If you need a file, run `research debug run <run-id> --output /tmp/research-run-debug.json`.
 4. Inspect `remote.run`, `remote.results`, `remote.events`, `remote.artifacts`, and `trackedRun`.
 
-The debug command redacts the session token and uses the saved CLI session. It should be the first diagnostic step before guessing about DigitalOcean, dashboard, or remote-agent failures.
+The debug command redacts the session token and uses the saved CLI session. It should be the first diagnostic step before guessing about Modal runner state, dashboard state, or remote-agent failures.
 
 ## Engineering Rules
 
 - Preserve `research`, `research help`, and `research --prompt "<prompt>"` behavior.
 - Do not require a local `OPENAI_API_KEY` for normal CLI agent turns; model calls go through the backend.
-- Keep deterministic tests offline. Live Alpha Research or DigitalOcean checks must be explicit opt-in smoke tests.
+- Keep deterministic tests offline. Live Alpha Research, Modal, or object-storage checks must be explicit opt-in smoke tests.
 - Keep tool schemas serializable and validate them with `npm run harness:check`.
 - Run `npm run agent:check` before shipping broad harness, CLI, API, frontend, or deployment changes.
 - If a change touches run lifecycle semantics, update `docs/RUN_LIFECYCLE.md`.

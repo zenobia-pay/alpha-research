@@ -26,7 +26,10 @@ const canonicalDatasets = canonicalDatasetIds.map((id) => ({ id, name: id }));
 
 const CANONICAL_PUBLIC_RESOURCES = {
   profile: "canonical-public",
-  runnerSize: "s-4vcpu-8gb",
+  backend: "modal",
+  resourceProfile: "canonical-public",
+  cpu: 4,
+  memoryGb: 8,
   workspaceDiskGb: 50,
   storageMode: "object-store-versioned",
   datasetAccess: "write-version",

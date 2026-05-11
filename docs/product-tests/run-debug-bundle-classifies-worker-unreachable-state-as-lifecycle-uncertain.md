@@ -8,7 +8,7 @@ The debug command should preserve this distinction so the engineer knows to reco
 
 ## Why This Test
 
-Remote workers can lose callback connectivity to the backend even when execution state on the droplet or dataset volume may still contain useful evidence. Treating that transport loss as a normal `failed` run hides the real lifecycle question.
+Remote workers can lose callback connectivity to the backend even when execution state in the Modal runner or dataset storage may still contain useful evidence. Treating that transport loss as a normal `failed` run hides the real lifecycle question.
 
 This test protects the source-of-truth model: backend run status, durable worker state, and dataset artifacts need reconciliation before lifecycle-uncertain runs are classified as product failures.
 

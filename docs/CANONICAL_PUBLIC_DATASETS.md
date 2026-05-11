@@ -1,10 +1,10 @@
 # Canonical Public Datasets
 
-This plan defines evergreen, public Alpha Research datasets for broad humanities and social-science fields. Each canonical dataset is a durable research environment, not a one-off analysis run.
+This plan defines the evergreen public Alpha Research economics dataset. The canonical dataset is a durable research environment, not a one-off analysis run.
 
 ## Product Contract
 
-- Canonical datasets use short, human names and stable ids: `econ`, `philosophy`, `sociology`, etc.
+- The canonical public dataset uses the short, stable id `econ`.
 - They are public by default. Private uploads can join a research run, but should not mutate the canonical public dataset.
 - Each dataset has a source registry, raw source files/API responses, data dictionary, quality report, raw inventory, and dataset briefing.
 - Each dataset has a download inventory and raw inventory that explain exactly what was fetched, when, from where, and what native shape the raw source data has.
@@ -14,7 +14,7 @@ This plan defines evergreen, public Alpha Research datasets for broad humanities
 
 ## Daily Job Shape
 
-For every canonical dataset, schedule two jobs:
+For the canonical `econ` dataset, schedule these jobs:
 
 1. `refresh`
    - Fetch from active public sources.
@@ -51,7 +51,7 @@ Every canonical refresh must make provenance inspectable without reading agent t
    - Do not ingest newly discovered sources automatically unless they are clearly public, stable, machine-fetchable, and compatible with the dataset license.
 
 3. `improve`
-   - Start one remote Codex run per ready canonical dataset using `npm run canonical:improve`.
+   - Start one remote Codex run for `econ` using `npm run canonical:improve`.
    - Inspect the mounted dataset, manifest, source registry, data dictionary, quality report, briefing, and previous improvement artifacts.
    - Search the internet with Exa using the remote `EXA_API_KEY`.
    - Classify newly discovered candidate sources as `active_fetchable`, `deferred_fetchable`, `license_review`, `credential_required`, `not_found`, or `reject`.
@@ -106,239 +106,15 @@ Priority raw source families:
 - Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
 
 
-### Sociology (`sociology`)
-
-Purpose: social structure, inequality, demographics, institutions, family, work, religion, politics, mobility, health, and social attitudes.
-
-Recommended starting sources:
-
-- General Social Survey: https://gss.norc.org/
-- IPUMS USA: https://usa.ipums.org/usa/
-- IPUMS CPS: https://cps.ipums.org/cps/
-- American Community Survey: https://www.census.gov/programs-surveys/acs/data.html
-- Current Population Survey: https://www.census.gov/programs-surveys/cps.html
-- Panel Study of Income Dynamics: https://psidonline.isr.umich.edu/
-- National Longitudinal Surveys: https://www.nlsinfo.org/
-- Add Health: https://addhealth.cpc.unc.edu/
-- World Values Survey: https://www.worldvaluessurvey.org/
-- European Social Survey: https://www.europeansocialsurvey.org/
-- Pew Research Center: https://www.pewresearch.org/
-- ANES: https://electionstudies.org/
-- ICPSR: https://www.icpsr.umich.edu/
-- OpenICPSR: https://www.openicpsr.org/
-- Our World in Data: https://ourworldindata.org/
-- OECD Data Explorer: https://data-explorer.oecd.org/
-- World Bank Data: https://data.worldbank.org/
-- CDC data: https://data.cdc.gov/
-- Bureau of Justice Statistics: https://bjs.ojp.gov/data
-- FBI Crime Data Explorer: https://cde.ucr.cjis.gov/
-
-Priority raw source families:
-
-- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
-- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
-- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
-
-
-### Philosophy (`philosophy`)
-
-Purpose: canonical texts, contemporary papers, concepts, argument structures, author networks, bibliographic metadata, and teaching/research corpora.
-
-Recommended starting sources:
-
-- Stanford Encyclopedia of Philosophy: https://plato.stanford.edu/
-- Internet Encyclopedia of Philosophy: https://iep.utm.edu/
-- PhilPapers: https://philpapers.org/
-- PhilArchive: https://philarchive.org/
-- Open Syllabus: https://opensyllabus.org/
-- HathiTrust Research Center: https://analytics.hathitrust.org/
-- Project Gutenberg philosophy bookshelf: https://www.gutenberg.org/ebooks/bookshelf/57
-- Perseus Digital Library: https://www.perseus.tufts.edu/
-- Wikidata philosophy entities: https://www.wikidata.org/
-- DBpedia: https://www.dbpedia.org/
-- OpenAlex works/authors: https://openalex.org/
-- Crossref: https://www.crossref.org/
-- CORE: https://core.ac.uk/
-- Semantic Scholar: https://www.semanticscholar.org/
-- Internet Archive texts: https://archive.org/details/texts
-
-Priority raw source families:
-
-- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
-- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
-- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
-
-
-### History (`history`)
-
-Purpose: primary-source corpora, historical newspapers, census and demographic series, event chronologies, geographies, and historiographic metadata.
-
-Recommended starting sources:
-
-- Library of Congress digital collections: https://www.loc.gov/collections/
-- Chronicling America: https://chroniclingamerica.loc.gov/
-- National Archives catalog: https://catalog.archives.gov/
-- Digital Public Library of America: https://dp.la/
-- HathiTrust Research Center: https://analytics.hathitrust.org/
-- Internet Archive texts: https://archive.org/details/texts
-- Europeana: https://www.europeana.eu/
-- Wikidata historical entities: https://www.wikidata.org/
-- World Historical Gazetteer: https://whgazetteer.org/
-- IPUMS NHGIS: https://www.nhgis.org/
-- Census historical data: https://www.census.gov/history/www/reference/data/
-- Our World in Data: https://ourworldindata.org/
-- Clio Infra: https://clio-infra.eu/
-- OpenHistoricalMap: https://www.openhistoricalmap.org/
-
-Priority raw source families:
-
-- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
-- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
-- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
-
-
-### Literature (`literature`)
-
-Purpose: public-domain texts, bibliographic metadata, authorship, genre, reception, editions, literary movements, and computational text-analysis corpora.
-
-Recommended starting sources:
-
-- Project Gutenberg: https://www.gutenberg.org/
-- Internet Archive texts: https://archive.org/details/texts
-- HathiTrust Research Center: https://analytics.hathitrust.org/
-- Open Library: https://openlibrary.org/developers/api
-- Library of Congress: https://www.loc.gov/apis/
-- Wikidata literary works/authors: https://www.wikidata.org/
-- OpenAlex: https://openalex.org/
-- Crossref: https://www.crossref.org/
-- Europeana: https://www.europeana.eu/
-- Perseus Digital Library: https://www.perseus.tufts.edu/
-- TextGrid Repository: https://textgridrep.org/
-- Early English Books Online TCP: https://textcreationpartnership.org/tcp-texts/eebo-tcp-early-english-books-online/
-
-Priority raw source families:
-
-- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
-- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
-- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
-
-
-### Political Science (`political-science`)
-
-Purpose: elections, public opinion, institutions, legislation, conflict, international relations, political economy, and comparative politics.
-
-Recommended starting sources:
-
-- ANES: https://electionstudies.org/
-- Comparative Study of Electoral Systems: https://cses.org/
-- MIT Election Data and Science Lab: https://electionlab.mit.edu/data
-- Voteview: https://voteview.com/data
-- Congress.gov: https://www.congress.gov/
-- GovInfo: https://www.govinfo.gov/
-- FEC data: https://www.fec.gov/data/
-- OpenSecrets: https://www.opensecrets.org/
-- Manifesto Project: https://manifesto-project.wzb.eu/
-- V-Dem: https://www.v-dem.net/
-- Polity Project: https://www.systemicpeace.org/polityproject.html
-- World Bank Governance Indicators: https://www.worldbank.org/en/publication/worldwide-governance-indicators
-- UCDP: https://ucdp.uu.se/
-- Correlates of War: https://correlatesofwar.org/
-- ICEWS Dataverse: https://dataverse.harvard.edu/dataverse/icews
-
-Priority raw source families:
-
-- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
-- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
-- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
-
-
-### Anthropology (`anthropology`)
-
-Purpose: ethnographic metadata, cultural traits, language, archaeology, human geography, kinship, migration, and material culture.
-
-Recommended starting sources:
-
-- eHRAF World Cultures: https://hraf.yale.edu/products/ehraf-world-cultures/
-- eHRAF Archaeology: https://hraf.yale.edu/products/ehraf-archaeology/
-- D-PLACE: https://d-place.org/
-- Human Relations Area Files: https://hraf.yale.edu/
-- Glottolog: https://glottolog.org/
-- Ethnologue public language metadata: https://www.ethnologue.com/
-- WALS: https://wals.info/
-- Open Context archaeology data: https://opencontext.org/
-- tDAR: https://www.tdar.org/
-- ARIADNEplus: https://ariadne-infrastructure.eu/
-- Smithsonian collections: https://www.si.edu/openaccess
-- GBIF for human-environment context: https://www.gbif.org/
-
-Priority raw source families:
-
-- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
-- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
-- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
-
-
-### Linguistics (`linguistics`)
-
-Purpose: languages, typology, corpora, phonology, syntax, lexical resources, language families, and endangered-language documentation.
-
-Recommended starting sources:
-
-- Glottolog: https://glottolog.org/
-- WALS: https://wals.info/
-- PHOIBLE: https://phoible.org/
-- CLDF datasets: https://cldf.clld.org/
-- Lexibank: https://lexibank.clld.org/
-- Universal Dependencies: https://universaldependencies.org/
-- CHILDES/TalkBank: https://childes.talkbank.org/
-- Common Voice: https://commonvoice.mozilla.org/
-- OLAC: http://www.language-archives.org/
-- ELAR: https://www.elararchive.org/
-- PARADISEC: https://www.paradisec.org.au/
-- Leipzig Corpora Collection: https://wortschatz.uni-leipzig.de/en/download
-
-Priority raw source families:
-
-- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
-- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
-- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
-
-
-### Classics (`classics`)
-
-Purpose: Greek and Latin corpora, inscriptions, papyri, editions, translations, places, persons, and material culture.
-
-Recommended starting sources:
-
-- Perseus Digital Library: https://www.perseus.tufts.edu/
-- Open Greek and Latin: https://opengreekandlatin.org/
-- Packard Humanities Institute Latin texts: https://latin.packhum.org/
-- Papyri.info: https://papyri.info/
-- Trismegistos: https://www.trismegistos.org/
-- Epigraphic Database Heidelberg: https://edh.ub.uni-heidelberg.de/
-- EAGLE Europeana Network: https://www.eagle-network.eu/
-- Pleiades Gazetteer: https://pleiades.stoa.org/
-- Pelagios: https://pelagios.org/
-- Nomisma: https://nomisma.org/
-- British Museum collection data: https://www.britishmuseum.org/collection
-- Wikidata classical entities: https://www.wikidata.org/
-
-Priority raw source families:
-
-- Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
-- Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
-- Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
-
-
 ## Implementation Plan
 
-1. Create or reuse public environments for the canonical ids, starting with `econ`, `sociology`, and `philosophy`.
-2. Persist this catalog as backend seed data so `list_remote_datasets` shows the canonical public datasets even before the first refresh completes.
-3. Add a scheduler table or config with one row per `{datasetId, jobType}` and daily cadence.
+1. Create or reuse the public environment for the canonical `econ` dataset.
+2. Persist `econ` as backend seed data so `list_remote_datasets` shows it before the first refresh completes.
+3. Add scheduler config for `econ` refresh, expand, and improve jobs.
 4. Run `refresh` jobs on the ingest worker and `expand` jobs as remote agent runs against the mounted dataset.
 5. Add dashboard affordances for public/private, refresh status, last successful manifest, next scheduled refresh, and latest expansion plan.
 6. Gate expansion-plan promotions through source status: active public sources can be ingested automatically; credentialed, paid, unclear-license, or brittle sources require human review.
-7. Add product tests that assert canonical datasets exist, are public, have source registries, and produce refresh/expansion artifacts.
+7. Add product tests that assert `econ` exists, is public, has a source registry, and produces refresh/expansion artifacts.
 
 ## Initial CLI Prompts
 
@@ -347,11 +123,3 @@ Use these prompts with `create_public_data_environment` or the signed-in `resear
 ### Econ
 
 Create or extend the public canonical dataset `econ` named `Econ`. Build a durable economics research environment from the source registry in `docs/CANONICAL_PUBLIC_DATASETS.md`. Fetch representative active public raw sources first, preserve source URLs and native file/API shapes, write `source_registry.csv`, `source_registry.plan.json`, `manifest.json`, `raw_inventory.jsonl`, `raw_inventory.csv`, `data_dictionary.md`, `quality_report.md`, and a dataset briefing. Mark sources that need credentials, unclear licensing, or expensive access as deferred rather than failing the build.
-
-### Sociology
-
-Create or extend the public canonical dataset `sociology` named `Sociology`. Build a durable sociology research environment from public survey, demographic, institutions, health, crime, and social-attitudes sources in `docs/CANONICAL_PUBLIC_DATASETS.md`. Fetch raw public survey metadata, codebooks, provider files where legally fetchable, and source provenance. Produce a manifest, data dictionary, quality report, source registry, and expansion plan.
-
-### Philosophy
-
-Create or extend the public canonical dataset `philosophy` named `Philosophy`. Build a durable philosophy research environment from public encyclopedia, bibliographic, archive, and public-domain text sources in `docs/CANONICAL_PUBLIC_DATASETS.md`. Fetch raw public encyclopedia, bibliography, archive metadata, and public-domain text files where allowed. Produce a manifest, data dictionary, quality report, source registry, and expansion plan.

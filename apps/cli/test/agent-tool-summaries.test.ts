@@ -44,8 +44,8 @@ test("list_remote_datasets shortlist hides zero-signal matches for focused build
           datasets: [
             { id: "econ", name: "Economics", status: "ready", deploymentStatus: "ready" },
             { id: "mixed-smoke-1776979192", name: "Mixed Smoke", status: "ready", deploymentStatus: "ready" },
-            { id: "history", name: "History", status: "deploying", deploymentStatus: "deploying" },
-            { id: "philosophy", name: "Philosophy", status: "deploying", deploymentStatus: "deploying" },
+            { id: "upload-test-93961", name: "Upload Test", status: "deploying", deploymentStatus: "deploying" },
+            { id: "enriched-tweets", name: "Enriched Tweets", status: "deploying", deploymentStatus: "deploying" },
           ],
         };
       },
@@ -64,8 +64,8 @@ test("list_remote_datasets shortlist hides zero-signal matches for focused build
   assert.match(result.summary, /Top matches for "housing":/);
   assert.match(result.summary, /econ \(ready, score 0\) — ready environment that can be extended/);
   assert.doesNotMatch(result.summary, /mixed-smoke-1776979192/);
-  assert.doesNotMatch(result.summary, /history/);
-  assert.doesNotMatch(result.summary, /philosophy/);
+  assert.doesNotMatch(result.summary, /upload-test-93961/);
+  assert.doesNotMatch(result.summary, /enriched-tweets/);
 });
 
 test("create_research_environment summary gives a durable async handoff", async () => {
