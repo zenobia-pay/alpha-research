@@ -23,6 +23,18 @@ Field brief:
 11. Update `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `data_dictionary.md`, `quality_report.md`, `slack_briefing.md`, `improvement_plan.md`, and `improvement_result.json`.
 12. Regenerate `dataset_briefing.md` from the current inventories.
 
+## Archive And Package Inspection
+
+Canonical datasets often store provider ZIP, tar, gzip, bulk, or SDMX packages. A package name is not an inventory.
+
+For every stored archive or packaged provider payload that contains source data:
+
+- inspect the package members directly with `zipinfo`, `unzip -l`, `tar -tf`, provider manifests, codebooks, or equivalent tools before writing the briefing;
+- record member-level facts in the inventories whenever possible: member path/name, compressed/uncompressed size, detected format, row count when measurable, schema/columns when measurable, geography fields, time fields, and unit/measure fields;
+- when members are too large to fully parse, sample headers/first rows and record the exact inspection limit;
+- if a package cannot be opened, keep the package in the inventory but mark the briefing fact as `unknown/not inspected` instead of making a broad claim;
+- do not write briefing bullets like `ZIP contents`, `bulk archive`, `provider ZIP packaging`, `microdata archive`, or `SDMX payload` unless the same bullet also states the exact tables/files/responses inside and what each one contains.
+
 `improvement_result.json` must include:
 
 ```json
@@ -56,7 +68,25 @@ The briefing exists to answer one question: what data is actually there?
 
 Write the dataset briefing as a comprehensive literal data inventory.
 
+Do not write a provider/package list.
+
 Write a comprehensive summary of every piece of data that is on this dataset. Make it comprehensive but concise and human readable. Phrase it as legible sentences.
+
+Every bullet must be specific enough that a reader can answer: what exact table/API response/document collection is stored, what the records represent, what grain/frequency it has, what geography it covers, what dates/vintages it covers, how many rows/objects are present when measurable, and what the important columns/fields/units mean.
+
+If a source is stored as an archive, the bullet must name the data-bearing archive members or tables and summarize each member's contents. Do not collapse archives into opaque phrases such as `ZIP contents`, `ZIP archive`, `bulk archive`, `provider packaging`, `microdata files`, or `source package`.
+
+Bad:
+
+```md
+- Bureau of Economic Analysis CAINC1 ZIP archive: annual state personal income tables covering 1969-2024 stored in provider ZIP packaging alongside layout documentation.
+```
+
+Good:
+
+```md
+- Bureau of Economic Analysis CAINC1 state annual personal income package: the stored archive contains table CAINC1 data files for annual state personal income and per-capita personal income observations by state and line code for 1969-2024, plus provider layout/codebook files defining fields such as GeoFIPS, GeoName, LineCode, Description, Unit, TimePeriod, and DataValue. The data rows are annual state-level BEA regional income measures; units vary by line and are defined in the included layout/codebook.
+```
 
 Use this shape:
 

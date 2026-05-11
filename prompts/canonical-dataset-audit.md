@@ -115,6 +115,8 @@ The briefing must clearly state:
 
 For every raw inventory record that represents actual source data, include one bullet with what the data literally measures or contains; observed entities/records; grain/frequency; geography and geography level; time coverage or collection vintage; row/document/object count when measurable; and important columns/fields and units/measures. Do not collapse concrete datasets into vague provider names.
 
+For every archive or packaged payload such as ZIP, tar, gzip, provider bulk download, SDMX package, or microdata package, inspect the package members directly and describe the exact data-bearing members/tables/responses inside. A briefing bullet must not say only `ZIP contents`, `ZIP archive`, `bulk archive`, `provider packaging`, `microdata files`, or `source package`. If a package cannot be opened or a member cannot be parsed, say `unknown/not inspected` for that specific member in inventory/quality outputs and do not claim exact coverage in the briefing.
+
 Do not include file names or blocked / missing data, or metadata in the briefing. Just include exactly what data is stored. Do not include paths, URLs, licenses, byte sizes, run ids, dashboard links, required artifact status, Slack status, inventory status, runtime/tooling files, docs mirrors, manifests, quality reports, failed inspection rows, or non-data artifacts in `dataset_briefing.md`, docs mirrors, or `briefingMarkdown`. Keep those facts in inventories, quality reports, result JSON, Slack logs, and final run summaries instead.
 
 Mirror the final briefing into:
