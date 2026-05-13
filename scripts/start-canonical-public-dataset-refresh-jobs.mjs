@@ -32,6 +32,8 @@ const CANONICAL_PUBLIC_RESOURCES = {
   publishMode: "versioned",
 };
 
+const RUNTIME_PRIMARY_ARTIFACT = { type: "file", title: "report.html", path: "report.html" };
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -241,6 +243,7 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "- Canonical datasets are raw public source packages. Do not publish processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready tables as canonical dataset artifacts.",
     "- Keep each source in source-specific raw paths with provider-native files/API responses, codebooks, README files, schemas, and documentation.",
     "- Record every attempted raw source download in `download_inventory.jsonl` and `download_inventory.csv`.",
+    "- The platform currently uses `report.html` as a remote-worker completion sentinel. This is a runtime artifact only: write a minimal `report.html` into the remote worker artifact directory, not into the dataset root, docs mirrors, raw inventories, or dataset briefing.",
     "",
     "## Required published outputs (write these exact files at the dataset root and ensure they are published):",
     "- manifest.json",
@@ -300,6 +303,9 @@ if (dryRun) {
         "dataset_briefing.md",
         `docs/public-datasets/briefings/${dataset.id}.md`,
         `docs/public-datasets/${dataset.id}.mdx`,
+      ],
+      runtimeArtifacts: [
+        RUNTIME_PRIMARY_ARTIFACT.path,
       ],
     });
   }
@@ -361,13 +367,16 @@ for (const dataset of canonicalDatasets) {
     continue;
   }
 
-  if (datasetStatus !== "ready" || deploymentStatus !== "ready") {
-    results.push({ datasetId: dataset.id, status: "skipped_not_ready", datasetStatus, deploymentStatus, activeRunId });
+  if (activeRunId) {
+    results.push({ datasetId: dataset.id, status: "skipped_active_run", datasetStatus, deploymentStatus, activeRunId });
     continue;
   }
 
-  if (activeRunId) {
-    results.push({ datasetId: dataset.id, status: "skipped_active_run", datasetStatus, deploymentStatus, activeRunId });
+  const ready = datasetStatus === "ready" && deploymentStatus === "ready";
+  const repairableBootstrapState = ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(datasetStatus)
+    || ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(deploymentStatus);
+  if (!ready && !repairableBootstrapState) {
+    results.push({ datasetId: dataset.id, status: "skipped_not_ready", datasetStatus, deploymentStatus, activeRunId });
     continue;
   }
 
@@ -395,6 +404,7 @@ for (const dataset of canonicalDatasets) {
     prompt,
     resources: CANONICAL_PUBLIC_RESOURCES,
     artifacts: [
+      RUNTIME_PRIMARY_ARTIFACT,
       { type: "file", title: "manifest.json", path: "manifest.json" },
       { type: "file", title: "source_registry.csv", path: "source_registry.csv" },
       { type: "file", title: "source_registry.plan.json", path: "source_registry.plan.json" },
@@ -428,7 +438,9 @@ for (const dataset of canonicalDatasets) {
     const runId = started.run?.id ?? null;
     results.push({
       datasetId: dataset.id,
-      status: "started",
+      status: ready ? "started" : "started_bootstrap_repair",
+      previousDatasetStatus: datasetStatus,
+      previousDeploymentStatus: deploymentStatus,
       runId,
       dashboardUrl: runId ? dashboardRunUrl(session.origin, runId) : null,
     });

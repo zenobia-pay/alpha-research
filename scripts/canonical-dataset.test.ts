@@ -377,7 +377,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
       const output = execFileSync(command, args, { cwd: process.cwd(), encoding: "utf8", env });
       const parsed = JSON.parse(output) as {
         dryRun: boolean;
-        results: Array<{ datasetId?: string; status: string; artifacts?: string[] }>;
+        results: Array<{ datasetId?: string; status: string; artifacts?: string[]; runtimeArtifacts?: string[] }>;
       };
       assert.equal(parsed.dryRun, true);
       assert.deepEqual(
@@ -385,6 +385,11 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
         ["history", "literature"],
       );
       assert.ok(parsed.results.every((result) => result.status !== "missing_dataset"));
+      if (args[0] === "scripts/start-canonical-public-dataset-refresh-jobs.mjs") {
+        const historyRefresh = parsed.results.find((result) => result.datasetId === "history");
+        assert.ok(!historyRefresh?.artifacts?.includes("report.html"));
+        assert.ok(historyRefresh?.runtimeArtifacts?.includes("report.html"));
+      }
     }
 
     const improveOutput = execFileSync("node", ["scripts/start-canonical-dataset-improvement-jobs.mjs", "--dry-run"], {
