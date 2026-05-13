@@ -60,6 +60,7 @@ export const CANONICAL_PUBLIC_RESOURCES = {
 };
 
 export const REQUIRED_CANONICAL_ARTIFACTS = [
+  { type: "file", title: "report.html", path: "report.html" },
   { type: "file", title: "manifest.json", path: "manifest.json" },
   { type: "file", title: "source_registry.csv", path: "source_registry.csv" },
   { type: "file", title: "source_registry.plan.json", path: "source_registry.plan.json" },

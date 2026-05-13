@@ -106,6 +106,7 @@ test("build prompt includes mandatory disk-backed inventory and docs contract", 
   });
   for (const required of [
     "download_inventory.jsonl",
+    "report.html",
     "download_events.jsonl",
     "slack_download_alerts.jsonl",
     "slack_briefing.md",
@@ -136,11 +137,13 @@ test("build prompt includes mandatory disk-backed inventory and docs contract", 
     "POST /api/cli/datasets/medieval-studies/profile",
     "read back `GET /api/cli/datasets/medieval-studies`",
     "update_remote_dataset_profile",
-    "copy `dataset_briefing.md`",
+    "copy `report.html`, `dataset_briefing.md`",
     ".remote-agent/workspaces/<run-id>/artifacts/",
     "Do not delete active runtime directories during the run",
     "authenticated Codex CLI/session",
     "/mnt/alpha-research/datasets/medieval-studies",
+    "If the dataset root path does not exist yet, create it before writing artifacts.",
+    "primary run artifact required by the Modal control plane",
     "one row/object for every file",
     "Generate `dataset_briefing.md` only from `download_inventory.*`, `raw_inventory.*`, and `volume_inventory.*`",
   ]) {
@@ -152,6 +155,7 @@ test("artifact contract exposes all required create artifacts", () => {
   const paths = artifactContract("medieval-studies", "create").map((artifact) => artifact.path);
   for (const required of [
     "manifest.json",
+    "report.html",
     "download_inventory.jsonl",
     "download_events.jsonl",
     "slack_download_alerts.jsonl",
