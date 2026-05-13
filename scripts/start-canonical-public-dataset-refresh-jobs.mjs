@@ -12,7 +12,6 @@ const dryRun = process.argv.includes("--dry-run") || process.env.CANONICAL_DATAS
 const statusOnly = process.argv.includes("--status-only");
 const remoteStatusAttempts = Number(process.env.CANONICAL_REMOTE_STATUS_ATTEMPTS ?? "5");
 const remoteStatusRetryBaseMs = Number(process.env.CANONICAL_REMOTE_STATUS_RETRY_BASE_MS ?? "2000");
-const maxConcurrentRemoteRuns = Math.max(1, Math.trunc(Number(process.env.CANONICAL_MAX_CONCURRENT_REMOTE_RUNS ?? "2")));
 const alphaResearchFallbackIps = (process.env.ALPHA_RESEARCH_FALLBACK_IPS ?? "104.21.25.66,172.67.223.109")
   .split(",")
   .map((ip) => ip.trim())
@@ -33,6 +32,17 @@ const CANONICAL_PUBLIC_RESOURCES = {
 };
 
 const RUNTIME_PRIMARY_ARTIFACT = { type: "file", title: "report.html", path: "report.html" };
+const RUNTIME_WORK_LOG_ARTIFACT = { type: "file", title: "work.md", path: "work.md" };
+const CANONICAL_RUNTIME_CONTRACT = {
+  canonicalDatasetLifecycle: true,
+  requiresCodexLogin: true,
+  requiredEnvironment: [
+    "CANONICAL_DATASET_SLACK_WEBHOOK_URL",
+  ],
+  optionalEnvironment: [
+    "EXA_API_KEY",
+  ],
+};
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -243,7 +253,7 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "- Canonical datasets are raw public source packages. Do not publish processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready tables as canonical dataset artifacts.",
     "- Keep each source in source-specific raw paths with provider-native files/API responses, codebooks, README files, schemas, and documentation.",
     "- Record every attempted raw source download in `download_inventory.jsonl` and `download_inventory.csv`.",
-    "- First action before inspecting the dataset: create a minimal `report.html` runtime sentinel in the worker artifact output area. Write it to `./report.html`; if `run_config.json` exposes a run id or `/results` exists, also write `/results/<run-id>/report.html` when that directory exists. This is a runtime artifact only: do not write `report.html` into the dataset root, docs mirrors, raw inventories, or dataset briefing.",
+    "- First action before inspecting the dataset: create minimal runtime artifacts in the worker artifact output area: `report.html` and `work.md`. Write them to `./report.html` and `./work.md`; if `run_config.json` exposes a run id or `/results` exists, also write `/results/<run-id>/report.html` and `/results/<run-id>/work.md` when that directory exists. These are runtime artifacts only: do not write them into the dataset root, docs mirrors, raw inventories, or dataset briefing.",
     "",
     "## Required published outputs (write these exact files at the dataset root and ensure they are published):",
     "- manifest.json",
@@ -306,6 +316,7 @@ if (dryRun) {
       ],
       runtimeArtifacts: [
         RUNTIME_PRIMARY_ARTIFACT.path,
+        RUNTIME_WORK_LOG_ARTIFACT.path,
       ],
     });
   }
@@ -344,12 +355,6 @@ try {
 }
 
 const liveDatasets = new Map((datasetsPayload.datasets ?? []).map((dataset) => [dataset.id, dataset]));
-const activeCanonicalRuns = canonicalDatasets.filter((dataset) => {
-  const liveDataset = liveDatasets.get(dataset.id);
-  return Boolean(liveDataset?.activeRunId);
-}).length;
-const startAllowance = Math.max(0, maxConcurrentRemoteRuns - activeCanonicalRuns);
-let startedThisPass = 0;
 
 for (const dataset of canonicalDatasets) {
   const liveDataset = liveDatasets.get(dataset.id);
@@ -380,20 +385,6 @@ for (const dataset of canonicalDatasets) {
     continue;
   }
 
-  if (!dryRun && startedThisPass >= startAllowance) {
-    results.push({
-      datasetId: dataset.id,
-      status: "skipped_run_cap_reached",
-      datasetStatus,
-      deploymentStatus,
-      activeRunId,
-      maxConcurrentRemoteRuns,
-      activeCanonicalRuns,
-      startedThisPass,
-    });
-    continue;
-  }
-
   const sourceRegistryBullets = extractSourceRegistrySection(catalogMarkdown, dataset.id);
   const prompt = refreshPrompt(dataset.id, dataset.name, sourceRegistryBullets);
 
@@ -403,8 +394,19 @@ for (const dataset of canonicalDatasets) {
     sourceDescription: `Canonical public sources for ${dataset.name}.`,
     prompt,
     resources: CANONICAL_PUBLIC_RESOURCES,
+    config: {
+      ...CANONICAL_RUNTIME_CONTRACT,
+      jobKind: ready ? "dataset-refresh" : "dataset-bootstrap-repair",
+      datasetId: dataset.id,
+      datasetName: dataset.name,
+      writesDatasetBriefing: true,
+      syncsDocsFromBriefing: true,
+      requiresDownloadEventLog: true,
+      requiresSlackDownloadAlerts: true,
+    },
     artifacts: [
       RUNTIME_PRIMARY_ARTIFACT,
+      RUNTIME_WORK_LOG_ARTIFACT,
       { type: "file", title: "manifest.json", path: "manifest.json" },
       { type: "file", title: "source_registry.csv", path: "source_registry.csv" },
       { type: "file", title: "source_registry.plan.json", path: "source_registry.plan.json" },
@@ -444,7 +446,6 @@ for (const dataset of canonicalDatasets) {
       runId,
       dashboardUrl: runId ? dashboardRunUrl(session.origin, runId) : null,
     });
-    startedThisPass += 1;
   } catch (error) {
     results.push({
       datasetId: dataset.id,

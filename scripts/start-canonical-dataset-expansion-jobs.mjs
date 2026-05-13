@@ -8,7 +8,6 @@ const promptPath = new URL("../prompts/canonical-dataset-expansion.md", import.m
 const catalogPath = new URL("../docs/CANONICAL_PUBLIC_DATASETS.md", import.meta.url);
 
 const dryRun = process.argv.includes("--dry-run") || process.env.CANONICAL_DATASET_EXPAND_DRY_RUN === "1";
-const maxConcurrentRemoteRuns = Math.max(1, Math.trunc(Number(process.env.CANONICAL_MAX_CONCURRENT_REMOTE_RUNS ?? "2")));
 
 const canonicalDatasets = selectCanonicalDatasets().map((dataset) => ({
   ...dataset,
@@ -163,12 +162,6 @@ try {
 }
 
 const liveDatasets = new Map((datasetsPayload.datasets ?? []).map((dataset) => [dataset.id, dataset]));
-const activeCanonicalRuns = canonicalDatasets.filter((dataset) => {
-  const liveDataset = liveDatasets.get(dataset.id);
-  return Boolean(liveDataset?.activeRunId);
-}).length;
-const startAllowance = Math.max(0, maxConcurrentRemoteRuns - activeCanonicalRuns);
-let startedThisPass = 0;
 
 for (const dataset of canonicalDatasets) {
   dataset.fieldCatalogSources = extractCatalogSources(catalogMarkdown, dataset.id);
@@ -192,17 +185,6 @@ for (const dataset of canonicalDatasets) {
     continue;
   }
 
-  if (!dryRun && startedThisPass >= startAllowance) {
-    results.push({
-      datasetId: dataset.id,
-      status: "skipped_run_cap_reached",
-      maxConcurrentRemoteRuns,
-      activeCanonicalRuns,
-      startedThisPass,
-    });
-    continue;
-  }
-
   const prompt = renderPrompt(promptTemplate, dataset);
   const body = {
     prompt,
@@ -212,6 +194,10 @@ for (const dataset of canonicalDatasets) {
       jobKind: "dataset-expansion",
       datasetId: dataset.id,
       datasetName: dataset.name,
+      requiresCodexLogin: true,
+      optionalEnvironment: [
+        "EXA_API_KEY",
+      ],
       resources,
     },
     artifacts: [
@@ -237,7 +223,6 @@ for (const dataset of canonicalDatasets) {
       runId,
       dashboardUrl: runId ? dashboardRunUrl(session.origin, runId) : null,
     });
-    startedThisPass += 1;
   } catch (error) {
     results.push({
       datasetId: dataset.id,

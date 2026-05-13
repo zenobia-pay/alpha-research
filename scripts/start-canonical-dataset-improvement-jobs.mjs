@@ -6,7 +6,6 @@ import { selectCanonicalDatasets } from './canonical-dataset-catalog.mjs'
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), '.research', 'session.json')
 const promptPath = new URL('../prompts/canonical-dataset-improvement.md', import.meta.url)
 const dryRun = process.argv.includes('--dry-run') || process.env.CANONICAL_DATASET_IMPROVEMENT_DRY_RUN === '1'
-const maxConcurrentRemoteRuns = Math.max(1, Math.trunc(Number(process.env.CANONICAL_MAX_CONCURRENT_REMOTE_RUNS ?? '2')))
 
 const canonicalDatasets = selectCanonicalDatasets()
 
@@ -121,12 +120,6 @@ try {
 }
 
 const liveDatasets = new Map((datasetPayload.datasets ?? []).map((dataset) => [dataset.id, dataset]))
-const activeCanonicalRuns = canonicalDatasets.filter((dataset) => {
-  const liveDataset = liveDatasets.get(dataset.id)
-  return Boolean(liveDataset?.activeRunId)
-}).length
-const startAllowance = Math.max(0, maxConcurrentRemoteRuns - activeCanonicalRuns)
-let startedThisPass = 0
 
 for (const dataset of canonicalDatasets) {
   const liveDataset = liveDatasets.get(dataset.id)
@@ -148,16 +141,6 @@ for (const dataset of canonicalDatasets) {
     results.push({ datasetId: dataset.id, status: 'skipped_active_run', activeRunId: liveDataset.activeRunId })
     continue
   }
-  if (!dryRun && startedThisPass >= startAllowance) {
-    results.push({
-      datasetId: dataset.id,
-      status: 'skipped_run_cap_reached',
-      maxConcurrentRemoteRuns,
-      activeCanonicalRuns,
-      startedThisPass,
-    })
-    continue
-  }
 
   const prompt = renderPrompt(promptTemplate, dataset)
   const body = {
@@ -170,6 +153,13 @@ for (const dataset of canonicalDatasets) {
       datasetName: dataset.name,
       writesDatasetBriefing: true,
       syncsDocsFromBriefing: true,
+      requiresCodexLogin: true,
+      requiredEnvironment: [
+        'CANONICAL_DATASET_SLACK_WEBHOOK_URL',
+      ],
+      optionalEnvironment: [
+        'EXA_API_KEY',
+      ],
       resources,
     },
     artifacts: [
@@ -203,7 +193,6 @@ for (const dataset of canonicalDatasets) {
       runId,
       dashboardUrl: runId ? dashboardRunUrl(session.origin, runId) : null,
     })
-    startedThisPass += 1
   } catch (error) {
     results.push({
       datasetId: dataset.id,

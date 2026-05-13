@@ -20,7 +20,7 @@ Execute the work now. Do not stop after writing a plan, checklist, or proposed s
 - Keep each source in source-specific raw paths with provider-native files/API responses, codebooks, README files, schemas, and documentation.
 - Skip or defer credentialed, paid, anti-bot protected, private, unstable, or unclear-access sources; record the exact blocker instead of failing the whole build.
 - Never write secrets, cookies, bearer tokens, private credentials, presigned URLs, or API keys into logs, inventories, docs, or artifacts.
-- If this build is executed through the legacy remote-worker environment endpoint, the platform may require `report.html` as a runtime completion sentinel. In that case, create a minimal `report.html` in the worker artifact output area before dataset inspection, for example `./report.html` and `/results/<run-id>/report.html` when that directory exists. Do not write `report.html` into the dataset root, docs mirrors, inventories, or dataset briefing.
+- If this build is executed through the legacy remote-worker environment endpoint, the platform may require `report.html` and `work.md` as runtime artifacts. In that case, create minimal `report.html` and `work.md` files in the worker artifact output area before dataset inspection, for example `./report.html`, `./work.md`, `/results/<run-id>/report.html`, and `/results/<run-id>/work.md` when that directory exists. Do not write these runtime files into the dataset root, docs mirrors, inventories, or dataset briefing.
 
 ## Source Catalog
 

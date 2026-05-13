@@ -123,7 +123,7 @@ test("build prompt includes mandatory disk-backed inventory and docs contract", 
     "Execute the work now",
     "Do not stop after writing a plan",
     "legacy remote-worker environment endpoint",
-    "Do not write `report.html` into the dataset root",
+    "Do not write these runtime files into the dataset root",
     "plain-English data summary",
     "geographic coverage",
     "time coverage",
@@ -391,6 +391,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
         const historyRefresh = parsed.results.find((result) => result.datasetId === "history");
         assert.ok(!historyRefresh?.artifacts?.includes("report.html"));
         assert.ok(historyRefresh?.runtimeArtifacts?.includes("report.html"));
+        assert.ok(historyRefresh?.runtimeArtifacts?.includes("work.md"));
       }
     }
 
