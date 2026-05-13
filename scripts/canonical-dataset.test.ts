@@ -410,3 +410,29 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
     execFileSync("rm", ["-rf", root]);
   }
 });
+
+test("single dataset add script builds one public environment request", () => {
+  const output = execFileSync("node", ["scripts/add-canonical-dataset.mjs", "history", "--dry-run"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      CANONICAL_DATASET_IDS: "",
+      RESEARCH_SESSION_PATH: join(tmpdir(), "missing-session.json"),
+    },
+  });
+  const parsed = JSON.parse(output) as {
+    dryRun: boolean;
+    datasetId: string;
+    prompt: string;
+    runtimeArtifacts: string[];
+    datasetArtifacts: string[];
+  };
+  assert.equal(parsed.dryRun, true);
+  assert.equal(parsed.datasetId, "history");
+  assert.match(parsed.prompt, /Create canonical public dataset history/u);
+  assert.match(parsed.prompt, /Library of Congress/u);
+  assert.ok(parsed.runtimeArtifacts.includes("report.html"));
+  assert.ok(parsed.runtimeArtifacts.includes("work.md"));
+  assert.ok(parsed.datasetArtifacts.includes("dataset_briefing.md"));
+});
