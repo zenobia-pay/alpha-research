@@ -60,7 +60,6 @@ export const CANONICAL_PUBLIC_RESOURCES = {
 };
 
 export const REQUIRED_CANONICAL_ARTIFACTS = [
-  { type: "file", title: "report.html", path: "report.html" },
   { type: "file", title: "manifest.json", path: "manifest.json" },
   { type: "file", title: "source_registry.csv", path: "source_registry.csv" },
   { type: "file", title: "source_registry.plan.json", path: "source_registry.plan.json" },
@@ -308,6 +307,25 @@ async function getDataset(session: Session, datasetId: string) {
   return payload?.dataset ?? null;
 }
 
+export function registrationBody(input: {
+  datasetId: string;
+  datasetName: string;
+  fieldBrief: string;
+}) {
+  return {
+    datasetId: input.datasetId,
+    name: input.datasetName,
+    sourceType: "public_data" as const,
+    sourceFilename: "canonical-public-sources",
+    mode: "unstructured" as const,
+    description: [
+      `Canonical public dataset for ${input.datasetName}.`,
+      input.fieldBrief,
+      "Employee-side registration only: source fetching, volume inventories, docs mirrors, and self-improvement are handled by the canonical refresh/improvement worker scripts.",
+    ].join("\n\n"),
+  };
+}
+
 async function run() {
   const args = parseArgs(process.argv.slice(2));
 
@@ -348,41 +366,20 @@ async function run() {
   const session = readSession();
 
   if (args.mode === "create") {
-    const result = await api<{ run?: { id?: string }; dataset?: RemoteDataset; environment?: unknown }>(
+    const result = await api<{ dataset?: RemoteDataset }>(
       session,
-      `/api/cli/datasets/${encodeURIComponent(args.datasetId)}/public-environment`,
+      "/api/cli/datasets",
       {
         method: "POST",
-        body: {
-          name: datasetName,
-          description: `Canonical public dataset for ${datasetName}.`,
-          sourceDescription: `Canonical public sources for ${datasetName}.`,
-          prompt,
-          resources: CANONICAL_PUBLIC_RESOURCES,
-          config: {
-            canonicalDatasetLifecycle: true,
-            jobKind: "dataset-create",
-            datasetId: args.datasetId,
-            datasetName,
-            writesDatasetBriefing: true,
-            syncsDocsFromBriefing: true,
-            requiresVolumeInventory: true,
-            requiresDownloadEventLog: true,
-            requiresSlackDownloadAlerts: true,
-            ...CANONICAL_RUNTIME_CONTRACT,
-          },
-          artifacts,
-        },
+        body: registrationBody({ datasetId: args.datasetId, datasetName, fieldBrief }),
       },
     );
-    const runId = result.run?.id ?? null;
     console.log(JSON.stringify({
       mode: args.mode,
       datasetId: args.datasetId,
       promptPath,
-      status: "started",
-      runId,
-      dashboardUrl: runId ? dashboardRunUrl(runId) : null,
+      status: "registered",
+      startedRun: false,
       result,
     }, null, 2));
     return;

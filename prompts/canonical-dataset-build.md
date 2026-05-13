@@ -12,7 +12,7 @@ Execute the work now. Do not stop after writing a plan, checklist, or proposed s
 
 - Public data only. Do not use private user data.
 - Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH` when set; otherwise use `/mnt/alpha-research/datasets/{datasetId}`. Do not write canonical artifacts under a local throwaway `dataset/` directory unless it is a symlink or bind mount to the mounted dataset volume.
-- If the dataset root path does not exist yet, create it before writing artifacts. If a local `dataset` entry is a symlink to that root, use the symlink only after confirming its target exists.
+- If the dataset root path does not exist yet, stop and report that the platform bootstrap has not mounted the canonical dataset volume. This build prompt runs inside a worker after employee-side dataset registration; it must not silently replace a missing platform volume with a local runtime directory.
 - Before any fetch, verify the remote runner has an authenticated Codex CLI/session available. If Codex is not logged in, stop before downloads, write the exact blocker to the run result, and set `diskInventoryProven: false`.
 - Before any fetch, check `CANONICAL_DATASET_SLACK_WEBHOOK_URL` is present in the environment. Never print, log, persist, or expose the webhook URL. If it is missing or delivery fails, continue only if every alert payload is written to `slack_download_alerts.jsonl` with `delivery_status: pending` or `delivery_status: failed` and the exact non-secret failure reason.
 - This canonical dataset is a raw public source package, not an analysis-ready table bundle.
@@ -34,7 +34,6 @@ Use this starting source catalog. Verify every URL and classify each source befo
 Write these exact files at the dataset root:
 
 - `manifest.json`
-- `report.html`
 - `source_registry.csv`
 - `source_registry.plan.json`
 - `download_inventory.jsonl`
@@ -53,8 +52,6 @@ Write these exact files at the dataset root:
 - `dataset_briefing.md`
 - `docs/public-datasets/briefings/{datasetId}.md`
 - `docs/public-datasets/{datasetId}.mdx`
-
-`report.html` is the primary run artifact required by the Modal control plane. It must be a small, valid HTML status report that links or names the dataset-root artifacts and summarizes run status, dataset id/name, dataset volume path, file count, total bytes, missing required artifacts, and `diskInventoryProven`. Do not treat the run as complete until `report.html` exists at the dataset root and is also copied into the remote run artifact directory.
 
 ## Download Logging
 
@@ -211,7 +208,7 @@ The CLI-visible profile update is mandatory. Use the authenticated backend sessi
 
 If the Codex tool/function `update_remote_dataset_profile` is available, use that tool for the profile update. Do not try to satisfy this requirement only with shell `curl`, localhost URLs, guessed service hostnames, or a nonexistent `codex datasets profile` subcommand. Shell HTTP attempts may be used only as diagnostics after the tool is unavailable or fails.
 
-Before final response, copy `report.html`, `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `manifest.json`, `volume_inventory_summary.json`, and the structured result into the remote run artifact directory as produced artifacts so the orchestrator can recover the exact briefing even if profile sync fails. If the artifact directory path is not obvious, use the active remote-agent workspace artifacts directory under `.remote-agent/workspaces/<run-id>/artifacts/`.
+Before final response, copy `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `manifest.json`, `volume_inventory_summary.json`, and the structured result into the remote worker artifact directory as produced artifacts so the orchestrator can recover the exact briefing even if profile sync fails. If the artifact directory path is not obvious, use the active remote-agent workspace artifacts directory under `.remote-agent/workspaces/<run-id>/artifacts/`.
 
 If any required inventory is missing or incomplete, set `diskInventoryProven: false` in the structured result and explain why.
 
