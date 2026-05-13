@@ -243,7 +243,7 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
     "- Canonical datasets are raw public source packages. Do not publish processed tables, merged panels, shared entity models, cross-source joins, derived fields, or analysis-ready tables as canonical dataset artifacts.",
     "- Keep each source in source-specific raw paths with provider-native files/API responses, codebooks, README files, schemas, and documentation.",
     "- Record every attempted raw source download in `download_inventory.jsonl` and `download_inventory.csv`.",
-    "- The platform currently uses `report.html` as a remote-worker completion sentinel. This is a runtime artifact only: write a minimal `report.html` into the remote worker artifact directory, not into the dataset root, docs mirrors, raw inventories, or dataset briefing.",
+    "- First action before inspecting the dataset: create a minimal `report.html` runtime sentinel in the worker artifact output area. Write it to `./report.html`; if `run_config.json` exposes a run id or `/results` exists, also write `/results/<run-id>/report.html` when that directory exists. This is a runtime artifact only: do not write `report.html` into the dataset root, docs mirrors, raw inventories, or dataset briefing.",
     "",
     "## Required published outputs (write these exact files at the dataset root and ensure they are published):",
     "- manifest.json",
