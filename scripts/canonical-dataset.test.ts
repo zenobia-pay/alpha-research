@@ -411,8 +411,15 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
   }
 });
 
-test("single dataset add script builds one public environment request", () => {
-  const output = execFileSync("node", ["scripts/add-canonical-dataset.mjs", "history", "--dry-run"], {
+test("single dataset add script builds platform-owned bootstrap request", () => {
+  const output = execFileSync("node", [
+    "scripts/add-canonical-dataset.mjs",
+    "--name",
+    "History",
+    "--prompt",
+    "Start with public archives, newspapers, and government records.",
+    "--dry-run",
+  ], {
     cwd: process.cwd(),
     encoding: "utf8",
     env: {
@@ -423,16 +430,26 @@ test("single dataset add script builds one public environment request", () => {
   });
   const parsed = JSON.parse(output) as {
     dryRun: boolean;
-    datasetId: string;
-    prompt: string;
-    runtimeArtifacts: string[];
-    datasetArtifacts: string[];
+    endpoint: string;
+    body: {
+      datasetId: string;
+      name: string;
+      owner: string;
+      execution: { codexRunOwner: string; userSessionRequired: boolean };
+      prompt: string;
+      requiredEnvironment: string[];
+      requiredArtifacts: string[];
+    };
   };
   assert.equal(parsed.dryRun, true);
-  assert.equal(parsed.datasetId, "history");
-  assert.match(parsed.prompt, /Create canonical public dataset history/u);
-  assert.match(parsed.prompt, /Library of Congress/u);
-  assert.ok(parsed.runtimeArtifacts.includes("report.html"));
-  assert.ok(parsed.runtimeArtifacts.includes("work.md"));
-  assert.ok(parsed.datasetArtifacts.includes("dataset_briefing.md"));
+  assert.equal(parsed.endpoint, "/api/admin/canonical-datasets/bootstrap");
+  assert.equal(parsed.body.datasetId, "history");
+  assert.equal(parsed.body.name, "History");
+  assert.equal(parsed.body.owner, "platform");
+  assert.equal(parsed.body.execution.codexRunOwner, "service");
+  assert.equal(parsed.body.execution.userSessionRequired, false);
+  assert.match(parsed.body.prompt, /Start with public archives/u);
+  assert.match(parsed.body.prompt, /Library of Congress/u);
+  assert.ok(parsed.body.requiredEnvironment.includes("CANONICAL_DATASET_SLACK_WEBHOOK_URL"));
+  assert.ok(parsed.body.requiredArtifacts.includes("dataset_briefing.md"));
 });
