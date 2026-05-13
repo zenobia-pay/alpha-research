@@ -97,6 +97,8 @@ function bootstrapPrompt({ datasetId, name, starterPrompt }) {
     "- Classify each source as active_fetchable, deferred_fetchable, license_review, credential_required, or reject.",
     "- Send Slack download alerts through the platform canonical dataset Slack secret for every terminal source attempt.",
     "- Write the required dataset artifacts and update the dataset profile from dataset_briefing.md.",
+    "- Write dataset_briefing.md and docs mirrors as a literal data inventory only: one bullet per concrete source data artifact or logical data package that is present.",
+    "- Do not include access notes, action notes, limitations, next actions, blocked-source planning, credential tasks, or operational status in dataset_briefing.md or docs mirror briefing files; put those details in quality_report.md, download_inventory.*, source_registry.plan.json, or slack_briefing.md.",
     "",
     "Initial catalog seeds if applicable:",
     catalogSeedText(datasetId),
