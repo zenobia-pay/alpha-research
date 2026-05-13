@@ -15,6 +15,11 @@ import {
   promptRecordPath,
   renderPrompt,
 } from "./canonical-dataset.ts";
+import {
+  CANONICAL_DATASETS,
+  HUMANITIES_DATASET_IDS,
+  selectCanonicalDatasets,
+} from "./canonical-dataset-catalog.mjs";
 
 test("canonical dataset args require create contract", () => {
   assert.deepEqual(parseArgs([
@@ -34,6 +39,46 @@ test("canonical dataset args require create contract", () => {
     () => parseArgs(["create", "--dataset-id", "medieval-studies", "--name", "Medieval Studies"]),
     /--field-brief is required/u,
   );
+});
+
+test("humanities catalog defines stable college-major dataset slugs", () => {
+  assert.deepEqual(HUMANITIES_DATASET_IDS, [
+    "history",
+    "literature",
+    "philosophy",
+    "religion",
+    "classics",
+    "art-history",
+    "musicology",
+    "theater-performance",
+    "linguistics",
+    "anthropology",
+  ]);
+  const ids = CANONICAL_DATASETS.map((dataset) => dataset.id);
+  assert.deepEqual(new Set(ids).size, ids.length);
+  for (const id of HUMANITIES_DATASET_IDS) {
+    assert.match(id, /^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
+    assert.ok(ids.includes(id), `Missing humanities dataset ${id}`);
+  }
+});
+
+test("canonical catalog entries include names, briefs, and seed sources", () => {
+  for (const dataset of CANONICAL_DATASETS) {
+    assert.ok(dataset.name.length > 2, `${dataset.id} should have a display name`);
+    assert.ok(dataset.fieldBrief.length > 80, `${dataset.id} should have a useful field brief`);
+    assert.ok(dataset.seedCandidates.length >= 5, `${dataset.id} should have seed candidates`);
+    for (const seed of dataset.seedCandidates) {
+      assert.match(seed, /^- .+https?:\/\/.+ \((active_fetchable|deferred_fetchable|license_review|credential_required|reject)\)$/u);
+    }
+  }
+});
+
+test("canonical dataset filtering selects the same shared catalog subset", () => {
+  assert.deepEqual(
+    selectCanonicalDatasets("history,literature").map((dataset) => dataset.id),
+    ["history", "literature"],
+  );
+  assert.throws(() => selectCanonicalDatasets("history,unknown-humanities"), /Unknown canonical dataset id/u);
 });
 
 test("source catalog loads from file and inline sources", async () => {
@@ -178,46 +223,34 @@ test("improve prompt requires remote data-only briefing update", async () => {
     sourceCatalog: "- fred: https://fred.stlouisfed.org/",
   });
   for (const required of [
-    "Run a self-improvement pass for this canonical public Alpha Research dataset now.",
-    "## Instructions",
+    "Canonical Dataset Remote-Box Briefing Refresh",
+    "Execute this focused maintenance pass now inside the remote box.",
     "Use the mounted dataset volume as the dataset root.",
-    "Regenerate stale or missing disk inventories before making changes.",
-    "Classify each candidate as `active_fetchable`, `deferred_fetchable`, `credential_required`, `not_found`, or `reject`.",
-    "Fetch active public machine-readable sources",
-    "Record every attempted download",
-    "Regenerate `dataset_briefing.md` from the current inventories.",
-    "slackAlertsSent",
-    "slackAlertsPending",
-    "explaining in plain English what data was downloaded or what blocked the attempt",
-    "mark `sent` only after confirmed delivery",
-    "## Keep The Briefing Up To Date",
-    "Write the dataset briefing as a comprehensive literal data inventory.",
-    "## Archive And Package Extraction",
-    "A package name is not an inventory.",
-    "extract the package into a stable source-specific directory",
-    "delete the original archive/package file",
-    "inventory the extracted files directly",
+    "Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.",
+    "Write `dataset_briefing.md` at the dataset volume root.",
+    "Update the CLI-visible backend dataset profile from the same briefing:",
+    "Read back the dataset profile through the backend and verify it contains the exact briefing and current run id.",
+    "The briefing answers one question: what data is actually on the mounted dataset volume?",
     "Do not write a provider/package list.",
-    "extract it first and delete the archive after successful extraction",
-    "Do not collapse archives into opaque phrases",
-    "Make it comprehensive but concise and human readable.",
+    "what exact table, API response, or document collection is stored",
     "# Data Inventory",
+    "For archives or packaged provider payloads already on disk, describe the extracted data-bearing files or tables.",
+    "Write `improvement_result.json` with this shape:",
+    "\"profileReadbackVerified\": true",
     "Data comes from FRED",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }
-  assert.doesNotMatch(prompt, /Docs And CLI Profile Update/u);
   assert.doesNotMatch(prompt, /This canonical dataset is a raw public source package/u);
   assert.doesNotMatch(prompt, /Do not publish processed tables, merged panels/u);
-  assert.doesNotMatch(prompt, /GET \/api\/cli\/datasets\/econ/u);
-  assert.doesNotMatch(prompt, /POST \/api\/cli\/datasets\/econ\/profile/u);
-  assert.doesNotMatch(prompt, /briefingMarkdown/u);
-  assert.doesNotMatch(prompt, /docs mirrors/u);
+  assert.doesNotMatch(prompt, /Classify each candidate/u);
+  assert.doesNotMatch(prompt, /Fetch active public machine-readable sources/u);
+  assert.doesNotMatch(prompt, /slackAlertsSent/u);
+  assert.doesNotMatch(prompt, /slackAlertsPending/u);
   assert.doesNotMatch(prompt, /Do not start with filenames/u);
   assert.doesNotMatch(prompt, /Do not include file names/u);
   assert.doesNotMatch(prompt, /For every raw inventory record/u);
   assert.doesNotMatch(prompt, /Do not add a `# Blocked Or Missing Data` section/u);
-  assert.doesNotMatch(prompt, /copy these files into the remote run artifact directory/u);
   assert.doesNotMatch(prompt, /Each Slack message must include/u);
   assert.doesNotMatch(prompt, /Do not send thin alerts/u);
   assert.doesNotMatch(prompt, /Do not bypass/u);
@@ -308,5 +341,49 @@ test("dry-run writes prompt and prints artifact contract without remote start", 
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm("docs/canonical-runs/medieval-studies/2026-05-07T12-34-56-789Z", { recursive: true, force: true });
+  }
+});
+
+test("orchestration dry-runs use shared catalog filter without a remote session", () => {
+  const root = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
+  try {
+    const env = {
+      ...process.env,
+      CANONICAL_DATASET_IDS: "history,literature",
+      RESEARCH_SESSION_PATH: join(root, "missing-session.json"),
+    };
+    const commands = [
+      ["node", ["scripts/start-canonical-dataset-improvement-jobs.mjs", "--dry-run"]],
+      ["node", ["scripts/start-canonical-dataset-expansion-jobs.mjs", "--dry-run"]],
+      ["node", ["scripts/start-canonical-public-dataset-refresh-jobs.mjs", "--dry-run"]],
+    ] as const;
+
+    for (const [command, args] of commands) {
+      const output = execFileSync(command, args, { cwd: process.cwd(), encoding: "utf8", env });
+      const parsed = JSON.parse(output) as {
+        dryRun: boolean;
+        results: Array<{ datasetId?: string; status: string; artifacts?: string[] }>;
+      };
+      assert.equal(parsed.dryRun, true);
+      assert.deepEqual(
+        parsed.results.filter((result) => result.datasetId).map((result) => result.datasetId),
+        ["history", "literature"],
+      );
+      assert.ok(parsed.results.every((result) => result.status !== "missing_dataset"));
+    }
+
+    const improveOutput = execFileSync("node", ["scripts/start-canonical-dataset-improvement-jobs.mjs", "--dry-run"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env,
+    });
+    const improveParsed = JSON.parse(improveOutput) as {
+      results: Array<{ datasetId?: string; artifacts?: string[] }>;
+    };
+    const historyImprove = improveParsed.results.find((result) => result.datasetId === "history");
+    assert.ok(historyImprove?.artifacts?.includes("docs/public-datasets/briefings/history.md"));
+    assert.ok(historyImprove?.artifacts?.includes("docs/public-datasets/history.mdx"));
+  } finally {
+    execFileSync("rm", ["-rf", root]);
   }
 });

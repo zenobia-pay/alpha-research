@@ -3,6 +3,7 @@ import { lookup as dnsLookup } from "node:dns";
 import { request as httpsRequest } from "node:https";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { selectCanonicalDatasets } from "./canonical-dataset-catalog.mjs";
 
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), ".research", "session.json");
 const catalogPath = new URL("../docs/CANONICAL_PUBLIC_DATASETS.md", import.meta.url);
@@ -17,12 +18,7 @@ const alphaResearchFallbackIps = (process.env.ALPHA_RESEARCH_FALLBACK_IPS ?? "10
   .map((ip) => ip.trim())
   .filter(Boolean);
 
-const canonicalDatasetIds = (process.env.CANONICAL_DATASET_IDS ?? "econ")
-  .split(",")
-  .map((id) => id.trim())
-  .filter(Boolean);
-
-const canonicalDatasets = canonicalDatasetIds.map((id) => ({ id, name: id }));
+const canonicalDatasets = selectCanonicalDatasets();
 
 const CANONICAL_PUBLIC_RESOURCES = {
   profile: "canonical-public",
@@ -279,53 +275,16 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
   ].join("\n");
 }
 
-const session = readSession();
 const catalogMarkdown = readFileSync(catalogPath, "utf8");
 const results = [];
 
-let datasetsPayload;
-try {
-  datasetsPayload = await apiWithRetry(session, "/api/cli/datasets");
-} catch (error) {
-  const formatted = formatError(error);
-  if (!dryRun) {
-    results.push({
-      status: "blocked_remote_unreachable",
-      error: formatted,
-      origin: session.origin,
-    });
-
-    for (const dataset of canonicalDatasets) {
-      results.push({
-        datasetId: dataset.id,
-        status: "remote_status_unavailable",
-        datasetStatus: "unknown",
-        deploymentStatus: "unknown",
-        activeRunId: null,
-        error: formatted,
-        origin: session.origin,
-      });
-    }
-
-    console.log(JSON.stringify({ dryRun, statusOnly, results }, null, 2));
-    process.exitCode = 2;
-    process.exit();
-  }
-
-  // Offline dry-run mode: remote may be unreachable in sandboxed environments.
-  // Emit planned prompts/resources without needing live dataset readiness checks.
-  results.push({
-    status: "offline_dry_run_remote_unreachable",
-    error: formatted,
-    origin: session.origin,
-  });
-
+if (dryRun) {
   for (const dataset of canonicalDatasets) {
     const sourceRegistryBullets = extractSourceRegistrySection(catalogMarkdown, dataset.id);
     const prompt = refreshPrompt(dataset.id, dataset.name, sourceRegistryBullets);
     results.push({
       datasetId: dataset.id,
-      status: "offline_dry_run_planned",
+      status: "dry_run_ready",
       promptLength: prompt.length,
       resources: CANONICAL_PUBLIC_RESOURCES,
       artifacts: [
@@ -339,14 +298,42 @@ try {
         "data_dictionary.md",
         "quality_report.md",
         "dataset_briefing.md",
-        "docs/public-datasets/briefings/<datasetId>.md",
-        "docs/public-datasets/<datasetId>.mdx",
+        `docs/public-datasets/briefings/${dataset.id}.md`,
+        `docs/public-datasets/${dataset.id}.mdx`,
       ],
+    });
+  }
+  console.log(JSON.stringify({ dryRun, statusOnly, results }, null, 2));
+  process.exit();
+}
+
+let datasetsPayload;
+let session;
+try {
+  session = readSession();
+  datasetsPayload = await apiWithRetry(session, "/api/cli/datasets");
+} catch (error) {
+  const formatted = formatError(error);
+  results.push({
+    status: "blocked_remote_unreachable",
+    error: formatted,
+    origin: session?.origin ?? null,
+  });
+
+  for (const dataset of canonicalDatasets) {
+    results.push({
+      datasetId: dataset.id,
+      status: "remote_status_unavailable",
+      datasetStatus: "unknown",
+      deploymentStatus: "unknown",
+      activeRunId: null,
+      error: formatted,
+      origin: session?.origin ?? null,
     });
   }
 
   console.log(JSON.stringify({ dryRun, statusOnly, results }, null, 2));
-  process.exitCode = 0;
+  process.exitCode = 2;
   process.exit();
 }
 
@@ -361,7 +348,7 @@ let startedThisPass = 0;
 for (const dataset of canonicalDatasets) {
   const liveDataset = liveDatasets.get(dataset.id);
   if (!liveDataset) {
-    results.push({ datasetId: dataset.id, status: "missing_dataset" });
+    results.push({ datasetId: dataset.id, status: "skipped_missing_dataset" });
     continue;
   }
 
@@ -456,7 +443,7 @@ for (const dataset of canonicalDatasets) {
 }
 
 console.log(JSON.stringify({ dryRun, statusOnly, results }, null, 2));
-const failed = results.filter((r) => ["missing_dataset", "failed_to_start", "blocked_remote_unreachable"].includes(r.status));
+const failed = results.filter((r) => ["failed_to_start", "blocked_remote_unreachable"].includes(r.status));
 if (failed.length > 0) {
   process.exitCode = 1;
 }

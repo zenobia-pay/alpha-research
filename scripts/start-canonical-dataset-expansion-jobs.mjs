@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { seedCandidatesText, selectCanonicalDatasets } from "./canonical-dataset-catalog.mjs";
 
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), ".research", "session.json");
 const promptPath = new URL("../prompts/canonical-dataset-expansion.md", import.meta.url);
@@ -9,21 +10,10 @@ const catalogPath = new URL("../docs/CANONICAL_PUBLIC_DATASETS.md", import.meta.
 const dryRun = process.argv.includes("--dry-run") || process.env.CANONICAL_DATASET_EXPAND_DRY_RUN === "1";
 const maxConcurrentRemoteRuns = Math.max(1, Math.trunc(Number(process.env.CANONICAL_MAX_CONCURRENT_REMOTE_RUNS ?? "2")));
 
-const canonicalDatasets = [
-  {
-    id: "econ",
-    name: "Econ",
-    fieldBrief: "Economics: macroeconomics, labor, housing, inflation, credit, consumer behavior, regional economics, and business-cycle research.",
-    seedCandidates: [
-      "- Eurostat bulk download / SDMX API: https://ec.europa.eu/eurostat/ (active_fetchable)",
-      "- European Central Bank SDW API: https://data.ecb.europa.eu/ (active_fetchable)",
-      "- BIS statistics (SDMX): https://www.bis.org/statistics/ (active_fetchable)",
-      "- World Bank WDI API: https://data.worldbank.org/ (active_fetchable)",
-      "- OECD API / bulk downloads: https://data-explorer.oecd.org/ (active_fetchable)",
-      "- OpenCorporates company registry: https://opencorporates.com/ (license_review)",
-    ].join("\n"),
-  },
-];
+const canonicalDatasets = selectCanonicalDatasets().map((dataset) => ({
+  ...dataset,
+  seedCandidates: seedCandidatesText(dataset),
+}));
 
 const resources = {
   profile: "standard-analysis",
@@ -100,7 +90,6 @@ async function api(session, path, options = {}) {
   return body;
 }
 
-const session = readSession();
 const promptTemplate = readFileSync(promptPath, "utf8");
 const catalogMarkdown = readFileSync(catalogPath, "utf8");
 const results = [];
@@ -138,14 +127,35 @@ function extractCatalogSources(markdown, datasetId) {
   return bullets.length > 0 ? bullets.join("\n") : null;
 }
 
+if (dryRun) {
+  for (const dataset of canonicalDatasets) {
+    dataset.fieldCatalogSources = extractCatalogSources(catalogMarkdown, dataset.id);
+    const prompt = renderPrompt(promptTemplate, dataset);
+    results.push({
+      datasetId: dataset.id,
+      status: "dry_run_ready",
+      promptLength: prompt.length,
+      resources,
+      artifacts: [
+        "expansion_plan.md",
+        "source_registry.plan.json",
+      ],
+    });
+  }
+  console.log(JSON.stringify({ dryRun, results }, null, 2));
+  process.exit();
+}
+
 let datasetsPayload;
+let session;
 try {
+  session = readSession();
   datasetsPayload = await api(session, "/api/cli/datasets");
 } catch (error) {
   results.push({
     status: "blocked_remote_unreachable",
     error: formatError(error),
-    origin: session.origin,
+    origin: session?.origin ?? null,
   });
   console.log(JSON.stringify({ dryRun, results }, null, 2));
   process.exitCode = 2;
@@ -164,7 +174,7 @@ for (const dataset of canonicalDatasets) {
   dataset.fieldCatalogSources = extractCatalogSources(catalogMarkdown, dataset.id);
   const liveDataset = liveDatasets.get(dataset.id);
   if (!liveDataset) {
-    results.push({ datasetId: dataset.id, status: "missing_dataset" });
+    results.push({ datasetId: dataset.id, status: "skipped_missing_dataset" });
     continue;
   }
 
@@ -238,7 +248,7 @@ for (const dataset of canonicalDatasets) {
 }
 
 console.log(JSON.stringify({ dryRun, results }, null, 2));
-const failed = results.filter((r) => ["missing_dataset", "failed_to_start", "blocked_remote_unreachable"].includes(r.status));
+const failed = results.filter((r) => ["failed_to_start", "blocked_remote_unreachable"].includes(r.status));
 if (failed.length > 0) {
   process.exitCode = 1;
 }
