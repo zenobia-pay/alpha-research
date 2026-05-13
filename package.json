@@ -45,6 +45,7 @@
     "canonical:expand:dry-run": "node scripts/start-canonical-dataset-expansion-jobs.mjs --dry-run",
     "canonical:improve": "node scripts/start-canonical-dataset-improvement-jobs.mjs",
     "canonical:improve:dry-run": "node scripts/start-canonical-dataset-improvement-jobs.mjs --dry-run",
+    "remote-agent:exec": "node scripts/remote-agent-exec.mjs",
     "agent:check": "npm run build && npm run typecheck && npm run test && npm run harness:check && npm run docs:check && npm run architecture:check && npm run smoke:local && npm run deploy:check",
     "symphony:doctor": "tsx scripts/symphony.ts doctor",
     "symphony:bootstrap": "tsx scripts/symphony.ts bootstrap",

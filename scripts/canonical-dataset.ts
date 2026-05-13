@@ -28,6 +28,8 @@ type RemoteDataset = {
   status?: string;
   deploymentStatus?: string;
   activeRunId?: string | null;
+  activeRemoteExecutionId?: string | null;
+  activeCanonicalExecutionId?: string | null;
   manifestPath?: string | null;
   profile?: {
     briefingMarkdown?: string | null;
@@ -94,6 +96,7 @@ const MODE_TEMPLATES: Record<Exclude<Mode, "status">, string> = {
   improve: "prompts/canonical-dataset-improve-single.md",
   audit: "prompts/canonical-dataset-audit.md",
 };
+const adminTokenPath = process.env.ALPHA_RESEARCH_ADMIN_TOKEN_PATH ?? join(homedir(), ".codex", "secrets.env");
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -237,9 +240,13 @@ export function classifyDatasetStatus(dataset: RemoteDataset | null | undefined)
   }
   const datasetStatus = dataset.status ?? "unknown";
   const deploymentStatus = dataset.deploymentStatus ?? "unknown";
+  const activeRemoteExecutionId = dataset.activeRemoteExecutionId ?? dataset.activeCanonicalExecutionId ?? null;
+  if (activeRemoteExecutionId) {
+    return { status: "active_remote_execution", datasetStatus, deploymentStatus, activeRemoteExecutionId };
+  }
   const activeRunId = dataset.activeRunId ?? null;
   if (activeRunId) {
-    return { status: "active_run", datasetStatus, deploymentStatus, activeRunId };
+    return { status: "legacy_active_run", datasetStatus, deploymentStatus, activeRunId };
   }
   if (datasetStatus === "failed" || deploymentStatus === "failed") {
     return { status: "failed_deployment", datasetStatus, deploymentStatus };
@@ -264,6 +271,16 @@ export function classifyDatasetStatus(dataset: RemoteDataset | null | undefined)
     volumeInventoryRunId: profile?.volumeInventoryRunId ?? nestedQuality?.volumeInventoryRunId ?? null,
     volumeInventoryUpdatedAt: profile?.volumeInventoryUpdatedAt ?? nestedQuality?.volumeInventoryUpdatedAt ?? null,
   };
+}
+
+function readAdminToken(): string {
+  if (process.env.ALPHA_RESEARCH_ADMIN_TOKEN) return process.env.ALPHA_RESEARCH_ADMIN_TOKEN;
+  assert(existsSync(adminTokenPath), `Missing ALPHA_RESEARCH_ADMIN_TOKEN. Store it with ~/.codex/scripts/ask-secret.sh ALPHA_RESEARCH_ADMIN_TOKEN ${adminTokenPath} "Enter Alpha Research admin token"`);
+  const envText = readFileSync(adminTokenPath, "utf8");
+  const match = envText.match(/^ALPHA_RESEARCH_ADMIN_TOKEN=(.*)$/mu);
+  const token = match?.[1]?.trim().replace(/^['"]|['"]$/g, "") || "";
+  assert(token, `Missing ALPHA_RESEARCH_ADMIN_TOKEN in ${adminTokenPath}`);
+  return token;
 }
 
 function readSession(): Session {
@@ -291,11 +308,29 @@ async function api<T>(session: Session, path: string, options: { method?: string
   return body as T;
 }
 
-function dashboardRunUrl(runId: string) {
-  const url = new URL(process.env.ALPHA_RESEARCH_DASHBOARD_ORIGIN ?? "https://dashboard.alpharesearch.nyc");
-  url.searchParams.set("view", "runs");
-  url.searchParams.set("runId", runId);
-  url.hash = `run-${encodeURIComponent(runId)}`;
+async function adminApi<T>(origin: string, path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+  const response = await fetch(`${origin}${path}`, {
+    method: options.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${readAdminToken()}`,
+      "Content-Type": "application/json",
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
+  const text = await response.text();
+  const body = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(`Admin request failed (${response.status}) for ${path}: ${text || "{}"}`);
+  }
+  return body as T;
+}
+
+function adminExecutionStatusUrl(executionId: string | null) {
+  if (!executionId) return null;
+  const url = new URL(process.env.ALPHA_RESEARCH_ORIGIN ?? "https://alpharesearch.nyc");
+  url.pathname = `/api/admin/remote-agent-executions/${encodeURIComponent(executionId)}`;
+  url.search = "";
+  url.hash = "";
   return url.toString();
 }
 
@@ -391,23 +426,27 @@ async function run() {
     process.exitCode = 1;
     return;
   }
-  if (state.status === "active_run" || state.status === "not_ready" || state.status === "failed_deployment") {
+  if (state.status === "active_remote_execution" || state.status === "legacy_active_run" || state.status === "not_ready" || state.status === "failed_deployment") {
     console.log(JSON.stringify({ mode: args.mode, datasetId: args.datasetId, promptPath, status: "blocked", blocker: state }, null, 2));
     process.exitCode = 1;
     return;
   }
 
-  const result = await api<{ run?: { id?: string } }>(
-    session,
-    `/api/cli/datasets/${encodeURIComponent(args.datasetId)}/runs`,
+  const origin = process.env.ALPHA_RESEARCH_ORIGIN ?? session.origin;
+  const result = await adminApi<{ execution?: { id?: string }; remoteAgentExecution?: { id?: string } }>(
+    origin,
+    "/api/admin/remote-agent-executions",
     {
       method: "POST",
       body: {
         prompt,
-        type: args.mode === "audit" ? "analysis" : "analysis",
-        config: {
+        kind: args.mode === "audit" ? "dataset-disk-audit" : "dataset-improvement",
+        datasetId: args.datasetId,
+        artifactSpec: artifacts,
+        resources: CANONICAL_PUBLIC_RESOURCES,
+        metadata: {
           canonicalDatasetLifecycle: true,
-          jobKind: args.mode === "audit" ? "dataset-disk-audit" : "dataset-improvement",
+          canonicalJobKind: args.mode === "audit" ? "dataset-disk-audit" : "dataset-improvement",
           datasetId: args.datasetId,
           datasetName,
           writesDatasetBriefing: true,
@@ -415,21 +454,19 @@ async function run() {
           requiresVolumeInventory: true,
           requiresDownloadEventLog: true,
           requiresSlackDownloadAlerts: true,
-          resources: CANONICAL_PUBLIC_RESOURCES,
           ...CANONICAL_RUNTIME_CONTRACT,
         },
-        artifacts,
       },
     },
   );
-  const runId = result.run?.id ?? null;
+  const executionId = result.execution?.id ?? result.remoteAgentExecution?.id ?? null;
   console.log(JSON.stringify({
     mode: args.mode,
     datasetId: args.datasetId,
     promptPath,
     status: "started",
-    runId,
-    dashboardUrl: runId ? dashboardRunUrl(runId) : null,
+    executionId,
+    adminStatusUrl: adminExecutionStatusUrl(executionId),
     result,
   }, null, 2));
 }

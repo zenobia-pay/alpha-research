@@ -3,6 +3,7 @@ import { lookup as dnsLookup } from "node:dns";
 import { request as httpsRequest } from "node:https";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { adminExecutionStatusUrl, defaultOrigin, executionIdFromResponse, postAdminJson } from "./admin-remote-agent.mjs";
 import { selectCanonicalDatasets } from "./canonical-dataset-catalog.mjs";
 
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), ".research", "session.json");
@@ -140,15 +141,6 @@ function readSession() {
   assert(typeof session.origin === "string" && session.origin.startsWith("http"), `Invalid session origin in ${sessionPath}.`);
   assert(typeof session.accessToken === "string" && session.accessToken.length > 0, `Missing access token in ${sessionPath}.`);
   return session;
-}
-
-function dashboardRunUrl(origin, runId) {
-  const dashboardOrigin = process.env.ALPHA_RESEARCH_DASHBOARD_ORIGIN ?? "https://dashboard.alpharesearch.nyc";
-  const url = new URL(dashboardOrigin);
-  url.searchParams.set("view", "runs");
-  url.searchParams.set("runId", runId);
-  url.hash = `run-${encodeURIComponent(runId)}`;
-  return url.toString();
 }
 
 async function api(session, path, options = {}) {
@@ -343,7 +335,7 @@ try {
       status: "remote_status_unavailable",
       datasetStatus: "unknown",
       deploymentStatus: "unknown",
-      activeRunId: null,
+      activeRemoteExecutionId: null,
       error: formatted,
       origin: session?.origin ?? null,
     });
@@ -365,10 +357,11 @@ for (const dataset of canonicalDatasets) {
 
   const datasetStatus = liveDataset.status ?? "unknown";
   const deploymentStatus = liveDataset.deploymentStatus ?? "unknown";
+  const activeRemoteExecutionId = liveDataset.activeRemoteExecutionId ?? liveDataset.activeCanonicalExecutionId ?? null;
   const activeRunId = liveDataset.activeRunId ?? null;
 
   if (statusOnly) {
-    results.push({ datasetId: dataset.id, status: "remote_status", datasetStatus, deploymentStatus, activeRunId });
+    results.push({ datasetId: dataset.id, status: "remote_status", datasetStatus, deploymentStatus, activeRemoteExecutionId, legacyActiveRunId: activeRunId });
     continue;
   }
 
@@ -376,7 +369,7 @@ for (const dataset of canonicalDatasets) {
   const repairableBootstrapState = ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(datasetStatus)
     || ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(deploymentStatus);
   if (!ready && !repairableBootstrapState) {
-    results.push({ datasetId: dataset.id, status: "skipped_not_ready", datasetStatus, deploymentStatus, activeRunId });
+    results.push({ datasetId: dataset.id, status: "skipped_not_ready", datasetStatus, deploymentStatus, activeRemoteExecutionId, legacyActiveRunId: activeRunId });
     continue;
   }
 
@@ -428,18 +421,27 @@ for (const dataset of canonicalDatasets) {
   }
 
   try {
-    const started = await api(session, `/api/cli/datasets/${encodeURIComponent(dataset.id)}/public-environment`, {
-      method: "POST",
-      body,
+    const { body: started } = await postAdminJson("/api/admin/remote-agent-executions", {
+      prompt,
+      kind: ready ? "dataset-refresh" : "dataset-bootstrap-repair",
+      datasetId: dataset.id,
+      resources: CANONICAL_PUBLIC_RESOURCES,
+      artifactSpec: body.artifacts,
+      metadata: {
+        ...body.config,
+        name: body.name,
+        description: body.description,
+        sourceDescription: body.sourceDescription,
+      },
     });
-    const runId = started.run?.id ?? null;
+    const executionId = executionIdFromResponse(started);
     results.push({
       datasetId: dataset.id,
       status: ready ? "started" : "started_bootstrap_repair",
       previousDatasetStatus: datasetStatus,
       previousDeploymentStatus: deploymentStatus,
-      runId,
-      dashboardUrl: runId ? dashboardRunUrl(session.origin, runId) : null,
+      executionId,
+      adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
     });
   } catch (error) {
     results.push({

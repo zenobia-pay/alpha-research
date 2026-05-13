@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { adminExecutionStatusUrl, defaultOrigin, executionIdFromResponse, postAdminJson } from "./admin-remote-agent.mjs";
 import { seedCandidatesText, selectCanonicalDatasets } from "./canonical-dataset-catalog.mjs";
 
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), ".research", "session.json");
@@ -58,15 +59,6 @@ function renderPrompt(template, dataset) {
     .replaceAll("{fieldBrief}", dataset.fieldBrief)
     .replaceAll("{fieldCatalogSources}", dataset.fieldCatalogSources ?? "- (No local field catalog sources found.)")
     .replaceAll("{seedCandidates}", dataset.seedCandidates ?? "- (No seed candidates.)");
-}
-
-function dashboardRunUrl(origin, runId) {
-  const dashboardOrigin = process.env.ALPHA_RESEARCH_DASHBOARD_ORIGIN ?? "https://dashboard.alpharesearch.nyc";
-  const url = new URL(dashboardOrigin);
-  url.searchParams.set("view", "runs");
-  url.searchParams.set("runId", runId);
-  url.hash = `run-${encodeURIComponent(runId)}`;
-  return url.toString();
 }
 
 async function api(session, path, options = {}) {
@@ -173,10 +165,11 @@ for (const dataset of canonicalDatasets) {
 
   const datasetStatus = liveDataset.status ?? "unknown";
   const deploymentStatus = liveDataset.deploymentStatus ?? "unknown";
+  const activeRemoteExecutionId = liveDataset.activeRemoteExecutionId ?? liveDataset.activeCanonicalExecutionId ?? null;
   const activeRunId = liveDataset.activeRunId ?? null;
 
   if (datasetStatus !== "ready" || deploymentStatus !== "ready") {
-    results.push({ datasetId: dataset.id, status: "skipped_not_ready", datasetStatus, deploymentStatus, activeRunId });
+    results.push({ datasetId: dataset.id, status: "skipped_not_ready", datasetStatus, deploymentStatus, activeRemoteExecutionId, legacyActiveRunId: activeRunId });
     continue;
   }
 
@@ -207,16 +200,20 @@ for (const dataset of canonicalDatasets) {
   }
 
   try {
-    const started = await api(session, `/api/cli/datasets/${encodeURIComponent(dataset.id)}/runs`, {
-      method: "POST",
-      body,
+    const { body: started } = await postAdminJson("/api/admin/remote-agent-executions", {
+      prompt,
+      kind: "dataset-expansion",
+      datasetId: dataset.id,
+      resources,
+      artifactSpec: body.artifacts,
+      metadata: body.config,
     });
-    const runId = started.run?.id ?? null;
+    const executionId = executionIdFromResponse(started);
     results.push({
       datasetId: dataset.id,
       status: "started",
-      runId,
-      dashboardUrl: runId ? dashboardRunUrl(session.origin, runId) : null,
+      executionId,
+      adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
     });
   } catch (error) {
     results.push({

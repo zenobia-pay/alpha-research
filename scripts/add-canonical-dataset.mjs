@@ -1,10 +1,15 @@
-import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import {
+  adminExecutionArtifactsUrl,
+  adminExecutionStatusUrl,
+  argValue,
+  assert,
+  defaultOrigin,
+  executionIdFromResponse,
+  postAdminJson,
+} from "./admin-remote-agent.mjs";
 import { CANONICAL_DATASETS, seedCandidatesText } from "./canonical-dataset-catalog.mjs";
 
-const defaultOrigin = process.env.ALPHA_RESEARCH_ORIGIN ?? "https://alpharesearch.nyc";
-const adminTokenPath = process.env.ALPHA_RESEARCH_ADMIN_TOKEN_PATH ?? join(homedir(), ".codex", "secrets.env");
 const dryRun = process.argv.includes("--dry-run");
 const legacyPublicEnvironment = process.argv.includes("--legacy-public-environment");
 
@@ -39,18 +44,6 @@ const requiredDatasetArtifacts = [
   "dataset_briefing.md",
 ];
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-function argValue(name) {
-  const index = process.argv.indexOf(name);
-  if (index === -1) return null;
-  const value = process.argv[index + 1];
-  assert(value && !value.startsWith("--"), `Missing value for ${name}`);
-  return value;
-}
-
 function slugify(input) {
   return input
     .trim()
@@ -62,8 +55,8 @@ function slugify(input) {
 }
 
 function readPrompt() {
-  const prompt = argValue("--prompt");
-  const promptFile = argValue("--prompt-file");
+  const prompt = argValue(process.argv, "--prompt");
+  const promptFile = argValue(process.argv, "--prompt-file");
   assert(!(prompt && promptFile), "Use either --prompt or --prompt-file, not both.");
   if (promptFile) return readFileSync(promptFile, "utf8").trim();
   assert(prompt, "Usage: npm run canonical:add -- --name <name> --prompt <starter instructions> [--id <slug>] [--dry-run]");
@@ -114,7 +107,7 @@ function bootstrapPayload({ datasetId, name, starterPrompt }) {
     execution: {
       provider: "modal",
       jobKind: "canonical-dataset-bootstrap",
-      codexRunOwner: "service",
+      remoteAgentExecutionOwner: "service",
       userSessionRequired: false,
     },
     resources,
@@ -134,27 +127,10 @@ function bootstrapPayload({ datasetId, name, starterPrompt }) {
   };
 }
 
-async function postJson(url, token, body) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await response.text();
-  const parsed = text ? JSON.parse(text) : {};
-  if (!response.ok) {
-    throw new Error(`Canonical bootstrap request failed (${response.status}) for ${url}: ${text || "{}"}`);
-  }
-  return parsed;
-}
-
 async function main() {
-  const name = argValue("--name");
+  const name = argValue(process.argv, "--name");
   assert(name, "Usage: npm run canonical:add -- --name <name> --prompt <starter instructions> [--id <slug>] [--dry-run]");
-  const datasetId = argValue("--id") ?? slugify(name);
+  const datasetId = argValue(process.argv, "--id") ?? slugify(name);
   assert(datasetId, "Dataset id resolved to an empty slug.");
   assert(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(datasetId), `Invalid dataset id "${datasetId}". Use lowercase slug format.`);
   const starterPrompt = readPrompt();
@@ -175,14 +151,15 @@ async function main() {
     throw new Error("Refusing to use --legacy-public-environment by default. The best path is platform-owned /api/admin/canonical-datasets/bootstrap.");
   }
 
-  const token = readAdminToken();
-  assert(token, `Missing ALPHA_RESEARCH_ADMIN_TOKEN. Store it with ~/.codex/scripts/ask-secret.sh ALPHA_RESEARCH_ADMIN_TOKEN ${adminTokenPath} "Enter Alpha Research admin token"`);
-  const endpoint = new URL("/api/admin/canonical-datasets/bootstrap", defaultOrigin).toString();
-  const result = await postJson(endpoint, token, body);
+  const { endpoint, body: result } = await postAdminJson("/api/admin/canonical-datasets/bootstrap", body);
+  const executionId = executionIdFromResponse(result);
   console.log(JSON.stringify({
     datasetId,
     status: "submitted",
     endpoint,
+    executionId,
+    adminStatusUrl: result.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
+    artifactsUrl: result.artifactsUrl ?? adminExecutionArtifactsUrl(executionId, defaultOrigin),
     result,
   }, null, 2));
 }

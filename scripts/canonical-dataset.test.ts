@@ -291,8 +291,14 @@ test("status classifier distinguishes missing, active, failed, unproven, and dis
     id: "x",
     status: "ready",
     deploymentStatus: "ready",
+    activeRemoteExecutionId: "exec-active",
+  }).status, "active_remote_execution");
+  assert.equal(classifyDatasetStatus({
+    id: "x",
+    status: "ready",
+    deploymentStatus: "ready",
     activeRunId: "run-active",
-  }).status, "active_run");
+  }).status, "legacy_active_run");
   assert.equal(classifyDatasetStatus({ id: "x", status: "failed", deploymentStatus: "failed" }).status, "failed_deployment");
   assert.equal(classifyDatasetStatus({ id: "x", status: "ready", deploymentStatus: "ready", profile: {} }).status, "not_disk_proven");
   assert.equal(classifyDatasetStatus({
@@ -377,6 +383,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
 
     for (const [command, args] of commands) {
       const output = execFileSync(command, args, { cwd: process.cwd(), encoding: "utf8", env });
+      assert.doesNotMatch(output, /\b(runId|dashboardUrl)\b/u);
       const parsed = JSON.parse(output) as {
         dryRun: boolean;
         results: Array<{ datasetId?: string; status: string; artifacts?: string[]; runtimeArtifacts?: string[] }>;
@@ -403,6 +410,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
     const improveParsed = JSON.parse(improveOutput) as {
       results: Array<{ datasetId?: string; artifacts?: string[] }>;
     };
+    assert.doesNotMatch(improveOutput, /\b(runId|dashboardUrl)\b/u);
     const historyImprove = improveParsed.results.find((result) => result.datasetId === "history");
     assert.ok(historyImprove?.artifacts?.includes("docs/public-datasets/briefings/history.md"));
     assert.ok(historyImprove?.artifacts?.includes("docs/public-datasets/history.mdx"));
@@ -435,7 +443,7 @@ test("single dataset add script builds platform-owned bootstrap request", () => 
       datasetId: string;
       name: string;
       owner: string;
-      execution: { codexRunOwner: string; userSessionRequired: boolean };
+      execution: { remoteAgentExecutionOwner: string; userSessionRequired: boolean };
       prompt: string;
       requiredEnvironment: string[];
       requiredArtifacts: string[];
@@ -446,10 +454,37 @@ test("single dataset add script builds platform-owned bootstrap request", () => 
   assert.equal(parsed.body.datasetId, "history");
   assert.equal(parsed.body.name, "History");
   assert.equal(parsed.body.owner, "platform");
-  assert.equal(parsed.body.execution.codexRunOwner, "service");
+  assert.equal(parsed.body.execution.remoteAgentExecutionOwner, "service");
   assert.equal(parsed.body.execution.userSessionRequired, false);
   assert.match(parsed.body.prompt, /Start with public archives/u);
   assert.match(parsed.body.prompt, /Library of Congress/u);
   assert.ok(parsed.body.requiredEnvironment.includes("CANONICAL_DATASET_SLACK_WEBHOOK_URL"));
   assert.ok(parsed.body.requiredArtifacts.includes("dataset_briefing.md"));
+});
+
+test("remote agent exec dry-run targets hidden admin execution endpoint with exact prompt", () => {
+  const output = execFileSync("node", [
+    "scripts/remote-agent-exec.mjs",
+    "--prompt",
+    "Say exactly hello.",
+    "--kind",
+    "manual",
+    "--dataset-id",
+    "literature",
+    "--dry-run",
+  ], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+  const parsed = JSON.parse(output) as {
+    dryRun: boolean;
+    endpoint: string;
+    body: { prompt: string; kind: string; datasetId: string; ownerType: string };
+  };
+  assert.equal(parsed.dryRun, true);
+  assert.equal(parsed.endpoint, "/api/admin/remote-agent-executions");
+  assert.equal(parsed.body.prompt, "Say exactly hello.");
+  assert.equal(parsed.body.kind, "manual");
+  assert.equal(parsed.body.datasetId, "literature");
+  assert.equal(parsed.body.ownerType, "admin");
 });
