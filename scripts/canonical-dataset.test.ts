@@ -443,7 +443,13 @@ test("single dataset add script builds platform-owned bootstrap request", () => 
       datasetId: string;
       name: string;
       owner: string;
-      execution: { remoteAgentExecutionOwner: string; userSessionRequired: boolean };
+      execution: {
+        remoteAgentExecutionOwner: string;
+        userSessionRequired: boolean;
+        codexMode: string;
+        codexArgs: string[];
+        promptEnvelope: { type: string; command: string; promptField: string };
+      };
       prompt: string;
       requiredEnvironment: string[];
       requiredArtifacts: string[];
@@ -456,6 +462,13 @@ test("single dataset add script builds platform-owned bootstrap request", () => 
   assert.equal(parsed.body.owner, "platform");
   assert.equal(parsed.body.execution.remoteAgentExecutionOwner, "service");
   assert.equal(parsed.body.execution.userSessionRequired, false);
+  assert.equal(parsed.body.execution.codexMode, "tui");
+  assert.deepEqual(parsed.body.execution.codexArgs, ["--dangerously-bypass-approvals-and-sandbox"]);
+  assert.deepEqual(parsed.body.execution.promptEnvelope, {
+    type: "goal_command",
+    command: "/goal",
+    promptField: "prompt",
+  });
   assert.match(parsed.body.prompt, /Start with public archives/u);
   assert.match(parsed.body.prompt, /Library of Congress/u);
   assert.ok(parsed.body.requiredEnvironment.includes("CANONICAL_DATASET_SLACK_WEBHOOK_URL"));

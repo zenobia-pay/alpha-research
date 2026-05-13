@@ -109,6 +109,15 @@ function bootstrapPayload({ datasetId, name, starterPrompt }) {
       jobKind: "canonical-dataset-bootstrap",
       remoteAgentExecutionOwner: "service",
       userSessionRequired: false,
+      codexMode: "tui",
+      codexArgs: [
+        "--dangerously-bypass-approvals-and-sandbox",
+      ],
+      promptEnvelope: {
+        type: "goal_command",
+        command: "/goal",
+        promptField: "prompt",
+      },
     },
     resources,
     prompt: bootstrapPrompt({ datasetId, name, starterPrompt }),
