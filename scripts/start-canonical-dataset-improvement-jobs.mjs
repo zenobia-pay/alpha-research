@@ -137,11 +137,6 @@ for (const dataset of canonicalDatasets) {
     })
     continue
   }
-  if (liveDataset.activeRunId) {
-    results.push({ datasetId: dataset.id, status: 'skipped_active_run', activeRunId: liveDataset.activeRunId })
-    continue
-  }
-
   const prompt = renderPrompt(promptTemplate, dataset)
   const body = {
     prompt,

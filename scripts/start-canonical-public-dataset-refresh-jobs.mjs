@@ -372,11 +372,6 @@ for (const dataset of canonicalDatasets) {
     continue;
   }
 
-  if (activeRunId) {
-    results.push({ datasetId: dataset.id, status: "skipped_active_run", datasetStatus, deploymentStatus, activeRunId });
-    continue;
-  }
-
   const ready = datasetStatus === "ready" && deploymentStatus === "ready";
   const repairableBootstrapState = ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(datasetStatus)
     || ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(deploymentStatus);
