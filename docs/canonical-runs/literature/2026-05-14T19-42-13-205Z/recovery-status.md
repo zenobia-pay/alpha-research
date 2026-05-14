@@ -19,3 +19,17 @@ Date: 2026-05-14
 - `literature` is present in the canonical catalog with Project Gutenberg, Internet Archive, HathiTrust metadata, Open Library, Wikisource, and Perseus seed sources.
 - Required bootstrap artifacts are not complete because the production remote-agent execution path did not progress beyond TUI startup.
 - Slack download alerts, `dataset_briefing.md`, source inventory, docs/profile readback, and proof of no user-facing run record remain blocked on the production admin remote-agent execution path.
+
+## Retry Result
+
+Retried after `POST /api/admin/remote-agent-executions` became available.
+
+- Endpoint proof execution: `91393647-3050-4259-b1ae-29418161b461`; it reached the remote agent executor and produced command artifacts.
+- Literature admin bootstrap execution: `a581c7a0-4bf8-4b18-9121-a5a59f444457`; terminal status `ready`; Modal call `fc-01KRM0WQJP14C247ZFTBCT7S72`.
+- The bootstrap produced 27 deliverable artifacts, including `dataset_briefing.md`, `source_registry.csv`, `source_inventory.json`, `manifest.json`, `download_inventory.*`, `download_events.jsonl`, `raw_inventory.*`, `volume_inventory.*`, `volume_tree.txt`, `data_dictionary.md`, `quality_report.md`, `slack_download_alerts.jsonl`, `slack_briefing.md`, `docs/public-datasets/briefings/literature.md`, `docs/public-datasets/literature.mdx`, and `improvement_result.json`.
+- CLI dataset readback shows `literature` as a ready dataset.
+- User-facing run readback for `datasetId=literature` returned zero runs, and the admin execution id was not present in user run records.
+- The dataset profile was updated from the produced `dataset_briefing.md`; readback confirmed `briefingMarkdown` contains `# Literal Data Inventory` and `describedRunId` is `a581c7a0-4bf8-4b18-9121-a5a59f444457`.
+- Slack acceptance is covered by `slack_download_alerts.jsonl` and `slack_briefing.md`; the run result records an explicit blocker rather than confirmed delivery.
+
+Remaining caveat: `improvement_result.json` reports `status: blocked_read_only_volume` and `diskInventoryProven: false` because `/data/datasets/literature` was mounted read-only. The run regenerated inventories and docs in the writable workspace/results area, but could not write them back into the canonical dataset mount.
