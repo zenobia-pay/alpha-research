@@ -7,6 +7,7 @@ import { selectCanonicalDatasets } from './canonical-dataset-catalog.mjs'
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), '.research', 'session.json')
 const promptPath = new URL('../prompts/canonical-dataset-improvement.md', import.meta.url)
 const dryRun = process.argv.includes('--dry-run') || process.env.CANONICAL_DATASET_IMPROVEMENT_DRY_RUN === '1'
+const improvementEndpoint = '/api/admin/canonical-datasets/improve'
 
 const canonicalDatasets = selectCanonicalDatasets()
 
@@ -71,6 +72,7 @@ if (dryRun) {
     results.push({
       datasetId: dataset.id,
       status: 'dry_run_ready',
+      endpoint: improvementEndpoint,
       promptLength: prompt.length,
       resources,
       artifacts: [
@@ -133,8 +135,23 @@ for (const dataset of canonicalDatasets) {
   }
   const prompt = renderPrompt(promptTemplate, dataset)
   const body = {
+    datasetId: dataset.id,
+    owner: 'platform',
+    execution: {
+      provider: 'modal',
+      jobKind: 'dataset-improvement',
+      remoteAgentExecutionOwner: 'service',
+      userSessionRequired: false,
+      codexMode: 'tui',
+      promptEnvelope: {
+        type: 'goal_command',
+        command: '/goal',
+        promptField: 'prompt',
+      },
+    },
     prompt,
-    type: 'analysis',
+    kind: 'dataset-improvement',
+    jobKind: 'dataset-improvement',
     config: {
       canonicalDatasetImprovement: true,
       jobKind: 'dataset-improvement',
@@ -166,21 +183,16 @@ for (const dataset of canonicalDatasets) {
       { type: 'file', title: 'Docs Dataset Page', path: `docs/public-datasets/${dataset.id}.mdx` },
     ],
   }
+  body.artifactSpec = body.artifacts
+  body.requiredArtifacts = body.artifacts.map((artifact) => artifact.path)
 
   if (dryRun) {
-    results.push({ datasetId: dataset.id, status: 'dry_run_ready', promptLength: prompt.length, resources })
+    results.push({ datasetId: dataset.id, status: 'dry_run_ready', endpoint: improvementEndpoint, promptLength: prompt.length, resources })
     continue
   }
 
   try {
-    const { body: started } = await postAdminJson('/api/admin/remote-agent-executions', {
-      prompt,
-      kind: 'dataset-improvement',
-      datasetId: dataset.id,
-      resources,
-      artifactSpec: body.artifacts,
-      metadata: body.config,
-    })
+    const { body: started } = await postAdminJson(improvementEndpoint, body)
     const executionId = executionIdFromResponse(started)
     results.push({
       datasetId: dataset.id,

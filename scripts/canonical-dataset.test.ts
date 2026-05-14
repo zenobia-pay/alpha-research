@@ -364,10 +364,12 @@ test("dry-run writes prompt and prints artifact contract without remote start", 
     });
     const parsed = JSON.parse(output) as {
       dryRun: boolean;
+      endpoint: string | null;
       promptPath: string;
       artifacts: Array<{ path: string }>;
     };
     assert.equal(parsed.dryRun, true);
+    assert.equal(parsed.endpoint, null);
     assert.equal(parsed.promptPath, "docs/canonical-runs/medieval-studies/2026-05-07T12-34-56-789Z/create-prompt.md");
     assert.ok(parsed.artifacts.some((artifact) => artifact.path === "volume_inventory.jsonl"));
     const prompt = await readFile(parsed.promptPath, "utf8");
@@ -398,7 +400,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
       assert.doesNotMatch(output, /\b(runId|dashboardUrl)\b/u);
       const parsed = JSON.parse(output) as {
         dryRun: boolean;
-        results: Array<{ datasetId?: string; status: string; artifacts?: string[]; runtimeArtifacts?: string[] }>;
+        results: Array<{ datasetId?: string; status: string; endpoint?: string; artifacts?: string[]; runtimeArtifacts?: string[] }>;
       };
       assert.equal(parsed.dryRun, true);
       assert.deepEqual(
@@ -420,15 +422,48 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
       env,
     });
     const improveParsed = JSON.parse(improveOutput) as {
-      results: Array<{ datasetId?: string; artifacts?: string[] }>;
+      results: Array<{ datasetId?: string; endpoint?: string; artifacts?: string[] }>;
     };
     assert.doesNotMatch(improveOutput, /\b(runId|dashboardUrl)\b/u);
     const historyImprove = improveParsed.results.find((result) => result.datasetId === "history");
+    assert.equal(historyImprove?.endpoint, "/api/admin/canonical-datasets/improve");
+    assert.ok(historyImprove?.artifacts?.includes("work.md"));
+    assert.ok(historyImprove?.artifacts?.includes("report.html"));
     assert.ok(historyImprove?.artifacts?.includes("docs/public-datasets/briefings/history.md"));
     assert.ok(historyImprove?.artifacts?.includes("docs/public-datasets/history.mdx"));
   } finally {
     execFileSync("rm", ["-rf", root]);
   }
+});
+
+test("single dataset improve dry-run uses canonical admin endpoint instead of user-facing runs", () => {
+  const output = execFileSync("npx", [
+    "tsx",
+    "scripts/canonical-dataset.ts",
+    "improve",
+    "--dataset-id",
+    "econ",
+    "--field-brief",
+    "Refresh the briefing.",
+    "--prompt-timestamp",
+    "2026-05-14T12:00:00.000Z",
+    "--dry-run",
+  ], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+  const parsed = JSON.parse(output) as {
+    dryRun: boolean;
+    mode: string;
+    endpoint: string;
+    artifacts: Array<{ path: string }>;
+  };
+  assert.equal(parsed.dryRun, true);
+  assert.equal(parsed.mode, "improve");
+  assert.equal(parsed.endpoint, "/api/admin/canonical-datasets/improve");
+  assert.ok(parsed.artifacts.some((artifact) => artifact.path === "work.md"));
+  assert.doesNotMatch(output, /\/api\/cli\/datasets\/econ\/runs/u);
+  assert.doesNotMatch(output, /remote-agent-executions/u);
 });
 
 test("single dataset add script builds platform-owned bootstrap request", () => {

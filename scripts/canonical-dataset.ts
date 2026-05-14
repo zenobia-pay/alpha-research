@@ -339,6 +339,10 @@ function adminExecutionStatusUrl(executionId: string | null) {
   return url.toString();
 }
 
+function canonicalAdminEndpoint(mode: Exclude<Mode, "create" | "status">) {
+  return `/api/admin/canonical-datasets/${mode}`;
+}
+
 async function getDataset(session: Session, datasetId: string) {
   const payload = await api<{ dataset: RemoteDataset }>(session, `/api/cli/datasets/${encodeURIComponent(datasetId)}`).catch((error) => {
     if (error instanceof Error && /Remote request failed \(404\)/u.test(error.message)) return null;
@@ -398,6 +402,7 @@ async function run() {
       promptLength: prompt.length,
       resources: CANONICAL_PUBLIC_RESOURCES,
       artifacts,
+      endpoint: args.mode === "create" ? null : canonicalAdminEndpoint(args.mode),
       status: existing ? classifyDatasetStatus(existing) : { status: "missing_dataset" },
     }, null, 2));
     return;
@@ -438,20 +443,35 @@ async function run() {
   }
 
   const origin = process.env.ALPHA_RESEARCH_ORIGIN ?? session.origin;
+  const canonicalJobKind = args.mode === "audit" ? "dataset-disk-audit" : "dataset-improvement";
   const result = await adminApi<{ execution?: { id?: string }; remoteAgentExecution?: { id?: string } }>(
     origin,
-    "/api/admin/remote-agent-executions",
+    canonicalAdminEndpoint(args.mode),
     {
       method: "POST",
       body: {
+        owner: "platform",
+        execution: {
+          provider: "modal",
+          remoteAgentExecutionOwner: "service",
+          userSessionRequired: false,
+          codexMode: "tui",
+          promptEnvelope: {
+            type: "goal_command",
+            command: "/goal",
+            promptField: "prompt",
+          },
+        },
         prompt,
-        kind: args.mode === "audit" ? "dataset-disk-audit" : "dataset-improvement",
+        kind: canonicalJobKind,
+        jobKind: canonicalJobKind,
         datasetId: args.datasetId,
         artifactSpec: artifacts,
+        requiredArtifacts: artifacts.map((artifact) => artifact.path),
         resources: CANONICAL_PUBLIC_RESOURCES,
         metadata: {
           canonicalDatasetLifecycle: true,
-          canonicalJobKind: args.mode === "audit" ? "dataset-disk-audit" : "dataset-improvement",
+          canonicalJobKind,
           datasetId: args.datasetId,
           datasetName,
           writesDatasetBriefing: true,

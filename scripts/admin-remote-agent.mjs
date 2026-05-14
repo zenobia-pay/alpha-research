@@ -40,7 +40,10 @@ export async function postAdminJson(path, body, origin = defaultOrigin) {
   const text = await response.text();
   const parsed = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    throw new Error(`Admin request failed (${response.status}) for ${endpoint}: ${text || "{}"}`);
+    const canonicalHint = response.status === 405 && path === "/api/admin/remote-agent-executions"
+      ? " Hidden remote-agent execution POST is unavailable; canonical dataset jobs must use /api/admin/canonical-datasets/* endpoints and must not fall back to /api/cli/datasets/:datasetId/runs."
+      : "";
+    throw new Error(`Admin request failed (${response.status}) for ${endpoint}: ${text || "{}"}${canonicalHint}`);
   }
   return { endpoint, body: parsed };
 }
