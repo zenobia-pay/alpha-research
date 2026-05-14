@@ -31,14 +31,15 @@ Use this field brief as the scope boundary:
 
 ## Procedure
 
-1. Inspect the current dataset files, manifest, source registry, previous expansion plans, data dictionary, quality report, and `dataset_briefing.md`. If no briefing exists, create one before doing external research.
-2. Summarize current raw coverage by source family, geography, time coverage, document/object/file types, known gaps, and deferred/blocked sources. Be exact: list every raw source artifact that exists, its path, format, byte count, hash, row/document/object count when measurable, native fields/schema, native keys, temporal coverage, geographic/topic coverage, source ids, quality notes, and known limitations.
-3. Use Exa search to find newly relevant public sources for `{datasetName}`. Query for:
+1. First create the runtime work-log artifacts required by the remote-run platform: write `work.md` and `report.html` in the worker artifact output area before dataset inspection. Use `./work.md` and `./report.html`; if `run_config.json` exposes a run id or `/results/<run-id>` exists, also write `/results/<run-id>/work.md` and `/results/<run-id>/report.html`. Keep `work.md` current through the run. These are runtime artifacts only; do not write them into the dataset root, docs mirrors, inventories, or `dataset_briefing.md`.
+2. Inspect the current dataset files, manifest, source registry, previous expansion plans, data dictionary, quality report, and `dataset_briefing.md`. If no briefing exists, create one before doing external research.
+3. Summarize current raw coverage by source family, geography, time coverage, document/object/file types, known gaps, and deferred/blocked sources. Be exact: list every raw source artifact that exists, its path, format, byte count, hash, row/document/object count when measurable, native fields/schema, native keys, temporal coverage, geographic/topic coverage, source ids, quality notes, and known limitations.
+4. Use Exa search to find newly relevant public sources for `{datasetName}`. Query for:
    - public dataset releases in the last 30 days and last year;
    - major archives, APIs, codebooks, benchmark corpora, catalogs, or metadata dumps;
    - university, government, nonprofit, museum/library/archive, and standards-body datasets;
    - field-specific repositories that the current dataset does not already cover.
-4. For every candidate, classify it as exactly one of:
+5. For every candidate, classify it as exactly one of:
    - `active_fetchable`: public, stable, machine-fetchable, license-compatible, and worth adding soon.
    - `deferred_fetchable`: probably useful and fetchable, but lower priority or needs schema planning.
    - `license_review`: promising, public, and worth downloading, but license/terms are unclear and must be marked for human review after ingest.

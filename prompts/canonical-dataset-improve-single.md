@@ -10,18 +10,20 @@ Field brief:
 
 ## Required Scope
 
-1. Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH`; otherwise use `/mnt/alpha-research/datasets/{datasetId}`.
-2. Read the existing dataset state from the mounted volume: `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `download_inventory.jsonl`, `download_inventory.csv`, `download_events.jsonl`, `slack_download_alerts.jsonl`, `slack_briefing.md`, `raw_inventory.jsonl`, `raw_inventory.csv`, `volume_inventory.jsonl`, `volume_inventory.csv`, `volume_inventory_summary.json`, `volume_tree.txt`, `data_dictionary.md`, `quality_report.md`, and any existing `dataset_briefing.md`.
-3. Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.
-4. Write `dataset_briefing.md` at the dataset volume root. Treat that file as the authoritative output for this run.
-5. Copy the exact same briefing body into `docs/public-datasets/briefings/{datasetId}.md` and `docs/public-datasets/{datasetId}.mdx` in the run artifact/workspace area when available.
-6. Update the CLI-visible backend dataset profile from the same briefing:
+1. First create the runtime work-log artifacts required by the remote-run platform: write `work.md` and `report.html` in the worker artifact output area before dataset inspection. Use `./work.md` and `./report.html`; if `run_config.json` exposes a run id or `/results/<run-id>` exists, also write `/results/<run-id>/work.md` and `/results/<run-id>/report.html`. Keep these as runtime artifacts only; do not write them into the dataset root, docs mirrors, inventories, or `dataset_briefing.md`.
+2. Keep `work.md` current as you inspect the volume, write the briefing, update the profile, and perform readback. The run must not finish without a non-empty `work.md`.
+3. Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH`; otherwise use `/mnt/alpha-research/datasets/{datasetId}`.
+4. Read the existing dataset state from the mounted volume: `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `download_inventory.jsonl`, `download_inventory.csv`, `download_events.jsonl`, `slack_download_alerts.jsonl`, `slack_briefing.md`, `raw_inventory.jsonl`, `raw_inventory.csv`, `volume_inventory.jsonl`, `volume_inventory.csv`, `volume_inventory_summary.json`, `volume_tree.txt`, `data_dictionary.md`, `quality_report.md`, and any existing `dataset_briefing.md`.
+5. Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.
+6. Write `dataset_briefing.md` at the dataset volume root. Treat that file as the authoritative output for this run.
+7. Copy the exact same briefing body into `docs/public-datasets/briefings/{datasetId}.md` and `docs/public-datasets/{datasetId}.mdx` in the run artifact/workspace area when available.
+8. Update the CLI-visible backend dataset profile from the same briefing:
    - set `briefingMarkdown` to the exact `dataset_briefing.md` body;
    - set `quality.diskInventoryProven` to `true` only after inventories are regenerated or verified from disk;
    - set `quality.volumeInventoryRunId` to the current run id;
    - set `quality.volumeInventoryUpdatedAt` to the inventory verification timestamp.
-7. Read back the dataset profile through the backend and verify it contains the exact briefing and current run id. If readback fails, mark the run blocked and write the non-secret blocker.
-8. Copy `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `improvement_result.json`, and `volume_inventory_summary.json` into the remote run artifact directory so the orchestrator can recover them.
+9. Read back the dataset profile through the backend and verify it contains the exact briefing and current run id. If readback fails, mark the run blocked and write the non-secret blocker.
+10. Copy `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `improvement_result.json`, `volume_inventory_summary.json`, `work.md`, and `report.html` into the remote run artifact directory so the orchestrator can recover them.
 
 ## Briefing Contract
 

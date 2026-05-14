@@ -242,6 +242,9 @@ test("improve prompt requires remote data-only briefing update", async () => {
   for (const required of [
     "Canonical Dataset Remote-Box Briefing Refresh",
     "Execute this focused maintenance pass now inside the remote box.",
+    "First create the runtime work-log artifacts required by the remote-run platform",
+    "write `work.md` and `report.html` in the worker artifact output area before dataset inspection",
+    "The run must not finish without a non-empty `work.md`.",
     "Use the mounted dataset volume as the dataset root.",
     "Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.",
     "Write `dataset_briefing.md` at the dataset volume root.",
@@ -272,6 +275,15 @@ test("improve prompt requires remote data-only briefing update", async () => {
   assert.doesNotMatch(prompt, /Do not send thin alerts/u);
   assert.doesNotMatch(prompt, /Do not bypass/u);
   assert.doesNotMatch(prompt, /Provider-level access failures are not run-level blockers/u);
+});
+
+test("improve artifact contract includes runtime work log artifacts", () => {
+  const paths = artifactContract("econ", "improve").map((artifact) => artifact.path);
+  assert.ok(paths.includes("work.md"), "Improve runs must request the platform work log artifact");
+  assert.ok(paths.includes("report.html"), "Improve runs must request the platform report artifact");
+  assert.ok(paths.includes("dataset_briefing.md"));
+  assert.ok(paths.includes("docs/public-datasets/briefings/econ.md"));
+  assert.ok(paths.includes("docs/public-datasets/econ.mdx"));
 });
 
 test("runtime contract requires Codex login and Slack webhook", () => {

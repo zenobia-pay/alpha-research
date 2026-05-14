@@ -204,12 +204,17 @@ export async function persistPrompt(datasetId: string, mode: Mode, prompt: strin
 }
 
 export function artifactContract(datasetId: string, mode: Mode) {
+  const runtimeArtifacts = [
+    { type: "file", title: "report.html", path: "report.html" },
+    { type: "file", title: "work.md", path: "work.md" },
+  ];
   const docsArtifacts = [
     { type: "file", title: "docs briefing mirror", path: `docs/public-datasets/briefings/${datasetId}.md` },
     { type: "file", title: "docs dataset page", path: `docs/public-datasets/${datasetId}.mdx` },
   ];
   if (mode === "improve") {
     return [
+      ...runtimeArtifacts,
       { type: "file", title: "improvement_plan.md", path: "improvement_plan.md" },
       { type: "structured_result", title: "improvement_result.json", path: "improvement_result.json" },
       { type: "table", title: "candidate_sources.csv", path: "candidate_sources.csv" },

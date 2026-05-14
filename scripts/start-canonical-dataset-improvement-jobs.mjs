@@ -74,6 +74,8 @@ if (dryRun) {
       promptLength: prompt.length,
       resources,
       artifacts: [
+        'report.html',
+        'work.md',
         'improvement_plan.md',
         'improvement_result.json',
         'candidate_sources.csv',
@@ -150,6 +152,8 @@ for (const dataset of canonicalDatasets) {
       resources,
     },
     artifacts: [
+      { type: 'file', title: 'Runtime Report', path: 'report.html' },
+      { type: 'file', title: 'Runtime Work Log', path: 'work.md' },
       { type: 'file', title: 'Improvement Plan', path: 'improvement_plan.md' },
       { type: 'structured_result', title: 'Improvement Result', path: 'improvement_result.json' },
       { type: 'table', title: 'Candidate Sources', path: 'candidate_sources.csv' },
