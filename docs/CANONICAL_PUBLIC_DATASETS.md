@@ -288,14 +288,16 @@ Initial active/deferred source registry:
 - Open Context archaeology data: https://opencontext.org/ (active_fetchable)
 - tDAR metadata and public records: https://www.tdar.org/ (license_review)
 - D-PLACE cultural and environmental data: https://d-place.org/ (active_fetchable)
-- eHRAF World Cultures: https://ehrafworldcultures.yale.edu/ (credential_required)
-- Pleiades ancient places: https://pleiades.stoa.org/ (active_fetchable)
-- Smithsonian open access collections: https://www.si.edu/openaccess (active_fetchable)
+- eHRAF World Cultures metadata (credential/deferred only): https://ehrafworldcultures.yale.edu/ (credential_required)
+- Archaeological gazetteers, including Pleiades ancient places: https://pleiades.stoa.org/ (active_fetchable)
+- Museum open collections, including Smithsonian Open Access: https://www.si.edu/openaccess (active_fetchable)
+- Museum open collections, including Metropolitan Museum of Art Open Access: https://metmuseum.github.io/ (active_fetchable)
 - Harvard Dataverse anthropology collections: https://dataverse.harvard.edu/ (active_fetchable)
 
 Priority raw source families:
 
 - Preserve native archaeological records, cultural trait datasets, museum object metadata, site/place records, codebooks, documentation, and terms evidence.
+- Treat tDAR as `license_review` until terms are reviewed; treat eHRAF as credential/deferred only and do not fetch without platform-approved access.
 - Keep archaeology, museum studies, and area studies as source families unless later split into dedicated canonical datasets.
 - Classify every source as `active_fetchable`, `deferred_fetchable`, `license_review`, `credential_required`, or `reject`.
 
