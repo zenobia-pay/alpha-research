@@ -58,6 +58,12 @@ When a remote run fails or appears stuck:
 
 The debug command redacts the session token and uses the saved CLI session. It should be the first diagnostic step before guessing about Modal runner state, dashboard state, or remote-agent failures.
 
+## Canonical Admin Jobs
+
+When a user asks to improve, refresh, audit, bootstrap, or otherwise operate on a canonical dataset, treat it as an admin-owned canonical job unless they explicitly ask for a user-facing research analysis. Do not start `/api/cli/datasets/:datasetId/runs` or `research --prompt` for canonical improvement work.
+
+Use `docs/AGENT_WORKFLOWS.md#start-a-canonical-admin-improvement-job` before launching canonical improvement jobs. Check the npm scripts first, target a named dataset with `CANONICAL_DATASET_IDS=<id>`, preserve the exact prompt under `docs/canonical-runs/<dataset-id>/<timestamp>/`, capture the admin execution id/status URL, and use the admin remote-agent status endpoint for polling.
+
 ## Engineering Rules
 
 - Preserve `research`, `research help`, and `research --prompt "<prompt>"` behavior.

@@ -24,6 +24,58 @@ Use these recipes when changing this repository. Keep them short and update them
 3. If the output is large, run `research debug run <run-id> --output /tmp/research-run-debug.json`.
 4. Inspect `remote.run`, `remote.results`, `remote.events`, `remote.artifacts`, and `trackedRun` before changing code.
 
+## Start A Canonical Admin Improvement Job
+
+Use this workflow when the user asks to improve a canonical dataset such as `econ`. This is an admin-owned canonical job, not a user-facing `research` run.
+
+1. Check the npm scripts before choosing an execution path:
+   - `npm run canonical:improve` starts bulk canonical improvement jobs through `/api/admin/canonical-datasets/improve`.
+   - `CANONICAL_DATASET_IDS=econ npm run canonical:improve:dry-run` verifies the filtered bulk job shape.
+   - `npm run canonical:dataset -- status --dataset-id econ` verifies CLI-visible readiness and active execution state.
+   - `npm run remote-agent:exec -- --kind dataset-improvement --dataset-id econ --prompt-file <file>` is the admin-owned fallback when the canonical-datasets admin endpoint rejects a dataset that the CLI registry can see.
+2. Never use `/api/cli/datasets/:datasetId/runs`, `research --prompt`, or other user-facing run paths for canonical improvement jobs.
+3. Target one dataset with `CANONICAL_DATASET_IDS=<id>` when the request names one dataset. Do not launch all canonical datasets by accident.
+4. Preserve the exact operator prompt under `docs/canonical-runs/<dataset-id>/<timestamp>/`. Use a specific filename such as `admin-improvement-prompt.md` when the generic template is not the right fit.
+5. Make the prompt explicit about canonical constraints:
+   - admin-owned canonical improvement job;
+   - mounted dataset volume, preferably `DATASET_MOUNT_PATH`;
+   - raw public source package only;
+   - no merged panels, derived fields, cross-source joins, or analysis-ready artifacts;
+   - candidate classification and provenance requirements;
+   - required artifacts, docs mirrors, profile update/readback, and Slack briefing behavior.
+6. If the bulk or single-dataset canonical endpoint returns `404 {"error":"Canonical dataset not found"}` but `npm run canonical:dataset -- status --dataset-id <id>` shows the dataset is ready, use `remote-agent:exec` with `--kind dataset-improvement --dataset-id <id>` and the exact prompt file. This remains an admin execution, not a user-facing run.
+7. After launch, capture:
+   - execution id;
+   - admin status URL;
+   - artifacts URL;
+   - initial status and output preview.
+8. Poll the admin status endpoint with the admin token, not the CLI run debugger:
+
+   ```bash
+   node - <<'NODE'
+   import { readAdminToken, defaultOrigin } from './scripts/admin-remote-agent.mjs'
+   const executionId = '<execution-id>'
+   const response = await fetch(new URL(`/api/admin/remote-agent-executions/${executionId}`, defaultOrigin), {
+     headers: { Authorization: `Bearer ${readAdminToken()}` },
+   })
+   const body = await response.json()
+   const execution = body.execution ?? body.remoteAgentExecution
+   console.log(JSON.stringify({
+     id: execution?.id,
+     status: execution?.status,
+     outputPreview: execution?.outputPreview,
+     artifactCount: execution?.artifactCount,
+     updatedAt: execution?.updatedAt,
+     lastEvents: (body.events ?? []).slice(-5).map((event) => ({
+       level: event.level,
+       message: event.message,
+       createdAt: event.createdAt,
+     })),
+   }, null, 2))
+   NODE
+   ```
+9. If you changed scripts, prompts, or docs while launching the job, run focused tests such as `npm run test:canonical`, then commit and push. Per repo policy, also run `npm run deploy:check` after completing the change.
+
 ## Add A Golden Test
 
 1. Create a JSON fixture in `apps/cli/test/golden/`.
