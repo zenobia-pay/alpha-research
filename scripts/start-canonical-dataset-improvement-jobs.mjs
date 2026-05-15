@@ -7,6 +7,7 @@ import { selectCanonicalDatasets } from './canonical-dataset-catalog.mjs'
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), '.research', 'session.json')
 const promptPath = new URL('../prompts/canonical-dataset-improvement.md', import.meta.url)
 const dryRun = process.argv.includes('--dry-run') || process.env.CANONICAL_DATASET_IMPROVEMENT_DRY_RUN === '1'
+const extraPrompt = process.env.CANONICAL_DATASET_IMPROVEMENT_EXTRA_PROMPT?.trim() ?? ''
 const improvementEndpoint = '/api/admin/canonical-datasets/improve'
 
 const canonicalDatasets = selectCanonicalDatasets()
@@ -38,10 +39,12 @@ function readSession() {
 }
 
 function renderPrompt(template, dataset) {
-  return template
+  const rendered = template
     .replaceAll('{datasetId}', dataset.id)
     .replaceAll('{datasetName}', dataset.name)
     .replaceAll('{fieldBrief}', dataset.fieldBrief)
+  if (!extraPrompt) return rendered
+  return `${rendered}\n\n## Operator-Specified Improvement Focus\n\n${extraPrompt}\n`
 }
 
 async function api(session, path, options = {}) {
