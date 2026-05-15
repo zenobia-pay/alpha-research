@@ -400,7 +400,14 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
       assert.doesNotMatch(output, /\b(runId|dashboardUrl)\b/u);
       const parsed = JSON.parse(output) as {
         dryRun: boolean;
-        results: Array<{ datasetId?: string; status: string; endpoint?: string; artifacts?: string[]; runtimeArtifacts?: string[] }>;
+        results: Array<{
+          datasetId?: string;
+          status: string;
+          endpoint?: string;
+          resources?: { datasetAccess?: string; publishMode?: string; resourceProfile?: string };
+          artifacts?: string[];
+          runtimeArtifacts?: string[];
+        }>;
       };
       assert.equal(parsed.dryRun, true);
       assert.deepEqual(
@@ -408,6 +415,10 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
         ["history", "literature"],
       );
       assert.ok(parsed.results.every((result) => result.status !== "missing_dataset"));
+      for (const result of parsed.results.filter((entry) => entry.datasetId)) {
+        assert.equal(result.resources?.datasetAccess, "write-version", `${args[0]} must request dataset write access`);
+        assert.equal(result.resources?.publishMode, "versioned", `${args[0]} must publish a new dataset version`);
+      }
       if (args[0] === "scripts/start-canonical-public-dataset-refresh-jobs.mjs") {
         const historyRefresh = parsed.results.find((result) => result.datasetId === "history");
         assert.ok(!historyRefresh?.artifacts?.includes("report.html"));
@@ -422,11 +433,18 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
       env,
     });
     const improveParsed = JSON.parse(improveOutput) as {
-      results: Array<{ datasetId?: string; endpoint?: string; artifacts?: string[] }>;
+      results: Array<{
+        datasetId?: string;
+        endpoint?: string;
+        resources?: { datasetAccess?: string; publishMode?: string; resourceProfile?: string };
+        artifacts?: string[];
+      }>;
     };
     assert.doesNotMatch(improveOutput, /\b(runId|dashboardUrl)\b/u);
     const historyImprove = improveParsed.results.find((result) => result.datasetId === "history");
     assert.equal(historyImprove?.endpoint, "/api/admin/canonical-datasets/improve");
+    assert.equal(historyImprove?.resources?.datasetAccess, "write-version");
+    assert.equal(historyImprove?.resources?.publishMode, "versioned");
     assert.ok(historyImprove?.artifacts?.includes("work.md"));
     assert.ok(historyImprove?.artifacts?.includes("report.html"));
     assert.ok(historyImprove?.artifacts?.includes("docs/public-datasets/briefings/history.md"));
@@ -490,6 +508,7 @@ test("single dataset add script builds platform-owned bootstrap request", () => 
       datasetId: string;
       name: string;
       owner: string;
+      resources: { datasetAccess?: string; publishMode?: string; resourceProfile?: string };
       execution: {
         remoteAgentExecutionOwner: string;
         userSessionRequired: boolean;
@@ -507,6 +526,9 @@ test("single dataset add script builds platform-owned bootstrap request", () => 
   assert.equal(parsed.body.datasetId, "history");
   assert.equal(parsed.body.name, "History");
   assert.equal(parsed.body.owner, "platform");
+  assert.equal(parsed.body.resources.datasetAccess, "write-version");
+  assert.equal(parsed.body.resources.publishMode, "versioned");
+  assert.equal(parsed.body.resources.resourceProfile, "canonical-public");
   assert.equal(parsed.body.execution.remoteAgentExecutionOwner, "service");
   assert.equal(parsed.body.execution.userSessionRequired, false);
   assert.equal(parsed.body.execution.codexMode, "tui");

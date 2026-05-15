@@ -16,14 +16,15 @@ const canonicalDatasets = selectCanonicalDatasets().map((dataset) => ({
 }));
 
 const resources = {
-  profile: "standard-analysis",
+  profile: "canonical-public",
   backend: "modal",
-  resourceProfile: "standard-analysis",
+  resourceProfile: "canonical-public",
   cpu: 4,
   memoryGb: 8,
   workspaceDiskGb: 50,
   storageMode: "object-store-versioned",
-  datasetAccess: "read-only-version",
+  datasetAccess: "write-version",
+  publishMode: "versioned",
 };
 
 function assert(condition, message) {
