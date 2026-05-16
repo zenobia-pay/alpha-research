@@ -380,7 +380,19 @@ async function run() {
     return;
   }
 
-  const existing = args.dryRun ? null : await getDataset(readSession(), args.datasetId).catch(() => null);
+  let existing: RemoteDataset | null = null;
+  let existingStatusError: string | null = null;
+  if (args.mode !== "create") {
+    try {
+      existing = await getDataset(readSession(), args.datasetId);
+    } catch (error) {
+      if (args.dryRun) {
+        existingStatusError = error instanceof Error ? error.message : String(error);
+      } else {
+        existing = null;
+      }
+    }
+  }
   const datasetName = args.name ?? existing?.name ?? args.datasetId;
   const fieldBrief = args.fieldBrief ?? existing?.profile?.briefingMarkdown ?? existing?.name ?? args.datasetId;
   const sourceCatalog = args.mode === "create" ? await loadSourceCatalog(args) : undefined;
@@ -394,6 +406,11 @@ async function run() {
   const artifacts = artifactContract(args.datasetId, args.mode);
 
   if (args.dryRun) {
+    const status = existingStatusError
+      ? { status: "remote_status_unavailable", error: existingStatusError }
+      : existing
+        ? classifyDatasetStatus(existing)
+        : { status: "missing_dataset" };
     console.log(JSON.stringify({
       dryRun: true,
       mode: args.mode,
@@ -403,7 +420,7 @@ async function run() {
       resources: CANONICAL_PUBLIC_RESOURCES,
       artifacts,
       endpoint: args.mode === "create" ? null : canonicalAdminEndpoint(args.mode),
-      status: existing ? classifyDatasetStatus(existing) : { status: "missing_dataset" },
+      status,
     }, null, 2));
     return;
   }

@@ -1,0 +1,15 @@
+---
+title: "History"
+description: "Literal raw public history data inventory."
+---
+
+# Data Inventory
+- Library of Congress Civil War Maps JSON metadata extracts (`raw/loc_collections/civil_war_maps_page1.json, raw/loc_collections/civil_war_maps_page2.json`) capturing 1000 digitized Civil War map catalog records retrieved via loc.gov API (`c=500`, `sp=1-2`); one row per map entry; coverage across United States Civil War theaters; publication years 1831-1991; fields include id, title, date, location, subject, resources with IIIF resource URLs referencing map imagery.
+- Chronicling America historic newspaper issue metadata (`raw/chronicling_america/collection_page_01.json, raw/chronicling_america/collection_page_02.json, raw/chronicling_america/collection_page_03.json, raw/chronicling_america/collection_page_04.json, raw/chronicling_america/collection_page_05.json, raw/chronicling_america/collection_page_06.json, raw/chronicling_america/collection_page_07.json, raw/chronicling_america/collection_page_08.json, raw/chronicling_america/collection_page_09.json, raw/chronicling_america/collection_page_10.json`) comprising 1000 issue-level summaries from ten pagination slices (`c=100`, `sp=1-10`); one row per issue; United States cities and states; issue dates 1909-01-06 through 1928-11-30; fields include id, title, number_lccn, location_state, location_city, subject, resources with LCCNs, publication geography, date, and landing-page URLs.
+- Europeana World War I API responses (`raw/europeana_api/world_war_i_start001.json, raw/europeana_api/world_war_i_start101.json`) containing 200 cultural heritage object metadata records pulled with start offsets 1 and 101; one row per item; contributor geography spans Europe and U.S. partner institutions; metadata timestamps range 2014-2024; fields include guid, title, provider, country, rights, edmTimespanLabel, thumbnail plus rights statements and preview media links.
+- Harvard Dataverse history search API payloads (`raw/harvard_dataverse/history_search_start000.json, raw/harvard_dataverse/history_search_start100.json`) listing 200 dataset-level metadata records fetched with start offsets 0 and 100; one row per dataset; global coverage of history-related repositories; dataset publication timestamps span 2007-11-28T00:00:00+00:00 to 2026-05-10T17:26:27+00:00; fields include global_id, name, description, publisher, subjects, fileCount, published_at with DOI identifiers, dataset URLs, subjects, and file counts.
+
+## Caveats and Deferred Assets
+- Digital Public Library of America query stored as `raw/dpla_api/civil_war_items_error.json`, containing 403 gate confirmation only; no item metadata persisted without API token.
+- National Archives Catalog sample stored as `raw/national_archives_catalog/freedmens_bureau_q100.html`, an HTML login challenge requiring API credentials; catalog metadata absent on disk.
+- `raw/wikidata_dumps/` directory is empty; bulk JSON dumps deferred pending storage window.

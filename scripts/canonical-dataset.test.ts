@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
 
@@ -249,7 +249,9 @@ test("improve prompt requires remote data-only briefing update", async () => {
     "Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.",
     "Write `dataset_briefing.md` at the dataset volume root.",
     "Update the CLI-visible backend dataset profile from the same briefing:",
-    "Read back the dataset profile through the backend and verify it contains the exact briefing and current run id.",
+    "set nested `profile.quality.diskInventoryProven` to `true` only after inventories are regenerated or verified from disk;",
+    "set nested `profile.quality.volumeInventoryRunId` to the current run id;",
+    "Read back the dataset profile through the backend and verify it contains the exact briefing plus the nested `profile.quality.volumeInventoryRunId` for the current run.",
     "The briefing answers one question: what data is actually on the mounted dataset volume?",
     "Do not write a provider/package list.",
     "what exact table, API response, or document collection is stored",
@@ -454,7 +456,8 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
   }
 });
 
-test("single dataset improve dry-run uses canonical admin endpoint instead of user-facing runs", () => {
+test("single dataset improve dry-run uses canonical admin endpoint instead of user-facing runs", async () => {
+  const timestamp = "2026-05-14T12:34:56.789Z";
   const output = execFileSync("npx", [
     "tsx",
     "scripts/canonical-dataset.ts",
@@ -464,7 +467,7 @@ test("single dataset improve dry-run uses canonical admin endpoint instead of us
     "--field-brief",
     "Refresh the briefing.",
     "--prompt-timestamp",
-    "2026-05-14T12:00:00.000Z",
+    timestamp,
     "--dry-run",
   ], {
     cwd: process.cwd(),
@@ -482,6 +485,7 @@ test("single dataset improve dry-run uses canonical admin endpoint instead of us
   assert.ok(parsed.artifacts.some((artifact) => artifact.path === "work.md"));
   assert.doesNotMatch(output, /\/api\/cli\/datasets\/econ\/runs/u);
   assert.doesNotMatch(output, /remote-agent-executions/u);
+  await rm(dirname(promptRecordPath("econ", timestamp, "improve")), { recursive: true, force: true });
 });
 
 test("single dataset add script builds platform-owned bootstrap request", () => {
