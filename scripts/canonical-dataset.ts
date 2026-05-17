@@ -31,6 +31,12 @@ type RemoteDataset = {
   activeRemoteExecutionId?: string | null;
   activeCanonicalExecutionId?: string | null;
   manifestPath?: string | null;
+  volume?: {
+    id?: string | null;
+    name?: string | null;
+    region?: string | null;
+    mountPath?: string | null;
+  } | null;
   profile?: {
     briefingMarkdown?: string | null;
     profile?: {
@@ -56,7 +62,7 @@ export const CANONICAL_PUBLIC_RESOURCES = {
   cpu: 4,
   memoryGb: 8,
   workspaceDiskGb: 50,
-  storageMode: "object-store-versioned",
+  storageMode: "modal-volume",
   datasetAccess: "write-version",
   publishMode: "versioned",
 };
@@ -241,40 +247,80 @@ export function artifactContract(datasetId: string, mode: Mode) {
 
 export function classifyDatasetStatus(dataset: RemoteDataset | null | undefined) {
   if (!dataset) {
-    return { status: "missing_dataset" };
+    return {
+      status: "missing_dataset",
+      storageKind: "modal_volume",
+      volumeAvailable: false,
+      writerLocked: false,
+      writeReady: false,
+      queryReady: false,
+      improvable: false,
+      missingOrStale: ["dataset_record"],
+    };
   }
   const datasetStatus = dataset.status ?? "unknown";
   const deploymentStatus = dataset.deploymentStatus ?? "unknown";
   const activeRemoteExecutionId = dataset.activeRemoteExecutionId ?? dataset.activeCanonicalExecutionId ?? null;
-  if (activeRemoteExecutionId) {
-    return { status: "active_remote_execution", datasetStatus, deploymentStatus, activeRemoteExecutionId };
-  }
   const activeRunId = dataset.activeRunId ?? null;
-  if (activeRunId) {
-    return { status: "legacy_active_run", datasetStatus, deploymentStatus, activeRunId };
-  }
-  if (datasetStatus === "failed" || deploymentStatus === "failed") {
-    return { status: "failed_deployment", datasetStatus, deploymentStatus };
-  }
-  const ready = datasetStatus === "ready" && deploymentStatus === "ready";
-  if (!ready) {
-    return { status: "not_ready", datasetStatus, deploymentStatus };
-  }
+  const writerLocked = Boolean(activeRemoteExecutionId || activeRunId);
+  const volumeAvailable = dataset.volume !== null
+    && (
+      dataset.volume !== undefined
+      || typeof dataset.manifestPath === "string"
+      || datasetStatus !== "missing"
+    );
   const profile = dataset.profile ?? null;
   const nestedQuality = profile?.profile?.quality ?? null;
+  const volumeInventoryRunId = profile?.volumeInventoryRunId ?? nestedQuality?.volumeInventoryRunId ?? null;
+  const volumeInventoryUpdatedAt = profile?.volumeInventoryUpdatedAt ?? nestedQuality?.volumeInventoryUpdatedAt ?? null;
   const diskInventoryProven = profile?.diskInventoryProven === true
     || nestedQuality?.diskInventoryProven === true
-    || (typeof profile?.volumeInventoryUpdatedAt === "string" && profile.volumeInventoryUpdatedAt.length > 0)
-    || (typeof nestedQuality?.volumeInventoryUpdatedAt === "string" && nestedQuality.volumeInventoryUpdatedAt.length > 0);
-  if (!diskInventoryProven) {
-    return { status: "not_disk_proven", datasetStatus, deploymentStatus };
-  }
-  return {
-    status: "disk_proven",
+    || (typeof volumeInventoryUpdatedAt === "string" && volumeInventoryUpdatedAt.length > 0);
+  const briefingMarkdown = profile?.briefingMarkdown ?? null;
+  const queryReady = volumeAvailable && diskInventoryProven && typeof briefingMarkdown === "string" && briefingMarkdown.trim().length > 0;
+  const legacyLifecycleNeedsReconciliation = datasetStatus !== "ready" || deploymentStatus !== "ready";
+  const missingOrStale = [
+    ...(volumeAvailable ? [] : ["modal_volume"]),
+    ...(writerLocked ? ["writer_lock"] : []),
+    ...(diskInventoryProven ? [] : ["volume_inventory_proof"]),
+    ...(typeof briefingMarkdown === "string" && briefingMarkdown.trim().length > 0 ? [] : ["briefingMarkdown"]),
+    ...(legacyLifecycleNeedsReconciliation ? ["legacy_status_reconciliation"] : []),
+  ];
+  const base = {
     datasetStatus,
     deploymentStatus,
-    volumeInventoryRunId: profile?.volumeInventoryRunId ?? nestedQuality?.volumeInventoryRunId ?? null,
-    volumeInventoryUpdatedAt: profile?.volumeInventoryUpdatedAt ?? nestedQuality?.volumeInventoryUpdatedAt ?? null,
+    storageKind: "modal_volume",
+    volumeAvailable,
+    writerLocked,
+    writeReady: volumeAvailable && !writerLocked,
+    queryReady,
+    improvable: volumeAvailable && !writerLocked,
+    diskInventoryProven,
+    volumeInventoryRunId,
+    volumeInventoryUpdatedAt,
+    missingOrStale,
+  };
+  if (activeRemoteExecutionId) {
+    return { ...base, status: "write_locked", activeRemoteExecutionId };
+  }
+  if (activeRunId) {
+    return { ...base, status: "write_locked", legacyActiveRunId: activeRunId };
+  }
+  if (!volumeAvailable) {
+    return { ...base, status: "volume_missing" };
+  }
+  if (datasetStatus === "failed" || deploymentStatus === "failed") {
+    return { ...base, status: "improvable_needs_repair" };
+  }
+  if (legacyLifecycleNeedsReconciliation) {
+    return { ...base, status: diskInventoryProven ? "write_ready_needs_reconciliation" : "improvable_needs_profile_proof" };
+  }
+  if (!diskInventoryProven) {
+    return { ...base, status: "improvable_needs_profile_proof" };
+  }
+  return {
+    ...base,
+    status: "disk_proven",
   };
 }
 
@@ -453,7 +499,7 @@ async function run() {
     process.exitCode = 1;
     return;
   }
-  if (state.status === "active_remote_execution" || state.status === "legacy_active_run" || state.status === "not_ready" || state.status === "failed_deployment") {
+  if (!state.improvable) {
     console.log(JSON.stringify({ mode: args.mode, datasetId: args.datasetId, promptPath, status: "blocked", blocker: state }, null, 2));
     process.exitCode = 1;
     return;

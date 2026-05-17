@@ -22,7 +22,7 @@ const resources = {
   cpu: 4,
   memoryGb: 8,
   workspaceDiskGb: 50,
-  storageMode: "object-store-versioned",
+  storageMode: "modal-volume",
   datasetAccess: "write-version",
   publishMode: "versioned",
 };
@@ -119,6 +119,34 @@ function extractCatalogSources(markdown, datasetId) {
   return bullets.length > 0 ? bullets.join("\n") : null;
 }
 
+function classifyCanonicalWrite(dataset) {
+  const datasetStatus = dataset.status ?? "unknown";
+  const deploymentStatus = dataset.deploymentStatus ?? "unknown";
+  const activeRemoteExecutionId = dataset.activeRemoteExecutionId ?? dataset.activeCanonicalExecutionId ?? null;
+  const legacyActiveRunId = dataset.activeRunId ?? null;
+  const writerLocked = Boolean(activeRemoteExecutionId || legacyActiveRunId);
+  const volumeAvailable = dataset.volume !== null
+    && (dataset.volume !== undefined || typeof dataset.manifestPath === "string" || datasetStatus !== "missing");
+  const legacyLifecycleNeedsReconciliation = datasetStatus !== "ready" || deploymentStatus !== "ready";
+  return {
+    datasetStatus,
+    deploymentStatus,
+    storageKind: "modal_volume",
+    volumeAvailable,
+    writerLocked,
+    writeReady: volumeAvailable && !writerLocked,
+    improvable: volumeAvailable && !writerLocked,
+    activeRemoteExecutionId,
+    legacyActiveRunId,
+    legacyLifecycleNeedsReconciliation,
+    missingOrStale: [
+      ...(volumeAvailable ? [] : ["modal_volume"]),
+      ...(writerLocked ? ["writer_lock"] : []),
+      ...(legacyLifecycleNeedsReconciliation ? ["legacy_status_reconciliation"] : []),
+    ],
+  };
+}
+
 if (dryRun) {
   for (const dataset of canonicalDatasets) {
     dataset.fieldCatalogSources = extractCatalogSources(catalogMarkdown, dataset.id);
@@ -164,13 +192,13 @@ for (const dataset of canonicalDatasets) {
     continue;
   }
 
-  const datasetStatus = liveDataset.status ?? "unknown";
-  const deploymentStatus = liveDataset.deploymentStatus ?? "unknown";
-  const activeRemoteExecutionId = liveDataset.activeRemoteExecutionId ?? liveDataset.activeCanonicalExecutionId ?? null;
-  const activeRunId = liveDataset.activeRunId ?? null;
-
-  if (datasetStatus !== "ready" || deploymentStatus !== "ready") {
-    results.push({ datasetId: dataset.id, status: "skipped_not_ready", datasetStatus, deploymentStatus, activeRemoteExecutionId, legacyActiveRunId: activeRunId });
+  const write = classifyCanonicalWrite(liveDataset);
+  if (!write.improvable) {
+    results.push({
+      datasetId: dataset.id,
+      status: write.writerLocked ? "skipped_write_locked" : "skipped_volume_unavailable",
+      ...write,
+    });
     continue;
   }
 
@@ -213,6 +241,7 @@ for (const dataset of canonicalDatasets) {
     results.push({
       datasetId: dataset.id,
       status: "started",
+      writeReadiness: write,
       executionId,
       adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
     });

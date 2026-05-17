@@ -1,10 +1,11 @@
 # Modal Deployment
 
-Alpha Research remote work is backend-owned and runs on Modal-backed workers. The repository does not keep provider secrets locally; the backend owns Modal, object storage, and catalog credentials.
+Alpha Research remote work is backend-owned and runs on Modal-backed workers. The repository does not keep provider secrets locally; the backend owns Modal, canonical dataset volumes, object storage for logs/artifacts, and catalog credentials.
 
 ## Runtime Shape
 
-- Object storage stores canonical dataset versions, run logs, and artifacts.
+- Durable Modal volumes store canonical public dataset roots.
+- Object storage stores run logs and artifacts.
 - Postgres stores dataset catalog state, run/event state, artifact metadata, and version pointers.
 - Modal runners execute refresh, expansion, improvement, ingest, and analysis jobs with named resource profiles.
 - API and frontend builds are produced from this repo and deployed by the external hosting workflow.

@@ -19,7 +19,7 @@ const resources = {
   cpu: 8,
   memoryGb: 16,
   workspaceDiskGb: 100,
-  storageMode: 'object-store-versioned',
+  storageMode: 'modal-volume',
   datasetAccess: 'write-version',
   publishMode: 'versioned',
 }
@@ -68,6 +68,34 @@ async function api(session, path, options = {}) {
 
 const promptTemplate = readFileSync(promptPath, 'utf8')
 const results = []
+
+function classifyCanonicalWrite(dataset) {
+  const datasetStatus = dataset.status ?? 'unknown'
+  const deploymentStatus = dataset.deploymentStatus ?? 'unknown'
+  const activeRemoteExecutionId = dataset.activeRemoteExecutionId ?? dataset.activeCanonicalExecutionId ?? null
+  const legacyActiveRunId = dataset.activeRunId ?? null
+  const writerLocked = Boolean(activeRemoteExecutionId || legacyActiveRunId)
+  const volumeAvailable = dataset.volume !== null
+    && (dataset.volume !== undefined || typeof dataset.manifestPath === 'string' || datasetStatus !== 'missing')
+  const legacyLifecycleNeedsReconciliation = datasetStatus !== 'ready' || deploymentStatus !== 'ready'
+  return {
+    datasetStatus,
+    deploymentStatus,
+    storageKind: 'modal_volume',
+    volumeAvailable,
+    writerLocked,
+    writeReady: volumeAvailable && !writerLocked,
+    improvable: volumeAvailable && !writerLocked,
+    activeRemoteExecutionId,
+    legacyActiveRunId,
+    legacyLifecycleNeedsReconciliation,
+    missingOrStale: [
+      ...(volumeAvailable ? [] : ['modal_volume']),
+      ...(writerLocked ? ['writer_lock'] : []),
+      ...(legacyLifecycleNeedsReconciliation ? ['legacy_status_reconciliation'] : []),
+    ],
+  }
+}
 
 if (dryRun) {
   for (const dataset of canonicalDatasets) {
@@ -126,13 +154,12 @@ for (const dataset of canonicalDatasets) {
     results.push({ datasetId: dataset.id, status: 'skipped_missing_dataset' })
     continue
   }
-  const deploymentReady = liveDataset.deploymentStatus === undefined || liveDataset.deploymentStatus === null || liveDataset.deploymentStatus === 'ready'
-  if (liveDataset.status !== 'ready' || !deploymentReady) {
+  const write = classifyCanonicalWrite(liveDataset)
+  if (!write.improvable) {
     results.push({
       datasetId: dataset.id,
-      status: 'skipped_not_ready',
-      datasetStatus: liveDataset.status,
-      deploymentStatus: liveDataset.deploymentStatus,
+      status: write.writerLocked ? 'skipped_write_locked' : 'skipped_volume_unavailable',
+      ...write,
     })
     continue
   }
@@ -200,6 +227,7 @@ for (const dataset of canonicalDatasets) {
     results.push({
       datasetId: dataset.id,
       status: 'started',
+      writeReadiness: write,
       executionId,
       adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
     })

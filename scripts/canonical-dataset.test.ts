@@ -296,31 +296,48 @@ test("runtime contract requires Codex login and Slack webhook", () => {
 test("canonical resource contract targets Modal instead of DigitalOcean runner slugs", () => {
   assert.equal(CANONICAL_PUBLIC_RESOURCES.backend, "modal");
   assert.equal(CANONICAL_PUBLIC_RESOURCES.resourceProfile, "canonical-public");
+  assert.equal(CANONICAL_PUBLIC_RESOURCES.storageMode, "modal-volume");
   assert.equal("runnerSize" in CANONICAL_PUBLIC_RESOURCES, false);
 });
 
-test("status classifier distinguishes missing, active, failed, unproven, and disk-proven datasets", () => {
+test("status classifier distinguishes missing, write locks, repairable, unproven, and disk-proven datasets", () => {
   assert.equal(classifyDatasetStatus(null).status, "missing_dataset");
-  assert.equal(classifyDatasetStatus({
+  const lockedRemote = classifyDatasetStatus({
     id: "x",
     status: "ready",
     deploymentStatus: "ready",
     activeRemoteExecutionId: "exec-active",
-  }).status, "active_remote_execution");
-  assert.equal(classifyDatasetStatus({
+  });
+  assert.equal(lockedRemote.status, "write_locked");
+  assert.equal(lockedRemote.improvable, false);
+  const lockedLegacy = classifyDatasetStatus({
     id: "x",
     status: "ready",
     deploymentStatus: "ready",
     activeRunId: "run-active",
-  }).status, "legacy_active_run");
-  assert.equal(classifyDatasetStatus({ id: "x", status: "failed", deploymentStatus: "failed" }).status, "failed_deployment");
-  assert.equal(classifyDatasetStatus({ id: "x", status: "ready", deploymentStatus: "ready", profile: {} }).status, "not_disk_proven");
-  assert.equal(classifyDatasetStatus({
+  });
+  assert.equal(lockedLegacy.status, "write_locked");
+  assert.equal(lockedLegacy.improvable, false);
+  assert.equal(classifyDatasetStatus({ id: "x", status: "failed", deploymentStatus: "failed" }).status, "improvable_needs_repair");
+  const staleLegacy = classifyDatasetStatus({ id: "x", status: "deploying", deploymentStatus: "provisioning", profile: {} });
+  assert.equal(staleLegacy.status, "improvable_needs_profile_proof");
+  assert.equal(staleLegacy.improvable, true);
+  assert.deepEqual(staleLegacy.missingOrStale.includes("legacy_status_reconciliation"), true);
+  assert.equal(classifyDatasetStatus({ id: "x", status: "ready", deploymentStatus: "ready", profile: {} }).status, "improvable_needs_profile_proof");
+  const proven = classifyDatasetStatus({
     id: "x",
     status: "ready",
     deploymentStatus: "ready",
-    profile: { diskInventoryProven: true, volumeInventoryRunId: "run-audit", volumeInventoryUpdatedAt: "2026-05-07T00:00:00.000Z" },
-  }).status, "disk_proven");
+    profile: {
+      briefingMarkdown: "Inventory",
+      diskInventoryProven: true,
+      volumeInventoryRunId: "run-audit",
+      volumeInventoryUpdatedAt: "2026-05-07T00:00:00.000Z",
+    },
+  });
+  assert.equal(proven.status, "disk_proven");
+  assert.equal(proven.improvable, true);
+  assert.equal(proven.queryReady, true);
   assert.equal(classifyDatasetStatus({
     id: "x",
     status: "ready",
@@ -406,7 +423,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
           datasetId?: string;
           status: string;
           endpoint?: string;
-          resources?: { datasetAccess?: string; publishMode?: string; resourceProfile?: string };
+          resources?: { datasetAccess?: string; publishMode?: string; resourceProfile?: string; storageMode?: string };
           artifacts?: string[];
           runtimeArtifacts?: string[];
         }>;
@@ -420,6 +437,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
       for (const result of parsed.results.filter((entry) => entry.datasetId)) {
         assert.equal(result.resources?.datasetAccess, "write-version", `${args[0]} must request dataset write access`);
         assert.equal(result.resources?.publishMode, "versioned", `${args[0]} must publish a new dataset version`);
+        assert.equal(result.resources?.storageMode, "modal-volume", `${args[0]} must target Modal volumes`);
       }
       if (args[0] === "scripts/start-canonical-public-dataset-refresh-jobs.mjs") {
         const historyRefresh = parsed.results.find((result) => result.datasetId === "history");
@@ -438,7 +456,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
       results: Array<{
         datasetId?: string;
         endpoint?: string;
-        resources?: { datasetAccess?: string; publishMode?: string; resourceProfile?: string };
+        resources?: { datasetAccess?: string; publishMode?: string; resourceProfile?: string; storageMode?: string };
         artifacts?: string[];
       }>;
     };
@@ -533,6 +551,7 @@ test("single dataset add script builds platform-owned bootstrap request", () => 
   assert.equal(parsed.body.resources.datasetAccess, "write-version");
   assert.equal(parsed.body.resources.publishMode, "versioned");
   assert.equal(parsed.body.resources.resourceProfile, "canonical-public");
+  assert.equal(parsed.body.resources.storageMode, "modal-volume");
   assert.equal(parsed.body.execution.remoteAgentExecutionOwner, "service");
   assert.equal(parsed.body.execution.userSessionRequired, false);
   assert.equal(parsed.body.execution.codexMode, "tui");

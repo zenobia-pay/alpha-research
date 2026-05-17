@@ -6,6 +6,7 @@ This plan defines the evergreen public Alpha Research economics and humanities d
 
 - Each canonical public dataset uses a short, stable id such as `econ`, `history`, or `literature`.
 - They are public by default. Private uploads can join a research run, but should not mutate the canonical public dataset.
+- Each canonical public dataset is backed by a durable Modal volume. The dataset is created when the catalog record and Modal volume identity exist; user-facing and maintenance readiness are derived from volume facts, writer locks, inventories, and profile proof instead of a single overloaded `ready` flag.
 - Each dataset has a source registry, raw source files/API responses, data dictionary, quality report, raw inventory, and dataset briefing.
 - Each dataset has a download inventory and raw inventory that explain exactly what was fetched, when, from where, and what native shape the raw source data has.
 - Each dataset refreshes daily. Refresh jobs should update existing source snapshots, append new versions where history matters, and preserve source provenance.
@@ -13,6 +14,18 @@ This plan defines the evergreen public Alpha Research economics and humanities d
 - Expansion-planning runs may propose new sources, but only sources that pass licensing, access, and reproducibility checks should become active fetch targets.
 
 ## Daily Job Shape
+
+## Modal Volume Lifecycle
+
+Canonical dataset lifecycle should be expressed as concrete facts:
+
+- `volumeAvailable`: the Modal volume identity exists and the backend can mount it for a worker.
+- `writerLocked`: one active bootstrap, refresh, improve, audit, or profile-sync operation currently owns the write lock.
+- `improvable`: `volumeAvailable && !writerLocked`. Canonical improvement automation should use this as its write gate.
+- `queryable`: the backend profile has a current briefing plus disk-inventory proof and readback verification. Queryability is useful for user-facing CLI behavior, but it is not a prerequisite for improvement jobs.
+- `missingOrStale`: a list of repairable gaps such as `volume_inventory_proof`, `briefingMarkdown`, `legacy_status_reconciliation`, or `writer_lock`.
+
+Legacy `status` and `deploymentStatus` values may still appear in API payloads for compatibility, but they are not the canonical maintenance gate. A dataset with `status: deploying` and no active writer lock can still be improvable when its Modal volume exists; the next bootstrap-repair or improvement job should reconcile metadata and profile proof.
 
 For each canonical dataset, schedule these jobs:
 

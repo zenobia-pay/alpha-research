@@ -1,11 +1,11 @@
 # Infrastructure Target
 
-Alpha Research should treat datasets as immutable, versioned research artifacts, not as mutable mounted volumes. Mounted volumes are useful for worker scratch and hot caches, but they should not be the canonical dataset store or the concurrency boundary for user analysis.
+Alpha Research canonical public datasets are durable Modal-volume-backed source packages today. Each canonical dataset has a stable Modal volume that stores provider-native raw files, inventories, quality reports, docs mirrors, and `dataset_briefing.md`. The lifecycle should be modeled around that concrete volume plus active writer operations, not around an overloaded `ready` deployment flag.
 
 ## Goals
 
-- Host large public and private datasets without preallocating large block volumes for every dataset.
-- Allow many concurrent read/analysis runs against the same dataset.
+- Host canonical public datasets in stable Modal volumes with explicit mount/write checks.
+- Allow maintenance automation to repair stale profile or inventory metadata whenever the volume exists and no writer is active.
 - Keep refresh and ingest jobs reproducible, versioned, and rollbackable.
 - Persist run logs, terminal output, events, and artifacts independently of worker lifetime.
 - Scale compute by workload class instead of using one oversized default.
@@ -19,10 +19,10 @@ Alpha API / dashboard
   |     datasets, dataset_versions, source_registry, runs, run_events,
   |     job queue state, artifact metadata, version pointers
   |
-  +-- Object storage
-  |     raw snapshots, normalized Parquet/JSONL shards, manifests,
-  |     source registries, data dictionaries, quality reports,
-  |     run logs, run artifacts
+  +-- Modal volumes
+  |     canonical public dataset roots, raw source packages, manifests,
+  |     source registries, volume inventories, data dictionaries,
+  |     quality reports, dataset briefings, docs mirrors
   |
   +-- Worker pool
   |     Modal runners with small scratch volumes by default
@@ -31,32 +31,46 @@ Alpha API / dashboard
         Qdrant/vector indexes and optional keyword indexes, keyed by dataset version
 ```
 
-## Dataset Versioning
+## Canonical Modal Volume Contract
 
-Each dataset has immutable versions:
+Each canonical dataset has one durable Modal volume:
 
 ```text
-datasets/econ/versions/2026-05-02T020000Z/
+/data/datasets/econ/
   manifest.json
   source_registry.csv
   source_registry.plan.json
-  tables/
-  docs/
-  indexes/
+  download_inventory.jsonl
+  raw_inventory.jsonl
+  volume_inventory.jsonl
+  volume_inventory_summary.json
+  data_dictionary.md
+  quality_report.md
+  dataset_briefing.md
+  docs/public-datasets/briefings/econ.md
+  docs/public-datasets/econ.mdx
 ```
 
-Runs bind to a specific dataset version. Refresh jobs write a new version and atomically advance the `latest` pointer after validation passes. Existing analysis runs continue against the version they started with.
+The dataset is "created" when the catalog row and Modal volume identity exist. From there, derived booleans describe usability:
+
+- `volumeAvailable`: the volume exists and can be mounted.
+- `writerLocked`: a bootstrap, refresh, improve, audit, or profile-sync operation is active.
+- `improvable`: `volumeAvailable && !writerLocked`.
+- `queryable`: the backend profile has current `briefingMarkdown`, disk inventory proof, and readback verification.
+- `missingOrStale`: repairable gaps such as missing volume inventory proof, stale docs mirrors, missing briefing, or legacy status reconciliation.
+
+Do not gate canonical maintenance on `status === "ready"` and `deploymentStatus === "ready"`. Those legacy fields are compatibility labels; they should be reconciled from Modal-volume facts, not used as the source of truth.
 
 ## Concurrency
 
 The dataset lock model should be:
 
-- Many concurrent read/analysis/briefing runs per dataset version.
-- One refresh or publish job per dataset target version.
-- One index publish per dataset/version/index type.
-- No analysis run should hold a canonical dataset volume lock.
+- One writer operation per canonical Modal volume.
+- Read-only describe/query flows should use the backend profile and should not hold a writer lock.
+- Improvement, refresh, audit, bootstrap, and profile-sync jobs may take the writer lock.
+- A completed or cancelled operation must release the writer lock even if legacy readiness labels need later reconciliation.
 
-This replaces the current one-run-per-dataset-volume bottleneck.
+This separates "can mutate the volume" from "can answer user queries".
 
 ## Persistent Logs
 
@@ -85,26 +99,24 @@ Large storage should be opt-in. Canonical public datasets should start small and
 
 Recommended backend resources:
 
-- Object storage for canonical dataset versions and run artifacts.
+- Modal volumes for canonical public dataset roots.
+- Object storage for run logs and artifacts.
 - Managed Postgres for catalog and run/event state.
 - Modal runners with profile-specific CPU, memory, and scratch settings.
 - Optional Qdrant worker with local NVMe or a managed vector database.
-- Block volumes only for scratch, hot cache, and stateful retrieval services.
+- Stable Modal volumes for canonical public datasets; scratch volumes remain profile-specific worker resources.
 
 Avoid:
 
-- one permanent 500GiB volume per dataset,
-- resizing every public-data environment to 500GiB,
+- treating `ready` as a universal lifecycle truth,
 - storing important run logs only on the worker,
-- using dataset volume attachment as the analysis concurrency control.
+- using stale writer locks as indefinite blockers after an operation is terminal.
 
 ## Migration Plan
 
-1. Lower default scratch sizes and use resource profiles.
-2. Make provisioning failures terminal and visible on dataset deployment records.
-3. Persist worker logs to Postgres/object storage.
-4. Add `dataset_versions` and bind runs to versions.
-5. Publish manifests and shards to object storage.
-6. Allow concurrent read runs against published dataset versions.
-7. Limit writer locks to refresh/publish operations.
-8. Clean up stale detached volumes and failed provisioning artifacts.
+1. Add explicit Modal volume metadata to dataset records: volume name, mount path, last mount check, and last writable check.
+2. Replace write gates based on `status` / `deploymentStatus` with `improvable`.
+3. Store active writer operation metadata separately from dataset usability.
+4. Reconcile completed operations into profile proof and legacy display labels.
+5. Persist worker logs to Postgres/object storage.
+6. Add stale-operation detection that can cancel/reconcile locks without changing volume contents.

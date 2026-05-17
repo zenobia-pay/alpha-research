@@ -19,7 +19,7 @@ const resources = {
   cpu: 4,
   memoryGb: 8,
   workspaceDiskGb: 50,
-  storageMode: "object-store-versioned",
+  storageMode: "modal-volume",
   datasetAccess: "write-version",
   publishMode: "versioned",
 };

@@ -226,7 +226,7 @@ For non-query product runs, the CLI sends a first-class runtime resource contrac
   "cpu": 8,
   "memoryGb": 16,
   "workspaceDiskGb": 100,
-  "storageMode": "object-store-versioned",
+  "storageMode": "modal-volume",
   "datasetAccess": "read-only-version"
 }
 ```
@@ -241,8 +241,8 @@ Canonical public-data builds use the smaller `canonical-public` profile by defau
   "cpu": 4,
   "memoryGb": 8,
   "workspaceDiskGb": 50,
-  "storageMode": "object-store-versioned",
-  "datasetAccess": "read-only-version",
+  "storageMode": "modal-volume",
+  "datasetAccess": "write-version",
   "publishMode": "versioned"
 }
 ```

@@ -27,7 +27,7 @@ const CANONICAL_PUBLIC_RESOURCES = {
   cpu: 4,
   memoryGb: 8,
   workspaceDiskGb: 50,
-  storageMode: "object-store-versioned",
+  storageMode: "modal-volume",
   datasetAccess: "write-version",
   publishMode: "versioned",
 };
@@ -280,6 +280,37 @@ function refreshPrompt(datasetId, datasetName, sourceRegistryBullets) {
   ].join("\n");
 }
 
+function classifyCanonicalWrite(dataset) {
+  const datasetStatus = dataset.status ?? "unknown";
+  const deploymentStatus = dataset.deploymentStatus ?? "unknown";
+  const activeRemoteExecutionId = dataset.activeRemoteExecutionId ?? dataset.activeCanonicalExecutionId ?? null;
+  const legacyActiveRunId = dataset.activeRunId ?? null;
+  const writerLocked = Boolean(activeRemoteExecutionId || legacyActiveRunId);
+  const volumeAvailable = dataset.volume !== null
+    && (dataset.volume !== undefined || typeof dataset.manifestPath === "string" || datasetStatus !== "missing");
+  const legacyLifecycleNeedsReconciliation = datasetStatus !== "ready" || deploymentStatus !== "ready";
+  const needsBootstrapRepair = ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(datasetStatus)
+    || ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(deploymentStatus);
+  return {
+    datasetStatus,
+    deploymentStatus,
+    storageKind: "modal_volume",
+    volumeAvailable,
+    writerLocked,
+    writeReady: volumeAvailable && !writerLocked,
+    improvable: volumeAvailable && !writerLocked,
+    activeRemoteExecutionId,
+    legacyActiveRunId,
+    legacyLifecycleNeedsReconciliation,
+    needsBootstrapRepair,
+    missingOrStale: [
+      ...(volumeAvailable ? [] : ["modal_volume"]),
+      ...(writerLocked ? ["writer_lock"] : []),
+      ...(legacyLifecycleNeedsReconciliation ? ["legacy_status_reconciliation"] : []),
+    ],
+  };
+}
+
 const catalogMarkdown = readFileSync(catalogPath, "utf8");
 const results = [];
 
@@ -359,17 +390,27 @@ for (const dataset of canonicalDatasets) {
   const deploymentStatus = liveDataset.deploymentStatus ?? "unknown";
   const activeRemoteExecutionId = liveDataset.activeRemoteExecutionId ?? liveDataset.activeCanonicalExecutionId ?? null;
   const activeRunId = liveDataset.activeRunId ?? null;
+  const write = classifyCanonicalWrite(liveDataset);
 
   if (statusOnly) {
-    results.push({ datasetId: dataset.id, status: "remote_status", datasetStatus, deploymentStatus, activeRemoteExecutionId, legacyActiveRunId: activeRunId });
+    results.push({
+      datasetId: dataset.id,
+      status: "remote_status",
+      datasetStatus,
+      deploymentStatus,
+      activeRemoteExecutionId,
+      legacyActiveRunId: activeRunId,
+      writeReadiness: write,
+    });
     continue;
   }
 
-  const ready = datasetStatus === "ready" && deploymentStatus === "ready";
-  const repairableBootstrapState = ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(datasetStatus)
-    || ["failed", "deploying", "provisioning", "uploaded", "deployable", "unknown"].includes(deploymentStatus);
-  if (!ready && !repairableBootstrapState) {
-    results.push({ datasetId: dataset.id, status: "skipped_not_ready", datasetStatus, deploymentStatus, activeRemoteExecutionId, legacyActiveRunId: activeRunId });
+  if (!write.improvable) {
+    results.push({
+      datasetId: dataset.id,
+      status: write.writerLocked ? "skipped_write_locked" : "skipped_volume_unavailable",
+      ...write,
+    });
     continue;
   }
 
@@ -384,7 +425,7 @@ for (const dataset of canonicalDatasets) {
     resources: CANONICAL_PUBLIC_RESOURCES,
     config: {
       ...CANONICAL_RUNTIME_CONTRACT,
-      jobKind: ready ? "dataset-refresh" : "dataset-bootstrap-repair",
+      jobKind: write.needsBootstrapRepair ? "dataset-bootstrap-repair" : "dataset-refresh",
       datasetId: dataset.id,
       datasetName: dataset.name,
       writesDatasetBriefing: true,
@@ -423,7 +464,7 @@ for (const dataset of canonicalDatasets) {
   try {
     const { body: started } = await postAdminJson("/api/admin/remote-agent-executions", {
       prompt,
-      kind: ready ? "dataset-refresh" : "dataset-bootstrap-repair",
+      kind: write.needsBootstrapRepair ? "dataset-bootstrap-repair" : "dataset-refresh",
       datasetId: dataset.id,
       resources: CANONICAL_PUBLIC_RESOURCES,
       artifactSpec: body.artifacts,
@@ -437,9 +478,10 @@ for (const dataset of canonicalDatasets) {
     const executionId = executionIdFromResponse(started);
     results.push({
       datasetId: dataset.id,
-      status: ready ? "started" : "started_bootstrap_repair",
+      status: write.needsBootstrapRepair ? "started_bootstrap_repair" : "started",
       previousDatasetStatus: datasetStatus,
       previousDeploymentStatus: deploymentStatus,
+      writeReadiness: write,
       executionId,
       adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
     });

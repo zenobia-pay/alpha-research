@@ -31,7 +31,7 @@ Use this workflow when the user asks to improve a canonical dataset such as `eco
 1. Check the npm scripts before choosing an execution path:
    - `npm run canonical:improve` starts bulk canonical improvement jobs through `/api/admin/canonical-datasets/improve`.
    - `CANONICAL_DATASET_IDS=econ npm run canonical:improve:dry-run` verifies the filtered bulk job shape.
-   - `npm run canonical:dataset -- status --dataset-id econ` verifies CLI-visible readiness and active execution state.
+   - `npm run canonical:dataset -- status --dataset-id econ` verifies Modal-volume write availability, active writer locks, inventory proof, and CLI profile readback state. Do not treat legacy `status` / `deploymentStatus` alone as the canonical write gate.
    - `npm run remote-agent:exec -- --kind dataset-improvement --dataset-id econ --prompt-file <file>` is the admin-owned fallback when the canonical-datasets admin endpoint rejects a dataset that the CLI registry can see.
 2. Never use `/api/cli/datasets/:datasetId/runs`, `research --prompt`, or other user-facing run paths for canonical improvement jobs.
 3. Target one dataset with `CANONICAL_DATASET_IDS=<id>` when the request names one dataset. Do not launch all canonical datasets by accident.
@@ -43,7 +43,7 @@ Use this workflow when the user asks to improve a canonical dataset such as `eco
    - no merged panels, derived fields, cross-source joins, or analysis-ready artifacts;
    - candidate classification and provenance requirements;
    - required artifacts, docs mirrors, profile update/readback, and Slack briefing behavior.
-6. If the bulk or single-dataset canonical endpoint returns `404 {"error":"Canonical dataset not found"}` but `npm run canonical:dataset -- status --dataset-id <id>` shows the dataset is ready, use `remote-agent:exec` with `--kind dataset-improvement --dataset-id <id>` and the exact prompt file. This remains an admin execution, not a user-facing run.
+6. If the bulk or single-dataset canonical endpoint returns `404 {"error":"Canonical dataset not found"}` but `npm run canonical:dataset -- status --dataset-id <id>` shows the dataset record exists and `improvable: true`, use `remote-agent:exec` with `--kind dataset-improvement --dataset-id <id>` and the exact prompt file. This remains an admin execution, not a user-facing run.
 7. After launch, capture:
    - execution id;
    - admin status URL;

@@ -12,7 +12,7 @@ async function exists(path: string) {
 
 const readmePath = "ops/modal/README.md";
 const readme = await readFile(readmePath, "utf8");
-for (const required of ["Modal", "object storage", "canonical-public", "npm run build"]) {
+for (const required of ["Modal", "Modal volumes", "object storage", "canonical-public", "npm run build"]) {
   assert.ok(readme.includes(required), `${readmePath} should mention ${required}`);
 }
 
