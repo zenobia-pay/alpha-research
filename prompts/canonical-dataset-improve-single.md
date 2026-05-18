@@ -22,6 +22,24 @@ Field brief:
    - set nested `profile.quality.diskInventoryProven` to `true` only after inventories are regenerated or verified from disk;
    - set nested `profile.quality.volumeInventoryRunId` to the current run id;
    - set nested `profile.quality.volumeInventoryUpdatedAt` to the inventory verification timestamp.
+   - The profile proof must be nested under `profile.quality`; do not send `quality`, `diskInventoryProven`, `volumeInventoryRunId`, or `volumeInventoryUpdatedAt` only as top-level profile fields because the canonical status gate will not treat those as disk proof.
+   - Use this payload shape when calling `POST /api/cli/datasets/{datasetId}/profile`:
+
+```json
+{
+  "briefingMarkdown": "exact dataset_briefing.md body",
+  "notes": "Literal data inventory generated from verified mounted-volume inventories.",
+  "profile": {
+    "quality": {
+      "diskInventoryProven": true,
+      "volumeInventoryRunId": "current inventory run id",
+      "volumeInventoryUpdatedAt": "inventory verification timestamp"
+    }
+  },
+  "describedRunId": "current inventory run id",
+  "describedAt": "inventory verification timestamp"
+}
+```
 9. Read back the dataset profile through the backend and verify it contains the exact briefing plus the nested `profile.quality.volumeInventoryRunId` for the current run. If readback fails, mark the run blocked and write the non-secret blocker.
 10. Copy `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `improvement_result.json`, `volume_inventory_summary.json`, `work.md`, and `report.html` into the remote run artifact directory so the orchestrator can recover them.
 

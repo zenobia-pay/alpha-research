@@ -389,6 +389,44 @@ function canonicalAdminEndpoint(mode: Exclude<Mode, "create" | "status">) {
   return `/api/admin/canonical-datasets/${mode}`;
 }
 
+export function remoteAgentExecutionBody(input: {
+  prompt: string;
+  kind: string;
+  datasetId: string;
+  artifacts: ReturnType<typeof artifactContract>;
+  datasetName: string;
+}) {
+  return {
+    prompt: input.prompt,
+    kind: input.kind,
+    datasetId: input.datasetId,
+    ownerType: "admin",
+    artifactSpec: input.artifacts,
+    requiredArtifacts: input.artifacts.map((artifact) => artifact.path),
+    resources: CANONICAL_PUBLIC_RESOURCES,
+    metadata: {
+      launchedBy: "scripts/canonical-dataset.ts",
+      canonicalEndpointFallback: true,
+      canonicalDatasetLifecycle: true,
+      canonicalJobKind: input.kind,
+      datasetId: input.datasetId,
+      datasetName: input.datasetName,
+      writesDatasetBriefing: true,
+      syncsDocsFromBriefing: true,
+      requiresVolumeInventory: true,
+      requiresDownloadEventLog: true,
+      requiresSlackDownloadAlerts: true,
+      ...CANONICAL_RUNTIME_CONTRACT,
+    },
+  };
+}
+
+export function shouldFallbackToRemoteAgent(error: unknown) {
+  return error instanceof Error
+    && /Admin request failed \(404\) for \/api\/admin\/canonical-datasets\/(?:improve|audit):/u.test(error.message)
+    && /Canonical dataset not found/u.test(error.message);
+}
+
 async function getDataset(session: Session, datasetId: string) {
   const payload = await api<{ dataset: RemoteDataset }>(session, `/api/cli/datasets/${encodeURIComponent(datasetId)}`).catch((error) => {
     if (error instanceof Error && /Remote request failed \(404\)/u.test(error.message)) return null;
@@ -507,52 +545,79 @@ async function run() {
 
   const origin = process.env.ALPHA_RESEARCH_ORIGIN ?? session.origin;
   const canonicalJobKind = args.mode === "audit" ? "dataset-disk-audit" : "dataset-improvement";
-  const result = await adminApi<{ execution?: { id?: string }; remoteAgentExecution?: { id?: string } }>(
-    origin,
-    canonicalAdminEndpoint(args.mode),
-    {
-      method: "POST",
-      body: {
-        owner: "platform",
-        execution: {
-          provider: "modal",
-          remoteAgentExecutionOwner: "service",
-          userSessionRequired: false,
-          codexMode: "tui",
-          promptEnvelope: {
-            type: "goal_command",
-            command: "/goal",
-            promptField: "prompt",
+  let endpoint = canonicalAdminEndpoint(args.mode);
+  let usedFallback = false;
+  let result: { execution?: { id?: string }; remoteAgentExecution?: { id?: string } };
+  try {
+    result = await adminApi<{ execution?: { id?: string }; remoteAgentExecution?: { id?: string } }>(
+      origin,
+      endpoint,
+      {
+        method: "POST",
+        body: {
+          owner: "platform",
+          execution: {
+            provider: "modal",
+            remoteAgentExecutionOwner: "service",
+            userSessionRequired: false,
+            codexMode: "tui",
+            promptEnvelope: {
+              type: "goal_command",
+              command: "/goal",
+              promptField: "prompt",
+            },
+          },
+          prompt,
+          kind: canonicalJobKind,
+          jobKind: canonicalJobKind,
+          datasetId: args.datasetId,
+          artifactSpec: artifacts,
+          requiredArtifacts: artifacts.map((artifact) => artifact.path),
+          resources: CANONICAL_PUBLIC_RESOURCES,
+          metadata: {
+            canonicalDatasetLifecycle: true,
+            canonicalJobKind,
+            datasetId: args.datasetId,
+            datasetName,
+            writesDatasetBriefing: true,
+            syncsDocsFromBriefing: true,
+            requiresVolumeInventory: true,
+            requiresDownloadEventLog: true,
+            requiresSlackDownloadAlerts: true,
+            ...CANONICAL_RUNTIME_CONTRACT,
           },
         },
-        prompt,
-        kind: canonicalJobKind,
-        jobKind: canonicalJobKind,
-        datasetId: args.datasetId,
-        artifactSpec: artifacts,
-        requiredArtifacts: artifacts.map((artifact) => artifact.path),
-        resources: CANONICAL_PUBLIC_RESOURCES,
-        metadata: {
-          canonicalDatasetLifecycle: true,
-          canonicalJobKind,
-          datasetId: args.datasetId,
-          datasetName,
-          writesDatasetBriefing: true,
-          syncsDocsFromBriefing: true,
-          requiresVolumeInventory: true,
-          requiresDownloadEventLog: true,
-          requiresSlackDownloadAlerts: true,
-          ...CANONICAL_RUNTIME_CONTRACT,
-        },
       },
-    },
-  );
+    );
+  } catch (error) {
+    if (!shouldFallbackToRemoteAgent(error)) {
+      throw error;
+    }
+    endpoint = "/api/admin/remote-agent-executions";
+    usedFallback = true;
+    result = await adminApi<{ execution?: { id?: string }; remoteAgentExecution?: { id?: string } }>(
+      origin,
+      endpoint,
+      {
+        method: "POST",
+        body: remoteAgentExecutionBody({
+          prompt,
+          kind: canonicalJobKind,
+          datasetId: args.datasetId,
+          artifacts,
+          datasetName,
+        }),
+      },
+    );
+  }
   const executionId = result.execution?.id ?? result.remoteAgentExecution?.id ?? null;
   console.log(JSON.stringify({
     mode: args.mode,
     datasetId: args.datasetId,
     promptPath,
     status: "started",
+    endpoint,
+    usedFallback,
     executionId,
     adminStatusUrl: adminExecutionStatusUrl(executionId),
     result,
