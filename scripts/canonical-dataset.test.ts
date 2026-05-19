@@ -245,6 +245,10 @@ test("improve prompt requires remote data-only briefing update", async () => {
     "First create the runtime work-log artifacts required by the remote-run platform",
     "write `work.md` and `report.html` in the worker artifact output area before dataset inspection",
     "The run must not finish without a non-empty `work.md`.",
+    "Send canonical maintenance lifecycle Slack updates through `CANONICAL_DATASET_SLACK_WEBHOOK_URL`",
+    "run started, inventory verified/regenerated, briefing written, profile readback verified, and final completed/blocked/failed status",
+    "event_type: \"canonical_maintenance_lifecycle\"",
+    "summarize lifecycle Slack delivery in `slack_briefing.md`",
     "Use the mounted dataset volume as the dataset root.",
     "Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.",
     "Write `dataset_briefing.md` at the dataset volume root.",
@@ -258,6 +262,8 @@ test("improve prompt requires remote data-only briefing update", async () => {
     "# Data Inventory",
     "For archives or packaged provider payloads already on disk, describe the extracted data-bearing files or tables.",
     "Write `improvement_result.json` with this shape:",
+    "\"slackLifecycleMessagesSent\": []",
+    "\"slackLifecycleMessagesPending\": []",
     "\"profileReadbackVerified\": true",
     "Data comes from FRED",
   ]) {
@@ -267,8 +273,6 @@ test("improve prompt requires remote data-only briefing update", async () => {
   assert.doesNotMatch(prompt, /Do not publish processed tables, merged panels/u);
   assert.doesNotMatch(prompt, /Classify each candidate/u);
   assert.doesNotMatch(prompt, /Fetch active public machine-readable sources/u);
-  assert.doesNotMatch(prompt, /slackAlertsSent/u);
-  assert.doesNotMatch(prompt, /slackAlertsPending/u);
   assert.doesNotMatch(prompt, /Do not start with filenames/u);
   assert.doesNotMatch(prompt, /Do not include file names/u);
   assert.doesNotMatch(prompt, /For every raw inventory record/u);

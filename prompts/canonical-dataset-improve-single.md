@@ -12,12 +12,13 @@ Field brief:
 
 1. First create the runtime work-log artifacts required by the remote-run platform: write `work.md` and `report.html` in the worker artifact output area before dataset inspection. Use `./work.md` and `./report.html`; if `run_config.json` exposes a run id or `/results/<run-id>` exists, also write `/results/<run-id>/work.md` and `/results/<run-id>/report.html`. Keep these as runtime artifacts only; do not write them into the dataset root, docs mirrors, inventories, or `dataset_briefing.md`.
 2. Keep `work.md` current as you inspect the volume, write the briefing, update the profile, and perform readback. The run must not finish without a non-empty `work.md`.
-3. Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH`; otherwise use `/mnt/alpha-research/datasets/{datasetId}`.
-4. Read the existing dataset state from the mounted volume: `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `download_inventory.jsonl`, `download_inventory.csv`, `download_events.jsonl`, `slack_download_alerts.jsonl`, `slack_briefing.md`, `raw_inventory.jsonl`, `raw_inventory.csv`, `volume_inventory.jsonl`, `volume_inventory.csv`, `volume_inventory_summary.json`, `volume_tree.txt`, `data_dictionary.md`, `quality_report.md`, and any existing `dataset_briefing.md`.
-5. Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.
-6. Write `dataset_briefing.md` at the dataset volume root. Treat that file as the authoritative output for this run.
-7. Copy the exact same briefing body into `docs/public-datasets/briefings/{datasetId}.md` and `docs/public-datasets/{datasetId}.mdx` in the run artifact/workspace area when available.
-8. Update the CLI-visible backend dataset profile from the same briefing:
+3. Send canonical maintenance lifecycle Slack updates through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` when it is present. Never print, log, persist, or expose the webhook URL. Send one short message at each checkpoint: run started, inventory verified/regenerated, briefing written, profile readback verified, and final completed/blocked/failed status. If the webhook is missing or delivery fails, continue the run but append a row to `slack_download_alerts.jsonl` with `event_type: "canonical_maintenance_lifecycle"`, `checkpoint`, `delivery_status: "pending"|"failed"`, `delivery_at`, the complete non-secret message payload, and the non-secret failure reason. Also summarize lifecycle Slack delivery in `slack_briefing.md`.
+4. Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH`; otherwise use `/mnt/alpha-research/datasets/{datasetId}`.
+5. Read the existing dataset state from the mounted volume: `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `download_inventory.jsonl`, `download_inventory.csv`, `download_events.jsonl`, `slack_download_alerts.jsonl`, `slack_briefing.md`, `raw_inventory.jsonl`, `raw_inventory.csv`, `volume_inventory.jsonl`, `volume_inventory.csv`, `volume_inventory_summary.json`, `volume_tree.txt`, `data_dictionary.md`, `quality_report.md`, and any existing `dataset_briefing.md`.
+6. Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.
+7. Write `dataset_briefing.md` at the dataset volume root. Treat that file as the authoritative output for this run.
+8. Copy the exact same briefing body into `docs/public-datasets/briefings/{datasetId}.md` and `docs/public-datasets/{datasetId}.mdx` in the run artifact/workspace area when available.
+9. Update the CLI-visible backend dataset profile from the same briefing:
    - set `briefingMarkdown` to the exact `dataset_briefing.md` body;
    - set nested `profile.quality.diskInventoryProven` to `true` only after inventories are regenerated or verified from disk;
    - set nested `profile.quality.volumeInventoryRunId` to the current run id;
@@ -40,8 +41,8 @@ Field brief:
   "describedAt": "inventory verification timestamp"
 }
 ```
-9. Read back the dataset profile through the backend and verify it contains the exact briefing plus the nested `profile.quality.volumeInventoryRunId` for the current run. If readback fails, mark the run blocked and write the non-secret blocker. Do not claim completion and leave profile repair to the local automation.
-10. Copy `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `improvement_result.json`, `volume_inventory_summary.json`, `work.md`, and `report.html` into the remote run artifact directory so the orchestrator can recover them.
+10. Read back the dataset profile through the backend and verify it contains the exact briefing plus the nested `profile.quality.volumeInventoryRunId` for the current run. If readback fails, mark the run blocked and write the non-secret blocker. Do not claim completion and leave profile repair to the local automation.
+11. Copy `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `improvement_result.json`, `volume_inventory_summary.json`, `slack_download_alerts.jsonl`, `slack_briefing.md`, `work.md`, and `report.html` into the remote run artifact directory so the orchestrator can recover them.
 
 ## Briefing Contract
 
@@ -76,6 +77,10 @@ Write `improvement_result.json` with this shape:
   "briefingPath": "dataset_briefing.md",
   "docsBriefingPath": "docs/public-datasets/briefings/{datasetId}.md",
   "docsPagePath": "docs/public-datasets/{datasetId}.mdx",
+  "slackDownloadAlertsPath": "slack_download_alerts.jsonl",
+  "slackBriefingPath": "slack_briefing.md",
+  "slackLifecycleMessagesSent": [],
+  "slackLifecycleMessagesPending": [],
   "profileUpdated": true,
   "profileReadbackVerified": true,
   "blockers": []
