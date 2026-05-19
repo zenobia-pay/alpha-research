@@ -361,10 +361,7 @@ export async function main() {
 
   if (command === "version" || command === "--version" || command === "-v" || flags.version === "true") {
     console.log(await readCliVersion());
-    if (shouldExitPromptMode()) {
-      await exitPromptModeProcess();
-    }
-    return;
+    await exitPromptModeProcess();
   }
 
   if (promptFlag) {
