@@ -15,8 +15,6 @@ import {
   promptRecordPath,
   registrationBody,
   renderPrompt,
-  remoteAgentExecutionBody,
-  shouldFallbackToRemoteAgent,
 } from "./canonical-dataset.ts";
 import {
   CANONICAL_DATASETS,
@@ -506,28 +504,6 @@ test("single dataset improve dry-run uses canonical admin endpoint instead of us
   assert.doesNotMatch(output, /\/api\/cli\/datasets\/econ\/runs/u);
   assert.doesNotMatch(output, /remote-agent-executions/u);
   await rm(dirname(promptRecordPath("econ", timestamp, "improve")), { recursive: true, force: true });
-});
-
-test("single dataset launcher can fall back to admin remote-agent endpoint on false canonical 404", () => {
-  const error = new Error('Admin request failed (404) for /api/admin/canonical-datasets/improve: {"error":"Canonical dataset not found"}');
-  assert.equal(shouldFallbackToRemoteAgent(error), true);
-  assert.equal(shouldFallbackToRemoteAgent(new Error("Admin request failed (500) for /api/admin/canonical-datasets/improve")), false);
-
-  const body = remoteAgentExecutionBody({
-    prompt: "Refresh briefing.",
-    kind: "dataset-improvement",
-    datasetId: "econ",
-    datasetName: "Econ",
-    artifacts: artifactContract("econ", "improve"),
-  });
-
-  assert.equal(body.ownerType, "admin");
-  assert.equal(body.kind, "dataset-improvement");
-  assert.equal(body.datasetId, "econ");
-  assert.equal(body.metadata.canonicalEndpointFallback, true);
-  assert.equal(body.metadata.canonicalDatasetLifecycle, true);
-  assert.ok(body.requiredArtifacts.includes("dataset_briefing.md"));
-  assert.ok(body.requiredArtifacts.includes("docs/public-datasets/briefings/econ.md"));
 });
 
 test("single dataset add script builds platform-owned bootstrap request", () => {

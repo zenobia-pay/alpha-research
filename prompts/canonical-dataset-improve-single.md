@@ -40,7 +40,7 @@ Field brief:
   "describedAt": "inventory verification timestamp"
 }
 ```
-9. Read back the dataset profile through the backend and verify it contains the exact briefing plus the nested `profile.quality.volumeInventoryRunId` for the current run. If readback fails, mark the run blocked and write the non-secret blocker.
+9. Read back the dataset profile through the backend and verify it contains the exact briefing plus the nested `profile.quality.volumeInventoryRunId` for the current run. If readback fails, mark the run blocked and write the non-secret blocker. Do not claim completion and leave profile repair to the local automation.
 10. Copy `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `improvement_result.json`, `volume_inventory_summary.json`, `work.md`, and `report.html` into the remote run artifact directory so the orchestrator can recover them.
 
 ## Briefing Contract
@@ -82,7 +82,7 @@ Write `improvement_result.json` with this shape:
 }
 ```
 
-Set `diskInventoryProven`, `profileUpdated`, or `profileReadbackVerified` to `false` if proof is missing, and explain the exact non-secret blocker in `blockers`.
+Set `status` to `blocked` and set `diskInventoryProven`, `profileUpdated`, or `profileReadbackVerified` to `false` if proof is missing, and explain the exact non-secret blocker in `blockers`. A briefing file without successful profile readback is not a completed canonical maintenance run.
 
 ## Final Response
 

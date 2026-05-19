@@ -32,8 +32,7 @@ Use this workflow when the user asks to improve a canonical dataset such as `eco
    - `npm run canonical:improve` starts bulk canonical improvement jobs through `/api/admin/canonical-datasets/improve`.
    - `CANONICAL_DATASET_IDS=econ npm run canonical:improve:dry-run` verifies the filtered bulk job shape.
    - `npm run canonical:dataset -- status --dataset-id econ` verifies Modal-volume write availability, active writer locks, inventory proof, and CLI profile readback state. Do not treat legacy `status` / `deploymentStatus` alone as the canonical write gate.
-   - `npm run remote-agent:exec -- --kind dataset-improvement --dataset-id econ --prompt-file <file>` is the admin-owned fallback when the canonical-datasets admin endpoint rejects a dataset that the CLI registry can see.
-2. Never use `/api/cli/datasets/:datasetId/runs`, `research --prompt`, or other user-facing run paths for canonical improvement jobs.
+2. Use the canonical dataset admin endpoint as the product contract. Do not route around canonical endpoint failures with `/api/admin/remote-agent-executions`, `/api/cli/datasets/:datasetId/runs`, `research --prompt`, or other generic run paths.
 3. Target one dataset with `CANONICAL_DATASET_IDS=<id>` when the request names one dataset. Do not launch all canonical datasets by accident.
 4. Preserve the exact operator prompt under `docs/canonical-runs/<dataset-id>/<timestamp>/`. Use a specific filename such as `admin-improvement-prompt.md` when the generic template is not the right fit.
 5. Make the prompt explicit about canonical constraints:
@@ -43,7 +42,7 @@ Use this workflow when the user asks to improve a canonical dataset such as `eco
    - no merged panels, derived fields, cross-source joins, or analysis-ready artifacts;
    - candidate classification and provenance requirements;
    - required artifacts, docs mirrors, profile update/readback, and Slack briefing behavior.
-6. If the bulk or single-dataset canonical endpoint returns `404 {"error":"Canonical dataset not found"}` but `npm run canonical:dataset -- status --dataset-id <id>` shows the dataset record exists and `improvable: true`, use `remote-agent:exec` with `--kind dataset-improvement --dataset-id <id>` and the exact prompt file. This remains an admin execution, not a user-facing run.
+6. If the canonical endpoint rejects a dataset that `npm run canonical:dataset -- status --dataset-id <id>` shows as existing and improvable, stop and report the endpoint contract mismatch. The fix belongs in the canonical admin endpoint or dataset registry, not in an alternate launcher.
 7. After launch, capture:
    - execution id;
    - admin status URL;
@@ -74,7 +73,8 @@ Use this workflow when the user asks to improve a canonical dataset such as `eco
    }, null, 2))
    NODE
    ```
-9. If you changed scripts, prompts, or docs while launching the job, run focused tests such as `npm run test:canonical`, then commit and push. Per repo policy, also run `npm run deploy:check` after completing the change.
+9. Treat worker lifecycle failures such as `.remote-agent/state/status.json.tmp` rename errors as platform execution failures even if `dataset_briefing.md` can be recovered from artifacts or the mounted volume. Recovery may preserve useful output, but it is not a successful canonical run unless the canonical endpoint reports terminal success and profile readback is proven through `npm run canonical:dataset -- status --dataset-id <id>`.
+10. If you changed scripts, prompts, or docs while launching the job, run focused tests such as `npm run test:canonical`, then commit and push. Per repo policy, also run `npm run deploy:check` after completing the change.
 
 ## Add A Golden Test
 
