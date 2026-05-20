@@ -1,0 +1,25 @@
+**Status**
+
+- Run ends **blocked**: profile POST to `api/cli/datasets/history/profile` returned HTTP 401 unauthorized; requires authenticated CLI credentials before profile/proof can be finalized.
+
+**Key Updates**
+
+- Regenerated disk inventories (JSONL/CSV/tree/summary) with run `3acd68b4-1123-4f08-a710-ac39cc0bf0aa` and copied proofs to results. (`volume_inventory_summary.json`)  
+- Refreshed canonical briefing with quantified coverage for Civil War maps, Chronicling America titles, Europeana WWI items, and Harvard Dataverse search payloads, then synced copies for docs consumers. (`dataset_briefing.md`)  
+- Logged lifecycle checkpoints (start, inventory, briefing, profile blocker) to Slack and mirrored entries in alerts/briefing ledgers. (`slack_download_alerts.jsonl`, `slack_briefing.md`)  
+- Authenticated profile update failed (401); recorded blocker in `improvement_result.json` and work log for follow-up action.
+
+**Artifacts**
+
+- `dataset/dataset_briefing.md`, `docs/public-datasets/briefings/history.md`, `docs/public-datasets/history.mdx`, `report.html`, `volume_inventory_summary.json`, `volume_inventory.{jsonl,csv}`, `volume_tree.txt`, `slack_briefing.md`, `slack_download_alerts.jsonl`, `improvement_result.json`.
+
+**Profile & Proof**
+
+- `diskInventoryProven`: true (fresh inventories saved).  
+- `profileUpdated`: false (HTTP 401).  
+- `profileReadbackVerified`: false (update never applied).
+
+**Next Steps**
+
+- Re-run `POST /api/cli/datasets/history/profile` with valid CLI authentication, confirm readback, and rerun finalization once authorized.  
+- Leave inventories/briefing as source-of-truth inputs for that retry; no further dataset changes needed.
