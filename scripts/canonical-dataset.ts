@@ -394,17 +394,8 @@ function adminExecutionStatusUrl(executionId: string | null) {
 }
 
 function canonicalAdminEndpoint(mode: Exclude<Mode, "create" | "status">) {
+  if (mode === "improve") return remoteAgentExecutionEndpoint();
   return `/api/admin/canonical-datasets/${mode}`;
-}
-
-export function shouldUseCanonicalRemoteAgentFallback(error: unknown, endpoint: string) {
-  const message = error instanceof Error ? error.message : String(error);
-  const status = typeof error === "object" && error !== null && "status" in error
-    ? (error as { status?: unknown }).status
-    : undefined;
-  return status === 404
-    && endpoint === "/api/admin/canonical-datasets/improve"
-    && /Canonical dataset not found/u.test(message);
 }
 
 function remoteAgentExecutionEndpoint() {
@@ -530,7 +521,31 @@ async function run() {
   const origin = process.env.ALPHA_RESEARCH_ORIGIN ?? session.origin;
   const canonicalJobKind = args.mode === "audit" ? "dataset-disk-audit" : "dataset-improvement";
   const endpoint = canonicalAdminEndpoint(args.mode);
-  const canonicalBody = {
+  const metadata = {
+    canonicalDatasetLifecycle: true,
+    canonicalJobKind,
+    datasetId: args.datasetId,
+    datasetName,
+    writesDatasetBriefing: true,
+    syncsDocsFromBriefing: true,
+    requiresVolumeInventory: true,
+    requiresDownloadEventLog: true,
+    requiresSlackDownloadAlerts: true,
+    ...CANONICAL_RUNTIME_CONTRACT,
+  };
+  const body = args.mode === "improve" ? {
+    prompt,
+    kind: canonicalJobKind,
+    datasetId: args.datasetId,
+    ownerType: "admin",
+    resources: CANONICAL_PUBLIC_RESOURCES,
+    artifactSpec: artifacts,
+    requiredArtifacts: artifacts.map((artifact) => artifact.path),
+    metadata: {
+      ...metadata,
+      launchedBy: "scripts/canonical-dataset.ts",
+    },
+  } : {
     owner: "platform",
     execution: {
       provider: "modal",
@@ -550,64 +565,23 @@ async function run() {
     artifactSpec: artifacts,
     requiredArtifacts: artifacts.map((artifact) => artifact.path),
     resources: CANONICAL_PUBLIC_RESOURCES,
-    metadata: {
-      canonicalDatasetLifecycle: true,
-      canonicalJobKind,
-      datasetId: args.datasetId,
-      datasetName,
-      writesDatasetBriefing: true,
-      syncsDocsFromBriefing: true,
-      requiresVolumeInventory: true,
-      requiresDownloadEventLog: true,
-      requiresSlackDownloadAlerts: true,
-      ...CANONICAL_RUNTIME_CONTRACT,
-    },
+    metadata,
   };
-  let launchEndpoint = endpoint;
-  let launchStatus = "started";
-  let originalError: string | null = null;
-  let result: { execution?: { id?: string }; remoteAgentExecution?: { id?: string } };
-  try {
-    result = await adminApi(origin, endpoint, {
+  const result = await adminApi<{ execution?: { id?: string }; remoteAgentExecution?: { id?: string } }>(
+    origin,
+    endpoint,
+    {
       method: "POST",
-      body: canonicalBody,
-    });
-  } catch (error) {
-    if (!shouldUseCanonicalRemoteAgentFallback(error, endpoint)) {
-      throw error;
-    }
-    originalError = error instanceof Error ? error.message : String(error);
-    launchEndpoint = remoteAgentExecutionEndpoint();
-    launchStatus = "started_via_remote_agent_fallback";
-    result = await adminApi(origin, launchEndpoint, {
-      method: "POST",
-      body: {
-        prompt,
-        kind: canonicalJobKind,
-        datasetId: args.datasetId,
-        ownerType: "admin",
-        resources: CANONICAL_PUBLIC_RESOURCES,
-        artifactSpec: artifacts,
-        requiredArtifacts: canonicalBody.requiredArtifacts,
-        metadata: {
-          ...canonicalBody.metadata,
-          launchedBy: "scripts/canonical-dataset.ts",
-          fallbackFrom: endpoint,
-          fallbackReason: "canonical_dataset_not_found_contract_mismatch",
-        },
-      },
-    });
-  }
+      body,
+    },
+  );
   const executionId = result.execution?.id ?? result.remoteAgentExecution?.id ?? null;
   console.log(JSON.stringify({
     mode: args.mode,
     datasetId: args.datasetId,
     promptPath,
-    status: launchStatus,
-    endpoint: launchEndpoint,
-    fallbackFrom: launchStatus === "started_via_remote_agent_fallback" ? endpoint : undefined,
-    fallbackReason: launchStatus === "started_via_remote_agent_fallback" ? "canonical_dataset_not_found_contract_mismatch" : undefined,
-    originalError: originalError ?? undefined,
+    status: "started",
+    endpoint,
     executionId,
     adminStatusUrl: adminExecutionStatusUrl(executionId),
     result,

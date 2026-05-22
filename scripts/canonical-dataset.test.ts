@@ -15,7 +15,6 @@ import {
   promptRecordPath,
   registrationBody,
   renderPrompt,
-  shouldUseCanonicalRemoteAgentFallback,
 } from "./canonical-dataset.ts";
 import {
   CANONICAL_DATASETS,
@@ -467,7 +466,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
     };
     assert.doesNotMatch(improveOutput, /\b(runId|dashboardUrl)\b/u);
     const historyImprove = improveParsed.results.find((result) => result.datasetId === "history");
-    assert.equal(historyImprove?.endpoint, "/api/admin/canonical-datasets/improve");
+    assert.equal(historyImprove?.endpoint, "/api/admin/remote-agent-executions");
     assert.equal(historyImprove?.resources?.datasetAccess, "write-version");
     assert.equal(historyImprove?.resources?.publishMode, "versioned");
     assert.ok(historyImprove?.artifacts?.includes("work.md"));
@@ -479,7 +478,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
   }
 });
 
-test("single dataset improve dry-run uses canonical admin endpoint instead of user-facing runs", async () => {
+test("single dataset improve dry-run targets admin remote Modal execution instead of user-facing runs", async () => {
   const timestamp = "2026-05-14T12:34:56.789Z";
   const output = execFileSync("npx", [
     "tsx",
@@ -504,45 +503,15 @@ test("single dataset improve dry-run uses canonical admin endpoint instead of us
   };
   assert.equal(parsed.dryRun, true);
   assert.equal(parsed.mode, "improve");
-  assert.equal(parsed.endpoint, "/api/admin/canonical-datasets/improve");
+  assert.equal(parsed.endpoint, "/api/admin/remote-agent-executions");
   assert.ok(parsed.artifacts.some((artifact) => artifact.path === "work.md"));
   assert.doesNotMatch(output, /\/api\/cli\/datasets\/econ\/runs/u);
-  assert.doesNotMatch(output, /remote-agent-executions/u);
   await rm(dirname(promptRecordPath("econ", timestamp, "improve")), { recursive: true, force: true });
 });
 
-test("single dataset improve falls back only for canonical admin not-found contract mismatch", () => {
-  const endpoint = "/api/admin/canonical-datasets/improve";
-  const contractError = Object.assign(
-    new Error(`Admin request failed (404) for ${endpoint}: {"error":"Canonical dataset not found"}`),
-    { status: 404 },
-  );
-  assert.equal(shouldUseCanonicalRemoteAgentFallback(contractError, endpoint), true);
-
-  const unrelated404 = Object.assign(
-    new Error(`Admin request failed (404) for ${endpoint}: {"error":"Artifact not found"}`),
-    { status: 404 },
-  );
-  assert.equal(shouldUseCanonicalRemoteAgentFallback(unrelated404, endpoint), false);
-
-  const auditError = Object.assign(
-    new Error("Admin request failed (404): Canonical dataset not found"),
-    { status: 404 },
-  );
-  assert.equal(shouldUseCanonicalRemoteAgentFallback(auditError, "/api/admin/canonical-datasets/audit"), false);
-});
-
-test("bulk improve fallback preserves admin remote execution metadata", async () => {
+test("bulk improve builds direct admin remote execution payload", async () => {
   const module = await import("./start-canonical-dataset-improvement-jobs.mjs");
-  const endpoint = "/api/admin/canonical-datasets/improve";
-  const contractError = Object.assign(
-    new Error(`Admin request failed (404) for ${endpoint}: {"error":"Canonical dataset not found"}`),
-    { status: 404 },
-  );
-  assert.equal(module.shouldUseRemoteAgentFallback(contractError), true);
-  assert.equal(module.shouldUseRemoteAgentFallback(Object.assign(new Error("Canonical dataset not found"), { status: 500 })), false);
-
-  const body = module.remoteAgentFallbackBody({
+  const body = module.remoteAgentImprovementBody({
     dataset: { id: "econ", name: "Econ" },
     prompt: "Refresh econ.",
     artifacts: [{ type: "file", title: "Dataset Briefing", path: "dataset_briefing.md" }],
@@ -552,8 +521,8 @@ test("bulk improve fallback preserves admin remote execution metadata", async ()
   assert.equal(body.datasetId, "econ");
   assert.equal(body.kind, "dataset-improvement");
   assert.equal(body.ownerType, "admin");
-  assert.equal(body.metadata.fallbackFrom, endpoint);
-  assert.equal(body.metadata.fallbackReason, "canonical_dataset_not_found_contract_mismatch");
+  assert.equal(body.metadata.launchedBy, "scripts/start-canonical-dataset-improvement-jobs.mjs");
+  assert.equal(body.metadata.jobKind, "dataset-improvement");
   assert.deepEqual(body.requiredArtifacts, ["dataset_briefing.md"]);
   assert.equal(body.artifactSpec[0].path, "dataset_briefing.md");
 });

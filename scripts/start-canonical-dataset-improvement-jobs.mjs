@@ -9,7 +9,7 @@ const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), '.resea
 const promptPath = new URL('../prompts/canonical-dataset-improvement.md', import.meta.url)
 const dryRun = process.argv.includes('--dry-run') || process.env.CANONICAL_DATASET_IMPROVEMENT_DRY_RUN === '1'
 const extraPrompt = process.env.CANONICAL_DATASET_IMPROVEMENT_EXTRA_PROMPT?.trim() ?? ''
-const improvementEndpoint = '/api/admin/canonical-datasets/improve'
+const improvementEndpoint = '/api/admin/remote-agent-executions'
 
 const canonicalDatasets = selectCanonicalDatasets()
 
@@ -48,14 +48,7 @@ function renderPrompt(template, dataset) {
   return `${rendered}\n\n## Operator-Specified Improvement Focus\n\n${extraPrompt}\n`
 }
 
-export function shouldUseRemoteAgentFallback(error) {
-  const message = error instanceof Error ? error.message : String(error)
-  return error?.status === 404
-    && /\/api\/admin\/canonical-datasets\/improve/u.test(message)
-    && /Canonical dataset not found/u.test(message)
-}
-
-export function remoteAgentFallbackBody({ dataset, prompt, artifacts, requiredArtifacts, write }) {
+export function remoteAgentImprovementBody({ dataset, prompt, artifacts, requiredArtifacts, write }) {
   return {
     prompt,
     kind: 'dataset-improvement',
@@ -66,8 +59,6 @@ export function remoteAgentFallbackBody({ dataset, prompt, artifacts, requiredAr
     requiredArtifacts,
     metadata: {
       launchedBy: 'scripts/start-canonical-dataset-improvement-jobs.mjs',
-      fallbackFrom: improvementEndpoint,
-      fallbackReason: 'canonical_dataset_not_found_contract_mismatch',
       canonicalDatasetImprovement: true,
       jobKind: 'dataset-improvement',
       datasetId: dataset.id,
@@ -135,8 +126,8 @@ function classifyCanonicalWrite(dataset) {
 }
 
 async function main() {
-const promptTemplate = readFileSync(promptPath, 'utf8')
-const results = []
+  const promptTemplate = readFileSync(promptPath, 'utf8')
+  const results = []
 
 if (dryRun) {
   for (const dataset of canonicalDatasets) {
@@ -205,57 +196,27 @@ for (const dataset of canonicalDatasets) {
     continue
   }
   const prompt = renderPrompt(promptTemplate, dataset)
-  const body = {
-    datasetId: dataset.id,
-    owner: 'platform',
-    execution: {
-      provider: 'modal',
-      jobKind: 'dataset-improvement',
-      remoteAgentExecutionOwner: 'service',
-      userSessionRequired: false,
-      codexMode: 'tui',
-      promptEnvelope: {
-        type: 'goal_command',
-        command: '/goal',
-        promptField: 'prompt',
-      },
-    },
+  const artifacts = [
+    { type: 'file', title: 'Runtime Report', path: 'report.html' },
+    { type: 'file', title: 'Runtime Work Log', path: 'work.md' },
+    { type: 'file', title: 'Improvement Plan', path: 'improvement_plan.md' },
+    { type: 'structured_result', title: 'Improvement Result', path: 'improvement_result.json' },
+    { type: 'table', title: 'Candidate Sources', path: 'candidate_sources.csv' },
+    { type: 'structured_result', title: 'Exa Search Log', path: 'exa_search_log.json' },
+    { type: 'file', title: 'Slack Briefing', path: 'slack_briefing.md' },
+    { type: 'file', title: 'Dataset Briefing', path: 'dataset_briefing.md' },
+    { type: 'file', title: 'Raw Inventory JSONL', path: 'raw_inventory.jsonl' },
+    { type: 'table', title: 'Raw Inventory CSV', path: 'raw_inventory.csv' },
+    { type: 'file', title: 'Docs Briefing Mirror', path: `docs/public-datasets/briefings/${dataset.id}.md` },
+    { type: 'file', title: 'Docs Dataset Page', path: `docs/public-datasets/${dataset.id}.mdx` },
+  ]
+  const body = remoteAgentImprovementBody({
+    dataset,
     prompt,
-    kind: 'dataset-improvement',
-    jobKind: 'dataset-improvement',
-    config: {
-      canonicalDatasetImprovement: true,
-      jobKind: 'dataset-improvement',
-      datasetId: dataset.id,
-      datasetName: dataset.name,
-      writesDatasetBriefing: true,
-      syncsDocsFromBriefing: true,
-      requiresCodexLogin: true,
-      requiredEnvironment: [
-        'CANONICAL_DATASET_SLACK_WEBHOOK_URL',
-      ],
-      optionalEnvironment: [
-        'EXA_API_KEY',
-      ],
-      resources,
-    },
-    artifacts: [
-      { type: 'file', title: 'Runtime Report', path: 'report.html' },
-      { type: 'file', title: 'Runtime Work Log', path: 'work.md' },
-      { type: 'file', title: 'Improvement Plan', path: 'improvement_plan.md' },
-      { type: 'structured_result', title: 'Improvement Result', path: 'improvement_result.json' },
-      { type: 'table', title: 'Candidate Sources', path: 'candidate_sources.csv' },
-      { type: 'structured_result', title: 'Exa Search Log', path: 'exa_search_log.json' },
-      { type: 'file', title: 'Slack Briefing', path: 'slack_briefing.md' },
-      { type: 'file', title: 'Dataset Briefing', path: 'dataset_briefing.md' },
-      { type: 'file', title: 'Raw Inventory JSONL', path: 'raw_inventory.jsonl' },
-      { type: 'table', title: 'Raw Inventory CSV', path: 'raw_inventory.csv' },
-      { type: 'file', title: 'Docs Briefing Mirror', path: `docs/public-datasets/briefings/${dataset.id}.md` },
-      { type: 'file', title: 'Docs Dataset Page', path: `docs/public-datasets/${dataset.id}.mdx` },
-    ],
-  }
-  body.artifactSpec = body.artifacts
-  body.requiredArtifacts = body.artifacts.map((artifact) => artifact.path)
+    artifacts,
+    requiredArtifacts: artifacts.map((artifact) => artifact.path),
+    write,
+  })
 
   if (dryRun) {
     results.push({ datasetId: dataset.id, status: 'dry_run_ready', endpoint: improvementEndpoint, promptLength: prompt.length, resources })
@@ -271,47 +232,14 @@ for (const dataset of canonicalDatasets) {
       writeReadiness: write,
       executionId,
       adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
+      artifactsUrl: started.artifactsUrl ?? adminExecutionArtifactsUrl(executionId, defaultOrigin),
     })
   } catch (error) {
-    if (!shouldUseRemoteAgentFallback(error)) {
-      results.push({
-        datasetId: dataset.id,
-        status: 'failed_to_start',
-        error: error instanceof Error ? error.message : String(error),
-      })
-      continue
-    }
-
-    try {
-      const fallbackRequest = remoteAgentFallbackBody({
-        dataset,
-        prompt,
-        artifacts: body.artifacts,
-        requiredArtifacts: body.requiredArtifacts,
-        write,
-      })
-      const { body: started } = await postAdminJson('/api/admin/remote-agent-executions', fallbackRequest)
-      const executionId = executionIdFromResponse(started)
-      results.push({
-        datasetId: dataset.id,
-        status: 'started_via_remote_agent_fallback',
-        writeReadiness: write,
-        fallbackFrom: improvementEndpoint,
-        fallbackReason: 'canonical_dataset_not_found_contract_mismatch',
-        originalError: error instanceof Error ? error.message : String(error),
-        executionId,
-        adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
-        artifactsUrl: started.artifactsUrl ?? adminExecutionArtifactsUrl(executionId, defaultOrigin),
-      })
-    } catch (fallbackError) {
-      results.push({
-        datasetId: dataset.id,
-        status: 'failed_to_start',
-        fallbackAttempted: true,
-        originalError: error instanceof Error ? error.message : String(error),
-        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-      })
-    }
+    results.push({
+      datasetId: dataset.id,
+      status: 'failed_to_start',
+      error: error instanceof Error ? error.message : String(error),
+    })
   }
 }
 
