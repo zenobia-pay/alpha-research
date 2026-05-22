@@ -15,6 +15,7 @@ import {
   promptRecordPath,
   registrationBody,
   renderPrompt,
+  shouldUseCanonicalRemoteAgentFallback,
 } from "./canonical-dataset.ts";
 import {
   CANONICAL_DATASETS,
@@ -508,6 +509,53 @@ test("single dataset improve dry-run uses canonical admin endpoint instead of us
   assert.doesNotMatch(output, /\/api\/cli\/datasets\/econ\/runs/u);
   assert.doesNotMatch(output, /remote-agent-executions/u);
   await rm(dirname(promptRecordPath("econ", timestamp, "improve")), { recursive: true, force: true });
+});
+
+test("single dataset improve falls back only for canonical admin not-found contract mismatch", () => {
+  const endpoint = "/api/admin/canonical-datasets/improve";
+  const contractError = Object.assign(
+    new Error(`Admin request failed (404) for ${endpoint}: {"error":"Canonical dataset not found"}`),
+    { status: 404 },
+  );
+  assert.equal(shouldUseCanonicalRemoteAgentFallback(contractError, endpoint), true);
+
+  const unrelated404 = Object.assign(
+    new Error(`Admin request failed (404) for ${endpoint}: {"error":"Artifact not found"}`),
+    { status: 404 },
+  );
+  assert.equal(shouldUseCanonicalRemoteAgentFallback(unrelated404, endpoint), false);
+
+  const auditError = Object.assign(
+    new Error("Admin request failed (404): Canonical dataset not found"),
+    { status: 404 },
+  );
+  assert.equal(shouldUseCanonicalRemoteAgentFallback(auditError, "/api/admin/canonical-datasets/audit"), false);
+});
+
+test("bulk improve fallback preserves admin remote execution metadata", async () => {
+  const module = await import("./start-canonical-dataset-improvement-jobs.mjs");
+  const endpoint = "/api/admin/canonical-datasets/improve";
+  const contractError = Object.assign(
+    new Error(`Admin request failed (404) for ${endpoint}: {"error":"Canonical dataset not found"}`),
+    { status: 404 },
+  );
+  assert.equal(module.shouldUseRemoteAgentFallback(contractError), true);
+  assert.equal(module.shouldUseRemoteAgentFallback(Object.assign(new Error("Canonical dataset not found"), { status: 500 })), false);
+
+  const body = module.remoteAgentFallbackBody({
+    dataset: { id: "econ", name: "Econ" },
+    prompt: "Refresh econ.",
+    artifacts: [{ type: "file", title: "Dataset Briefing", path: "dataset_briefing.md" }],
+    requiredArtifacts: ["dataset_briefing.md"],
+    write: { improvable: true },
+  });
+  assert.equal(body.datasetId, "econ");
+  assert.equal(body.kind, "dataset-improvement");
+  assert.equal(body.ownerType, "admin");
+  assert.equal(body.metadata.fallbackFrom, endpoint);
+  assert.equal(body.metadata.fallbackReason, "canonical_dataset_not_found_contract_mismatch");
+  assert.deepEqual(body.requiredArtifacts, ["dataset_briefing.md"]);
+  assert.equal(body.artifactSpec[0].path, "dataset_briefing.md");
 });
 
 test("single dataset add script builds platform-owned bootstrap request", () => {

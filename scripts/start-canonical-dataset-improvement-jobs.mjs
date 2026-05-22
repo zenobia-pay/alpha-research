@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { adminExecutionStatusUrl, defaultOrigin, executionIdFromResponse, postAdminJson } from './admin-remote-agent.mjs'
+import { pathToFileURL } from 'node:url'
+import { adminExecutionArtifactsUrl, adminExecutionStatusUrl, defaultOrigin, executionIdFromResponse, postAdminJson } from './admin-remote-agent.mjs'
 import { selectCanonicalDatasets } from './canonical-dataset-catalog.mjs'
 
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), '.research', 'session.json')
@@ -47,6 +48,45 @@ function renderPrompt(template, dataset) {
   return `${rendered}\n\n## Operator-Specified Improvement Focus\n\n${extraPrompt}\n`
 }
 
+export function shouldUseRemoteAgentFallback(error) {
+  const message = error instanceof Error ? error.message : String(error)
+  return error?.status === 404
+    && /\/api\/admin\/canonical-datasets\/improve/u.test(message)
+    && /Canonical dataset not found/u.test(message)
+}
+
+export function remoteAgentFallbackBody({ dataset, prompt, artifacts, requiredArtifacts, write }) {
+  return {
+    prompt,
+    kind: 'dataset-improvement',
+    datasetId: dataset.id,
+    ownerType: 'admin',
+    resources,
+    artifactSpec: artifacts,
+    requiredArtifacts,
+    metadata: {
+      launchedBy: 'scripts/start-canonical-dataset-improvement-jobs.mjs',
+      fallbackFrom: improvementEndpoint,
+      fallbackReason: 'canonical_dataset_not_found_contract_mismatch',
+      canonicalDatasetImprovement: true,
+      jobKind: 'dataset-improvement',
+      datasetId: dataset.id,
+      datasetName: dataset.name,
+      writesDatasetBriefing: true,
+      syncsDocsFromBriefing: true,
+      requiresCodexLogin: true,
+      requiredEnvironment: [
+        'CANONICAL_DATASET_SLACK_WEBHOOK_URL',
+      ],
+      optionalEnvironment: [
+        'EXA_API_KEY',
+      ],
+      resources,
+      writeReadiness: write,
+    },
+  }
+}
+
 async function api(session, path, options = {}) {
   const response = await fetch(`${session.origin}${path}`, {
     method: options.method ?? 'GET',
@@ -65,9 +105,6 @@ async function api(session, path, options = {}) {
   }
   return body
 }
-
-const promptTemplate = readFileSync(promptPath, 'utf8')
-const results = []
 
 function classifyCanonicalWrite(dataset) {
   const datasetStatus = dataset.status ?? 'unknown'
@@ -96,6 +133,10 @@ function classifyCanonicalWrite(dataset) {
     ],
   }
 }
+
+async function main() {
+const promptTemplate = readFileSync(promptPath, 'utf8')
+const results = []
 
 if (dryRun) {
   for (const dataset of canonicalDatasets) {
@@ -232,11 +273,45 @@ for (const dataset of canonicalDatasets) {
       adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
     })
   } catch (error) {
-    results.push({
-      datasetId: dataset.id,
-      status: 'failed_to_start',
-      error: error instanceof Error ? error.message : String(error),
-    })
+    if (!shouldUseRemoteAgentFallback(error)) {
+      results.push({
+        datasetId: dataset.id,
+        status: 'failed_to_start',
+        error: error instanceof Error ? error.message : String(error),
+      })
+      continue
+    }
+
+    try {
+      const fallbackRequest = remoteAgentFallbackBody({
+        dataset,
+        prompt,
+        artifacts: body.artifacts,
+        requiredArtifacts: body.requiredArtifacts,
+        write,
+      })
+      const { body: started } = await postAdminJson('/api/admin/remote-agent-executions', fallbackRequest)
+      const executionId = executionIdFromResponse(started)
+      results.push({
+        datasetId: dataset.id,
+        status: 'started_via_remote_agent_fallback',
+        writeReadiness: write,
+        fallbackFrom: improvementEndpoint,
+        fallbackReason: 'canonical_dataset_not_found_contract_mismatch',
+        originalError: error instanceof Error ? error.message : String(error),
+        executionId,
+        adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
+        artifactsUrl: started.artifactsUrl ?? adminExecutionArtifactsUrl(executionId, defaultOrigin),
+      })
+    } catch (fallbackError) {
+      results.push({
+        datasetId: dataset.id,
+        status: 'failed_to_start',
+        fallbackAttempted: true,
+        originalError: error instanceof Error ? error.message : String(error),
+        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+      })
+    }
   }
 }
 
@@ -244,4 +319,12 @@ const failed = results.filter((result) => result.status === 'failed_to_start')
 console.log(JSON.stringify({ dryRun, results }, null, 2))
 if (failed.length > 0) {
   process.exitCode = 1
+}
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
 }
