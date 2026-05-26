@@ -1,0 +1,34 @@
+{
+  "datasetId": "econ",
+  "datasetName": "Econ",
+  "status": "blocked",
+  "checkedAt": "2026-05-26T20:56:05.186197+00:00",
+  "diskInventoryProven": true,
+  "volumeInventoryRunId": "econ-20260526T205541Z",
+  "volumeInventoryUpdatedAt": "2026-05-26T20:45:15.627337+00:00",
+  "briefingPath": "dataset_briefing.md",
+  "docsBriefingPath": "docs/public-datasets/briefings/econ.md",
+  "docsPagePath": "docs/public-datasets/econ.mdx",
+  "slackDownloadAlertsPath": "slack_download_alerts.jsonl",
+  "slackBriefingPath": "slack_briefing.md",
+  "slackLifecycleMessagesSent": [
+    "[econ] Canonical maintenance run started.",
+    "[econ] Inventory verification phase in progress.",
+    "[econ] Volume inventory regenerated from mounted disk (read-only mount, artifacts in run output).",
+    "[econ] Dataset briefing updated with refreshed inventory detail."
+  ],
+  "slackLifecycleMessagesPending": [],
+  "profileUpdated": false,
+  "profileReadbackVerified": false,
+  "blockers": [
+    "Backend profile API unreachable in sandbox; payload prepared but update and readback deferred."
+  ],
+  "path": "improvement_result.json",
+  "mimeType": "application/json; charset=utf-8",
+  "sizeBytes": 1076,
+  "storage": {
+    "provider": "cloudflare-r2",
+    "bucket": "ARTIFACT_BUCKET",
+    "key": "remote-agent-executions/23e708ef-f731-4eaf-be10-0efbafbf6e00/artifacts/ccb94142-73a3-4877-a891-94f23c65a8d0/improvement_result.json"
+  }
+}
