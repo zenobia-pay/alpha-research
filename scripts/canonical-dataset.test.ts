@@ -680,13 +680,20 @@ test("simple maintain dry-run emits one command contract", () => {
     const parsed = JSON.parse(output) as {
       dryRun: boolean;
       endpoint: string;
+      kind: string;
       artifactSpec: Array<{ path: string }>;
       resources: { datasetAccess?: string; storageMode?: string };
+      metadata: { canonicalJobKind?: string; jobKind?: string; canonicalMaintenanceMode?: string; requiresWritableDatasetDir?: boolean };
     };
     assert.equal(parsed.dryRun, true);
     assert.equal(parsed.endpoint, "/api/admin/remote-agent-executions");
+    assert.equal(parsed.kind, "dataset-improvement");
     assert.equal(parsed.resources.datasetAccess, "write-version");
     assert.equal(parsed.resources.storageMode, "modal-volume");
+    assert.equal(parsed.metadata.canonicalJobKind, "dataset-improvement");
+    assert.equal(parsed.metadata.jobKind, "dataset-improvement");
+    assert.equal(parsed.metadata.canonicalMaintenanceMode, "simple");
+    assert.equal(parsed.metadata.requiresWritableDatasetDir, true);
     assert.deepEqual(parsed.artifactSpec.map((artifact) => artifact.path), [
       "work.md",
       "report.html",

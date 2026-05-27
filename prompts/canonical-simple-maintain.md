@@ -52,7 +52,7 @@ fi
 rm -f "$DATASET_DIR/.write_test_$RUN_ID"
 ```
 
-Do not continue if the dataset directory is missing or not writable. The blocked path above is still required to export `dataset_briefing.md` and `improvement_result.json`.
+Do not continue if the dataset directory is missing or not writable. The blocked path above is still required to export `dataset_briefing.md` and `improvement_result.json`. If the dataset is not writable but an existing briefing is readable, preserve that exact existing briefing in `./dataset_briefing.md` and `$ARTIFACT_DIR/dataset_briefing.md`; do not replace it with a placeholder.
 
 ## Job
 

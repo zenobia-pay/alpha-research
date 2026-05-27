@@ -189,7 +189,7 @@ async function main() {
   const promptPath = persistPrompt(datasetId, prompt, timestamp);
   const body = {
     prompt,
-    kind: "dataset-simple-maintenance",
+    kind: "dataset-improvement",
     datasetId,
     ownerType: "admin",
     resources,
@@ -198,9 +198,14 @@ async function main() {
     metadata: {
       launchedBy: "scripts/canonical-simple-maintain.mjs",
       canonicalDatasetLifecycle: true,
-      canonicalJobKind: "dataset-simple-maintenance",
+      canonicalJobKind: "dataset-improvement",
+      jobKind: "dataset-improvement",
+      canonicalMaintenanceMode: "simple",
       datasetId,
       datasetName,
+      writesDatasetBriefing: true,
+      syncsDocsFromBriefing: true,
+      requiresVolumeInventory: true,
       datasetDir: `/data/datasets/${datasetId}`,
       artifactContract: "work-report-briefing-result",
       requiresWritableDatasetDir: true,
@@ -212,9 +217,11 @@ async function main() {
       datasetId,
       promptPath,
       endpoint: "/api/admin/remote-agent-executions",
+      kind: body.kind,
       resources,
       artifactSpec,
       requiredArtifacts: body.requiredArtifacts,
+      metadata: body.metadata,
     }, null, 2));
     return;
   }
