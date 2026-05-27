@@ -24,6 +24,8 @@ printf '<!doctype html><title>Canonical improvement run</title><h1>Canonical imp
 
 If a results directory exists, also copy both files there. If no run id or results directory is available, continue anyway. Do not block only because the run id is unavailable.
 
+The admin validator reads the remote execution artifact list, not just the mounted dataset volume. Files written only under the dataset mount do not satisfy validation. Before final response, every required output file listed below must exist in the current working directory. Also mirror `work.md`, `report.html`, `improvement_result.json`, and `dataset_briefing.md` into any writable `/results/<run-id>/` or current run result directory you can find. If you write `dataset_briefing.md` on the mounted dataset volume first, copy the exact same bytes back to `./dataset_briefing.md` and the results directory.
+
 ## Goal
 
 Add or repair a small, high-value slice of public-source raw data that improves coverage, freshness, provenance, or usability for `{datasetId}`.
@@ -80,7 +82,7 @@ Write these files before final response:
 - `docs/public-datasets/briefings/{datasetId}.md`
 - `docs/public-datasets/{datasetId}.mdx`
 
-Also copy `work.md`, `report.html`, `improvement_result.json`, and `dataset_briefing.md` into the run results/artifact directory when it is available.
+Also copy `work.md`, `report.html`, `improvement_result.json`, and `dataset_briefing.md` into the run results/artifact directory when it is available. Do not send the final response until `ls -l work.md report.html improvement_result.json dataset_briefing.md` succeeds in the current working directory.
 
 ## Briefing Rules
 
@@ -107,7 +109,7 @@ Never print secret values. If checking whether a secret exists, print only `pres
 
 ## Final Response
 
-Do not send the final response until `work.md`, `report.html`, `dataset_briefing.md`, and `improvement_result.json` have been written, unless the run is blocked before dataset work can start. Even if blocked, keep `work.md` and `report.html` non-empty.
+Do not send the final response until `work.md`, `report.html`, `dataset_briefing.md`, and `improvement_result.json` have been written in the current working directory and copied to the run results/artifact directory when that directory exists, unless the run is blocked before dataset work can start. Even if blocked, keep `work.md` and `report.html` non-empty, and write `improvement_result.json` with `"status": "blocked"` whenever possible.
 
 Return:
 

@@ -246,6 +246,9 @@ test("improve prompt requires focused public-source improvement and hard outputs
     "printf '# Work Log\\n\\nStarted canonical improvement run.\\n' > work.md",
     "If no run id or results directory is available, continue anyway.",
     "Do not block only because the run id is unavailable.",
+    "The admin validator reads the remote execution artifact list, not just the mounted dataset volume.",
+    "copy the exact same bytes back to `./dataset_briefing.md`",
+    "Do not send the final response until `ls -l work.md report.html improvement_result.json dataset_briefing.md` succeeds",
     "Add or repair a small, high-value slice of public-source raw data",
     "Preserve source data as close to provider format as practical.",
     "Do not build merged panels, joined analysis tables, model-ready features, or opinionated metrics.",
@@ -259,7 +262,7 @@ test("improve prompt requires focused public-source improvement and hard outputs
     "docs/public-datasets/econ.mdx",
     "# Data Inventory",
     "Final status is `completed` only if:",
-    "Even if blocked, keep `work.md` and `report.html` non-empty.",
+    "Even if blocked, keep `work.md` and `report.html` non-empty, and write `improvement_result.json`",
     "Never print secret values.",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
