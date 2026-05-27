@@ -242,6 +242,10 @@ test("improve prompt requires focused public-source improvement and hard outputs
   });
   for (const required of [
     "Improve this canonical dataset now.",
+    "Before planning or doing any dataset work, create these non-empty runtime files in the current working directory:",
+    "printf '# Work Log\\n\\nStarted canonical improvement run.\\n' > work.md",
+    "If no run id or results directory is available, continue anyway.",
+    "Do not block only because the run id is unavailable.",
     "Add or repair a small, high-value slice of public-source raw data",
     "Preserve source data as close to provider format as practical.",
     "Do not build merged panels, joined analysis tables, model-ready features, or opinionated metrics.",
@@ -255,6 +259,7 @@ test("improve prompt requires focused public-source improvement and hard outputs
     "docs/public-datasets/econ.mdx",
     "# Data Inventory",
     "Final status is `completed` only if:",
+    "Even if blocked, keep `work.md` and `report.html` non-empty.",
     "Never print secret values.",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));

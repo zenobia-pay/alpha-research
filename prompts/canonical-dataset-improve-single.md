@@ -8,6 +8,22 @@ Field brief:
 {fieldBrief}
 ```
 
+## First Action
+
+Before planning or doing any dataset work, create these non-empty runtime files in the current working directory:
+
+- `work.md`
+- `report.html`
+
+Use any valid starter content, for example:
+
+```bash
+printf '# Work Log\n\nStarted canonical improvement run.\n' > work.md
+printf '<!doctype html><title>Canonical improvement run</title><h1>Canonical improvement run started</h1>\n' > report.html
+```
+
+If a results directory exists, also copy both files there. If no run id or results directory is available, continue anyway. Do not block only because the run id is unavailable.
+
 ## Goal
 
 Add or repair a small, high-value slice of public-source raw data that improves coverage, freshness, provenance, or usability for `{datasetId}`.
@@ -91,7 +107,9 @@ Never print secret values. If checking whether a secret exists, print only `pres
 
 ## Final Response
 
-Return only:
+Do not send the final response until `work.md`, `report.html`, `dataset_briefing.md`, and `improvement_result.json` have been written, unless the run is blocked before dataset work can start. Even if blocked, keep `work.md` and `report.html` non-empty.
+
+Return:
 
 ```md
 status: completed|blocked
