@@ -136,6 +136,8 @@ if (dryRun) {
       datasetId: dataset.id,
       status: 'dry_run_ready',
       endpoint: improvementEndpoint,
+      kind: 'dataset-improvement',
+      operation: 'improvement',
       promptLength: prompt.length,
       resources,
       artifacts: [
@@ -219,7 +221,7 @@ for (const dataset of canonicalDatasets) {
   })
 
   if (dryRun) {
-    results.push({ datasetId: dataset.id, status: 'dry_run_ready', endpoint: improvementEndpoint, promptLength: prompt.length, resources })
+    results.push({ datasetId: dataset.id, status: 'dry_run_ready', endpoint: improvementEndpoint, kind: 'dataset-improvement', operation: 'improvement', promptLength: prompt.length, resources })
     continue
   }
 

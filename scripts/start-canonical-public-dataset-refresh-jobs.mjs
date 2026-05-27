@@ -321,6 +321,9 @@ if (dryRun) {
     results.push({
       datasetId: dataset.id,
       status: "dry_run_ready",
+      endpoint: "/api/admin/remote-agent-executions",
+      kind: "dataset-improvement",
+      operation: "refresh",
       promptLength: prompt.length,
       resources: CANONICAL_PUBLIC_RESOURCES,
       artifacts: [
@@ -425,7 +428,8 @@ for (const dataset of canonicalDatasets) {
     resources: CANONICAL_PUBLIC_RESOURCES,
     config: {
       ...CANONICAL_RUNTIME_CONTRACT,
-      jobKind: write.needsBootstrapRepair ? "dataset-bootstrap-repair" : "dataset-refresh",
+      jobKind: "dataset-improvement",
+      operation: write.needsBootstrapRepair ? "bootstrap-repair" : "refresh",
       datasetId: dataset.id,
       datasetName: dataset.name,
       writesDatasetBriefing: true,
@@ -455,6 +459,9 @@ for (const dataset of canonicalDatasets) {
     results.push({
       datasetId: dataset.id,
       status: "dry_run_ready",
+      endpoint: "/api/admin/remote-agent-executions",
+      kind: "dataset-improvement",
+      operation: write.needsBootstrapRepair ? "bootstrap-repair" : "refresh",
       promptLength: prompt.length,
       resources: CANONICAL_PUBLIC_RESOURCES,
     });
@@ -464,7 +471,7 @@ for (const dataset of canonicalDatasets) {
   try {
     const { body: started } = await postAdminJson("/api/admin/remote-agent-executions", {
       prompt,
-      kind: write.needsBootstrapRepair ? "dataset-bootstrap-repair" : "dataset-refresh",
+      kind: "dataset-improvement",
       datasetId: dataset.id,
       resources: CANONICAL_PUBLIC_RESOURCES,
       artifactSpec: body.artifacts,

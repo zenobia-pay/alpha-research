@@ -200,6 +200,7 @@ async function main() {
       canonicalDatasetLifecycle: true,
       canonicalJobKind: "dataset-improvement",
       jobKind: "dataset-improvement",
+      operation: "simple-maintenance",
       canonicalMaintenanceMode: "simple",
       datasetId,
       datasetName,

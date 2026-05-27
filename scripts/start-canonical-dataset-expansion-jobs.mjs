@@ -154,6 +154,9 @@ if (dryRun) {
     results.push({
       datasetId: dataset.id,
       status: "dry_run_ready",
+      endpoint: "/api/admin/remote-agent-executions",
+      kind: "dataset-improvement",
+      operation: "expansion",
       promptLength: prompt.length,
       resources,
       artifacts: [
@@ -208,7 +211,8 @@ for (const dataset of canonicalDatasets) {
     type: "analysis",
     config: {
       canonicalDatasetExpand: true,
-      jobKind: "dataset-expansion",
+      jobKind: "dataset-improvement",
+      operation: "expansion",
       datasetId: dataset.id,
       datasetName: dataset.name,
       requiresCodexLogin: true,
@@ -224,14 +228,14 @@ for (const dataset of canonicalDatasets) {
   };
 
   if (dryRun) {
-    results.push({ datasetId: dataset.id, status: "dry_run_ready", promptLength: prompt.length, resources });
+    results.push({ datasetId: dataset.id, status: "dry_run_ready", endpoint: "/api/admin/remote-agent-executions", kind: "dataset-improvement", operation: "expansion", promptLength: prompt.length, resources });
     continue;
   }
 
   try {
     const { body: started } = await postAdminJson("/api/admin/remote-agent-executions", {
       prompt,
-      kind: "dataset-expansion",
+      kind: "dataset-improvement",
       datasetId: dataset.id,
       resources,
       artifactSpec: body.artifacts,

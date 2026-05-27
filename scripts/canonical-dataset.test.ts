@@ -536,6 +536,8 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
           datasetId?: string;
           status: string;
           endpoint?: string;
+          kind?: string;
+          operation?: string;
           resources?: { datasetAccess?: string; publishMode?: string; resourceProfile?: string; storageMode?: string };
           artifacts?: string[];
           runtimeArtifacts?: string[];
@@ -551,6 +553,8 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
         assert.equal(result.resources?.datasetAccess, "write-version", `${args[0]} must request dataset write access`);
         assert.equal(result.resources?.publishMode, "versioned", `${args[0]} must publish a new dataset version`);
         assert.equal(result.resources?.storageMode, "modal-volume", `${args[0]} must target Modal volumes`);
+        assert.equal(result.endpoint, "/api/admin/remote-agent-executions", `${args[0]} must launch through admin remote executions`);
+        assert.equal(result.kind, "dataset-improvement", `${args[0]} must use the canonical write execution kind`);
       }
       if (args[0] === "scripts/start-canonical-public-dataset-refresh-jobs.mjs") {
         const historyRefresh = parsed.results.find((result) => result.datasetId === "history");
@@ -569,6 +573,8 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
       results: Array<{
         datasetId?: string;
         endpoint?: string;
+        kind?: string;
+        operation?: string;
         resources?: { datasetAccess?: string; publishMode?: string; resourceProfile?: string; storageMode?: string };
         artifacts?: string[];
       }>;
@@ -576,6 +582,8 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
     assert.doesNotMatch(improveOutput, /\b(runId|dashboardUrl)\b/u);
     const historyImprove = improveParsed.results.find((result) => result.datasetId === "history");
     assert.equal(historyImprove?.endpoint, "/api/admin/remote-agent-executions");
+    assert.equal(historyImprove?.kind, "dataset-improvement");
+    assert.equal(historyImprove?.operation, "improvement");
     assert.equal(historyImprove?.resources?.datasetAccess, "write-version");
     assert.equal(historyImprove?.resources?.publishMode, "versioned");
     assert.ok(historyImprove?.artifacts?.includes("work.md"));
@@ -683,7 +691,7 @@ test("simple maintain dry-run emits one command contract", () => {
       kind: string;
       artifactSpec: Array<{ path: string }>;
       resources: { datasetAccess?: string; storageMode?: string };
-      metadata: { canonicalJobKind?: string; jobKind?: string; canonicalMaintenanceMode?: string; requiresWritableDatasetDir?: boolean };
+      metadata: { canonicalJobKind?: string; jobKind?: string; operation?: string; canonicalMaintenanceMode?: string; requiresWritableDatasetDir?: boolean };
     };
     assert.equal(parsed.dryRun, true);
     assert.equal(parsed.endpoint, "/api/admin/remote-agent-executions");
@@ -692,6 +700,7 @@ test("simple maintain dry-run emits one command contract", () => {
     assert.equal(parsed.resources.storageMode, "modal-volume");
     assert.equal(parsed.metadata.canonicalJobKind, "dataset-improvement");
     assert.equal(parsed.metadata.jobKind, "dataset-improvement");
+    assert.equal(parsed.metadata.operation, "simple-maintenance");
     assert.equal(parsed.metadata.canonicalMaintenanceMode, "simple");
     assert.equal(parsed.metadata.requiresWritableDatasetDir, true);
     assert.deepEqual(parsed.artifactSpec.map((artifact) => artifact.path), [

@@ -661,11 +661,12 @@ async function run() {
   }
 
   const origin = process.env.ALPHA_RESEARCH_ORIGIN ?? session.origin;
-  const canonicalJobKind = args.mode === "audit" ? "dataset-disk-audit" : "dataset-improvement";
+  const canonicalJobKind = "dataset-improvement";
   const endpoint = canonicalAdminEndpoint(args.mode);
   const metadata = {
     canonicalDatasetLifecycle: true,
     canonicalJobKind,
+    operation: args.mode,
     datasetId: args.datasetId,
     datasetName,
     writesDatasetBriefing: true,
