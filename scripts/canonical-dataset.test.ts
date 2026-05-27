@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -22,6 +23,11 @@ import {
   HUMANITIES_DATASET_IDS,
   selectCanonicalDatasets,
 } from "./canonical-dataset-catalog.mjs";
+import {
+  classifySimpleMaintenance,
+  hasArtifact as hasSimpleArtifact,
+  renderPrompt as renderSimpleMaintainPrompt,
+} from "./canonical-simple-maintain.mjs";
 
 test("canonical dataset args require create contract", () => {
   assert.deepEqual(parseArgs([
@@ -610,6 +616,87 @@ test("single dataset improve dry-run targets admin remote Modal execution instea
   assert.ok(parsed.artifacts.some((artifact) => artifact.path === "work.md"));
   assert.doesNotMatch(output, /\/api\/cli\/datasets\/econ\/runs/u);
   await rm(dirname(promptRecordPath("econ", timestamp, "improve")), { recursive: true, force: true });
+});
+
+test("simple maintain prompt uses explicit dataset and artifact directories", () => {
+  const prompt = renderSimpleMaintainPrompt({ datasetId: "econ", datasetName: "Econ" });
+  for (const required of [
+    "DATASET_DIR=\"${DATASET_DIR:-/data/datasets/econ}\"",
+    "ARTIFACT_DIR=\"${ARTIFACT_DIR:-/results/$RUN_ID}\"",
+    "Do not continue if the dataset directory is missing or not writable.",
+    "cp dataset_briefing.md improvement_result.json \"$ARTIFACT_DIR\"/",
+    "ls -l \"$ARTIFACT_DIR/work.md\" \"$ARTIFACT_DIR/report.html\" \"$ARTIFACT_DIR/dataset_briefing.md\" \"$ARTIFACT_DIR/improvement_result.json\"",
+  ]) {
+    assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
+  }
+});
+
+test("simple maintain validator requires artifacts, completed result, and matching profile", () => {
+  const artifacts = [
+    { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
+    { title: "report.html", content: { path: "/results/exec-1/report.html", text: "<html></html>" } },
+    { title: "dataset_briefing.md", content: { path: "/results/exec-1/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    { title: "improvement_result.json", content: { path: "/results/exec-1/improvement_result.json", text: "{\"status\":\"completed\"}" } },
+  ];
+  assert.equal(hasSimpleArtifact(artifacts, "dataset_briefing.md"), true);
+  const validated = classifySimpleMaintenance({
+    executionId: "exec-1",
+    execution: { status: "ready" },
+    artifacts,
+    dataset: { profile: { describedRunId: "exec-1", briefingMarkdown: "# Data Inventory\n- Data." } },
+  });
+  assert.equal(validated.status, "validated");
+
+  const blocked = classifySimpleMaintenance({
+    executionId: "exec-1",
+    execution: { status: "ready" },
+    artifacts: artifacts.filter((artifact) => artifact.title !== "dataset_briefing.md"),
+    dataset: { profile: { describedRunId: "exec-1" } },
+  });
+  assert.equal(blocked.status, "blocked");
+  assert.deepEqual(blocked.missingArtifacts, ["dataset_briefing.md"]);
+});
+
+test("simple maintain dry-run emits one command contract", () => {
+  const root = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
+  const sessionPath = join(root, "session.json");
+  writeFileSync(sessionPath, JSON.stringify({ origin: "https://example.invalid", accessToken: "token" }));
+  try {
+    const output = execFileSync("node", [
+      "scripts/canonical-simple-maintain.mjs",
+      "--dataset-id",
+      "econ",
+      "--dry-run",
+      "--prompt-timestamp",
+      "2026-05-27T18:00:00.000Z",
+    ], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        RESEARCH_SESSION_PATH: sessionPath,
+      },
+    });
+    const parsed = JSON.parse(output) as {
+      dryRun: boolean;
+      endpoint: string;
+      artifactSpec: Array<{ path: string }>;
+      resources: { datasetAccess?: string; storageMode?: string };
+    };
+    assert.equal(parsed.dryRun, true);
+    assert.equal(parsed.endpoint, "/api/admin/remote-agent-executions");
+    assert.equal(parsed.resources.datasetAccess, "write-version");
+    assert.equal(parsed.resources.storageMode, "modal-volume");
+    assert.deepEqual(parsed.artifactSpec.map((artifact) => artifact.path), [
+      "work.md",
+      "report.html",
+      "dataset_briefing.md",
+      "improvement_result.json",
+    ]);
+  } finally {
+    execFileSync("rm", ["-rf", root]);
+    execFileSync("rm", ["-rf", "docs/canonical-runs/econ/2026-05-27T18-00-00-000Z"], { cwd: process.cwd() });
+  }
 });
 
 test("bulk improve builds direct admin remote execution payload", async () => {
