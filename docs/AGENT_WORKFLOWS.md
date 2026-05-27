@@ -82,7 +82,40 @@ Use this workflow when the user asks to improve a canonical dataset such as `eco
 
    Treat a validation failure as blocked even when the remote final summary says completed. The validator requires required artifacts, `disk_proven` status, and profile readback tied to the same execution id.
 10. Treat worker lifecycle failures such as `.remote-agent/state/status.json.tmp` rename errors as platform execution failures even if `dataset_briefing.md` can be recovered from artifacts or the mounted volume. Recovery may preserve useful output, but it is not a successful canonical run unless the canonical endpoint reports terminal success and profile readback is proven through `npm run canonical:dataset -- validate --dataset-id <id> --execution-id <execution-id>`.
-11. If you changed scripts, prompts, or docs while launching the job, run focused tests such as `npm run test:canonical`, then commit and push. Per repo policy, also run `npm run deploy:check` after completing the change.
+11. Report the result as a compact status card, not a wide table. Put the user-facing answer in this order:
+   - one sentence stating whether the run completed, blocked, or failed;
+   - a short "What happened" list with dataset id, execution id, prompt record, admin status link, and validation result;
+   - a short "Why it matters" line that says whether docs/profile were updated or intentionally left unchanged;
+   - a short "Next action" line;
+   - a narrow evidence table with at most three columns: `Check`, `Result`, `Evidence`.
+
+   Example blocked report:
+
+   ```md
+   Econ maintenance blocked: the remote execution ended before producing required artifacts, so docs/profile were not updated from this run.
+
+   **What Happened**
+   - Dataset: `econ`
+   - Execution: `70e5cdea-a5d2-445e-8df5-f5f4d8bbddb8`
+   - Prompt: `docs/canonical-runs/econ/<timestamp>/improve-prompt.md`
+   - Admin status: <https://alpharesearch.nyc/api/admin/remote-agent-executions/<id>>
+   - Validation: blocked
+
+   **Why It Matters**
+   The CLI profile remains `disk_proven` from the prior successful run; this execution did not replace it.
+
+   **Next Action**
+   Fix the remote-run blocker, then rerun `canonical:dataset -- improve` and validate the new execution.
+
+   | Check | Result | Evidence |
+   |---|---|---|
+   | Remote execution | failed | missing `report.html` |
+   | Required artifacts | missing | `dataset_briefing.md`, `improvement_result.json` |
+   | Profile readback | unchanged | prior run id still present |
+   ```
+
+   Do not use a wide table with columns like `dataset id`, `status`, `prompt path`, `run id`, `dashboard link`, `briefing recovered`, `docs updated`, `CLI profile updated`, `readback status`, and `blocker`; it wraps badly and hides the actual failure.
+12. If you changed scripts, prompts, or docs while launching the job, run focused tests such as `npm run test:canonical`, then commit and push. Per repo policy, also run `npm run deploy:check` after completing the change.
 
 ## Add A Golden Test
 
