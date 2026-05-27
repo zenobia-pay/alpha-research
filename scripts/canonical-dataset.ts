@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-type Mode = "create" | "status" | "improve" | "audit";
+type Mode = "create" | "status" | "improve" | "audit" | "validate";
 
 type Args = {
   mode: Mode;
@@ -15,6 +15,7 @@ type Args = {
   source?: string[];
   dryRun: boolean;
   promptTimestamp?: string;
+  executionId?: string;
 };
 
 type Session = {
@@ -49,6 +50,7 @@ type RemoteDataset = {
     volumeInventoryRunId?: string | null;
     volumeInventoryUpdatedAt?: string | null;
     diskInventoryProven?: boolean | null;
+    describedRunId?: string | null;
     quality?: unknown;
     tables?: unknown;
     sources?: unknown;
@@ -101,6 +103,7 @@ const MODE_TEMPLATES: Record<Exclude<Mode, "status">, string> = {
   create: "prompts/canonical-dataset-build.md",
   improve: "prompts/canonical-dataset-improve-single.md",
   audit: "prompts/canonical-dataset-audit.md",
+  validate: "",
 };
 const adminTokenPath = process.env.ALPHA_RESEARCH_ADMIN_TOKEN_PATH ?? join(homedir(), ".codex", "secrets.env");
 
@@ -113,6 +116,7 @@ function usage(): string {
     "Usage:",
     "  npm run canonical:dataset -- create --dataset-id <id> --name <name> --field-brief <text> --sources <file> [--dry-run]",
     "  npm run canonical:dataset -- status --dataset-id <id>",
+    "  npm run canonical:dataset -- validate --dataset-id <id> --execution-id <remote-execution-id>",
     "  npm run canonical:dataset -- improve --dataset-id <id> [--field-brief <text>] [--dry-run]",
     "  npm run canonical:dataset -- audit --dataset-id <id> [--field-brief <text>] [--dry-run]",
   ].join("\n");
@@ -120,7 +124,7 @@ function usage(): string {
 
 export function parseArgs(argv: string[]): Args {
   const [modeRaw, ...rest] = argv;
-  assert(modeRaw === "create" || modeRaw === "status" || modeRaw === "improve" || modeRaw === "audit", usage());
+  assert(modeRaw === "create" || modeRaw === "status" || modeRaw === "improve" || modeRaw === "audit" || modeRaw === "validate", usage());
   const args: Args = { mode: modeRaw, datasetId: "", dryRun: false, source: [] };
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -153,6 +157,9 @@ export function parseArgs(argv: string[]): Args {
       case "--prompt-timestamp":
         args.promptTimestamp = next();
         break;
+      case "--execution-id":
+        args.executionId = next();
+        break;
       default:
         throw new Error(`Unknown argument ${token}\n${usage()}`);
     }
@@ -163,6 +170,9 @@ export function parseArgs(argv: string[]): Args {
     assert(args.name, "--name is required for create");
     assert(args.fieldBrief, "--field-brief is required for create");
     assert(args.sources || (args.source && args.source.length > 0), "--sources <file> or --source is required for create");
+  }
+  if (args.mode === "validate") {
+    assert(args.executionId, "--execution-id is required for validate");
   }
   return args;
 }
@@ -188,6 +198,7 @@ export async function renderPrompt(mode: Exclude<Mode, "status">, input: {
   fieldBrief: string;
   sourceCatalog?: string;
 }): Promise<string> {
+  assert(mode !== "validate", "validate does not render a prompt");
   const template = await readFile(MODE_TEMPLATES[mode], "utf8");
   return renderTemplate(template, {
     datasetId: input.datasetId,
@@ -393,6 +404,107 @@ function adminExecutionStatusUrl(executionId: string | null) {
   return url.toString();
 }
 
+function adminExecutionArtifactsUrl(executionId: string | null) {
+  if (!executionId) return null;
+  const url = new URL(process.env.ALPHA_RESEARCH_ORIGIN ?? "https://alpharesearch.nyc");
+  url.pathname = `/api/admin/remote-agent-executions/${encodeURIComponent(executionId)}/artifacts`;
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+type AdminArtifact = {
+  title?: string | null;
+  type?: string | null;
+  path?: string | null;
+  content?: {
+    path?: string | null;
+    sizeBytes?: number | null;
+  } | string | null;
+};
+
+type AdminExecution = {
+  id?: string | null;
+  status?: string | null;
+};
+
+type ValidationInput = {
+  datasetId: string;
+  executionId: string;
+  execution: AdminExecution | null;
+  artifacts: AdminArtifact[];
+  dataset: RemoteDataset | null;
+};
+
+const TERMINAL_ADMIN_EXECUTION_STATUSES = new Set(["ready", "completed", "failed", "blocked", "cancelled", "canceled"]);
+const SUCCESS_ADMIN_EXECUTION_STATUSES = new Set(["ready", "completed"]);
+const REQUIRED_VALIDATION_ARTIFACTS = [
+  "dataset_briefing.md",
+  "improvement_result.json",
+  "work.md",
+  "report.html",
+];
+
+function artifactNameCandidates(artifact: AdminArtifact): string[] {
+  const contentPath = typeof artifact.content === "object" && artifact.content !== null ? artifact.content.path : null;
+  return [
+    artifact.title,
+    artifact.path,
+    contentPath,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
+function hasArtifactPath(artifacts: AdminArtifact[], requiredPath: string): boolean {
+  return artifacts.some((artifact) => artifactNameCandidates(artifact).some((candidate) => (
+    candidate === requiredPath || candidate.endsWith(`/${requiredPath}`)
+  )));
+}
+
+export function validateCanonicalImprovementRun(input: ValidationInput) {
+  const blockers: string[] = [];
+  const executionStatus = input.execution?.status ?? "unknown";
+  const status = classifyDatasetStatus(input.dataset);
+  const profile = input.dataset?.profile ?? null;
+  const nestedQuality = profile?.profile?.quality ?? null;
+  const profileRunId = profile?.volumeInventoryRunId
+    ?? nestedQuality?.volumeInventoryRunId
+    ?? profile?.describedRunId
+    ?? null;
+
+  if (!TERMINAL_ADMIN_EXECUTION_STATUSES.has(executionStatus)) {
+    blockers.push(`remote execution is not terminal: ${executionStatus}`);
+  } else if (!SUCCESS_ADMIN_EXECUTION_STATUSES.has(executionStatus)) {
+    blockers.push(`remote execution ended with status: ${executionStatus}`);
+  }
+
+  for (const requiredPath of REQUIRED_VALIDATION_ARTIFACTS) {
+    if (!hasArtifactPath(input.artifacts, requiredPath)) {
+      blockers.push(`remote completed without required artifact: ${requiredPath}`);
+    }
+  }
+
+  if (status.status !== "disk_proven") {
+    blockers.push(`dataset readback is not disk_proven: ${status.status}`);
+  }
+
+  if (profileRunId !== input.executionId) {
+    blockers.push(`profile readback run id ${profileRunId ?? "missing"} does not match execution ${input.executionId}`);
+  }
+
+  return {
+    datasetId: input.datasetId,
+    executionId: input.executionId,
+    executionStatus,
+    artifactCount: input.artifacts.length,
+    requiredArtifacts: REQUIRED_VALIDATION_ARTIFACTS,
+    missingArtifacts: REQUIRED_VALIDATION_ARTIFACTS.filter((path) => !hasArtifactPath(input.artifacts, path)),
+    readbackStatus: status.status,
+    profileRunId,
+    status: blockers.length === 0 ? "validated" : "blocked",
+    blockers,
+  };
+}
+
 function canonicalAdminEndpoint(mode: Exclude<Mode, "create" | "status">) {
   if (mode === "improve") return remoteAgentExecutionEndpoint();
   return `/api/admin/canonical-datasets/${mode}`;
@@ -436,6 +548,36 @@ async function run() {
     const session = readSession();
     const dataset = await getDataset(session, args.datasetId);
     console.log(JSON.stringify({ datasetId: args.datasetId, ...classifyDatasetStatus(dataset), dataset }, null, 2));
+    return;
+  }
+
+  if (args.mode === "validate") {
+    const session = readSession();
+    const origin = process.env.ALPHA_RESEARCH_ORIGIN ?? session.origin;
+    const executionPayload = await adminApi<{
+      execution?: AdminExecution;
+      remoteAgentExecution?: AdminExecution;
+    }>(origin, `/api/admin/remote-agent-executions/${encodeURIComponent(args.executionId!)}`);
+    const artifactsPayload = await adminApi<{ artifacts?: AdminArtifact[] }>(
+      origin,
+      `/api/admin/remote-agent-executions/${encodeURIComponent(args.executionId!)}/artifacts`,
+    );
+    const dataset = await getDataset(session, args.datasetId);
+    const validation = validateCanonicalImprovementRun({
+      datasetId: args.datasetId,
+      executionId: args.executionId!,
+      execution: executionPayload.execution ?? executionPayload.remoteAgentExecution ?? null,
+      artifacts: artifactsPayload.artifacts ?? [],
+      dataset,
+    });
+    console.log(JSON.stringify({
+      ...validation,
+      adminStatusUrl: adminExecutionStatusUrl(args.executionId!),
+      artifactsUrl: adminExecutionArtifactsUrl(args.executionId!),
+    }, null, 2));
+    if (validation.status !== "validated") {
+      process.exitCode = 1;
+    }
     return;
   }
 

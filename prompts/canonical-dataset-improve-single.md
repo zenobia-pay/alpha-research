@@ -1,6 +1,6 @@
-# Canonical Dataset Remote-Box Briefing Refresh: {datasetName} (`{datasetId}`)
+# Improve Canonical Dataset: {datasetName} (`{datasetId}`)
 
-Execute this focused maintenance pass now inside the remote box. Do not perform broad source expansion, web search, or new provider downloads unless the mounted dataset inventories prove they are required to repair the briefing.
+Improve this canonical dataset now.
 
 Field brief:
 
@@ -8,87 +8,97 @@ Field brief:
 {fieldBrief}
 ```
 
-## Required Scope
+## Goal
 
-1. First create the runtime work-log artifacts required by the remote-run platform: write `work.md` and `report.html` in the worker artifact output area before dataset inspection. Use `./work.md` and `./report.html`; if `run_config.json` exposes a run id or `/results/<run-id>` exists, also write `/results/<run-id>/work.md` and `/results/<run-id>/report.html`. Keep these as runtime artifacts only; do not write them into the dataset root, docs mirrors, inventories, or `dataset_briefing.md`.
-2. Keep `work.md` current as you inspect the volume, write the briefing, update the profile, and perform readback. The run must not finish without a non-empty `work.md`.
-3. Send canonical maintenance lifecycle Slack updates through `CANONICAL_DATASET_SLACK_WEBHOOK_URL` when it is present. Never print, log, persist, or expose the webhook URL. Send one short message at each checkpoint: run started, inventory verified/regenerated, briefing written, profile readback verified, and final completed/blocked/failed status. If the webhook is missing or delivery fails, continue the run but append a row to `slack_download_alerts.jsonl` with `event_type: "canonical_maintenance_lifecycle"`, `checkpoint`, `delivery_status: "pending"|"failed"`, `delivery_at`, the complete non-secret message payload, and the non-secret failure reason. Also summarize lifecycle Slack delivery in `slack_briefing.md`.
-4. Use the mounted dataset volume as the dataset root. Prefer `DATASET_MOUNT_PATH`; otherwise use `/mnt/alpha-research/datasets/{datasetId}`.
-5. Read the existing dataset state from the mounted volume: `manifest.json`, `source_registry.csv`, `source_registry.plan.json`, `download_inventory.jsonl`, `download_inventory.csv`, `download_events.jsonl`, `slack_download_alerts.jsonl`, `slack_briefing.md`, `raw_inventory.jsonl`, `raw_inventory.csv`, `volume_inventory.jsonl`, `volume_inventory.csv`, `volume_inventory_summary.json`, `volume_tree.txt`, `data_dictionary.md`, `quality_report.md`, and any existing `dataset_briefing.md`.
-6. Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.
-7. Write `dataset_briefing.md` at the dataset volume root. Treat that file as the authoritative output for this run.
-8. Copy the exact same briefing body into `docs/public-datasets/briefings/{datasetId}.md` and `docs/public-datasets/{datasetId}.mdx` in the run artifact/workspace area when available.
-9. Update the CLI-visible backend dataset profile from the same briefing:
-   - set `briefingMarkdown` to the exact `dataset_briefing.md` body;
-   - set nested `profile.quality.diskInventoryProven` to `true` only after inventories are regenerated or verified from disk;
-   - set nested `profile.quality.volumeInventoryRunId` to the current run id;
-   - set nested `profile.quality.volumeInventoryUpdatedAt` to the inventory verification timestamp.
-   - The profile proof must be nested under `profile.quality`; do not send `quality`, `diskInventoryProven`, `volumeInventoryRunId`, or `volumeInventoryUpdatedAt` only as top-level profile fields because the canonical status gate will not treat those as disk proof.
-   - Use this payload shape when calling `POST /api/cli/datasets/{datasetId}/profile`:
+Add or repair a small, high-value slice of public-source raw data that improves coverage, freshness, provenance, or usability for `{datasetId}`.
 
-```json
-{
-  "briefingMarkdown": "exact dataset_briefing.md body",
-  "notes": "Literal data inventory generated from verified mounted-volume inventories.",
-  "profile": {
-    "quality": {
-      "diskInventoryProven": true,
-      "volumeInventoryRunId": "current inventory run id",
-      "volumeInventoryUpdatedAt": "inventory verification timestamp"
-    }
-  },
-  "describedRunId": "current inventory run id",
-  "describedAt": "inventory verification timestamp"
-}
-```
-10. Read back the dataset profile through the backend and verify it contains the exact briefing plus the nested `profile.quality.volumeInventoryRunId` for the current run. If readback fails, mark the run blocked and write the non-secret blocker. Do not claim completion and leave profile repair to the local automation.
-11. Copy `dataset_briefing.md`, `docs/public-datasets/briefings/{datasetId}.md`, `docs/public-datasets/{datasetId}.mdx`, `improvement_result.json`, `volume_inventory_summary.json`, `slack_download_alerts.jsonl`, `slack_briefing.md`, `work.md`, and `report.html` into the remote run artifact directory so the orchestrator can recover them.
+Preserve source data as close to provider format as practical. Do not build merged panels, joined analysis tables, model-ready features, or opinionated metrics.
 
-## Briefing Contract
+## Required Work
 
-The briefing answers one question: what data is actually on the mounted dataset volume?
+1. Inspect the mounted dataset volume and existing inventories.
+2. Choose one focused improvement that can be completed in this run.
+3. Fetch or repair public-source raw data, documentation, or metadata for that improvement.
+4. Record provenance: source URL, access time, license/access notes, file paths, and any failed attempts.
+5. Regenerate final inventories from the dataset volume after the improvement.
+6. Rewrite `dataset_briefing.md` as a literal inventory of data actually on disk.
+7. Copy the same briefing body to:
+   - `docs/public-datasets/briefings/{datasetId}.md`
+   - `docs/public-datasets/{datasetId}.mdx`
+8. Update the backend dataset profile from the exact briefing body:
+   - `briefingMarkdown`: exact `dataset_briefing.md` contents
+   - `profile.quality.diskInventoryProven`: `true`
+   - `profile.quality.volumeInventoryRunId`: current remote execution id
+   - `profile.quality.volumeInventoryUpdatedAt`: current ISO timestamp
+   - `describedRunId`: current remote execution id
+   - `describedAt`: current ISO timestamp
+9. Read the backend profile back and verify it contains the exact briefing and current remote execution id.
 
-Write it as a comprehensive literal data inventory. Do not write a provider/package list.
+## Required Output Files
 
-Every bullet must be specific enough that a reader can answer: what exact table, API response, or document collection is stored; what the records represent; what grain/frequency it has; what geography it covers; what dates/vintages it covers; how many rows/objects are present when measurable; and what important columns, fields, and units mean.
+Write these files before final response:
 
-Use this shape:
+- `work.md`
+- `report.html`
+- `improvement_plan.md`
+- `improvement_result.json`
+- `candidate_sources.csv`
+- `exa_search_log.json`
+- `manifest.json`
+- `source_registry.csv`
+- `source_registry.plan.json`
+- `download_inventory.jsonl`
+- `download_inventory.csv`
+- `download_events.jsonl`
+- `slack_download_alerts.jsonl`
+- `slack_briefing.md`
+- `raw_inventory.jsonl`
+- `raw_inventory.csv`
+- `volume_inventory.jsonl`
+- `volume_inventory.csv`
+- `volume_inventory_summary.json`
+- `volume_tree.txt`
+- `data_dictionary.md`
+- `quality_report.md`
+- `dataset_briefing.md`
+- `docs/public-datasets/briefings/{datasetId}.md`
+- `docs/public-datasets/{datasetId}.mdx`
+
+Also copy `work.md`, `report.html`, `improvement_result.json`, and `dataset_briefing.md` into the run results/artifact directory when it is available.
+
+## Briefing Rules
+
+`dataset_briefing.md` must start with:
 
 ```md
 # Data Inventory
-- Consumer Price Index for All Urban Consumers, seasonally adjusted U.S. national monthly price index observations; one row per month; United States; 1947-01 through 2026-03. Data comes from FRED. The data fields are ... . The units are ...
 ```
 
-For archives or packaged provider payloads already on disk, describe the extracted data-bearing files or tables. If an archive is still opaque and cannot be inspected during this focused pass, list it under blockers or caveats instead of claiming it as usable stored data.
+Every bullet must describe concrete data present on disk: file or table, what records represent, grain, geography, time coverage, row/object counts when measurable, important fields, units, and caveats. Do not describe hoped-for data.
 
-## Result File
+## Completion Rules
 
-Write `improvement_result.json` with this shape:
+Final status is `completed` only if:
 
-```json
-{
-  "datasetId": "{datasetId}",
-  "datasetName": "{datasetName}",
-  "status": "completed|blocked",
-  "checkedAt": "ISO-8601 timestamp",
-  "diskInventoryProven": true,
-  "volumeInventoryRunId": "current run id",
-  "volumeInventoryUpdatedAt": "ISO-8601 timestamp",
-  "briefingPath": "dataset_briefing.md",
-  "docsBriefingPath": "docs/public-datasets/briefings/{datasetId}.md",
-  "docsPagePath": "docs/public-datasets/{datasetId}.mdx",
-  "slackDownloadAlertsPath": "slack_download_alerts.jsonl",
-  "slackBriefingPath": "slack_briefing.md",
-  "slackLifecycleMessagesSent": [],
-  "slackLifecycleMessagesPending": [],
-  "profileUpdated": true,
-  "profileReadbackVerified": true,
-  "blockers": []
-}
-```
+- `dataset_briefing.md` is non-empty.
+- `improvement_result.json` is non-empty.
+- Backend profile readback confirms the exact briefing body.
+- Backend profile readback references the current remote execution id.
 
-Set `status` to `blocked` and set `diskInventoryProven`, `profileUpdated`, or `profileReadbackVerified` to `false` if proof is missing, and explain the exact non-secret blocker in `blockers`. A briefing file without successful profile readback is not a completed canonical maintenance run.
+If any required step fails, write `improvement_result.json` with `"status": "blocked"` and explain the non-secret blocker.
+
+Never print secret values. If checking whether a secret exists, print only `present` or `missing`.
 
 ## Final Response
 
-Return a concise summary with run status, files written, profile update/readback status, recovered briefing path, and whether `diskInventoryProven` is true.
+Return only:
+
+```md
+status: completed|blocked
+dataset_id: {datasetId}
+run_id: <current remote execution id>
+briefing_bytes: <bytes>
+profile_readback_verified: true|false
+blockers:
+- <none or blocker>
+```

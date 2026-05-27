@@ -74,8 +74,15 @@ Use this workflow when the user asks to improve a canonical dataset such as `eco
    }, null, 2))
    NODE
    ```
-9. Treat worker lifecycle failures such as `.remote-agent/state/status.json.tmp` rename errors as platform execution failures even if `dataset_briefing.md` can be recovered from artifacts or the mounted volume. Recovery may preserve useful output, but it is not a successful canonical run unless the canonical endpoint reports terminal success and profile readback is proven through `npm run canonical:dataset -- status --dataset-id <id>`.
-10. If you changed scripts, prompts, or docs while launching the job, run focused tests such as `npm run test:canonical`, then commit and push. Per repo policy, also run `npm run deploy:check` after completing the change.
+9. After the execution reaches a terminal state, validate it before syncing docs or claiming success:
+
+   ```bash
+   npm run canonical:dataset -- validate --dataset-id <dataset-id> --execution-id <execution-id>
+   ```
+
+   Treat a validation failure as blocked even when the remote final summary says completed. The validator requires required artifacts, `disk_proven` status, and profile readback tied to the same execution id.
+10. Treat worker lifecycle failures such as `.remote-agent/state/status.json.tmp` rename errors as platform execution failures even if `dataset_briefing.md` can be recovered from artifacts or the mounted volume. Recovery may preserve useful output, but it is not a successful canonical run unless the canonical endpoint reports terminal success and profile readback is proven through `npm run canonical:dataset -- validate --dataset-id <id> --execution-id <execution-id>`.
+11. If you changed scripts, prompts, or docs while launching the job, run focused tests such as `npm run test:canonical`, then commit and push. Per repo policy, also run `npm run deploy:check` after completing the change.
 
 ## Add A Golden Test
 

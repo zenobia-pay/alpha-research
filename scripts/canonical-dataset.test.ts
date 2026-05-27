@@ -15,6 +15,7 @@ import {
   promptRecordPath,
   registrationBody,
   renderPrompt,
+  validateCanonicalImprovementRun,
 } from "./canonical-dataset.ts";
 import {
   CANONICAL_DATASETS,
@@ -232,7 +233,7 @@ test("audit prompt requires rich Slack alert backfills", async () => {
   }
 });
 
-test("improve prompt requires remote data-only briefing update", async () => {
+test("improve prompt requires focused public-source improvement and hard outputs", async () => {
   const prompt = await renderPrompt("improve", {
     datasetId: "econ",
     datasetName: "Economics",
@@ -240,47 +241,35 @@ test("improve prompt requires remote data-only briefing update", async () => {
     sourceCatalog: "- fred: https://fred.stlouisfed.org/",
   });
   for (const required of [
-    "Canonical Dataset Remote-Box Briefing Refresh",
-    "Execute this focused maintenance pass now inside the remote box.",
-    "First create the runtime work-log artifacts required by the remote-run platform",
-    "write `work.md` and `report.html` in the worker artifact output area before dataset inspection",
-    "The run must not finish without a non-empty `work.md`.",
-    "Send canonical maintenance lifecycle Slack updates through `CANONICAL_DATASET_SLACK_WEBHOOK_URL`",
-    "run started, inventory verified/regenerated, briefing written, profile readback verified, and final completed/blocked/failed status",
-    "event_type: \"canonical_maintenance_lifecycle\"",
-    "summarize lifecycle Slack delivery in `slack_briefing.md`",
-    "Use the mounted dataset volume as the dataset root.",
-    "Regenerate stale or missing disk inventories from the current mounted volume before writing the briefing.",
-    "Write `dataset_briefing.md` at the dataset volume root.",
-    "Update the CLI-visible backend dataset profile from the same briefing:",
-    "set nested `profile.quality.diskInventoryProven` to `true` only after inventories are regenerated or verified from disk;",
-    "set nested `profile.quality.volumeInventoryRunId` to the current run id;",
-    "Read back the dataset profile through the backend and verify it contains the exact briefing plus the nested `profile.quality.volumeInventoryRunId` for the current run.",
-    "The briefing answers one question: what data is actually on the mounted dataset volume?",
-    "Do not write a provider/package list.",
-    "what exact table, API response, or document collection is stored",
+    "Improve this canonical dataset now.",
+    "Add or repair a small, high-value slice of public-source raw data",
+    "Preserve source data as close to provider format as practical.",
+    "Do not build merged panels, joined analysis tables, model-ready features, or opinionated metrics.",
+    "Regenerate final inventories from the dataset volume after the improvement.",
+    "Rewrite `dataset_briefing.md` as a literal inventory of data actually on disk.",
+    "profile.quality.volumeInventoryRunId",
+    "Read the backend profile back and verify it contains the exact briefing and current remote execution id.",
+    "improvement_result.json",
+    "dataset_briefing.md",
+    "docs/public-datasets/briefings/econ.md",
+    "docs/public-datasets/econ.mdx",
     "# Data Inventory",
-    "For archives or packaged provider payloads already on disk, describe the extracted data-bearing files or tables.",
-    "Write `improvement_result.json` with this shape:",
-    "\"slackLifecycleMessagesSent\": []",
-    "\"slackLifecycleMessagesPending\": []",
-    "\"profileReadbackVerified\": true",
-    "Data comes from FRED",
+    "Final status is `completed` only if:",
+    "Never print secret values.",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }
+  assert.doesNotMatch(prompt, /Do not perform broad source expansion, web search, or new provider downloads/u);
+  assert.doesNotMatch(prompt, /only to inspect/u);
+  assert.doesNotMatch(prompt, /Remote-Box Briefing Refresh/u);
   assert.doesNotMatch(prompt, /This canonical dataset is a raw public source package/u);
-  assert.doesNotMatch(prompt, /Do not publish processed tables, merged panels/u);
   assert.doesNotMatch(prompt, /Classify each candidate/u);
-  assert.doesNotMatch(prompt, /Fetch active public machine-readable sources/u);
   assert.doesNotMatch(prompt, /Do not start with filenames/u);
   assert.doesNotMatch(prompt, /Do not include file names/u);
   assert.doesNotMatch(prompt, /For every raw inventory record/u);
   assert.doesNotMatch(prompt, /Do not add a `# Blocked Or Missing Data` section/u);
-  assert.doesNotMatch(prompt, /Each Slack message must include/u);
   assert.doesNotMatch(prompt, /Do not send thin alerts/u);
   assert.doesNotMatch(prompt, /Do not bypass/u);
-  assert.doesNotMatch(prompt, /Provider-level access failures are not run-level blockers/u);
 });
 
 test("improve artifact contract includes runtime work log artifacts", () => {
@@ -290,6 +279,112 @@ test("improve artifact contract includes runtime work log artifacts", () => {
   assert.ok(paths.includes("dataset_briefing.md"));
   assert.ok(paths.includes("docs/public-datasets/briefings/econ.md"));
   assert.ok(paths.includes("docs/public-datasets/econ.mdx"));
+});
+
+test("improvement validator accepts terminal run with artifacts and matching profile proof", () => {
+  const validation = validateCanonicalImprovementRun({
+    datasetId: "econ",
+    executionId: "exec-123",
+    execution: { id: "exec-123", status: "ready" },
+    artifacts: [
+      { title: "dataset_briefing.md", content: { path: "/results/exec-123/dataset_briefing.md" } },
+      { title: "improvement_result.json", content: { path: "/results/exec-123/improvement_result.json" } },
+      { title: "work.md", content: { path: "/results/exec-123/work.md" } },
+      { title: "report.html", content: { path: "/results/exec-123/report.html" } },
+    ],
+    dataset: {
+      id: "econ",
+      status: "ready",
+      deploymentStatus: "ready",
+      profile: {
+        briefingMarkdown: "# Data Inventory\n- Stored data.",
+        profile: {
+          quality: {
+            diskInventoryProven: true,
+            volumeInventoryRunId: "exec-123",
+            volumeInventoryUpdatedAt: "2026-05-26T21:00:00.000Z",
+          },
+        },
+        describedRunId: "exec-123",
+      },
+    },
+  });
+  assert.equal(validation.status, "validated");
+  assert.deepEqual(validation.blockers, []);
+});
+
+test("improvement validator blocks false completion without briefing artifact", () => {
+  const validation = validateCanonicalImprovementRun({
+    datasetId: "econ",
+    executionId: "exec-123",
+    execution: { id: "exec-123", status: "ready" },
+    artifacts: [
+      { title: "improvement_result.json" },
+      { title: "work.md" },
+      { title: "report.html" },
+    ],
+    dataset: {
+      id: "econ",
+      status: "ready",
+      deploymentStatus: "ready",
+      profile: {
+        briefingMarkdown: "# Data Inventory\n- Stored data.",
+        profile: {
+          quality: {
+            diskInventoryProven: true,
+            volumeInventoryRunId: "exec-123",
+            volumeInventoryUpdatedAt: "2026-05-26T21:00:00.000Z",
+          },
+        },
+      },
+    },
+  });
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.blockers.includes("remote completed without required artifact: dataset_briefing.md"));
+});
+
+test("improvement validator blocks stale profile proof from older run", () => {
+  const validation = validateCanonicalImprovementRun({
+    datasetId: "econ",
+    executionId: "exec-new",
+    execution: { id: "exec-new", status: "completed" },
+    artifacts: [
+      { title: "dataset_briefing.md" },
+      { title: "improvement_result.json" },
+      { title: "work.md" },
+      { title: "report.html" },
+    ],
+    dataset: {
+      id: "econ",
+      status: "ready",
+      deploymentStatus: "ready",
+      profile: {
+        briefingMarkdown: "# Data Inventory\n- Stored data.",
+        profile: {
+          quality: {
+            diskInventoryProven: true,
+            volumeInventoryRunId: "exec-old",
+            volumeInventoryUpdatedAt: "2026-05-26T20:00:00.000Z",
+          },
+        },
+      },
+    },
+  });
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.blockers.includes("profile readback run id exec-old does not match execution exec-new"));
+});
+
+test("improvement validator fails safely when admin execution state is unavailable", () => {
+  const validation = validateCanonicalImprovementRun({
+    datasetId: "econ",
+    executionId: "exec-123",
+    execution: null,
+    artifacts: [],
+    dataset: null,
+  });
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.blockers.includes("remote execution is not terminal: unknown"));
+  assert.ok(validation.blockers.includes("dataset readback is not disk_proven: missing_dataset"));
 });
 
 test("runtime contract requires Codex login and Slack webhook", () => {
