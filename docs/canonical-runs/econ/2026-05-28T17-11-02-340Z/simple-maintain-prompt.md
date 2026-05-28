@@ -1,4 +1,4 @@
-# Maintain Canonical Dataset: {datasetName} (`{datasetId}`)
+# Maintain Canonical Dataset: Econ (`econ`)
 
 You are maintaining one canonical dataset folder. Keep this simple.
 
@@ -16,7 +16,7 @@ if [ -z "$RUN_ID" ]; then RUN_ID="$(basename "$PWD")"; fi
 if [ -n "${DATASET_DIR:-}" ]; then
   DATASET_DIR_CANDIDATES="$DATASET_DIR"
 else
-  DATASET_DIR_CANDIDATES="${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/{datasetId} /data/datasets/{datasetId} ./dataset"
+  DATASET_DIR_CANDIDATES="${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/econ /data/datasets/econ ./dataset"
 fi
 
 DATASET_DIR=""
@@ -26,20 +26,20 @@ for candidate in $DATASET_DIR_CANDIDATES; do
     break
   fi
 done
-if [ -z "$DATASET_DIR" ]; then DATASET_DIR="${DATASET_MOUNT_PATH:-/mnt/alpha-research/datasets/{datasetId}}"; fi
+if [ -z "$DATASET_DIR" ]; then DATASET_DIR="${DATASET_MOUNT_PATH:-/mnt/alpha-research/datasets/econ}"; fi
 
 ARTIFACT_DIR="${ARTIFACT_DIR:-/results/$RUN_ID}"
 mkdir -p "$ARTIFACT_DIR"
 ```
 
-Write dataset data only under `$DATASET_DIR`. Prefer the platform mount path from `DATASET_MOUNT_PATH` or `/mnt/alpha-research/datasets/{datasetId}`; use `/data/datasets/{datasetId}` only if it is the available writable canonical mount. Write execution deliverables to both the current working directory and `$ARTIFACT_DIR`.
+Write dataset data only under `$DATASET_DIR`. Prefer the platform mount path from `DATASET_MOUNT_PATH` or `/mnt/alpha-research/datasets/econ`; use `/data/datasets/econ` only if it is the available writable canonical mount. Write execution deliverables to both the current working directory and `$ARTIFACT_DIR`.
 
 ## Required First Step
 
 Before any planning, create and export runtime files:
 
 ```bash
-printf '# Work Log\n\nStarted canonical simple maintenance for {datasetId}.\n' > work.md
+printf '# Work Log\n\nStarted canonical simple maintenance for econ.\n' > work.md
 printf '<!doctype html><title>Canonical maintenance</title><h1>Canonical maintenance started</h1>\n' > report.html
 cp work.md report.html "$ARTIFACT_DIR"/
 ```
@@ -70,12 +70,12 @@ Do not continue if the dataset directory is missing or not writable. The blocked
 ## Job
 
 1. Inspect `$DATASET_DIR`.
-2. Search the web for one small public raw dataset that improves `{datasetId}`.
+2. Search the web for one small public raw dataset that improves `econ`.
 3. Download provider-native raw files under `$DATASET_DIR/raw/<source>/`.
 4. Write provenance and inventory files under `$DATASET_DIR`.
 5. Walk `$DATASET_DIR` and rewrite `$DATASET_DIR/dataset_briefing.md` as a literal inventory of data actually on disk.
 6. Copy `$DATASET_DIR/dataset_briefing.md` to `./dataset_briefing.md` and `$ARTIFACT_DIR/dataset_briefing.md`.
-7. Write `improvement_result.json` in the current directory and `$ARTIFACT_DIR`. Its top-level `status` must be exactly `"completed"` or `"blocked"`; do not use `"ok"`, `"success"`, or any other status string.
+7. Write `improvement_result.json` in the current directory and `$ARTIFACT_DIR`.
 8. Update the CLI-visible dataset profile from the exact briefing body and read it back. Completion requires readback to show this run id in the profile proof; if profile update or readback is unavailable, write `improvement_result.json` with `status: "blocked"` and the exact non-secret blocker.
 
 ## Briefing Rules
@@ -89,23 +89,6 @@ Do not continue if the dataset directory is missing or not writable. The blocked
 Every bullet must describe concrete data present on disk: file/table, record grain, geography, time coverage, row/object counts when measurable, important fields, units, and caveats.
 
 ## Required Artifacts
-
-`improvement_result.json` must be a JSON object with this shape:
-
-```json
-{
-  "status": "completed",
-  "blocker": null,
-  "datasetId": "{datasetId}",
-  "runId": "<run id>",
-  "datasetDir": "<dataset dir>",
-  "artifactDir": "<artifact dir>",
-  "briefingBytes": 123,
-  "profileRunId": "<run id>"
-}
-```
-
-Use `"status": "blocked"` only when a required step cannot be completed, and include a non-secret `blocker` string.
 
 Before final response, this must succeed:
 
@@ -122,7 +105,7 @@ Return only:
 
 ```md
 status: completed|blocked
-dataset_id: {datasetId}
+dataset_id: econ
 run_id: <run id>
 dataset_dir: <dataset dir>
 artifact_dir: <artifact dir>

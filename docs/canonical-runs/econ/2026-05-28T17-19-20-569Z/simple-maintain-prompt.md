@@ -1,4 +1,4 @@
-# Maintain Canonical Dataset: {datasetName} (`{datasetId}`)
+# Maintain Canonical Dataset: Econ (`econ`)
 
 You are maintaining one canonical dataset folder. Keep this simple.
 
@@ -16,7 +16,7 @@ if [ -z "$RUN_ID" ]; then RUN_ID="$(basename "$PWD")"; fi
 if [ -n "${DATASET_DIR:-}" ]; then
   DATASET_DIR_CANDIDATES="$DATASET_DIR"
 else
-  DATASET_DIR_CANDIDATES="${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/{datasetId} /data/datasets/{datasetId} ./dataset"
+  DATASET_DIR_CANDIDATES="${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/econ /data/datasets/econ ./dataset"
 fi
 
 DATASET_DIR=""
@@ -26,20 +26,20 @@ for candidate in $DATASET_DIR_CANDIDATES; do
     break
   fi
 done
-if [ -z "$DATASET_DIR" ]; then DATASET_DIR="${DATASET_MOUNT_PATH:-/mnt/alpha-research/datasets/{datasetId}}"; fi
+if [ -z "$DATASET_DIR" ]; then DATASET_DIR="${DATASET_MOUNT_PATH:-/mnt/alpha-research/datasets/econ}"; fi
 
 ARTIFACT_DIR="${ARTIFACT_DIR:-/results/$RUN_ID}"
 mkdir -p "$ARTIFACT_DIR"
 ```
 
-Write dataset data only under `$DATASET_DIR`. Prefer the platform mount path from `DATASET_MOUNT_PATH` or `/mnt/alpha-research/datasets/{datasetId}`; use `/data/datasets/{datasetId}` only if it is the available writable canonical mount. Write execution deliverables to both the current working directory and `$ARTIFACT_DIR`.
+Write dataset data only under `$DATASET_DIR`. Prefer the platform mount path from `DATASET_MOUNT_PATH` or `/mnt/alpha-research/datasets/econ`; use `/data/datasets/econ` only if it is the available writable canonical mount. Write execution deliverables to both the current working directory and `$ARTIFACT_DIR`.
 
 ## Required First Step
 
 Before any planning, create and export runtime files:
 
 ```bash
-printf '# Work Log\n\nStarted canonical simple maintenance for {datasetId}.\n' > work.md
+printf '# Work Log\n\nStarted canonical simple maintenance for econ.\n' > work.md
 printf '<!doctype html><title>Canonical maintenance</title><h1>Canonical maintenance started</h1>\n' > report.html
 cp work.md report.html "$ARTIFACT_DIR"/
 ```
@@ -70,7 +70,7 @@ Do not continue if the dataset directory is missing or not writable. The blocked
 ## Job
 
 1. Inspect `$DATASET_DIR`.
-2. Search the web for one small public raw dataset that improves `{datasetId}`.
+2. Search the web for one small public raw dataset that improves `econ`.
 3. Download provider-native raw files under `$DATASET_DIR/raw/<source>/`.
 4. Write provenance and inventory files under `$DATASET_DIR`.
 5. Walk `$DATASET_DIR` and rewrite `$DATASET_DIR/dataset_briefing.md` as a literal inventory of data actually on disk.
@@ -96,7 +96,7 @@ Every bullet must describe concrete data present on disk: file/table, record gra
 {
   "status": "completed",
   "blocker": null,
-  "datasetId": "{datasetId}",
+  "datasetId": "econ",
   "runId": "<run id>",
   "datasetDir": "<dataset dir>",
   "artifactDir": "<artifact dir>",
@@ -122,7 +122,7 @@ Return only:
 
 ```md
 status: completed|blocked
-dataset_id: {datasetId}
+dataset_id: econ
 run_id: <run id>
 dataset_dir: <dataset dir>
 artifact_dir: <artifact dir>
