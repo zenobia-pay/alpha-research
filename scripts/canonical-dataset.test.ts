@@ -729,6 +729,38 @@ test("simple maintain validator surfaces live non-writable mount blocker", () =>
   assert.ok(validation.blockers.includes("profile run id exec-old does not match execution exec-new"));
 });
 
+test("simple maintain validator accepts backend profile sync after worker profile API block", () => {
+  const artifacts = [
+    { title: "work.md", content: { path: "/results/exec-new/work.md", text: "work" } },
+    { title: "report.html", content: { path: "/results/exec-new/report.html", text: "<html></html>" } },
+    { title: "dataset_briefing.md", content: { path: "/results/exec-new/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    {
+      title: "improvement_result.json",
+      type: "structured_result",
+      content: {
+        status: "blocked",
+        blocker: "dataset_profile_update_unavailable",
+        runId: "exec-new",
+        path: "improvement_result.json",
+      },
+    },
+  ];
+  const validation = classifySimpleMaintenance({
+    executionId: "exec-new",
+    execution: { status: "ready" },
+    artifacts,
+    dataset: {
+      profile: {
+        describedRunId: "exec-new",
+        briefingMarkdown: "# Data Inventory\n- Data.",
+        profile: { quality: { volumeInventoryRunId: "exec-new", diskInventoryProven: true } },
+      },
+    },
+  });
+  assert.equal(validation.status, "validated");
+  assert.deepEqual(validation.blockers, []);
+});
+
 test("simple maintain dry-run emits one command contract", () => {
   const root = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
   const sessionPath = join(root, "session.json");

@@ -147,11 +147,14 @@ export function classifySimpleMaintenance({ execution, artifacts, dataset, execu
   const profile = dataset?.profile ?? null;
   const quality = profile?.profile?.quality ?? profile?.quality ?? {};
   const profileRunId = profile?.volumeInventoryRunId ?? quality?.volumeInventoryRunId ?? profile?.describedRunId ?? null;
+  const profileSynced = profileRunId === executionId;
+  const resultCompleted = resultStatus === "completed"
+    || (resultStatus === "blocked" && resultBlocker === "dataset_profile_update_unavailable" && profileSynced);
   const blockers = [];
   if (!["ready", "completed"].includes(status)) blockers.push(`remote execution status ${status}`);
   if (missingArtifacts.length > 0) blockers.push(`missing required artifacts: ${missingArtifacts.join(", ")}`);
-  if (resultStatus !== "completed") blockers.push(`improvement result is ${resultStatus ?? "missing"}${resultBlocker ? `: ${resultBlocker}` : ""}`);
-  if (profileRunId !== executionId) blockers.push(`profile run id ${profileRunId ?? "missing"} does not match execution ${executionId}`);
+  if (!resultCompleted) blockers.push(`improvement result is ${resultStatus ?? "missing"}${resultBlocker ? `: ${resultBlocker}` : ""}`);
+  if (!profileSynced) blockers.push(`profile run id ${profileRunId ?? "missing"} does not match execution ${executionId}`);
   return {
     status: blockers.length === 0 ? "validated" : "blocked",
     executionStatus: status,
