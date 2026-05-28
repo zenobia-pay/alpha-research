@@ -754,12 +754,15 @@ test("simple maintain dry-run emits one command contract", () => {
       endpoint: string;
       kind: string;
       artifactSpec: Array<{ path: string }>;
+      execution?: { provider?: string; codexArgs?: string[] };
       resources: { datasetAccess?: string; storageMode?: string };
-      metadata: { canonicalJobKind?: string; jobKind?: string; operation?: string; canonicalMaintenanceMode?: string; requiresWritableDatasetDir?: boolean };
+      metadata: { canonicalJobKind?: string; jobKind?: string; operation?: string; canonicalMaintenanceMode?: string; requiresWritableDatasetDir?: boolean; datasetDir?: string; datasetDirFallbacks?: string[] };
     };
     assert.equal(parsed.dryRun, true);
-    assert.equal(parsed.endpoint, "/api/admin/canonical-datasets/econ/improve");
+    assert.equal(parsed.endpoint, "/api/admin/remote-agent-executions");
     assert.equal(parsed.kind, "dataset-improvement");
+    assert.equal(parsed.execution?.provider, "modal");
+    assert.ok(parsed.execution?.codexArgs?.includes("--dangerously-bypass-approvals-and-sandbox"));
     assert.equal(parsed.resources.datasetAccess, "write-version");
     assert.equal(parsed.resources.storageMode, "modal-volume");
     assert.equal(parsed.metadata.datasetDir, "/mnt/alpha-research/datasets/econ");

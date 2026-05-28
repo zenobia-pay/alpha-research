@@ -30,9 +30,7 @@ const artifactSpec = [
   { type: "structured_result", title: "improvement_result.json", path: "improvement_result.json" },
 ];
 
-function canonicalImproveEndpoint(datasetId) {
-  return `/api/admin/canonical-datasets/${encodeURIComponent(datasetId)}/improve`;
-}
+const endpoint = "/api/admin/remote-agent-executions";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -195,12 +193,20 @@ async function main() {
   }
   const prompt = renderPrompt({ datasetId, datasetName });
   const promptPath = persistPrompt(datasetId, prompt, timestamp);
-  const endpoint = canonicalImproveEndpoint(datasetId);
   const body = {
     prompt,
     kind: "dataset-improvement",
     datasetId,
     ownerType: "admin",
+    execution: {
+      provider: "modal",
+      remoteAgentExecutionOwner: "service",
+      userSessionRequired: false,
+      codexMode: "tui",
+      codexArgs: [
+        "--dangerously-bypass-approvals-and-sandbox",
+      ],
+    },
     resources,
     artifactSpec,
     requiredArtifacts: artifactSpec.map((artifact) => artifact.path),
@@ -229,6 +235,7 @@ async function main() {
       promptPath,
       endpoint,
       kind: body.kind,
+      execution: body.execution,
       resources,
       artifactSpec,
       requiredArtifacts: body.requiredArtifacts,
