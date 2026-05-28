@@ -30,6 +30,10 @@ const artifactSpec = [
   { type: "structured_result", title: "improvement_result.json", path: "improvement_result.json" },
 ];
 
+function canonicalImproveEndpoint(datasetId) {
+  return `/api/admin/canonical-datasets/${encodeURIComponent(datasetId)}/improve`;
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -191,6 +195,7 @@ async function main() {
   }
   const prompt = renderPrompt({ datasetId, datasetName });
   const promptPath = persistPrompt(datasetId, prompt, timestamp);
+  const endpoint = canonicalImproveEndpoint(datasetId);
   const body = {
     prompt,
     kind: "dataset-improvement",
@@ -222,7 +227,7 @@ async function main() {
       dryRun,
       datasetId,
       promptPath,
-      endpoint: "/api/admin/remote-agent-executions",
+      endpoint,
       kind: body.kind,
       resources,
       artifactSpec,
@@ -231,7 +236,7 @@ async function main() {
     }, null, 2));
     return;
   }
-  const { body: started } = await postAdminJson("/api/admin/remote-agent-executions", body, process.env.ALPHA_RESEARCH_ORIGIN ?? session.origin);
+  const { body: started } = await postAdminJson(endpoint, body, process.env.ALPHA_RESEARCH_ORIGIN ?? session.origin);
   const executionId = executionIdFromResponse(started);
   assert(executionId, "Admin response did not include execution id.");
   const origin = process.env.ALPHA_RESEARCH_ORIGIN ?? session.origin;

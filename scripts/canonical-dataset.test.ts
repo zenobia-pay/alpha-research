@@ -758,7 +758,7 @@ test("simple maintain dry-run emits one command contract", () => {
       metadata: { canonicalJobKind?: string; jobKind?: string; operation?: string; canonicalMaintenanceMode?: string; requiresWritableDatasetDir?: boolean };
     };
     assert.equal(parsed.dryRun, true);
-    assert.equal(parsed.endpoint, "/api/admin/remote-agent-executions");
+    assert.equal(parsed.endpoint, "/api/admin/canonical-datasets/econ/improve");
     assert.equal(parsed.kind, "dataset-improvement");
     assert.equal(parsed.resources.datasetAccess, "write-version");
     assert.equal(parsed.resources.storageMode, "modal-volume");
