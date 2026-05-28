@@ -567,6 +567,14 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
         assert.ok(historyRefresh?.runtimeArtifacts?.includes("report.html"));
         assert.ok(historyRefresh?.runtimeArtifacts?.includes("work.md"));
       }
+      if (args[0] === "scripts/start-canonical-dataset-expansion-jobs.mjs") {
+        const historyExpansion = parsed.results.find((result) => result.datasetId === "history");
+        assert.equal(historyExpansion?.operation, "dataset-expansion");
+        assert.ok(historyExpansion?.artifacts?.includes("slack_download_alerts.jsonl"));
+        assert.ok(historyExpansion?.artifacts?.includes("slack_briefing.md"));
+        assert.ok(historyExpansion?.artifacts?.includes("improvement_result.json"));
+        assert.ok(!historyExpansion?.artifacts?.includes("expansion_plan.md"));
+      }
     }
 
     const improveOutput = execFileSync("node", ["scripts/start-canonical-dataset-improvement-jobs.mjs", "--dry-run"], {

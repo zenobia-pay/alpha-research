@@ -2,18 +2,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { adminExecutionStatusUrl, defaultOrigin, executionIdFromResponse, postAdminJson } from "./admin-remote-agent.mjs";
-import { seedCandidatesText, selectCanonicalDatasets } from "./canonical-dataset-catalog.mjs";
+import { selectCanonicalDatasets } from "./canonical-dataset-catalog.mjs";
 
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), ".research", "session.json");
-const promptPath = new URL("../prompts/canonical-dataset-expansion.md", import.meta.url);
-const catalogPath = new URL("../docs/CANONICAL_PUBLIC_DATASETS.md", import.meta.url);
 
 const dryRun = process.argv.includes("--dry-run") || process.env.CANONICAL_DATASET_EXPAND_DRY_RUN === "1";
 
-const canonicalDatasets = selectCanonicalDatasets().map((dataset) => ({
-  ...dataset,
-  seedCandidates: seedCandidatesText(dataset),
-}));
+const canonicalDatasets = selectCanonicalDatasets();
 
 const resources = {
   profile: "canonical-public",
@@ -53,15 +48,6 @@ function readSession() {
   return session;
 }
 
-function renderPrompt(template, dataset) {
-  return template
-    .replaceAll("{datasetId}", dataset.id)
-    .replaceAll("{datasetName}", dataset.name)
-    .replaceAll("{fieldBrief}", dataset.fieldBrief)
-    .replaceAll("{fieldCatalogSources}", dataset.fieldCatalogSources ?? "- (No local field catalog sources found.)")
-    .replaceAll("{seedCandidates}", dataset.seedCandidates ?? "- (No seed candidates.)");
-}
-
 async function api(session, path, options = {}) {
   const response = await fetch(`${session.origin}${path}`, {
     method: options.method ?? "GET",
@@ -82,41 +68,25 @@ async function api(session, path, options = {}) {
   return body;
 }
 
-const promptTemplate = readFileSync(promptPath, "utf8");
-const catalogMarkdown = readFileSync(catalogPath, "utf8");
 const results = [];
 
-function extractCatalogSources(markdown, datasetId) {
-  const headingNeedle = `(\`${datasetId}\`)`;
-  const lines = markdown.split("\n");
-  const startIndex = lines.findIndex((line) => line.startsWith("### ") && line.includes(headingNeedle));
-  if (startIndex === -1) return null;
-  const endIndex = lines.findIndex((line, idx) => idx > startIndex && line.startsWith("### "));
-  const section = lines.slice(startIndex, endIndex === -1 ? lines.length : endIndex).join("\n");
+const artifactSpec = [
+  { type: "file", title: "work.md", path: "work.md" },
+  { type: "file", title: "report.html", path: "report.html" },
+  { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },
+  { type: "file", title: "slack_download_alerts.jsonl", path: "slack_download_alerts.jsonl" },
+  { type: "file", title: "slack_briefing.md", path: "slack_briefing.md" },
+  { type: "structured_result", title: "improvement_result.json", path: "improvement_result.json" },
+];
 
-  const startNeedles = ["Initial active/deferred source registry:", "Recommended starting sources:"];
-  const endNeedle = "Priority normalized tables";
+function promptPathForDataset(datasetId) {
+  return new URL(`../prompts/dataset-expansion/${datasetId}.md`, import.meta.url);
+}
 
-  let startPos = -1;
-  let startNeedle = null;
-  for (const needle of startNeedles) {
-    const pos = section.indexOf(needle);
-    if (pos !== -1) {
-      startPos = pos;
-      startNeedle = needle;
-      break;
-    }
-  }
-  if (startPos === -1 || !startNeedle) return null;
-
-  const afterStart = section.slice(startPos + startNeedle.length);
-  const endPos = afterStart.indexOf(endNeedle);
-  const slice = (endPos === -1 ? afterStart : afterStart.slice(0, endPos)).trim();
-  const bullets = slice
-    .split("\n")
-    .map((line) => line.trimEnd())
-    .filter((line) => line.trim().startsWith("- "));
-  return bullets.length > 0 ? bullets.join("\n") : null;
+function renderDatasetExpansionPrompt(dataset) {
+  const promptUrl = promptPathForDataset(dataset.id);
+  assert(existsSync(promptUrl), `Missing dataset expansion prompt for ${dataset.id}: prompts/dataset-expansion/${dataset.id}.md`);
+  return readFileSync(promptUrl, "utf8");
 }
 
 function classifyCanonicalWrite(dataset) {
@@ -149,20 +119,16 @@ function classifyCanonicalWrite(dataset) {
 
 if (dryRun) {
   for (const dataset of canonicalDatasets) {
-    dataset.fieldCatalogSources = extractCatalogSources(catalogMarkdown, dataset.id);
-    const prompt = renderPrompt(promptTemplate, dataset);
+    const prompt = renderDatasetExpansionPrompt(dataset);
     results.push({
       datasetId: dataset.id,
       status: "dry_run_ready",
       endpoint: "/api/admin/remote-agent-executions",
       kind: "dataset-improvement",
-      operation: "expansion",
+      operation: "dataset-expansion",
       promptLength: prompt.length,
       resources,
-      artifacts: [
-        "expansion_plan.md",
-        "source_registry.plan.json",
-      ],
+      artifacts: artifactSpec.map((artifact) => artifact.path),
     });
   }
   console.log(JSON.stringify({ dryRun, results }, null, 2));
@@ -188,7 +154,6 @@ try {
 const liveDatasets = new Map((datasetsPayload.datasets ?? []).map((dataset) => [dataset.id, dataset]));
 
 for (const dataset of canonicalDatasets) {
-  dataset.fieldCatalogSources = extractCatalogSources(catalogMarkdown, dataset.id);
   const liveDataset = liveDatasets.get(dataset.id);
   if (!liveDataset) {
     results.push({ datasetId: dataset.id, status: "skipped_missing_dataset" });
@@ -205,30 +170,27 @@ for (const dataset of canonicalDatasets) {
     continue;
   }
 
-  const prompt = renderPrompt(promptTemplate, dataset);
+  const prompt = renderDatasetExpansionPrompt(dataset);
   const body = {
     prompt,
     type: "analysis",
     config: {
       canonicalDatasetExpand: true,
       jobKind: "dataset-improvement",
-      operation: "expansion",
+      operation: "dataset-expansion",
       datasetId: dataset.id,
       datasetName: dataset.name,
       requiresCodexLogin: true,
-      optionalEnvironment: [
-        "EXA_API_KEY",
+      requiredEnvironment: [
+        "CANONICAL_DATASET_SLACK_WEBHOOK_URL",
       ],
       resources,
     },
-    artifacts: [
-      { type: "file", title: "Expansion Plan", path: "expansion_plan.md" },
-      { type: "file", title: "source_registry.plan.json", path: "source_registry.plan.json" },
-    ],
+    artifacts: artifactSpec,
   };
 
   if (dryRun) {
-    results.push({ datasetId: dataset.id, status: "dry_run_ready", endpoint: "/api/admin/remote-agent-executions", kind: "dataset-improvement", operation: "expansion", promptLength: prompt.length, resources });
+    results.push({ datasetId: dataset.id, status: "dry_run_ready", endpoint: "/api/admin/remote-agent-executions", kind: "dataset-improvement", operation: "dataset-expansion", promptLength: prompt.length, resources, artifacts: artifactSpec.map((artifact) => artifact.path) });
     continue;
   }
 
