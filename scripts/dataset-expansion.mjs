@@ -93,12 +93,12 @@ async function adminGet(path, origin = defaultOrigin) {
 }
 
 export function renderPrompt({ datasetId, datasetName }) {
-  const template = readFileSync(new URL("../prompts/canonical-simple-maintain.md", import.meta.url), "utf8");
+  const template = readFileSync(new URL("../prompts/dataset-expansion.md", import.meta.url), "utf8");
   return template.replaceAll("{datasetId}", datasetId).replaceAll("{datasetName}", datasetName);
 }
 
 export function promptRecordPath(datasetId, timestamp = new Date().toISOString()) {
-  return `docs/canonical-runs/${datasetId}/${timestamp.replaceAll(/[:.]/g, "-")}/simple-maintain-prompt.md`;
+  return `docs/canonical-runs/${datasetId}/${timestamp.replaceAll(/[:.]/g, "-")}/dataset-expansion-prompt.md`;
 }
 
 function persistPrompt(datasetId, prompt, timestamp) {
@@ -126,21 +126,84 @@ function artifactPayload(artifacts, requiredPath) {
   return null;
 }
 
-export function classifySimpleMaintenance({ execution, artifacts, dataset, executionId }) {
+function artifactText(artifacts, requiredPath) {
+  const payload = artifactPayload(artifacts, requiredPath);
+  if (typeof payload === "string") return payload;
+  if (payload && typeof payload === "object" && typeof payload.text === "string") return payload.text;
+  return "";
+}
+
+function parseResultPayload(payload) {
+  if (typeof payload === "string" && payload.trim()) {
+    try {
+      return JSON.parse(payload);
+    } catch {
+      return { status: "invalid_json" };
+    }
+  }
+  if (payload && typeof payload === "object") return payload;
+  return {};
+}
+
+function normalizeList(value) {
+  if (Array.isArray(value)) return value.filter((entry) => typeof entry === "string" && entry.trim()).map((entry) => entry.trim());
+  if (typeof value === "string" && value.trim()) return [value.trim()];
+  return [];
+}
+
+function workLogAddedPaths(workLog) {
+  const paths = [];
+  for (const match of workLog.matchAll(/(?:under|at)\s+`([^`]+)`/gu)) {
+    if (match[1]?.startsWith("raw/")) paths.push(match[1]);
+  }
+  return [...new Set(paths)];
+}
+
+function briefingBulletsForPaths(briefing, paths) {
+  if (paths.length === 0) return [];
+  return briefing
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "))
+    .filter((line) => paths.some((path) => line.includes(path)));
+}
+
+export function summarizeDatasetExpansion({ artifacts, executionId, validation }) {
+  const result = parseResultPayload(artifactPayload(artifacts, "improvement_result.json"));
+  const workLog = artifactText(artifacts, "work.md");
+  const briefing = artifactText(artifacts, "dataset_briefing.md");
+  const expansion = result.expansionSummary && typeof result.expansionSummary === "object" ? result.expansionSummary : {};
+  const pathsAdded = normalizeList(expansion.pathAdded ?? expansion.pathsAdded ?? expansion.rawPath).concat(workLogAddedPaths(workLog));
+  const uniquePathsAdded = [...new Set(pathsAdded)];
+  const briefingChanges = normalizeList(result.briefingChanges ?? expansion.briefingChanges)
+    .concat(briefingBulletsForPaths(briefing, uniquePathsAdded));
+  const uniqueBriefingChanges = [...new Set(briefingChanges)];
+  const statusValue = [result.status, validation?.status].filter(Boolean).join(" / ") || "unknown";
+  const summaryTable = [
+    ["run id", result.runId ?? executionId],
+    ["status", statusValue],
+    ["actual new dataset added", expansion.actualNewDatasetAdded ?? expansion.datasetAdded ?? null],
+    ["path added", uniquePathsAdded.join(", ") || null],
+    ["source", expansion.source ?? null],
+    ["coverage", expansion.coverage ?? null],
+    ["geography", expansion.geography ?? null],
+    ["records", expansion.records ?? null],
+    ["fields", expansion.fields ?? null],
+    ["caveat", expansion.caveat ?? null],
+  ].map(([item, value]) => ({ item, value: value ?? "unknown" }));
+  return {
+    summaryTable,
+    briefingChanges: uniqueBriefingChanges,
+  };
+}
+
+export function classifyDatasetExpansion({ execution, artifacts, dataset, executionId }) {
   const status = execution?.status ?? "unknown";
   const missingArtifacts = artifactSpec.map((artifact) => artifact.path).filter((path) => !hasArtifact(artifacts, path));
-  const resultPayload = artifactPayload(artifacts, "improvement_result.json");
+  const resultPayload = parseResultPayload(artifactPayload(artifacts, "improvement_result.json"));
   let resultStatus = null;
   let resultBlocker = null;
-  if (typeof resultPayload === "string" && resultPayload.trim()) {
-    try {
-      const parsed = JSON.parse(resultPayload);
-      resultStatus = parsed.status ?? null;
-      resultBlocker = parsed.blocker ?? null;
-    } catch {
-      resultStatus = "invalid_json";
-    }
-  } else if (resultPayload && typeof resultPayload === "object") {
+  if (resultPayload && typeof resultPayload === "object") {
     resultStatus = resultPayload.status ?? null;
     resultBlocker = resultPayload.blocker ?? null;
   }
@@ -180,7 +243,7 @@ async function pollExecution(executionId, { origin, pollMs, timeoutMs }) {
 async function main() {
   const argv = process.argv.slice(2);
   const datasetId = argValue(argv, "--dataset-id");
-  assert(datasetId, "Usage: npm run canonical:simple-maintain -- --dataset-id <id> [--dry-run] [--no-wait]");
+  assert(datasetId, "Usage: npm run canonical:dataset-expansion -- --dataset-id <id> [--dry-run] [--no-wait]");
   const dryRun = argv.includes("--dry-run");
   const noWait = argv.includes("--no-wait");
   const timestamp = argValue(argv, "--prompt-timestamp") ?? new Date().toISOString();
@@ -214,12 +277,12 @@ async function main() {
     artifactSpec,
     requiredArtifacts: artifactSpec.map((artifact) => artifact.path),
     metadata: {
-      launchedBy: "scripts/canonical-simple-maintain.mjs",
+      launchedBy: "scripts/dataset-expansion.mjs",
       canonicalDatasetLifecycle: true,
       canonicalJobKind: "dataset-improvement",
       jobKind: "dataset-improvement",
-      operation: "simple-maintenance",
-      canonicalMaintenanceMode: "simple",
+      operation: "dataset-expansion",
+      canonicalMaintenanceMode: "dataset-expansion",
       datasetId,
       datasetName,
       writesDatasetBriefing: true,
@@ -259,20 +322,27 @@ async function main() {
     });
   const artifactsPayload = await adminGet(`/api/admin/remote-agent-executions/${encodeURIComponent(executionId)}/artifacts`, origin);
   const readback = await cliApi(session, `/api/cli/datasets/${encodeURIComponent(datasetId)}`).catch(() => ({ dataset: null }));
-  const validation = classifySimpleMaintenance({
+  const validation = classifyDatasetExpansion({
     execution,
     artifacts: artifactsPayload.artifacts ?? [],
     dataset: readback.dataset,
     executionId,
   });
+  const summary = summarizeDatasetExpansion({
+    artifacts: artifactsPayload.artifacts ?? [],
+    executionId,
+    validation,
+  });
   console.log(JSON.stringify({
-    mode: "simple-maintain",
+    mode: "dataset-expansion",
     datasetId,
     promptPath,
     executionId,
     adminStatusUrl: adminExecutionStatusUrl(executionId, origin),
     artifactsUrl: adminExecutionArtifactsUrl(executionId, origin),
     validation,
+    summaryTable: summary.summaryTable,
+    briefingChanges: summary.briefingChanges,
   }, null, 2));
   if (validation.status !== "validated") process.exitCode = 1;
 }

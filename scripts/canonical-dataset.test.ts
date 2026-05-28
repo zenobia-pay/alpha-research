@@ -24,10 +24,11 @@ import {
   selectCanonicalDatasets,
 } from "./canonical-dataset-catalog.mjs";
 import {
-  classifySimpleMaintenance,
-  hasArtifact as hasSimpleArtifact,
-  renderPrompt as renderSimpleMaintainPrompt,
-} from "./canonical-simple-maintain.mjs";
+  classifyDatasetExpansion,
+  hasArtifact as hasDatasetExpansionArtifact,
+  renderPrompt as renderDatasetExpansionPrompt,
+  summarizeDatasetExpansion,
+} from "./dataset-expansion.mjs";
 
 test("canonical dataset args require create contract", () => {
   assert.deepEqual(parseArgs([
@@ -626,19 +627,18 @@ test("single dataset improve dry-run targets admin remote Modal execution instea
   await rm(dirname(promptRecordPath("econ", timestamp, "improve")), { recursive: true, force: true });
 });
 
-test("simple maintain prompt uses explicit dataset and artifact directories", () => {
-  const prompt = renderSimpleMaintainPrompt({ datasetId: "econ", datasetName: "Econ" });
+test("dataset expansion prompt uses explicit dataset and artifact directories", () => {
+  const prompt = renderDatasetExpansionPrompt({ datasetId: "econ", datasetName: "Econ" });
   for (const required of [
-    "DATASET_DIR_CANDIDATES=\"${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/econ /data/datasets/econ ./dataset\"",
+    "DATASET_DIR_CANDIDATES=\"${DATASET_DIR:-} ${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/econ /data/datasets/econ ./dataset\"",
     "DATASET_DIR=\"$(cd \"$candidate\" && pwd -P)\"",
-    "Prefer the platform mount path from `DATASET_MOUNT_PATH` or `/mnt/alpha-research/datasets/econ`",
     "ARTIFACT_DIR=\"${ARTIFACT_DIR:-/results/$RUN_ID}\"",
-    "Do not continue if the dataset directory is missing or not writable.",
-    "DATASET_DIR=\"$DATASET_DIR\" RUN_ID=\"$RUN_ID\"",
-    "WRITE_TEST_ERROR=",
-    "dataset_dir_not_writable",
-    "kind=dataset-improvement plus datasetAccess=write-version",
-    "cp dataset_briefing.md improvement_result.json \"$ARTIFACT_DIR\"/",
+    "Started dataset expansion for econ.",
+    "If `$DATASET_DIR` is missing or not writable",
+    "For `econ`, prefer broad, authoritative economics data",
+    "\"expansionSummary\"",
+    "\"actualNewDatasetAdded\"",
+    "\"briefingChanges\"",
     "Completion requires readback to show this run id in the profile proof",
     "ls -l \"$ARTIFACT_DIR/work.md\" \"$ARTIFACT_DIR/report.html\" \"$ARTIFACT_DIR/dataset_briefing.md\" \"$ARTIFACT_DIR/improvement_result.json\"",
   ]) {
@@ -646,15 +646,15 @@ test("simple maintain prompt uses explicit dataset and artifact directories", ()
   }
 });
 
-test("simple maintain validator requires artifacts, completed result, and matching profile", () => {
+test("dataset expansion validator requires artifacts, completed result, and matching profile", () => {
   const artifacts = [
     { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-1/report.html", text: "<html></html>" } },
     { title: "dataset_briefing.md", content: { path: "/results/exec-1/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
     { title: "improvement_result.json", content: { path: "/results/exec-1/improvement_result.json", text: "{\"status\":\"completed\"}" } },
   ];
-  assert.equal(hasSimpleArtifact(artifacts, "dataset_briefing.md"), true);
-  const validated = classifySimpleMaintenance({
+  assert.equal(hasDatasetExpansionArtifact(artifacts, "dataset_briefing.md"), true);
+  const validated = classifyDatasetExpansion({
     executionId: "exec-1",
     execution: { status: "ready" },
     artifacts,
@@ -662,7 +662,7 @@ test("simple maintain validator requires artifacts, completed result, and matchi
   });
   assert.equal(validated.status, "validated");
 
-  const blocked = classifySimpleMaintenance({
+  const blocked = classifyDatasetExpansion({
     executionId: "exec-1",
     execution: { status: "ready" },
     artifacts: artifacts.filter((artifact) => artifact.title !== "dataset_briefing.md"),
@@ -672,7 +672,65 @@ test("simple maintain validator requires artifacts, completed result, and matchi
   assert.deepEqual(blocked.missingArtifacts, ["dataset_briefing.md"]);
 });
 
-test("simple maintain validator accepts structured result object artifacts", () => {
+test("dataset expansion summary surfaces added dataset and briefing changes", () => {
+  const artifacts = [
+    {
+      title: "work.md",
+      content: {
+        path: "/results/exec-1/work.md",
+        text: "Staged raw file under `raw/census_bfs/bfs_us_apps_weekly_nsa.csv`.",
+      },
+    },
+    {
+      title: "dataset_briefing.md",
+      content: {
+        path: "/results/exec-1/dataset_briefing.md",
+        text: "# Data Inventory\n- raw/census_bfs/bfs_us_apps_weekly_nsa.csv: Census Business Formation Statistics national business applications weekly file. Coverage: 2006-W01 through 2026-W17. Geography: United States national totals. Records: 1,060 weekly observations.",
+      },
+    },
+    {
+      title: "improvement_result.json",
+      type: "structured_result",
+      content: {
+        status: "completed",
+        runId: "exec-1",
+        expansionSummary: {
+          actualNewDatasetAdded: "Census Business Formation Statistics weekly national NSA CSV",
+          pathAdded: "raw/census_bfs/bfs_us_apps_weekly_nsa.csv",
+          source: "U.S. Census Business Formation Statistics",
+          coverage: "2006-W01 through 2026-W17",
+          geography: "United States national totals",
+          records: "1,060 weekly observations",
+          fields: "BA_NSA, HBA_NSA, WBA_NSA, CBA_NSA, plus year-over-year percent change columns",
+          caveat: "Census says weekly BFS refreshes monthly; this was pulled on 2026-05-28",
+        },
+        briefingChanges: [
+          "- raw/census_bfs/bfs_us_apps_weekly_nsa.csv: Census Business Formation Statistics national business applications weekly file.",
+        ],
+      },
+    },
+  ];
+  const summary = summarizeDatasetExpansion({
+    artifacts,
+    executionId: "exec-1",
+    validation: { status: "validated" },
+  });
+  assert.deepEqual(summary.summaryTable, [
+    { item: "run id", value: "exec-1" },
+    { item: "status", value: "completed / validated" },
+    { item: "actual new dataset added", value: "Census Business Formation Statistics weekly national NSA CSV" },
+    { item: "path added", value: "raw/census_bfs/bfs_us_apps_weekly_nsa.csv" },
+    { item: "source", value: "U.S. Census Business Formation Statistics" },
+    { item: "coverage", value: "2006-W01 through 2026-W17" },
+    { item: "geography", value: "United States national totals" },
+    { item: "records", value: "1,060 weekly observations" },
+    { item: "fields", value: "BA_NSA, HBA_NSA, WBA_NSA, CBA_NSA, plus year-over-year percent change columns" },
+    { item: "caveat", value: "Census says weekly BFS refreshes monthly; this was pulled on 2026-05-28" },
+  ]);
+  assert.ok(summary.briefingChanges.some((change) => change.includes("raw/census_bfs/bfs_us_apps_weekly_nsa.csv")));
+});
+
+test("dataset expansion validator accepts structured result object artifacts", () => {
   const artifacts = [
     { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-1/report.html", text: "<html></html>" } },
@@ -687,7 +745,7 @@ test("simple maintain validator accepts structured result object artifacts", () 
       },
     },
   ];
-  const validation = classifySimpleMaintenance({
+  const validation = classifyDatasetExpansion({
     executionId: "exec-1",
     execution: { status: "ready" },
     artifacts,
@@ -698,7 +756,7 @@ test("simple maintain validator accepts structured result object artifacts", () 
   assert.equal(validation.resultBlocker, null);
 });
 
-test("simple maintain validator surfaces live non-writable mount blocker", () => {
+test("dataset expansion validator surfaces live non-writable mount blocker", () => {
   const artifacts = [
     { title: "work.md", content: { path: "/results/exec-new/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-new/report.html", text: "<html></html>" } },
@@ -716,7 +774,7 @@ test("simple maintain validator surfaces live non-writable mount blocker", () =>
       },
     },
   ];
-  const validation = classifySimpleMaintenance({
+  const validation = classifyDatasetExpansion({
     executionId: "exec-new",
     execution: { status: "ready" },
     artifacts,
@@ -729,7 +787,7 @@ test("simple maintain validator surfaces live non-writable mount blocker", () =>
   assert.ok(validation.blockers.includes("profile run id exec-old does not match execution exec-new"));
 });
 
-test("simple maintain validator accepts backend profile sync after worker profile API block", () => {
+test("dataset expansion validator accepts backend profile sync after worker profile API block", () => {
   const artifacts = [
     { title: "work.md", content: { path: "/results/exec-new/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-new/report.html", text: "<html></html>" } },
@@ -745,7 +803,7 @@ test("simple maintain validator accepts backend profile sync after worker profil
       },
     },
   ];
-  const validation = classifySimpleMaintenance({
+  const validation = classifyDatasetExpansion({
     executionId: "exec-new",
     execution: { status: "ready" },
     artifacts,
@@ -761,13 +819,13 @@ test("simple maintain validator accepts backend profile sync after worker profil
   assert.deepEqual(validation.blockers, []);
 });
 
-test("simple maintain dry-run emits one command contract", () => {
+test("dataset expansion dry-run emits one command contract", () => {
   const root = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
   const sessionPath = join(root, "session.json");
   writeFileSync(sessionPath, JSON.stringify({ origin: "https://example.invalid", accessToken: "token" }));
   try {
     const output = execFileSync("node", [
-      "scripts/canonical-simple-maintain.mjs",
+      "scripts/dataset-expansion.mjs",
       "--dataset-id",
       "econ",
       "--dry-run",
@@ -801,8 +859,8 @@ test("simple maintain dry-run emits one command contract", () => {
     assert.deepEqual(parsed.metadata.datasetDirFallbacks, ["/data/datasets/econ", "./dataset"]);
     assert.equal(parsed.metadata.canonicalJobKind, "dataset-improvement");
     assert.equal(parsed.metadata.jobKind, "dataset-improvement");
-    assert.equal(parsed.metadata.operation, "simple-maintenance");
-    assert.equal(parsed.metadata.canonicalMaintenanceMode, "simple");
+    assert.equal(parsed.metadata.operation, "dataset-expansion");
+    assert.equal(parsed.metadata.canonicalMaintenanceMode, "dataset-expansion");
     assert.equal(parsed.metadata.requiresWritableDatasetDir, true);
     assert.deepEqual(parsed.artifactSpec.map((artifact) => artifact.path), [
       "work.md",
