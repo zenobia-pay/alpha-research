@@ -632,7 +632,11 @@ test("simple maintain prompt uses explicit dataset and artifact directories", ()
     "DATASET_DIR=\"${DATASET_DIR:-/data/datasets/econ}\"",
     "ARTIFACT_DIR=\"${ARTIFACT_DIR:-/results/$RUN_ID}\"",
     "Do not continue if the dataset directory is missing or not writable.",
+    "WRITE_TEST_ERROR=",
+    "dataset_dir_not_writable",
+    "kind=dataset-improvement plus datasetAccess=write-version",
     "cp dataset_briefing.md improvement_result.json \"$ARTIFACT_DIR\"/",
+    "Completion requires readback to show this run id in the profile proof",
     "ls -l \"$ARTIFACT_DIR/work.md\" \"$ARTIFACT_DIR/report.html\" \"$ARTIFACT_DIR/dataset_briefing.md\" \"$ARTIFACT_DIR/improvement_result.json\"",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
@@ -663,6 +667,63 @@ test("simple maintain validator requires artifacts, completed result, and matchi
   });
   assert.equal(blocked.status, "blocked");
   assert.deepEqual(blocked.missingArtifacts, ["dataset_briefing.md"]);
+});
+
+test("simple maintain validator accepts structured result object artifacts", () => {
+  const artifacts = [
+    { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
+    { title: "report.html", content: { path: "/results/exec-1/report.html", text: "<html></html>" } },
+    { title: "dataset_briefing.md", content: { path: "/results/exec-1/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    {
+      title: "improvement_result.json",
+      type: "structured_result",
+      content: {
+        status: "completed",
+        path: "improvement_result.json",
+        mimeType: "application/json; charset=utf-8",
+      },
+    },
+  ];
+  const validation = classifySimpleMaintenance({
+    executionId: "exec-1",
+    execution: { status: "ready" },
+    artifacts,
+    dataset: { profile: { describedRunId: "exec-1", briefingMarkdown: "# Data Inventory\n- Data." } },
+  });
+  assert.equal(validation.status, "validated");
+  assert.equal(validation.resultStatus, "completed");
+  assert.equal(validation.resultBlocker, null);
+});
+
+test("simple maintain validator surfaces live non-writable mount blocker", () => {
+  const artifacts = [
+    { title: "work.md", content: { path: "/results/exec-new/work.md", text: "work" } },
+    { title: "report.html", content: { path: "/results/exec-new/report.html", text: "<html></html>" } },
+    { title: "dataset_briefing.md", content: { path: "/results/exec-new/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    {
+      title: "improvement_result.json",
+      type: "structured_result",
+      content: {
+        status: "blocked",
+        blocker: "dataset_dir_not_writable",
+        datasetDir: "/data/datasets/econ",
+        runId: "exec-new",
+        path: "improvement_result.json",
+        mimeType: "application/json; charset=utf-8",
+      },
+    },
+  ];
+  const validation = classifySimpleMaintenance({
+    executionId: "exec-new",
+    execution: { status: "ready" },
+    artifacts,
+    dataset: { profile: { describedRunId: "exec-old", briefingMarkdown: "# Data Inventory\n- Data." } },
+  });
+  assert.equal(validation.status, "blocked");
+  assert.equal(validation.resultStatus, "blocked");
+  assert.equal(validation.resultBlocker, "dataset_dir_not_writable");
+  assert.ok(validation.blockers.includes("improvement result is blocked: dataset_dir_not_writable"));
+  assert.ok(validation.blockers.includes("profile run id exec-old does not match execution exec-new"));
 });
 
 test("simple maintain dry-run emits one command contract", () => {

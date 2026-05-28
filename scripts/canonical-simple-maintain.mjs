@@ -115,28 +115,32 @@ export function hasArtifact(artifacts, requiredPath) {
   return artifacts.some((artifact) => artifactCandidates(artifact).some((candidate) => candidate === requiredPath || candidate.endsWith(`/${requiredPath}`)));
 }
 
-function artifactText(artifacts, requiredPath) {
+function artifactPayload(artifacts, requiredPath) {
   const artifact = artifacts.find((candidate) => artifactCandidates(candidate).some((name) => name === requiredPath || name.endsWith(`/${requiredPath}`)));
   const content = artifact?.content;
+  if (content && typeof content === "object" && typeof content.text !== "string") return content;
   if (typeof content === "string") return content;
   if (content && typeof content === "object" && typeof content.text === "string") return content.text;
-  return "";
+  return null;
 }
 
 export function classifySimpleMaintenance({ execution, artifacts, dataset, executionId }) {
   const status = execution?.status ?? "unknown";
   const missingArtifacts = artifactSpec.map((artifact) => artifact.path).filter((path) => !hasArtifact(artifacts, path));
-  const resultText = artifactText(artifacts, "improvement_result.json");
+  const resultPayload = artifactPayload(artifacts, "improvement_result.json");
   let resultStatus = null;
   let resultBlocker = null;
-  if (resultText.trim()) {
+  if (typeof resultPayload === "string" && resultPayload.trim()) {
     try {
-      const parsed = JSON.parse(resultText);
+      const parsed = JSON.parse(resultPayload);
       resultStatus = parsed.status ?? null;
       resultBlocker = parsed.blocker ?? null;
     } catch {
       resultStatus = "invalid_json";
     }
+  } else if (resultPayload && typeof resultPayload === "object") {
+    resultStatus = resultPayload.status ?? null;
+    resultBlocker = resultPayload.blocker ?? null;
   }
   const profile = dataset?.profile ?? null;
   const quality = profile?.profile?.quality ?? profile?.quality ?? {};

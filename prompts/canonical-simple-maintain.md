@@ -36,16 +36,17 @@ Then prove whether the dataset folder is writable:
 
 ```bash
 if [ ! -d "$DATASET_DIR" ]; then
-  printf '{"status":"blocked","blocker":"dataset_dir_missing","datasetDir":"%s","runId":"%s"}\n' "$DATASET_DIR" "$RUN_ID" > improvement_result.json
+  node -e 'const fs=require("fs"), cp=require("child_process"); const datasetDir=process.env.DATASET_DIR, runId=process.env.RUN_ID; const sh=(cmd)=>{try{return cp.execSync(cmd,{encoding:"utf8",stdio:["ignore","pipe","pipe"]}).trim()}catch(e){return `${e.stdout||""}${e.stderr||""}`.trim() || `exit ${e.status ?? "unknown"}`}}; fs.writeFileSync("improvement_result.json", JSON.stringify({status:"blocked",blocker:"dataset_dir_missing",datasetDir,runId,diagnostics:{whoami:sh("whoami"),id:sh("id"),paths:sh(`ls -ld /data /data/datasets ${JSON.stringify(datasetDir)} 2>&1`),mounts:sh("mount | grep -E \" /data|datasets|modal\" || true"),hint:"dataset-improvement with datasetAccess=write-version should mount a writable canonical dataset directory"}}, null, 2)+"\n")'
   cp improvement_result.json "$ARTIFACT_DIR"/
   exit 0
 fi
 
-if ! touch "$DATASET_DIR/.write_test_$RUN_ID" 2>/dev/null; then
+WRITE_TEST_ERROR="$(touch "$DATASET_DIR/.write_test_$RUN_ID" 2>&1 >/dev/null || true)"
+if [ -n "$WRITE_TEST_ERROR" ]; then
   if [ -f "$DATASET_DIR/dataset_briefing.md" ]; then cp "$DATASET_DIR/dataset_briefing.md" dataset_briefing.md; fi
   if [ ! -f dataset_briefing.md ] && [ -f ./dataset/dataset_briefing.md ]; then cp ./dataset/dataset_briefing.md dataset_briefing.md; fi
   if [ ! -f dataset_briefing.md ]; then printf '# Data Inventory\n- No briefing could be recovered because the dataset directory was not writable and no existing briefing was found.\n' > dataset_briefing.md; fi
-  printf '{"status":"blocked","blocker":"dataset_dir_not_writable","datasetDir":"%s","runId":"%s"}\n' "$DATASET_DIR" "$RUN_ID" > improvement_result.json
+  WRITE_TEST_ERROR="$WRITE_TEST_ERROR" node -e 'const fs=require("fs"), cp=require("child_process"); const datasetDir=process.env.DATASET_DIR, runId=process.env.RUN_ID; const sh=(cmd)=>{try{return cp.execSync(cmd,{encoding:"utf8",stdio:["ignore","pipe","pipe"]}).trim()}catch(e){return `${e.stdout||""}${e.stderr||""}`.trim() || `exit ${e.status ?? "unknown"}`}}; fs.writeFileSync("improvement_result.json", JSON.stringify({status:"blocked",blocker:"dataset_dir_not_writable",datasetDir,runId,diagnostics:{writeTestError:process.env.WRITE_TEST_ERROR,whoami:sh("whoami"),id:sh("id"),paths:sh(`ls -ld /data /data/datasets ${JSON.stringify(datasetDir)} 2>&1`),mounts:sh("mount | grep -E \" /data|datasets|modal\" || true"),hint:"backend should honor kind=dataset-improvement plus datasetAccess=write-version with a writable Modal volume mount"}}, null, 2)+"\n")'
   cp dataset_briefing.md improvement_result.json "$ARTIFACT_DIR"/
   exit 0
 fi
@@ -63,7 +64,7 @@ Do not continue if the dataset directory is missing or not writable. The blocked
 5. Walk `$DATASET_DIR` and rewrite `$DATASET_DIR/dataset_briefing.md` as a literal inventory of data actually on disk.
 6. Copy `$DATASET_DIR/dataset_briefing.md` to `./dataset_briefing.md` and `$ARTIFACT_DIR/dataset_briefing.md`.
 7. Write `improvement_result.json` in the current directory and `$ARTIFACT_DIR`.
-8. Update the CLI-visible dataset profile from the exact briefing body when credentials/session are available.
+8. Update the CLI-visible dataset profile from the exact briefing body and read it back. Completion requires readback to show this run id in the profile proof; if profile update or readback is unavailable, write `improvement_result.json` with `status: "blocked"` and the exact non-secret blocker.
 
 ## Briefing Rules
 
