@@ -632,6 +632,7 @@ test("simple maintain prompt uses explicit dataset and artifact directories", ()
     "DATASET_DIR=\"${DATASET_DIR:-/data/datasets/econ}\"",
     "ARTIFACT_DIR=\"${ARTIFACT_DIR:-/results/$RUN_ID}\"",
     "Do not continue if the dataset directory is missing or not writable.",
+    "DATASET_DIR=\"$DATASET_DIR\" RUN_ID=\"$RUN_ID\"",
     "WRITE_TEST_ERROR=",
     "dataset_dir_not_writable",
     "kind=dataset-improvement plus datasetAccess=write-version",

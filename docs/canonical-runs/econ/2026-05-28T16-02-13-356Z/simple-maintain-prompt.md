@@ -1,4 +1,4 @@
-# Maintain Canonical Dataset: {datasetName} (`{datasetId}`)
+# Maintain Canonical Dataset: Econ (`econ`)
 
 You are maintaining one canonical dataset folder. Keep this simple.
 
@@ -13,7 +13,7 @@ if [ -z "$RUN_ID" ] && [ -f run_config.json ]; then
 fi
 if [ -z "$RUN_ID" ]; then RUN_ID="$(basename "$PWD")"; fi
 
-DATASET_DIR="${DATASET_DIR:-/data/datasets/{datasetId}}"
+DATASET_DIR="${DATASET_DIR:-/data/datasets/econ}"
 if [ ! -d "$DATASET_DIR" ] && [ -d ./dataset ]; then DATASET_DIR="$PWD/dataset"; fi
 
 ARTIFACT_DIR="${ARTIFACT_DIR:-/results/$RUN_ID}"
@@ -27,7 +27,7 @@ Write dataset data only under `$DATASET_DIR`. Write execution deliverables to bo
 Before any planning, create and export runtime files:
 
 ```bash
-printf '# Work Log\n\nStarted canonical simple maintenance for {datasetId}.\n' > work.md
+printf '# Work Log\n\nStarted canonical simple maintenance for econ.\n' > work.md
 printf '<!doctype html><title>Canonical maintenance</title><h1>Canonical maintenance started</h1>\n' > report.html
 cp work.md report.html "$ARTIFACT_DIR"/
 ```
@@ -36,7 +36,7 @@ Then prove whether the dataset folder is writable:
 
 ```bash
 if [ ! -d "$DATASET_DIR" ]; then
-  DATASET_DIR="$DATASET_DIR" RUN_ID="$RUN_ID" node -e 'const fs=require("fs"), cp=require("child_process"); const datasetDir=process.env.DATASET_DIR, runId=process.env.RUN_ID; const sh=(cmd)=>{try{return cp.execSync(cmd,{encoding:"utf8",stdio:["ignore","pipe","pipe"]}).trim()}catch(e){return `${e.stdout||""}${e.stderr||""}`.trim() || `exit ${e.status ?? "unknown"}`}}; fs.writeFileSync("improvement_result.json", JSON.stringify({status:"blocked",blocker:"dataset_dir_missing",datasetDir,runId,diagnostics:{whoami:sh("whoami"),id:sh("id"),paths:sh(`ls -ld /data /data/datasets ${JSON.stringify(datasetDir)} 2>&1`),mounts:sh("mount | grep -E \" /data|datasets|modal\" || true"),hint:"dataset-improvement with datasetAccess=write-version should mount a writable canonical dataset directory"}}, null, 2)+"\n")'
+  node -e 'const fs=require("fs"), cp=require("child_process"); const datasetDir=process.env.DATASET_DIR, runId=process.env.RUN_ID; const sh=(cmd)=>{try{return cp.execSync(cmd,{encoding:"utf8",stdio:["ignore","pipe","pipe"]}).trim()}catch(e){return `${e.stdout||""}${e.stderr||""}`.trim() || `exit ${e.status ?? "unknown"}`}}; fs.writeFileSync("improvement_result.json", JSON.stringify({status:"blocked",blocker:"dataset_dir_missing",datasetDir,runId,diagnostics:{whoami:sh("whoami"),id:sh("id"),paths:sh(`ls -ld /data /data/datasets ${JSON.stringify(datasetDir)} 2>&1`),mounts:sh("mount | grep -E \" /data|datasets|modal\" || true"),hint:"dataset-improvement with datasetAccess=write-version should mount a writable canonical dataset directory"}}, null, 2)+"\n")'
   cp improvement_result.json "$ARTIFACT_DIR"/
   exit 0
 fi
@@ -46,7 +46,7 @@ if [ -n "$WRITE_TEST_ERROR" ]; then
   if [ -f "$DATASET_DIR/dataset_briefing.md" ]; then cp "$DATASET_DIR/dataset_briefing.md" dataset_briefing.md; fi
   if [ ! -f dataset_briefing.md ] && [ -f ./dataset/dataset_briefing.md ]; then cp ./dataset/dataset_briefing.md dataset_briefing.md; fi
   if [ ! -f dataset_briefing.md ]; then printf '# Data Inventory\n- No briefing could be recovered because the dataset directory was not writable and no existing briefing was found.\n' > dataset_briefing.md; fi
-  DATASET_DIR="$DATASET_DIR" RUN_ID="$RUN_ID" WRITE_TEST_ERROR="$WRITE_TEST_ERROR" node -e 'const fs=require("fs"), cp=require("child_process"); const datasetDir=process.env.DATASET_DIR, runId=process.env.RUN_ID; const sh=(cmd)=>{try{return cp.execSync(cmd,{encoding:"utf8",stdio:["ignore","pipe","pipe"]}).trim()}catch(e){return `${e.stdout||""}${e.stderr||""}`.trim() || `exit ${e.status ?? "unknown"}`}}; fs.writeFileSync("improvement_result.json", JSON.stringify({status:"blocked",blocker:"dataset_dir_not_writable",datasetDir,runId,diagnostics:{writeTestError:process.env.WRITE_TEST_ERROR,whoami:sh("whoami"),id:sh("id"),paths:sh(`ls -ld /data /data/datasets ${JSON.stringify(datasetDir)} 2>&1`),mounts:sh("mount | grep -E \" /data|datasets|modal\" || true"),hint:"backend should honor kind=dataset-improvement plus datasetAccess=write-version with a writable Modal volume mount"}}, null, 2)+"\n")'
+  WRITE_TEST_ERROR="$WRITE_TEST_ERROR" node -e 'const fs=require("fs"), cp=require("child_process"); const datasetDir=process.env.DATASET_DIR, runId=process.env.RUN_ID; const sh=(cmd)=>{try{return cp.execSync(cmd,{encoding:"utf8",stdio:["ignore","pipe","pipe"]}).trim()}catch(e){return `${e.stdout||""}${e.stderr||""}`.trim() || `exit ${e.status ?? "unknown"}`}}; fs.writeFileSync("improvement_result.json", JSON.stringify({status:"blocked",blocker:"dataset_dir_not_writable",datasetDir,runId,diagnostics:{writeTestError:process.env.WRITE_TEST_ERROR,whoami:sh("whoami"),id:sh("id"),paths:sh(`ls -ld /data /data/datasets ${JSON.stringify(datasetDir)} 2>&1`),mounts:sh("mount | grep -E \" /data|datasets|modal\" || true"),hint:"backend should honor kind=dataset-improvement plus datasetAccess=write-version with a writable Modal volume mount"}}, null, 2)+"\n")'
   cp dataset_briefing.md improvement_result.json "$ARTIFACT_DIR"/
   exit 0
 fi
@@ -58,7 +58,7 @@ Do not continue if the dataset directory is missing or not writable. The blocked
 ## Job
 
 1. Inspect `$DATASET_DIR`.
-2. Search the web for one small public raw dataset that improves `{datasetId}`.
+2. Search the web for one small public raw dataset that improves `econ`.
 3. Download provider-native raw files under `$DATASET_DIR/raw/<source>/`.
 4. Write provenance and inventory files under `$DATASET_DIR`.
 5. Walk `$DATASET_DIR` and rewrite `$DATASET_DIR/dataset_briefing.md` as a literal inventory of data actually on disk.
@@ -93,7 +93,7 @@ Return only:
 
 ```md
 status: completed|blocked
-dataset_id: {datasetId}
+dataset_id: econ
 run_id: <run id>
 dataset_dir: <dataset dir>
 artifact_dir: <artifact dir>
