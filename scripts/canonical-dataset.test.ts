@@ -629,7 +629,9 @@ test("single dataset improve dry-run targets admin remote Modal execution instea
 test("simple maintain prompt uses explicit dataset and artifact directories", () => {
   const prompt = renderSimpleMaintainPrompt({ datasetId: "econ", datasetName: "Econ" });
   for (const required of [
-    "DATASET_DIR=\"${DATASET_DIR:-/data/datasets/econ}\"",
+    "DATASET_DIR_CANDIDATES=\"${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/econ /data/datasets/econ ./dataset\"",
+    "DATASET_DIR=\"$(cd \"$candidate\" && pwd -P)\"",
+    "Prefer the platform mount path from `DATASET_MOUNT_PATH` or `/mnt/alpha-research/datasets/econ`",
     "ARTIFACT_DIR=\"${ARTIFACT_DIR:-/results/$RUN_ID}\"",
     "Do not continue if the dataset directory is missing or not writable.",
     "DATASET_DIR=\"$DATASET_DIR\" RUN_ID=\"$RUN_ID\"",
@@ -760,6 +762,8 @@ test("simple maintain dry-run emits one command contract", () => {
     assert.equal(parsed.kind, "dataset-improvement");
     assert.equal(parsed.resources.datasetAccess, "write-version");
     assert.equal(parsed.resources.storageMode, "modal-volume");
+    assert.equal(parsed.metadata.datasetDir, "/mnt/alpha-research/datasets/econ");
+    assert.deepEqual(parsed.metadata.datasetDirFallbacks, ["/data/datasets/econ", "./dataset"]);
     assert.equal(parsed.metadata.canonicalJobKind, "dataset-improvement");
     assert.equal(parsed.metadata.jobKind, "dataset-improvement");
     assert.equal(parsed.metadata.operation, "simple-maintenance");

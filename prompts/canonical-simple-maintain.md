@@ -13,14 +13,26 @@ if [ -z "$RUN_ID" ] && [ -f run_config.json ]; then
 fi
 if [ -z "$RUN_ID" ]; then RUN_ID="$(basename "$PWD")"; fi
 
-DATASET_DIR="${DATASET_DIR:-/data/datasets/{datasetId}}"
-if [ ! -d "$DATASET_DIR" ] && [ -d ./dataset ]; then DATASET_DIR="$PWD/dataset"; fi
+if [ -n "${DATASET_DIR:-}" ]; then
+  DATASET_DIR_CANDIDATES="$DATASET_DIR"
+else
+  DATASET_DIR_CANDIDATES="${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/{datasetId} /data/datasets/{datasetId} ./dataset"
+fi
+
+DATASET_DIR=""
+for candidate in $DATASET_DIR_CANDIDATES; do
+  if [ -d "$candidate" ]; then
+    DATASET_DIR="$(cd "$candidate" && pwd -P)"
+    break
+  fi
+done
+if [ -z "$DATASET_DIR" ]; then DATASET_DIR="${DATASET_MOUNT_PATH:-/mnt/alpha-research/datasets/{datasetId}}"; fi
 
 ARTIFACT_DIR="${ARTIFACT_DIR:-/results/$RUN_ID}"
 mkdir -p "$ARTIFACT_DIR"
 ```
 
-Write dataset data only under `$DATASET_DIR`. Write execution deliverables to both the current working directory and `$ARTIFACT_DIR`.
+Write dataset data only under `$DATASET_DIR`. Prefer the platform mount path from `DATASET_MOUNT_PATH` or `/mnt/alpha-research/datasets/{datasetId}`; use `/data/datasets/{datasetId}` only if it is the available writable canonical mount. Write execution deliverables to both the current working directory and `$ARTIFACT_DIR`.
 
 ## Required First Step
 
