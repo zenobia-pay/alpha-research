@@ -30,6 +30,10 @@ import {
   summarizeDatasetExpansion,
 } from "./dataset-expansion.mjs";
 
+function escapeRegExp(value: string) {
+  return value.replace(new RegExp("[\\\\^$.*+?()[\\]{}|]", "gu"), "\\$&");
+}
+
 test("canonical dataset args require create contract", () => {
   assert.deepEqual(parseArgs([
     "create",
@@ -634,7 +638,7 @@ test("dataset expansion prompt uses explicit dataset and artifact directories", 
     "ARTIFACT_DIR=\"${ARTIFACT_DIR:-/results/$RUN_ID}\"",
     "Started dataset expansion for econ.",
     "Do not search alternative dataset directories.",
-    "For `econ`, prefer broad, authoritative economics data",
+    "Prefer broad, authoritative economics data",
     "\"expansionSummary\"",
     "\"actualNewDatasetAdded\"",
     "\"briefingChanges\"",
@@ -648,6 +652,17 @@ test("dataset expansion prompt uses explicit dataset and artifact directories", 
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }
   assert.doesNotMatch(prompt, /DATASET_DIR_CANDIDATES|\/data\/datasets|\s\.\/dataset(?:\s|$)/u);
+});
+
+test("dataset expansion has one prompt file per canonical dataset", () => {
+  for (const dataset of CANONICAL_DATASETS) {
+    const prompt = renderDatasetExpansionPrompt({ datasetId: dataset.id, datasetName: dataset.name });
+    assert.match(prompt, new RegExp("# Expand Dataset: " + escapeRegExp(dataset.name) + " \\(`" + escapeRegExp(dataset.id) + "`\\)", "u"));
+    assert.match(prompt, new RegExp("Started dataset expansion for " + escapeRegExp(dataset.id), "u"));
+    assert.ok(prompt.includes('send_slack_lifecycle started "Dataset expansion run started."'));
+  }
+  const historyPrompt = renderDatasetExpansionPrompt({ datasetId: "history", datasetName: "History" });
+  assert.doesNotMatch(historyPrompt, /economics researchers|macroeconomic indicators|monetary policy|For `econ`/u);
 });
 
 test("dataset expansion validator requires artifacts, completed result, and matching profile", () => {

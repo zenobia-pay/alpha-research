@@ -1,6 +1,6 @@
-# Expand Dataset: {datasetName} (`{datasetId}`)
+# Expand Dataset: Literature (`literature`)
 
-You are expanding one canonical public dataset folder. The goal is to get all of the data relevant to economics into durable canonical storage over repeated runs. Prioritize full, raw, provider-native datasets that are useful and comprehensive for economics researchers: macroeconomic indicators, prices and inflation, labor markets, income, banking and credit, housing, business formation, trade, public finance, monetary policy, firm dynamics, household microdata, and other broad economic evidence. Prefer authoritative public sources, complete bulk downloads, clear provenance, and files that preserve the provider's original structure. Do not create derived analysis tables as canonical artifacts.
+You are expanding the Literature (`literature`) canonical public dataset folder. Scope: Literature: public-domain texts, bibliographic metadata, editions, authorship records, genre metadata, translations, and text corpora for literary research. The goal is to get all durable public raw data relevant to this field into canonical storage over repeated runs. Prioritize full, raw, provider-native datasets, archives, metadata exports, APIs, corpora, and source packages that are useful and comprehensive for researchers in this field. Prefer authoritative public sources, complete bulk downloads, clear provenance, and files that preserve the provider's original structure. Do not create derived analysis tables as canonical artifacts.
 
 ## Runtime Setup
 
@@ -16,7 +16,7 @@ if [ -z "$RUN_ID" ]; then RUN_ID="$(basename "$PWD")"; fi
 DATASET_DIR="${DATASET_DIR:-${DATASET_MOUNT_PATH:-}}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-/results/$RUN_ID}"
 mkdir -p "$ARTIFACT_DIR"
-printf '# Work Log\n\nStarted dataset expansion for {datasetId}.\n' > work.md
+printf '# Work Log\n\nStarted dataset expansion for literature.\n' > work.md
 printf '<!doctype html><title>Dataset expansion</title><h1>Dataset expansion started</h1>\n' > report.html
 touch slack_download_alerts.jsonl
 printf '# Slack Briefing\n\n' > slack_briefing.md
@@ -27,7 +27,7 @@ const fs = require("fs");
 const payload = {
   event_type: "dataset_expansion_lifecycle",
   checkpoint: process.env.CHECKPOINT,
-  dataset_id: "{datasetId}",
+  dataset_id: "literature",
   run_id: process.env.RUN_ID,
   summary: process.env.SUMMARY,
   delivery_at: new Date().toISOString(),
@@ -42,7 +42,7 @@ async function main() {
     const response = await fetch(webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: `[dataset-expansion] {datasetId} ${payload.checkpoint}: ${payload.summary}` }),
+      body: JSON.stringify({ text: `[dataset-expansion] literature ${payload.checkpoint}: ${payload.summary}` }),
     });
     fs.appendFileSync("slack_download_alerts.jsonl", `${JSON.stringify({ ...payload, delivery_status: response.ok ? "sent" : "failed", http_status: response.status })}\n`);
   } catch (error) {
@@ -64,7 +64,7 @@ If `$DATASET_DIR` is empty, missing, or not writable, write `improvement_result.
 ## Job
 
 1. Inspect `$DATASET_DIR`, especially existing raw files, inventories, manifest files, source registry files, and `dataset_briefing.md`.
-2. Find and download one high-value public raw dataset that materially expands `{datasetId}`. For `econ`, prefer broad, authoritative economics data over small samples or blocked/partial attempts.
+2. Find and download one high-value public raw dataset that materially expands `literature`.
 3. Store provider-native files under `$DATASET_DIR/raw/<source>/`.
 4. Update provenance, download inventory, raw inventory, manifest, and source registry files under `$DATASET_DIR` when those files exist.
 5. Rewrite `$DATASET_DIR/dataset_briefing.md` as a literal inventory of data actually on disk, then copy it to `./dataset_briefing.md` and `$ARTIFACT_DIR/dataset_briefing.md`.
@@ -91,7 +91,7 @@ Write `improvement_result.json` in the current directory and `$ARTIFACT_DIR`. It
 {
   "status": "completed",
   "blocker": null,
-  "datasetId": "{datasetId}",
+  "datasetId": "literature",
   "runId": "<run id>",
   "datasetDir": "<dataset dir>",
   "artifactDir": "<artifact dir>",
@@ -137,7 +137,7 @@ Return only:
 
 ```md
 status: completed|blocked
-dataset_id: {datasetId}
+dataset_id: literature
 run_id: <run id>
 dataset_dir: <dataset dir>
 artifact_dir: <artifact dir>

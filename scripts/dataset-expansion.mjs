@@ -95,7 +95,9 @@ async function adminGet(path, origin = defaultOrigin) {
 }
 
 export function renderPrompt({ datasetId, datasetName }) {
-  const template = readFileSync(new URL("../prompts/dataset-expansion.md", import.meta.url), "utf8");
+  const promptUrl = new URL(`../prompts/dataset-expansion/${datasetId}.md`, import.meta.url);
+  assert(existsSync(promptUrl), `Missing dataset expansion prompt for ${datasetId}: prompts/dataset-expansion/${datasetId}.md`);
+  const template = readFileSync(promptUrl, "utf8");
   return template.replaceAll("{datasetId}", datasetId).replaceAll("{datasetName}", datasetName);
 }
 
