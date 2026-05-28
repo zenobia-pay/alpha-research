@@ -528,7 +528,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
     };
     const commands = [
       ["node", ["scripts/start-canonical-dataset-improvement-jobs.mjs", "--dry-run"]],
-      ["node", ["scripts/start-canonical-dataset-expansion-jobs.mjs", "--dry-run"]],
+      ["node", ["scripts/start-dataset-expansion-jobs.mjs", "--dry-run"]],
       ["node", ["scripts/start-canonical-public-dataset-refresh-jobs.mjs", "--dry-run"]],
     ] as const;
 
@@ -567,7 +567,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
         assert.ok(historyRefresh?.runtimeArtifacts?.includes("report.html"));
         assert.ok(historyRefresh?.runtimeArtifacts?.includes("work.md"));
       }
-      if (args[0] === "scripts/start-canonical-dataset-expansion-jobs.mjs") {
+      if (args[0] === "scripts/start-dataset-expansion-jobs.mjs") {
         const historyExpansion = parsed.results.find((result) => result.datasetId === "history");
         assert.equal(historyExpansion?.operation, "dataset-expansion");
         assert.ok(historyExpansion?.artifacts?.includes("slack_download_alerts.jsonl"));
