@@ -638,8 +638,12 @@ test("dataset expansion prompt uses explicit dataset and artifact directories", 
     "\"expansionSummary\"",
     "\"actualNewDatasetAdded\"",
     "\"briefingChanges\"",
+    "\"slackLifecycleMessages\"",
+    "send_slack_lifecycle started \"Dataset expansion run started.\"",
+    "send_slack_lifecycle finished",
+    "CANONICAL_DATASET_SLACK_WEBHOOK_URL",
     "Completion requires readback to show this run id in the profile proof",
-    "ls -l \"$ARTIFACT_DIR/work.md\" \"$ARTIFACT_DIR/report.html\" \"$ARTIFACT_DIR/dataset_briefing.md\" \"$ARTIFACT_DIR/improvement_result.json\"",
+    "ls -l \"$ARTIFACT_DIR/work.md\" \"$ARTIFACT_DIR/report.html\" \"$ARTIFACT_DIR/dataset_briefing.md\" \"$ARTIFACT_DIR/slack_download_alerts.jsonl\" \"$ARTIFACT_DIR/slack_briefing.md\" \"$ARTIFACT_DIR/improvement_result.json\"",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }
@@ -651,6 +655,8 @@ test("dataset expansion validator requires artifacts, completed result, and matc
     { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-1/report.html", text: "<html></html>" } },
     { title: "dataset_briefing.md", content: { path: "/results/exec-1/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    { title: "slack_download_alerts.jsonl", content: { path: "/results/exec-1/slack_download_alerts.jsonl", text: "{}\n" } },
+    { title: "slack_briefing.md", content: { path: "/results/exec-1/slack_briefing.md", text: "# Slack Briefing\n" } },
     {
       title: "improvement_result.json",
       content: {
@@ -668,6 +674,10 @@ test("dataset expansion validator requires artifacts, completed result, and matc
             caveat: "none",
           },
           briefingChanges: ["- Data."],
+          slackLifecycleMessages: [
+            { checkpoint: "started", delivery_status: "sent", summary: "Dataset expansion run started." },
+            { checkpoint: "finished", delivery_status: "sent", summary: "Data; raw/source/data.csv; 1 row; 2026" },
+          ],
         }),
       },
     },
@@ -726,6 +736,10 @@ test("dataset expansion summary surfaces added dataset and briefing changes", ()
         briefingChanges: [
           "- raw/census_bfs/bfs_us_apps_weekly_nsa.csv: Census Business Formation Statistics national business applications weekly file.",
         ],
+        slackLifecycleMessages: [
+          { checkpoint: "started", delivery_status: "sent", summary: "Dataset expansion run started." },
+          { checkpoint: "finished", delivery_status: "sent", summary: "Census Business Formation Statistics weekly national NSA CSV; raw/census_bfs/bfs_us_apps_weekly_nsa.csv; 1,060 weekly observations; 2006-W01 through 2026-W17" },
+        ],
       },
     },
   ];
@@ -754,6 +768,8 @@ test("dataset expansion validator blocks missing structured expansion summary", 
     { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-1/report.html", text: "<html></html>" } },
     { title: "dataset_briefing.md", content: { path: "/results/exec-1/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    { title: "slack_download_alerts.jsonl", content: { path: "/results/exec-1/slack_download_alerts.jsonl", text: "{}\n" } },
+    { title: "slack_briefing.md", content: { path: "/results/exec-1/slack_briefing.md", text: "# Slack Briefing\n" } },
     {
       title: "improvement_result.json",
       type: "structured_result",
@@ -779,6 +795,8 @@ test("dataset expansion validator accepts structured result object artifacts", (
     { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-1/report.html", text: "<html></html>" } },
     { title: "dataset_briefing.md", content: { path: "/results/exec-1/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    { title: "slack_download_alerts.jsonl", content: { path: "/results/exec-1/slack_download_alerts.jsonl", text: "{}\n" } },
+    { title: "slack_briefing.md", content: { path: "/results/exec-1/slack_briefing.md", text: "# Slack Briefing\n" } },
     {
       title: "improvement_result.json",
       type: "structured_result",
@@ -797,6 +815,10 @@ test("dataset expansion validator accepts structured result object artifacts", (
           caveat: "none",
         },
         briefingChanges: ["- Data."],
+        slackLifecycleMessages: [
+          { checkpoint: "started", delivery_status: "sent", summary: "Dataset expansion run started." },
+          { checkpoint: "finished", delivery_status: "sent", summary: "Data; raw/source/data.csv; 1 row; 2026" },
+        ],
       },
     },
   ];
@@ -816,6 +838,8 @@ test("dataset expansion validator surfaces live non-writable mount blocker", () 
     { title: "work.md", content: { path: "/results/exec-new/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-new/report.html", text: "<html></html>" } },
     { title: "dataset_briefing.md", content: { path: "/results/exec-new/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    { title: "slack_download_alerts.jsonl", content: { path: "/results/exec-new/slack_download_alerts.jsonl", text: "{}\n" } },
+    { title: "slack_briefing.md", content: { path: "/results/exec-new/slack_briefing.md", text: "# Slack Briefing\n" } },
     {
       title: "improvement_result.json",
       type: "structured_result",
@@ -847,6 +871,8 @@ test("dataset expansion validator accepts backend profile sync after worker prof
     { title: "work.md", content: { path: "/results/exec-new/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-new/report.html", text: "<html></html>" } },
     { title: "dataset_briefing.md", content: { path: "/results/exec-new/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    { title: "slack_download_alerts.jsonl", content: { path: "/results/exec-new/slack_download_alerts.jsonl", text: "{}\n" } },
+    { title: "slack_briefing.md", content: { path: "/results/exec-new/slack_briefing.md", text: "# Slack Briefing\n" } },
     {
       title: "improvement_result.json",
       type: "structured_result",
@@ -921,6 +947,8 @@ test("dataset expansion dry-run emits one command contract", () => {
       "work.md",
       "report.html",
       "dataset_briefing.md",
+      "slack_download_alerts.jsonl",
+      "slack_briefing.md",
       "improvement_result.json",
     ]);
   } finally {

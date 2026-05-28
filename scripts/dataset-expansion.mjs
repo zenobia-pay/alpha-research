@@ -27,6 +27,8 @@ const artifactSpec = [
   { type: "file", title: "work.md", path: "work.md" },
   { type: "file", title: "report.html", path: "report.html" },
   { type: "file", title: "dataset_briefing.md", path: "dataset_briefing.md" },
+  { type: "file", title: "slack_download_alerts.jsonl", path: "slack_download_alerts.jsonl" },
+  { type: "file", title: "slack_briefing.md", path: "slack_briefing.md" },
   { type: "structured_result", title: "improvement_result.json", path: "improvement_result.json" },
 ];
 
@@ -181,6 +183,9 @@ function validateExpansionResult(resultPayload) {
   if (!Array.isArray(resultPayload?.briefingChanges) || resultPayload.briefingChanges.length === 0) {
     blockers.push("missing briefingChanges");
   }
+  if (!Array.isArray(resultPayload?.slackLifecycleMessages) || resultPayload.slackLifecycleMessages.length < 2) {
+    blockers.push("missing slackLifecycleMessages start and finish records");
+  }
   return blockers;
 }
 
@@ -275,6 +280,7 @@ async function main() {
       datasetName,
       writesDatasetBriefing: true,
       syncsDocsFromBriefing: true,
+      sendsSlackLifecycleAlerts: true,
       requiresVolumeInventory: true,
       datasetDir: `/mnt/alpha-research/datasets/${datasetId}`,
       artifactContract: "work-report-briefing-result",
