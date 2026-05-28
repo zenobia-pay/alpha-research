@@ -126,13 +126,6 @@ function artifactPayload(artifacts, requiredPath) {
   return null;
 }
 
-function artifactText(artifacts, requiredPath) {
-  const payload = artifactPayload(artifacts, requiredPath);
-  if (typeof payload === "string") return payload;
-  if (payload && typeof payload === "object" && typeof payload.text === "string") return payload.text;
-  return "";
-}
-
 function parseResultPayload(payload) {
   if (typeof payload === "string" && payload.trim()) {
     try {
@@ -151,39 +144,17 @@ function normalizeList(value) {
   return [];
 }
 
-function workLogAddedPaths(workLog) {
-  const paths = [];
-  for (const match of workLog.matchAll(/(?:under|at)\s+`([^`]+)`/gu)) {
-    if (match[1]?.startsWith("raw/")) paths.push(match[1]);
-  }
-  return [...new Set(paths)];
-}
-
-function briefingBulletsForPaths(briefing, paths) {
-  if (paths.length === 0) return [];
-  return briefing
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("- "))
-    .filter((line) => paths.some((path) => line.includes(path)));
-}
-
 export function summarizeDatasetExpansion({ artifacts, executionId, validation }) {
   const result = parseResultPayload(artifactPayload(artifacts, "improvement_result.json"));
-  const workLog = artifactText(artifacts, "work.md");
-  const briefing = artifactText(artifacts, "dataset_briefing.md");
   const expansion = result.expansionSummary && typeof result.expansionSummary === "object" ? result.expansionSummary : {};
-  const pathsAdded = normalizeList(expansion.pathAdded ?? expansion.pathsAdded ?? expansion.rawPath).concat(workLogAddedPaths(workLog));
-  const uniquePathsAdded = [...new Set(pathsAdded)];
-  const briefingChanges = normalizeList(result.briefingChanges ?? expansion.briefingChanges)
-    .concat(briefingBulletsForPaths(briefing, uniquePathsAdded));
-  const uniqueBriefingChanges = [...new Set(briefingChanges)];
+  const pathsAdded = normalizeList(expansion.pathAdded ?? expansion.pathsAdded ?? expansion.rawPath);
+  const briefingChanges = normalizeList(result.briefingChanges);
   const statusValue = [result.status, validation?.status].filter(Boolean).join(" / ") || "unknown";
   const summaryTable = [
     ["run id", result.runId ?? executionId],
     ["status", statusValue],
     ["actual new dataset added", expansion.actualNewDatasetAdded ?? expansion.datasetAdded ?? null],
-    ["path added", uniquePathsAdded.join(", ") || null],
+    ["path added", pathsAdded.join(", ") || null],
     ["source", expansion.source ?? null],
     ["coverage", expansion.coverage ?? null],
     ["geography", expansion.geography ?? null],
@@ -193,8 +164,24 @@ export function summarizeDatasetExpansion({ artifacts, executionId, validation }
   ].map(([item, value]) => ({ item, value: value ?? "unknown" }));
   return {
     summaryTable,
-    briefingChanges: uniqueBriefingChanges,
+    briefingChanges,
   };
+}
+
+function validateExpansionResult(resultPayload) {
+  const blockers = [];
+  const expansion = resultPayload?.expansionSummary;
+  if (!expansion || typeof expansion !== "object") {
+    blockers.push("missing expansionSummary");
+  } else {
+    for (const field of ["actualNewDatasetAdded", "pathAdded", "source", "coverage", "geography", "records", "fields", "caveat"]) {
+      if (typeof expansion[field] !== "string" || !expansion[field].trim()) blockers.push(`missing expansionSummary.${field}`);
+    }
+  }
+  if (!Array.isArray(resultPayload?.briefingChanges) || resultPayload.briefingChanges.length === 0) {
+    blockers.push("missing briefingChanges");
+  }
+  return blockers;
 }
 
 export function classifyDatasetExpansion({ execution, artifacts, dataset, executionId }) {
@@ -217,6 +204,7 @@ export function classifyDatasetExpansion({ execution, artifacts, dataset, execut
   if (!["ready", "completed"].includes(status)) blockers.push(`remote execution status ${status}`);
   if (missingArtifacts.length > 0) blockers.push(`missing required artifacts: ${missingArtifacts.join(", ")}`);
   if (!resultCompleted) blockers.push(`improvement result is ${resultStatus ?? "missing"}${resultBlocker ? `: ${resultBlocker}` : ""}`);
+  if (resultStatus === "completed") blockers.push(...validateExpansionResult(resultPayload));
   if (!profileSynced) blockers.push(`profile run id ${profileRunId ?? "missing"} does not match execution ${executionId}`);
   return {
     status: blockers.length === 0 ? "validated" : "blocked",
@@ -289,7 +277,6 @@ async function main() {
       syncsDocsFromBriefing: true,
       requiresVolumeInventory: true,
       datasetDir: `/mnt/alpha-research/datasets/${datasetId}`,
-      datasetDirFallbacks: [`/data/datasets/${datasetId}`, "./dataset"],
       artifactContract: "work-report-briefing-result",
       requiresWritableDatasetDir: true,
     },

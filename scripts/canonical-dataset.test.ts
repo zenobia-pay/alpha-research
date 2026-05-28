@@ -630,11 +630,10 @@ test("single dataset improve dry-run targets admin remote Modal execution instea
 test("dataset expansion prompt uses explicit dataset and artifact directories", () => {
   const prompt = renderDatasetExpansionPrompt({ datasetId: "econ", datasetName: "Econ" });
   for (const required of [
-    "DATASET_DIR_CANDIDATES=\"${DATASET_DIR:-} ${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/econ /data/datasets/econ ./dataset\"",
-    "DATASET_DIR=\"$(cd \"$candidate\" && pwd -P)\"",
+    "DATASET_DIR=\"${DATASET_DIR:-${DATASET_MOUNT_PATH:-}}\"",
     "ARTIFACT_DIR=\"${ARTIFACT_DIR:-/results/$RUN_ID}\"",
     "Started dataset expansion for econ.",
-    "If `$DATASET_DIR` is missing or not writable",
+    "Do not search alternative dataset directories.",
     "For `econ`, prefer broad, authoritative economics data",
     "\"expansionSummary\"",
     "\"actualNewDatasetAdded\"",
@@ -644,6 +643,7 @@ test("dataset expansion prompt uses explicit dataset and artifact directories", 
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
   }
+  assert.doesNotMatch(prompt, /DATASET_DIR_CANDIDATES|\/data\/datasets|\s\.\/dataset(?:\s|$)/u);
 });
 
 test("dataset expansion validator requires artifacts, completed result, and matching profile", () => {
@@ -651,7 +651,26 @@ test("dataset expansion validator requires artifacts, completed result, and matc
     { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
     { title: "report.html", content: { path: "/results/exec-1/report.html", text: "<html></html>" } },
     { title: "dataset_briefing.md", content: { path: "/results/exec-1/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
-    { title: "improvement_result.json", content: { path: "/results/exec-1/improvement_result.json", text: "{\"status\":\"completed\"}" } },
+    {
+      title: "improvement_result.json",
+      content: {
+        path: "/results/exec-1/improvement_result.json",
+        text: JSON.stringify({
+          status: "completed",
+          expansionSummary: {
+            actualNewDatasetAdded: "Data",
+            pathAdded: "raw/source/data.csv",
+            source: "Source",
+            coverage: "2026",
+            geography: "United States",
+            records: "1 row",
+            fields: "value",
+            caveat: "none",
+          },
+          briefingChanges: ["- Data."],
+        }),
+      },
+    },
   ];
   assert.equal(hasDatasetExpansionArtifact(artifacts, "dataset_briefing.md"), true);
   const validated = classifyDatasetExpansion({
@@ -730,6 +749,31 @@ test("dataset expansion summary surfaces added dataset and briefing changes", ()
   assert.ok(summary.briefingChanges.some((change) => change.includes("raw/census_bfs/bfs_us_apps_weekly_nsa.csv")));
 });
 
+test("dataset expansion validator blocks missing structured expansion summary", () => {
+  const artifacts = [
+    { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
+    { title: "report.html", content: { path: "/results/exec-1/report.html", text: "<html></html>" } },
+    { title: "dataset_briefing.md", content: { path: "/results/exec-1/dataset_briefing.md", text: "# Data Inventory\n- Data." } },
+    {
+      title: "improvement_result.json",
+      type: "structured_result",
+      content: {
+        status: "completed",
+        runId: "exec-1",
+      },
+    },
+  ];
+  const validation = classifyDatasetExpansion({
+    executionId: "exec-1",
+    execution: { status: "ready" },
+    artifacts,
+    dataset: { profile: { describedRunId: "exec-1", briefingMarkdown: "# Data Inventory\n- Data." } },
+  });
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.blockers.includes("missing expansionSummary"));
+  assert.ok(validation.blockers.includes("missing briefingChanges"));
+});
+
 test("dataset expansion validator accepts structured result object artifacts", () => {
   const artifacts = [
     { title: "work.md", content: { path: "/results/exec-1/work.md", text: "work" } },
@@ -742,6 +786,17 @@ test("dataset expansion validator accepts structured result object artifacts", (
         status: "completed",
         path: "improvement_result.json",
         mimeType: "application/json; charset=utf-8",
+        expansionSummary: {
+          actualNewDatasetAdded: "Data",
+          pathAdded: "raw/source/data.csv",
+          source: "Source",
+          coverage: "2026",
+          geography: "United States",
+          records: "1 row",
+          fields: "value",
+          caveat: "none",
+        },
+        briefingChanges: ["- Data."],
       },
     },
   ];
@@ -767,7 +822,7 @@ test("dataset expansion validator surfaces live non-writable mount blocker", () 
       content: {
         status: "blocked",
         blocker: "dataset_dir_not_writable",
-        datasetDir: "/data/datasets/econ",
+        datasetDir: "/mnt/alpha-research/datasets/econ",
         runId: "exec-new",
         path: "improvement_result.json",
         mimeType: "application/json; charset=utf-8",
@@ -856,7 +911,7 @@ test("dataset expansion dry-run emits one command contract", () => {
     assert.equal(parsed.resources.datasetAccess, "write-version");
     assert.equal(parsed.resources.storageMode, "modal-volume");
     assert.equal(parsed.metadata.datasetDir, "/mnt/alpha-research/datasets/econ");
-    assert.deepEqual(parsed.metadata.datasetDirFallbacks, ["/data/datasets/econ", "./dataset"]);
+    assert.equal(parsed.metadata.datasetDirFallbacks, undefined);
     assert.equal(parsed.metadata.canonicalJobKind, "dataset-improvement");
     assert.equal(parsed.metadata.jobKind, "dataset-improvement");
     assert.equal(parsed.metadata.operation, "dataset-expansion");

@@ -4,7 +4,7 @@ You are expanding one canonical public dataset folder. The goal is to get all of
 
 ## Runtime Setup
 
-Use this setup before planning:
+Use this setup before planning. `DATASET_DIR` or `DATASET_MOUNT_PATH` must already point at the writable canonical dataset mount.
 
 ```bash
 RUN_ID="${REMOTE_AGENT_EXECUTION_ID:-${RUN_ID:-}}"
@@ -13,13 +13,7 @@ if [ -z "$RUN_ID" ] && [ -f run_config.json ]; then
 fi
 if [ -z "$RUN_ID" ]; then RUN_ID="$(basename "$PWD")"; fi
 
-DATASET_DIR_CANDIDATES="${DATASET_DIR:-} ${DATASET_MOUNT_PATH:-} /mnt/alpha-research/datasets/{datasetId} /data/datasets/{datasetId} ./dataset"
-DATASET_DIR=""
-for candidate in $DATASET_DIR_CANDIDATES; do
-  if [ -d "$candidate" ]; then DATASET_DIR="$(cd "$candidate" && pwd -P)"; break; fi
-done
-if [ -z "$DATASET_DIR" ]; then DATASET_DIR="${DATASET_MOUNT_PATH:-/mnt/alpha-research/datasets/{datasetId}}"; fi
-
+DATASET_DIR="${DATASET_DIR:-${DATASET_MOUNT_PATH:-}}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-/results/$RUN_ID}"
 mkdir -p "$ARTIFACT_DIR"
 printf '# Work Log\n\nStarted dataset expansion for {datasetId}.\n' > work.md
@@ -27,7 +21,7 @@ printf '<!doctype html><title>Dataset expansion</title><h1>Dataset expansion sta
 cp work.md report.html "$ARTIFACT_DIR"/
 ```
 
-If `$DATASET_DIR` is missing or not writable, write `improvement_result.json` with `"status": "blocked"` and a non-secret `blocker`, copy any existing `dataset_briefing.md` you can read, copy required artifacts to `$ARTIFACT_DIR`, and stop.
+If `$DATASET_DIR` is empty, missing, or not writable, write `improvement_result.json` with `"status": "blocked"` and a non-secret `blocker`, copy any existing `dataset_briefing.md` you can read, copy required artifacts to `$ARTIFACT_DIR`, and stop. Do not search alternative dataset directories.
 
 ## Job
 
