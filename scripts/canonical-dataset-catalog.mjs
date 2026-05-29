@@ -80,19 +80,6 @@ export const CANONICAL_DATASETS = [
     ],
   },
   {
-    id: "art-history",
-    name: "Art History",
-    fieldBrief: "Art history: museum open collections, artwork/object metadata, artist authority files, image metadata, provenance records, vocabularies, and cultural-heritage aggregation sources.",
-    seedCandidates: [
-      "- Wikimedia Commons structured data dumps: https://commons.wikimedia.org/wiki/Commons:Database_download (active_fetchable)",
-      "- Getty vocabularies: https://www.getty.edu/research/tools/vocabularies/ (active_fetchable)",
-      "- Metropolitan Museum of Art Open Access: https://metmuseum.github.io/ (active_fetchable)",
-      "- Rijksmuseum API: https://data.rijksmuseum.nl/object-metadata/api/ (active_fetchable)",
-      "- Art Institute of Chicago API: https://api.artic.edu/docs/ (active_fetchable)",
-      "- Europeana API and datasets: https://pro.europeana.eu/page/apis (active_fetchable)",
-    ],
-  },
-  {
     id: "musicology",
     name: "Musicology",
     fieldBrief: "Musicology: music bibliographic metadata, works and recordings, public-domain scores, performance metadata, authority records, audio collections, and music-history source catalogs.",
@@ -155,7 +142,6 @@ export const HUMANITIES_DATASET_IDS = [
   "philosophy",
   "religion",
   "classics",
-  "art-history",
   "musicology",
   "theater-performance",
   "linguistics",

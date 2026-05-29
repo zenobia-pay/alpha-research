@@ -215,25 +215,6 @@ Priority raw source families:
 - Keep archaeology and ancient-history overlap as source families unless a later split is justified.
 - Classify every source as `active_fetchable`, `deferred_fetchable`, `license_review`, `credential_required`, or `reject`.
 
-### Art History (`art-history`)
-
-Purpose: museum open collections, artwork/object metadata, artist authority files, image metadata, provenance records, vocabularies, and cultural-heritage aggregation sources.
-
-Initial active/deferred source registry:
-
-- Wikimedia Commons structured data dumps: https://commons.wikimedia.org/wiki/Commons:Database_download (active_fetchable)
-- Getty vocabularies: https://www.getty.edu/research/tools/vocabularies/ (active_fetchable)
-- Metropolitan Museum of Art Open Access: https://metmuseum.github.io/ (active_fetchable)
-- Rijksmuseum API: https://data.rijksmuseum.nl/object-metadata/api/ (active_fetchable)
-- Art Institute of Chicago API: https://api.artic.edu/docs/ (active_fetchable)
-- Europeana API and datasets: https://pro.europeana.eu/page/apis (active_fetchable)
-
-Priority raw source families:
-
-- Preserve native museum object records, API payloads, image metadata, IIIF manifests where available, vocabularies, provenance fields, rights statements, and collection documentation.
-- Do not merge object, artist, place, or image records into a shared art-history entity graph inside the canonical package.
-- Classify every source as `active_fetchable`, `deferred_fetchable`, `license_review`, `credential_required`, or `reject`.
-
 ### Musicology (`musicology`)
 
 Purpose: music bibliographic metadata, works and recordings, public-domain scores, performance metadata, authority records, audio collections, and music-history source catalogs.

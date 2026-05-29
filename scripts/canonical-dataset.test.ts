@@ -61,7 +61,6 @@ test("humanities catalog defines stable college-major dataset slugs", () => {
     "philosophy",
     "religion",
     "classics",
-    "art-history",
     "musicology",
     "theater-performance",
     "linguistics",
