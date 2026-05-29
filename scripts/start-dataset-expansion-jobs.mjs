@@ -156,7 +156,12 @@ const liveDatasets = new Map((datasetsPayload.datasets ?? []).map((dataset) => [
 for (const dataset of canonicalDatasets) {
   const liveDataset = liveDatasets.get(dataset.id);
   if (!liveDataset) {
-    results.push({ datasetId: dataset.id, status: "skipped_missing_dataset" });
+    results.push({
+      datasetId: dataset.id,
+      status: "skipped_missing_dataset",
+      reason: "Cataloged canonical dataset has no remote dataset record yet; bootstrap it before expansion.",
+      bootstrapCommand: `npm run canonical:add -- --id ${dataset.id} --name "${dataset.name}" --prompt "<starter instructions>"`,
+    });
     continue;
   }
 

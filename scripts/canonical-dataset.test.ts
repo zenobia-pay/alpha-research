@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -82,6 +82,27 @@ test("canonical catalog entries include names, briefs, and seed sources", () => 
     assert.ok(dataset.seedCandidates.length >= 5, `${dataset.id} should have seed candidates`);
     for (const seed of dataset.seedCandidates) {
       assert.match(seed, /^- .+https?:\/\/.+ \((active_fetchable|deferred_fetchable|license_review|credential_required|reject)\)$/u);
+    }
+  }
+});
+
+test("dataset expansion prompts match canonical catalog one-to-one", async () => {
+  const catalogIds = CANONICAL_DATASETS.map((dataset) => dataset.id).sort();
+  const promptIds = (await readdir("prompts/dataset-expansion"))
+    .filter((file) => file.endsWith(".md"))
+    .map((file) => file.replace(/\.md$/u, ""))
+    .sort();
+  assert.deepEqual(promptIds, catalogIds);
+});
+
+test("only econ dataset expansion prompt contains economics-specific language", async () => {
+  const economicsPattern = /\b(economics?|macroeconomic|inflation|labor markets?|banking|credit|housing|business formation|trade|public finance|monetary policy|firm dynamics|household microdata|business-cycle)\b/iu;
+  for (const dataset of CANONICAL_DATASETS) {
+    const prompt = await readFile(`prompts/dataset-expansion/${dataset.id}.md`, "utf8");
+    if (dataset.id === "econ") {
+      assert.match(prompt, economicsPattern);
+    } else {
+      assert.doesNotMatch(prompt, economicsPattern, `${dataset.id} prompt should not contain economics-specific language`);
     }
   }
 });

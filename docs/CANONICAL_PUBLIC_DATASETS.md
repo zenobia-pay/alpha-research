@@ -120,7 +120,7 @@ Priority raw source families:
 
 ### History (`history`)
 
-Purpose: public archival records, newspapers, government documents, maps, manuscripts, oral histories, gazetteers, and historical metadata for social, political, cultural, and economic history.
+Purpose: public archival records, newspapers, government documents, maps, manuscripts, oral histories, gazetteers, and historical metadata for social, political, and cultural history.
 
 Initial active/deferred source registry:
 

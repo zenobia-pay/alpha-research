@@ -15,7 +15,7 @@ export const CANONICAL_DATASETS = [
   {
     id: "history",
     name: "History",
-    fieldBrief: "History: public archival records, newspapers, government documents, maps, manuscripts, oral histories, gazetteers, and historical metadata for social, political, cultural, and economic history.",
+    fieldBrief: "History: public archival records, newspapers, government documents, maps, manuscripts, oral histories, gazetteers, and historical metadata for social, political, and cultural history.",
     seedCandidates: [
       "- Library of Congress digital collections: https://www.loc.gov/collections/ (active_fetchable)",
       "- National Archives catalog: https://catalog.archives.gov/ (active_fetchable)",
