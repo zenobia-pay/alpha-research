@@ -7,6 +7,41 @@ import { selectCanonicalDatasets } from "./canonical-dataset-catalog.mjs";
 const sessionPath = process.env.RESEARCH_SESSION_PATH ?? join(homedir(), ".research", "session.json");
 
 const dryRun = process.argv.includes("--dry-run") || process.env.CANONICAL_DATASET_EXPAND_DRY_RUN === "1";
+const datasetIdFlag = process.argv.find((arg) => arg === "--dataset-id" || arg.startsWith("--dataset-id="));
+if (datasetIdFlag) {
+  console.log(JSON.stringify({
+    dryRun,
+    kickoffOnly: true,
+    results: [{
+      status: "blocked_scoped_run",
+      error: {
+        message: "canonical:dataset-expansion:all must not receive a dataset-id flag; use the single-dataset launcher for scoped runs.",
+        flag: datasetIdFlag,
+      },
+    }],
+    summary: { running: 0, skipped: 0, failedToStart: 0, blocked: 1 },
+  }, null, 2));
+  process.exitCode = 2;
+  process.exit();
+}
+
+const scopedDatasetIds = process.env.CANONICAL_DATASET_IDS?.trim();
+if (!dryRun && scopedDatasetIds) {
+  console.log(JSON.stringify({
+    dryRun,
+    kickoffOnly: true,
+    results: [{
+      status: "blocked_scoped_run",
+      error: {
+        message: "canonical:dataset-expansion:all requires CANONICAL_DATASET_IDS to be unset for all-dataset kickoff runs.",
+        env: "CANONICAL_DATASET_IDS",
+      },
+    }],
+    summary: { running: 0, skipped: 0, failedToStart: 0, blocked: 1 },
+  }, null, 2));
+  process.exitCode = 2;
+  process.exit();
+}
 
 const canonicalDatasets = selectCanonicalDatasets();
 
@@ -69,6 +104,16 @@ async function api(session, path, options = {}) {
 }
 
 const results = [];
+const skippedStatuses = new Set(["skipped_missing_dataset", "skipped_write_locked", "skipped_volume_unavailable"]);
+
+function summarizeKickoff(results) {
+  return {
+    running: results.filter((result) => result.status === "running").length,
+    skipped: results.filter((result) => skippedStatuses.has(result.status)).length,
+    failedToStart: results.filter((result) => result.status === "failed_to_start").length,
+    blocked: results.filter((result) => result.status === "blocked_remote_unreachable" || result.status === "blocked_scoped_run").length,
+  };
+}
 
 const artifactSpec = [
   { type: "file", title: "work.md", path: "work.md" },
@@ -131,7 +176,7 @@ if (dryRun) {
       artifacts: artifactSpec.map((artifact) => artifact.path),
     });
   }
-  console.log(JSON.stringify({ dryRun, results }, null, 2));
+  console.log(JSON.stringify({ dryRun, kickoffOnly: true, results, summary: summarizeKickoff(results) }, null, 2));
   process.exit();
 }
 
@@ -146,7 +191,7 @@ try {
     error: formatError(error),
     origin: session?.origin ?? null,
   });
-  console.log(JSON.stringify({ dryRun, results }, null, 2));
+  console.log(JSON.stringify({ dryRun, kickoffOnly: true, results, summary: summarizeKickoff(results) }, null, 2));
   process.exitCode = 2;
   process.exit();
 }
@@ -211,11 +256,13 @@ for (const dataset of canonicalDatasets) {
     const executionId = executionIdFromResponse(started);
     results.push({
       datasetId: dataset.id,
-      status: "started",
+      status: "running",
+      launchStatus: "kicked_off_and_running",
       writeReadiness: write,
       executionId,
       adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
       artifacts: artifactSpec.map((artifact) => artifact.path),
+      artifactExpectation: "declared_for_remote_worker_not_validated_at_kickoff",
     });
   } catch (error) {
     results.push({
@@ -226,7 +273,7 @@ for (const dataset of canonicalDatasets) {
   }
 }
 
-console.log(JSON.stringify({ dryRun, results }, null, 2));
+console.log(JSON.stringify({ dryRun, kickoffOnly: true, results, summary: summarizeKickoff(results) }, null, 2));
 const failed = results.filter((r) => ["failed_to_start", "blocked_remote_unreachable"].includes(r.status));
 if (failed.length > 0) {
   process.exitCode = 1;

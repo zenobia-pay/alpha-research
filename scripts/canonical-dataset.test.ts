@@ -558,6 +558,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
       assert.doesNotMatch(output, /\b(runId|dashboardUrl)\b/u);
       const parsed = JSON.parse(output) as {
         dryRun: boolean;
+        kickoffOnly?: boolean;
         results: Array<{
           datasetId?: string;
           status: string;
@@ -568,6 +569,7 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
           artifacts?: string[];
           runtimeArtifacts?: string[];
         }>;
+        summary?: { running: number; skipped: number; failedToStart: number; blocked: number };
       };
       assert.equal(parsed.dryRun, true);
       assert.deepEqual(
@@ -589,6 +591,8 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
         assert.ok(historyRefresh?.runtimeArtifacts?.includes("work.md"));
       }
       if (args[0] === "scripts/start-dataset-expansion-jobs.mjs") {
+        assert.equal(parsed.kickoffOnly, true);
+        assert.deepEqual(parsed.summary, { running: 0, skipped: 0, failedToStart: 0, blocked: 0 });
         const historyExpansion = parsed.results.find((result) => result.datasetId === "history");
         assert.equal(historyExpansion?.operation, "dataset-expansion");
         assert.ok(historyExpansion?.artifacts?.includes("slack_download_alerts.jsonl"));
@@ -626,6 +630,59 @@ test("orchestration dry-runs use shared catalog filter without a remote session"
     assert.ok(historyImprove?.artifacts?.includes("docs/public-datasets/history.mdx"));
   } finally {
     execFileSync("rm", ["-rf", root]);
+  }
+});
+
+test("bulk dataset expansion blocks accidental scoped kickoff runs", () => {
+  const root = execFileSync("mktemp", ["-d"], { encoding: "utf8" }).trim();
+  try {
+    const env = {
+      ...process.env,
+      CANONICAL_DATASET_IDS: "econ",
+      RESEARCH_SESSION_PATH: join(root, "missing-session.json"),
+    };
+    const output = execFileSync("node", ["scripts/start-dataset-expansion-jobs.mjs"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    assert.fail(`Expected scoped kickoff to fail, got ${output}`);
+  } catch (error) {
+    assert.equal(error.status, 2);
+    const parsed = JSON.parse(error.stdout) as {
+      kickoffOnly: boolean;
+      results: Array<{ status: string; error?: { message?: string; env?: string } }>;
+      summary: { running: number; skipped: number; failedToStart: number; blocked: number };
+    };
+    assert.equal(parsed.kickoffOnly, true);
+    assert.equal(parsed.results[0]?.status, "blocked_scoped_run");
+    assert.equal(parsed.results[0]?.error?.env, "CANONICAL_DATASET_IDS");
+    assert.deepEqual(parsed.summary, { running: 0, skipped: 0, failedToStart: 0, blocked: 1 });
+  } finally {
+    execFileSync("rm", ["-rf", root]);
+  }
+});
+
+test("bulk dataset expansion rejects dataset-id flags", () => {
+  try {
+    const output = execFileSync("node", ["scripts/start-dataset-expansion-jobs.mjs", "--dataset-id", "econ"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    assert.fail(`Expected dataset-id kickoff to fail, got ${output}`);
+  } catch (error) {
+    assert.equal(error.status, 2);
+    const parsed = JSON.parse(error.stdout) as {
+      kickoffOnly: boolean;
+      results: Array<{ status: string; error?: { message?: string; flag?: string } }>;
+      summary: { running: number; skipped: number; failedToStart: number; blocked: number };
+    };
+    assert.equal(parsed.kickoffOnly, true);
+    assert.equal(parsed.results[0]?.status, "blocked_scoped_run");
+    assert.equal(parsed.results[0]?.error?.flag, "--dataset-id");
+    assert.deepEqual(parsed.summary, { running: 0, skipped: 0, failedToStart: 0, blocked: 1 });
   }
 });
 
