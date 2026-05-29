@@ -215,6 +215,7 @@ for (const dataset of canonicalDatasets) {
       writeReadiness: write,
       executionId,
       adminStatusUrl: started.adminStatusUrl ?? adminExecutionStatusUrl(executionId, defaultOrigin),
+      artifacts: artifactSpec.map((artifact) => artifact.path),
     });
   } catch (error) {
     results.push({
