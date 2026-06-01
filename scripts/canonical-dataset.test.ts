@@ -1272,7 +1272,10 @@ test("remote agent exec dry-run targets hidden admin execution endpoint with exa
   assert.equal(parsed.endpoint, "/api/admin/remote-agent-executions");
   assert.match(parsed.body.prompt, /^Say exactly hello\./u);
   assert.match(parsed.body.prompt, /Non-Optional Artifact Promotion Contract/u);
+  assert.match(parsed.body.prompt, /DOCS_BRIEFING="\$DATASET_DIR\/docs\/public-datasets\/briefings\/literature\.md"/u);
+  assert.match(parsed.body.prompt, /cp "\$DOCS_BRIEFING" "\$DATASET_DIR\/dataset_briefing\.md"/u);
   assert.match(parsed.body.prompt, /cp "\$DATASET_DIR\/dataset_briefing\.md" "\$RESULT_DIR\/dataset_briefing\.md"/u);
+  assert.match(parsed.body.prompt, /docs\/public-datasets\/briefings\/literature\.md/u);
   assert.match(parsed.body.prompt, /dataset_briefing\.md`, `improvement_result\.json`, `work\.md`, and `report\.html`/u);
   assert.equal(parsed.body.kind, "manual");
   assert.equal(parsed.body.datasetId, "literature");
