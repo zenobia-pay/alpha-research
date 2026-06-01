@@ -73,6 +73,8 @@ If `$DATASET_DIR` is empty, missing, or not writable, write `improvement_result.
 8. Write `slack_briefing.md` with the start and finish Slack delivery status and the same downloaded-data summary from `expansionSummary`.
 9. Copy `work.md`, `report.html`, `dataset_briefing.md`, `slack_download_alerts.jsonl`, `slack_briefing.md`, and `improvement_result.json` to `$ARTIFACT_DIR`.
 
+If any step after startup blocks, times out, or fails, do not end the run without the required artifacts. Copy the current `$DATASET_DIR/dataset_briefing.md` to `./dataset_briefing.md` and `$ARTIFACT_DIR/dataset_briefing.md` when it exists; otherwise write a `# Data Inventory` briefing that truthfully states no new validated data was added. Write `improvement_result.json` with `"status": "blocked"`, a non-secret `blocker`, the attempted source/path when known, and a filled `expansionSummary` whose fields explicitly say no validated addition was completed. Then call `send_slack_lifecycle finished "<blocker>"` and copy all six required artifacts to `$ARTIFACT_DIR`.
+
 ## Briefing Rules
 
 `dataset_briefing.md` must start with:
