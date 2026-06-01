@@ -25,14 +25,44 @@ const prompt = readPrompt();
 const kind = argValue(argv, "--kind") ?? "manual";
 const datasetId = argValue(argv, "--dataset-id");
 
+const canonicalDatasetResources = {
+  profile: "standard-analysis",
+  backend: "modal",
+  resourceProfile: "standard-analysis",
+  cpu: 8,
+  memoryGb: 16,
+  workspaceDiskGb: 100,
+  storageMode: "modal-volume",
+  datasetAccess: "write-version",
+  publishMode: "versioned",
+};
+
+const datasetArtifactSpec = [
+  { type: "file", title: "Runtime Report", path: "report.html" },
+  { type: "file", title: "Runtime Work Log", path: "work.md" },
+  { type: "structured_result", title: "Improvement Result", path: "improvement_result.json" },
+  { type: "file", title: "Dataset Briefing", path: "dataset_briefing.md" },
+];
+
 const body = {
   prompt,
   kind,
   ...(datasetId ? { datasetId } : {}),
   ownerType: "admin",
+  ...(datasetId ? {
+    resources: canonicalDatasetResources,
+    artifactSpec: datasetArtifactSpec,
+    requiredArtifacts: datasetArtifactSpec.map((artifact) => artifact.path),
+  } : {}),
   metadata: {
     launchedBy: "scripts/remote-agent-exec.mjs",
     promptMode: "exact",
+    ...(datasetId ? {
+      datasetId,
+      resources: canonicalDatasetResources,
+      requiresWritableDatasetDir: true,
+      exactDatasetScopedExecution: true,
+    } : {}),
   },
 };
 

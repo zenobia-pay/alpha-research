@@ -1258,7 +1258,15 @@ test("remote agent exec dry-run targets hidden admin execution endpoint with exa
   const parsed = JSON.parse(output) as {
     dryRun: boolean;
     endpoint: string;
-    body: { prompt: string; kind: string; datasetId: string; ownerType: string };
+    body: {
+      prompt: string;
+      kind: string;
+      datasetId: string;
+      ownerType: string;
+      resources: { datasetAccess?: string; storageMode?: string; publishMode?: string };
+      requiredArtifacts: string[];
+      metadata: { requiresWritableDatasetDir?: boolean; exactDatasetScopedExecution?: boolean };
+    };
   };
   assert.equal(parsed.dryRun, true);
   assert.equal(parsed.endpoint, "/api/admin/remote-agent-executions");
@@ -1266,4 +1274,11 @@ test("remote agent exec dry-run targets hidden admin execution endpoint with exa
   assert.equal(parsed.body.kind, "manual");
   assert.equal(parsed.body.datasetId, "literature");
   assert.equal(parsed.body.ownerType, "admin");
+  assert.equal(parsed.body.resources.datasetAccess, "write-version");
+  assert.equal(parsed.body.resources.storageMode, "modal-volume");
+  assert.equal(parsed.body.resources.publishMode, "versioned");
+  assert.ok(parsed.body.requiredArtifacts.includes("dataset_briefing.md"));
+  assert.ok(parsed.body.requiredArtifacts.includes("improvement_result.json"));
+  assert.equal(parsed.body.metadata.requiresWritableDatasetDir, true);
+  assert.equal(parsed.body.metadata.exactDatasetScopedExecution, true);
 });
