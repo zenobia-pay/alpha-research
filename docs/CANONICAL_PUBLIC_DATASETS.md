@@ -137,7 +137,7 @@ Priority raw source families:
 - Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
 - Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
 - Treat "all data an economist could need" as an open-ended coverage target, not a current factual claim. The active roadmap must cover at least: macro and vintage releases; prices and inflation; labor and household microdata; income, tax, inequality, and public finance; firm dynamics, filings, and industry structure; banking, credit, mortgage, and financial markets; housing and real estate; international macro, trade, agriculture, and development; education, health, demographics, and social outcomes that economists routinely use; plus license-gated research staples listed as `credential_required` or `license_review`.
-- While the `econ` Modal volume remains inode-saturated, prefer read-only inventories, profile-only finalization for already-present sources, and planning artifacts. Resume provider downloads only after inode quota or file-count pressure is repaired.
+- While the `econ` Modal volume remains inode-saturated, prefer read-only inventories, profile-only finalization for already-present sources, and planning artifacts. A 2026-06-01 inode-hotspot audit found the pressure is dominated by `.remote-agent` automation cache/workspace entries, not provider-native `raw/` economics data; resume provider downloads only after scoped stale-cache cleanup or an inode quota increase is complete and `df -i` is rechecked.
 
 ### History (`history`)
 

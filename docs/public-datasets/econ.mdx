@@ -44,7 +44,7 @@ description: "Literal raw public economics data inventory."
 
 # Coverage Roadmap
 
-This dataset is a broad raw economics substrate, not a completed claim that every economist need is already covered. As of the 2026-06-01 capacity audit, the mounted dataset is 27G but inode-saturated, so the next download work should wait for inode quota repair or file-count cleanup. Until then, roadmap work should remain read-only or profile-only.
+This dataset is a broad raw economics substrate, not a completed claim that every economist need is already covered. As of the 2026-06-01 capacity and inode-hotspot audits, the mounted dataset is 27G but inode-saturated. The hotspot audit found inode pressure is dominated by `.remote-agent` automation cache/workspace trees rather than provider-native `raw/` economics data, so the next download work should wait for scoped cache cleanup or inode quota repair. Until then, roadmap work should remain read-only or profile-only.
 
 Highest-value missing or incomplete public-source families:
 
@@ -56,4 +56,4 @@ Highest-value missing or incomplete public-source families:
 - Housing and real estate: Redfin, NAR, Case-Shiller, Freddie Mac AIMI, Fannie Mae surveys, Apartment List rents, HMDA, building permits, and expanded AHS/HUD products.
 - International trade, agriculture, and development: UN Comtrade, WTO, FAOSTAT, USDA NASS/ERS, ILOSTAT, additional IMF datasets, Eurostat/ECB breadth, and more World Bank subject databases.
 
-Next operational step: repair the econ Modal volume inode limit before new ingestion. The 2026-06-01 audit found 382G free but only 2 free inodes out of 500,000, so ENOSPC is expected even for small write operations until inode pressure is resolved.
+Next operational step: run a scoped cleanup or retention-review job for stale `.remote-agent/codex-home`, `.remote-agent/workspaces`, and `existing/.remote-agent` entries, then recheck `df -i`. The 2026-06-01 audits found 382G free but only 2 free inodes out of 500,000; `.remote-agent` accounted for about 84,041 entries and `existing/.remote-agent` for another 6,241, while `raw/` provider-native data accounted for only 787 entries. If those automation caches must be retained, request a higher inode quota before ingestion.
