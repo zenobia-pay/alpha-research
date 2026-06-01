@@ -39,7 +39,7 @@
 
 # Coverage Roadmap
 
-This dataset is a broad raw economics substrate, not a completed claim that every economist need is already covered. As of the 2026-06-01 capacity and inode-hotspot audits, the mounted dataset is 27G but inode-saturated. The hotspot audit found inode pressure is dominated by `.remote-agent` automation cache/workspace trees rather than provider-native `raw/` economics data, so the next download work should wait for scoped cache cleanup or inode quota repair. Until then, roadmap work should remain read-only or profile-only.
+This dataset is a broad raw economics substrate, not a completed claim that every economist need is already covered. The 2026-06-01 capacity and inode-hotspot audits found that inode pressure was dominated by `.remote-agent` automation cache/workspace trees rather than provider-native `raw/` economics data. Cleanup run `2d9fe31b-2951-4c52-afe6-f2c5f21f78cb` removed the stale cache targets and recovered about 90,249 free inodes, so small controlled ingestion can resume with inode monitoring.
 
 Highest-value missing or incomplete public-source families:
 
@@ -51,4 +51,4 @@ Highest-value missing or incomplete public-source families:
 - Housing and real estate: Redfin, NAR, Case-Shiller, Freddie Mac AIMI, Fannie Mae surveys, Apartment List rents, HMDA, building permits, and expanded AHS/HUD products.
 - International trade, agriculture, and development: UN Comtrade, WTO, FAOSTAT, USDA NASS/ERS, ILOSTAT, additional IMF datasets, Eurostat/ECB breadth, and more World Bank subject databases.
 
-Next operational step: run a scoped cleanup or retention-review job for stale `.remote-agent/codex-home`, `.remote-agent/workspaces`, and `existing/.remote-agent` entries, then recheck `df -i`. The 2026-06-01 audits found 382G free but only 2 free inodes out of 500,000; `.remote-agent` accounted for about 84,041 entries and `existing/.remote-agent` for another 6,241, while `raw/` provider-native data accounted for only 787 entries. If those automation caches must be retained, request a higher inode quota before ingestion.
+Next operational step: resume small high-value provider-native additions from the roadmap while monitoring `df -i` after each run. The cleanup left `/data/datasets/econ/.remote-agent/runs` intact, avoided provider-native `raw/` data, and improved inode availability from 2 free inodes to 90,251 free inodes. Prefer compact source archives and avoid expanding large archives into many small files unless required.
