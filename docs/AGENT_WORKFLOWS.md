@@ -82,7 +82,8 @@ Use this workflow when the user asks to improve a canonical dataset such as `eco
 
    Treat a validation failure as blocked even when the remote final summary says completed. The validator requires required artifacts, `disk_proven` status, and profile readback tied to the same execution id.
 10. Treat worker lifecycle failures such as `.remote-agent/state/status.json.tmp` rename errors as platform execution failures even if `dataset_briefing.md` can be recovered from artifacts or the mounted volume. Recovery may preserve useful output, but it is not a successful canonical run unless the canonical endpoint reports terminal success and profile readback is proven through `npm run canonical:dataset -- validate --dataset-id <id> --execution-id <execution-id>`.
-11. Report the result as a compact status card, not a wide table. Put the user-facing answer in this order:
+11. Treat startup placeholder artifacts as blockers even when the remote execution reports `ready` and the profile run id matches. Placeholder text such as `Startup placeholder` or `startup_placeholder_not_final` in `dataset_briefing.md`, `improvement_result.json`, or `briefingMarkdown` means the run did not produce a real disk inventory. Restore the prior checked-in disk-proven profile before continuing, then record the run as blocked.
+12. Report the result as a compact status card, not a wide table. Put the user-facing answer in this order:
    - one sentence stating whether the run completed, blocked, or failed;
    - a short "What happened" list with dataset id, execution id, prompt record, admin status link, and validation result;
    - a short "Why it matters" line that says whether docs/profile were updated or intentionally left unchanged;
