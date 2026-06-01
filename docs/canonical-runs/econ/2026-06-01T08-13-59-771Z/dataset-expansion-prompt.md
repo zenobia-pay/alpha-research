@@ -18,35 +18,8 @@ ARTIFACT_DIR="${ARTIFACT_DIR:-/results/$RUN_ID}"
 mkdir -p "$ARTIFACT_DIR"
 printf '# Work Log\n\nStarted dataset expansion for econ.\n' > work.md
 printf '<!doctype html><title>Dataset expansion</title><h1>Dataset expansion started</h1>\n' > report.html
-printf '# Data Inventory\n- Startup placeholder: no new validated data has been added yet in this run.\n' > dataset_briefing.md
 touch slack_download_alerts.jsonl
 printf '# Slack Briefing\n\n' > slack_briefing.md
-cat > improvement_result.json <<JSON
-{
-  "status": "blocked",
-  "blocker": "startup_placeholder_not_final",
-  "datasetId": "econ",
-  "runId": "$RUN_ID",
-  "datasetDir": "${DATASET_DIR:-unknown}",
-  "artifactDir": "$ARTIFACT_DIR",
-  "briefingBytes": 0,
-  "profileRunId": null,
-  "expansionSummary": {
-    "actualNewDatasetAdded": "No validated addition yet",
-    "pathAdded": "none",
-    "source": "none",
-    "coverage": "none",
-    "geography": "none",
-    "records": "none",
-    "fields": "none",
-    "caveat": "Startup placeholder; replace before marking completed"
-  },
-  "briefingChanges": [
-    "Startup placeholder only; no validated briefing change yet."
-  ],
-  "slackLifecycleMessages": []
-}
-JSON
 
 send_slack_lifecycle() {
   CHECKPOINT="$1" SUMMARY="$2" RUN_ID="$RUN_ID" node <<'NODE'
@@ -83,7 +56,7 @@ NODE
 }
 
 send_slack_lifecycle started "Dataset expansion run started."
-cp work.md report.html dataset_briefing.md improvement_result.json slack_download_alerts.jsonl slack_briefing.md "$ARTIFACT_DIR"/
+cp work.md report.html slack_download_alerts.jsonl slack_briefing.md "$ARTIFACT_DIR"/
 ```
 
 If `$DATASET_DIR` is empty, missing, or not writable, write `improvement_result.json` with `"status": "blocked"` and a non-secret `blocker`, call `send_slack_lifecycle finished "<blocker>"`, copy any existing `dataset_briefing.md` you can read, copy required artifacts to `$ARTIFACT_DIR`, and stop. Do not search alternative dataset directories.

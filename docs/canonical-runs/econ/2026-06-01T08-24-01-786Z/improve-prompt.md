@@ -1,11 +1,11 @@
-# Improve Canonical Dataset: {datasetName} (`{datasetId}`)
+# Improve Canonical Dataset: Econ (`econ`)
 
 Improve this canonical dataset now.
 
 Field brief:
 
 ```text
-{fieldBrief}
+Repair and validate the BEA international transactions/detail data apparently written by failed expansion 53f9c915-ebab-48a1-8443-d6162773c2fe. Inspect the mounted econ volume for raw/bea_itd or BEA_ITD_CountryDetail files, verify provider-native file integrity and coverage, update inventories and dataset_briefing.md only for data actually present on disk, sync the backend profile to this current execution id, and emit all required artifacts even if blocked.
 ```
 
 ## First Action
@@ -20,24 +20,15 @@ Use any valid starter content, for example:
 ```bash
 printf '# Work Log\n\nStarted canonical improvement run.\n' > work.md
 printf '<!doctype html><title>Canonical improvement run</title><h1>Canonical improvement run started</h1>\n' > report.html
-printf '# Data Inventory\n- Startup placeholder: no validated improvement has been completed yet in this run.\n' > dataset_briefing.md
-cat > improvement_result.json <<'JSON'
-{
-  "status": "blocked",
-  "blocker": "startup_placeholder_not_final",
-  "briefingBytes": 0,
-  "profileReadbackVerified": false
-}
-JSON
 ```
 
-If a results directory exists, also copy all four startup files there: `work.md`, `report.html`, `dataset_briefing.md`, and `improvement_result.json`. If no run id or results directory is available, continue anyway. Do not block only because the run id is unavailable.
+If a results directory exists, also copy both files there. If no run id or results directory is available, continue anyway. Do not block only because the run id is unavailable.
 
 The admin validator reads the remote execution artifact list, not just the mounted dataset volume. Files written only under the dataset mount do not satisfy validation. Before final response, every required output file listed below must exist in the current working directory. Also mirror `work.md`, `report.html`, `improvement_result.json`, and `dataset_briefing.md` into any writable `/results/<run-id>/` or current run result directory you can find. If you write `dataset_briefing.md` on the mounted dataset volume first, copy the exact same bytes back to `./dataset_briefing.md` and the results directory.
 
 ## Goal
 
-Add or repair a small, high-value slice of public-source raw data that improves coverage, freshness, provenance, or usability for `{datasetId}`.
+Add or repair a small, high-value slice of public-source raw data that improves coverage, freshness, provenance, or usability for `econ`.
 
 Preserve source data as close to provider format as practical. Do not build merged panels, joined analysis tables, model-ready features, or opinionated metrics.
 
@@ -50,8 +41,8 @@ Preserve source data as close to provider format as practical. Do not build merg
 5. Regenerate final inventories from the dataset volume after the improvement.
 6. Rewrite `dataset_briefing.md` as a literal inventory of data actually on disk.
 7. Copy the same briefing body to:
-   - `docs/public-datasets/briefings/{datasetId}.md`
-   - `docs/public-datasets/{datasetId}.mdx`
+   - `docs/public-datasets/briefings/econ.md`
+   - `docs/public-datasets/econ.mdx`
 8. Update the backend dataset profile from the exact briefing body:
    - `briefingMarkdown`: exact `dataset_briefing.md` contents
    - `profile.quality.diskInventoryProven`: `true`
@@ -88,8 +79,8 @@ Write these files before final response:
 - `data_dictionary.md`
 - `quality_report.md`
 - `dataset_briefing.md`
-- `docs/public-datasets/briefings/{datasetId}.md`
-- `docs/public-datasets/{datasetId}.mdx`
+- `docs/public-datasets/briefings/econ.md`
+- `docs/public-datasets/econ.mdx`
 
 Also copy `work.md`, `report.html`, `improvement_result.json`, and `dataset_briefing.md` into the run results/artifact directory when it is available. Do not send the final response until `ls -l work.md report.html improvement_result.json dataset_briefing.md` succeeds in the current working directory.
 
@@ -124,7 +115,7 @@ Return:
 
 ```md
 status: completed|blocked
-dataset_id: {datasetId}
+dataset_id: econ
 run_id: <current remote execution id>
 briefing_bytes: <bytes>
 profile_readback_verified: true|false
