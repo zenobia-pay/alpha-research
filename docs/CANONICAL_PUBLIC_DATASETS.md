@@ -106,17 +106,38 @@ Initial active/deferred source registry:
 - Federal Reserve Bank of New York data: https://www.newyorkfed.org/data-and-statistics
 - NBER: https://www.nber.org/
 - IMF data: https://www.imf.org/en/Data
+- Federal Reserve ALFRED vintage time series: https://alfred.stlouisfed.org/
+- Federal Reserve statistical releases H.8, H.15, G.19, and related banking/credit releases: https://www.federalreserve.gov/data.htm
+- European Central Bank Data Portal: https://data.ecb.europa.eu/
+- FFIEC HMDA public loan-level mortgage data: https://ffiec.cfpb.gov/data-publication/
+- CFPB consumer credit, mortgage, and complaint public datasets: https://www.consumerfinance.gov/data-research/
+- SEC EDGAR company filings and submissions data: https://www.sec.gov/edgar/sec-api-documentation
+- CFTC Commitments of Traders reports: https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm
+- USDA NASS Quick Stats agricultural production and price data: https://quickstats.nass.usda.gov/
+- USDA ERS data products: https://www.ers.usda.gov/data-products/
+- IRS Statistics of Income public data: https://www.irs.gov/statistics
+- Social Security Administration statistical tables and public-use files: https://www.ssa.gov/policy/docs/data/
+- National Center for Education Statistics data tools and downloads: https://nces.ed.gov/datatools/
+- ILOSTAT bulk labor statistics: https://ilostat.ilo.org/data/
+- UN Comtrade international trade data: https://comtradeplus.un.org/
+- WTO stats data portal: https://stats.wto.org/
+- FAOSTAT food and agriculture data: https://www.fao.org/faostat/
 - ONS: https://www.ons.gov.uk/
 - Pew Research Center: https://www.pewresearch.org/
 - General Social Survey: https://gss.norc.org/
 - Panel Study of Income Dynamics: https://psidonline.isr.umich.edu/
 - Apartment List rent estimates: https://www.apartmentlist.com/research/category/data-rent-estimates
+- IPUMS USA/CPS public-use microdata extracts: https://www.ipums.org/
+- ICPSR economics and social-science public-use datasets: https://www.icpsr.umich.edu/
+- CRSP/Compustat/WRDS licensed finance and firm datasets: https://wrds-www.wharton.upenn.edu/
 
 Priority raw source families:
 
 - Preserve provider-native raw files, API responses, codebooks, schemas, and public documentation for the source families above.
 - Do not define canonical analysis tables for this dataset; computed tables belong to separate run artifacts.
 - Keep exact raw shape, provenance, license/access status, coverage, hashes, and source caveats in `raw_inventory.*` and `dataset_briefing.md`.
+- Treat "all data an economist could need" as an open-ended coverage target, not a current factual claim. The active roadmap must cover at least: macro and vintage releases; prices and inflation; labor and household microdata; income, tax, inequality, and public finance; firm dynamics, filings, and industry structure; banking, credit, mortgage, and financial markets; housing and real estate; international macro, trade, agriculture, and development; education, health, demographics, and social outcomes that economists routinely use; plus license-gated research staples listed as `credential_required` or `license_review`.
+- While the `econ` Modal volume remains inode-saturated, prefer read-only inventories, profile-only finalization for already-present sources, and planning artifacts. Resume provider downloads only after inode quota or file-count pressure is repaired.
 
 ### History (`history`)
 
