@@ -86,6 +86,8 @@ send_slack_lifecycle started "Dataset expansion run started."
 cp work.md report.html dataset_briefing.md improvement_result.json slack_download_alerts.jsonl slack_briefing.md "$ARTIFACT_DIR"/
 ```
 
+The startup `dataset_briefing.md` and `improvement_result.json` are blocked placeholders for artifact capture only. Do not update the backend dataset profile while either file still contains `Startup placeholder` or `startup_placeholder_not_final`. Before any profile update, run `grep -q 'Startup placeholder\|startup_placeholder_not_final' dataset_briefing.md improvement_result.json` and block instead of syncing if it matches.
+
 If `$DATASET_DIR` is empty, missing, or not writable, write `improvement_result.json` with `"status": "blocked"` and a non-secret `blocker`, call `send_slack_lifecycle finished "<blocker>"`, copy any existing `dataset_briefing.md` you can read, copy required artifacts to `$ARTIFACT_DIR`, and stop. Do not search alternative dataset directories.
 
 ## Job
@@ -153,6 +155,8 @@ Write `improvement_result.json` in the current directory and `$ARTIFACT_DIR`. It
   ]
 }
 ```
+
+Final status is `completed` only if neither `dataset_briefing.md` nor `improvement_result.json` contains `Startup placeholder` or `startup_placeholder_not_final`.
 
 Before final response, this must succeed:
 
