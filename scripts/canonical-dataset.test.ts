@@ -327,12 +327,18 @@ test("improve artifact contract includes runtime work log artifacts", () => {
 });
 
 test("improvement validator accepts terminal run with artifacts and matching profile proof", () => {
+  const briefingMarkdown = [
+    "# Data Inventory",
+    "- `raw/federal_reserve_z1/z1_csv_files_20260319.zip`: Federal Reserve Z.1 source package.",
+    "- `raw/worldbank/WDI_CSV_2026_04_09.zip`: World Bank WDI source package.",
+    "- `raw/bis_cpmi/WS_CPMI_CASHLESS_csv_col.zip`: BIS CPMI source package.",
+  ].join("\n");
   const validation = validateCanonicalImprovementRun({
     datasetId: "econ",
     executionId: "exec-123",
     execution: { id: "exec-123", status: "ready" },
     artifacts: [
-      { title: "dataset_briefing.md", content: { path: "/results/exec-123/dataset_briefing.md" } },
+      { title: "dataset_briefing.md", content: { path: "/results/exec-123/dataset_briefing.md", text: briefingMarkdown } },
       { title: "improvement_result.json", content: { path: "/results/exec-123/improvement_result.json" } },
       { title: "work.md", content: { path: "/results/exec-123/work.md" } },
       { title: "report.html", content: { path: "/results/exec-123/report.html" } },
@@ -342,7 +348,7 @@ test("improvement validator accepts terminal run with artifacts and matching pro
       status: "ready",
       deploymentStatus: "ready",
       profile: {
-        briefingMarkdown: "# Data Inventory\n- Stored data.",
+        briefingMarkdown,
         profile: {
           quality: {
             diskInventoryProven: true,
@@ -432,6 +438,45 @@ test("improvement validator blocks startup placeholder briefing artifacts", () =
   assert.ok(validation.blockers.includes("dataset_briefing.md is still the startup placeholder"));
   assert.ok(validation.blockers.includes("improvement_result.json is still the startup placeholder"));
   assert.ok(validation.blockers.includes("profile briefingMarkdown is still the startup placeholder"));
+});
+
+test("improvement validator blocks econ briefing inventory regressions", () => {
+  const validation = validateCanonicalImprovementRun({
+    datasetId: "econ",
+    executionId: "exec-123",
+    execution: { id: "exec-123", status: "ready" },
+    artifacts: [
+      {
+        title: "dataset_briefing.md",
+        content: {
+          path: "/results/exec-123/dataset_briefing.md",
+          text: "# Data Inventory\n- `raw/bis_cpmi/WS_CPMI_CASHLESS_csv_col.zip`: BIS CPMI only.\n",
+        },
+      },
+      { title: "improvement_result.json", content: { path: "/results/exec-123/improvement_result.json", text: "{}" } },
+      { title: "work.md", content: { path: "/results/exec-123/work.md" } },
+      { title: "report.html", content: { path: "/results/exec-123/report.html" } },
+    ],
+    dataset: {
+      id: "econ",
+      status: "ready",
+      deploymentStatus: "ready",
+      profile: {
+        briefingMarkdown: "# Data Inventory\n- `raw/bis_cpmi/WS_CPMI_CASHLESS_csv_col.zip`: BIS CPMI only.\n",
+        profile: {
+          quality: {
+            diskInventoryProven: true,
+            volumeInventoryRunId: "exec-123",
+            volumeInventoryUpdatedAt: "2026-05-26T21:00:00.000Z",
+          },
+        },
+        describedRunId: "exec-123",
+      },
+    },
+  });
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.blockers.includes("dataset_briefing.md is missing existing econ inventory marker: raw/federal_reserve_z1/z1_csv_files_20260319.zip"));
+  assert.ok(validation.blockers.includes("profile briefingMarkdown is missing existing econ inventory marker: raw/worldbank/WDI_CSV_2026_04_09.zip"));
 });
 
 test("improvement validator blocks stale profile proof from older run", () => {

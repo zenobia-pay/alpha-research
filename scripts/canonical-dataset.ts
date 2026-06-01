@@ -446,6 +446,12 @@ const REQUIRED_VALIDATION_ARTIFACTS = [
   "report.html",
 ];
 
+const ECON_BRIEFING_REQUIRED_MARKERS = [
+  "raw/federal_reserve_z1/z1_csv_files_20260319.zip",
+  "raw/worldbank/WDI_CSV_2026_04_09.zip",
+  "raw/bis_cpmi/WS_CPMI_CASHLESS_csv_col.zip",
+];
+
 function artifactNameCandidates(artifact: AdminArtifact): string[] {
   const contentPath = typeof artifact.content === "object" && artifact.content !== null ? artifact.content.path : null;
   return [
@@ -516,6 +522,18 @@ export function validateCanonicalImprovementRun(input: ValidationInput) {
 
   if (containsStartupPlaceholder(profile?.briefingMarkdown)) {
     blockers.push("profile briefingMarkdown is still the startup placeholder");
+  }
+
+  if (input.datasetId === "econ") {
+    const briefingText = artifactText(input.artifacts, "dataset_briefing.md");
+    for (const marker of ECON_BRIEFING_REQUIRED_MARKERS) {
+      if (typeof briefingText === "string" && !briefingText.includes(marker)) {
+        blockers.push(`dataset_briefing.md is missing existing econ inventory marker: ${marker}`);
+      }
+      if (typeof profile?.briefingMarkdown === "string" && !profile.briefingMarkdown.includes(marker)) {
+        blockers.push(`profile briefingMarkdown is missing existing econ inventory marker: ${marker}`);
+      }
+    }
   }
 
   if (profileRunId !== input.executionId) {
