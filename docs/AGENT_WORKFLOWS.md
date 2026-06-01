@@ -33,6 +33,7 @@ Use this workflow when the user asks to improve a canonical dataset such as `eco
    - `CANONICAL_DATASET_IDS=econ npm run canonical:improve:dry-run` verifies the filtered bulk job shape.
    - `npm run canonical:dataset -- status --dataset-id econ` verifies Modal-volume write availability, active writer locks, inventory proof, and CLI profile readback state. Do not treat legacy `status` / `deploymentStatus` alone as the canonical write gate.
    - `npm run canonical:dataset -- improve --dataset-id econ --field-brief <brief>` starts a single dataset-improvement remote execution.
+   - Inside the remote worker, require an actual create/delete probe in the dataset root before downloads or profile work. `test -w` can report writable on a read-only Modal mount; a failed `touch`/write probe must block the run as `dataset_dir_not_writable` or the exact non-secret filesystem error.
 2. Use the admin remote-agent execution endpoint as the product contract for maintenance launches. Do not use `/api/cli/datasets/:datasetId/runs`, `research --prompt`, or other user-facing run paths.
 3. Target one dataset with `CANONICAL_DATASET_IDS=<id>` when the request names one dataset. Do not launch all canonical datasets by accident.
 4. Preserve the exact operator prompt under `docs/canonical-runs/<dataset-id>/<timestamp>/`. Use a specific filename such as `admin-improvement-prompt.md` when the generic template is not the right fit.

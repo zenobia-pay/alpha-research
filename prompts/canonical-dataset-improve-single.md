@@ -45,7 +45,7 @@ Preserve source data as close to provider format as practical. Do not build merg
 
 ## Required Work
 
-1. Inspect the mounted dataset volume and existing inventories.
+1. Inspect the mounted dataset volume and existing inventories. Before any download or dataset mutation, prove the mount is writable with an actual create/delete probe inside the dataset root, for example `probe="$DATASET_DIR/.canonical_write_probe_$RUN_ID"; printf ok > "$probe" && rm "$probe"`. Do not rely on `test -w` alone; if the probe fails, block with `dataset_dir_not_writable` or the exact non-secret filesystem error.
 2. Choose one focused improvement that can be completed in this run.
 3. Fetch or repair public-source raw data, documentation, or metadata for that improvement.
 4. Record provenance: source URL, access time, license/access notes, file paths, and any failed attempts.
