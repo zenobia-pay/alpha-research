@@ -385,6 +385,52 @@ test("improvement validator blocks false completion without briefing artifact", 
   assert.ok(validation.blockers.includes("remote completed without required artifact: dataset_briefing.md"));
 });
 
+test("improvement validator blocks startup placeholder briefing artifacts", () => {
+  const validation = validateCanonicalImprovementRun({
+    datasetId: "econ",
+    executionId: "exec-123",
+    execution: { id: "exec-123", status: "ready" },
+    artifacts: [
+      {
+        title: "dataset_briefing.md",
+        content: {
+          path: "/results/exec-123/dataset_briefing.md",
+          text: "# Data Inventory\n- Startup placeholder: no validated improvement has been completed yet in this run.\n",
+        },
+      },
+      {
+        title: "improvement_result.json",
+        content: {
+          path: "/results/exec-123/improvement_result.json",
+          text: JSON.stringify({ status: "blocked", blocker: "startup_placeholder_not_final" }),
+        },
+      },
+      { title: "work.md", content: { path: "/results/exec-123/work.md" } },
+      { title: "report.html", content: { path: "/results/exec-123/report.html" } },
+    ],
+    dataset: {
+      id: "econ",
+      status: "ready",
+      deploymentStatus: "ready",
+      profile: {
+        briefingMarkdown: "# Data Inventory\n- Startup placeholder: no validated improvement has been completed yet in this run.\n",
+        profile: {
+          quality: {
+            diskInventoryProven: true,
+            volumeInventoryRunId: "exec-123",
+            volumeInventoryUpdatedAt: "2026-05-26T21:00:00.000Z",
+          },
+        },
+        describedRunId: "exec-123",
+      },
+    },
+  });
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.blockers.includes("dataset_briefing.md is still the startup placeholder"));
+  assert.ok(validation.blockers.includes("improvement_result.json is still the startup placeholder"));
+  assert.ok(validation.blockers.includes("profile briefingMarkdown is still the startup placeholder"));
+});
+
 test("improvement validator blocks stale profile proof from older run", () => {
   const validation = validateCanonicalImprovementRun({
     datasetId: "econ",

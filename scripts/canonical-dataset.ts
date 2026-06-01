@@ -420,6 +420,7 @@ type AdminArtifact = {
   content?: {
     path?: string | null;
     sizeBytes?: number | null;
+    text?: string | null;
   } | string | null;
 };
 
@@ -460,6 +461,24 @@ function hasArtifactPath(artifacts: AdminArtifact[], requiredPath: string): bool
   )));
 }
 
+function artifactText(artifacts: AdminArtifact[], requiredPath: string): string | null {
+  const artifact = artifacts.find((candidate) => artifactNameCandidates(candidate).some((name) => (
+    name === requiredPath || name.endsWith(`/${requiredPath}`)
+  )));
+  if (typeof artifact?.content === "string") return artifact.content;
+  if (artifact?.content && typeof artifact.content === "object" && typeof artifact.content.text === "string") {
+    return artifact.content.text;
+  }
+  return null;
+}
+
+function containsStartupPlaceholder(value: string | null | undefined): boolean {
+  return typeof value === "string" && (
+    value.includes("Startup placeholder:")
+    || value.includes("startup_placeholder_not_final")
+  );
+}
+
 export function validateCanonicalImprovementRun(input: ValidationInput) {
   const blockers: string[] = [];
   const executionStatus = input.execution?.status ?? "unknown";
@@ -483,8 +502,20 @@ export function validateCanonicalImprovementRun(input: ValidationInput) {
     }
   }
 
+  if (containsStartupPlaceholder(artifactText(input.artifacts, "dataset_briefing.md"))) {
+    blockers.push("dataset_briefing.md is still the startup placeholder");
+  }
+
+  if (containsStartupPlaceholder(artifactText(input.artifacts, "improvement_result.json"))) {
+    blockers.push("improvement_result.json is still the startup placeholder");
+  }
+
   if (status.status !== "disk_proven") {
     blockers.push(`dataset readback is not disk_proven: ${status.status}`);
+  }
+
+  if (containsStartupPlaceholder(profile?.briefingMarkdown)) {
+    blockers.push("profile briefingMarkdown is still the startup placeholder");
   }
 
   if (profileRunId !== input.executionId) {
