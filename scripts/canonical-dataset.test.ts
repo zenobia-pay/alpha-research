@@ -279,6 +279,9 @@ test("improve prompt requires focused public-source improvement and hard outputs
     "\"blocker\": \"startup_placeholder_not_final\"",
     "also copy all four startup files there: `work.md`, `report.html`, `dataset_briefing.md`, and `improvement_result.json`",
     "Do not update the backend dataset profile while either file still contains `Startup placeholder` or `startup_placeholder_not_final`.",
+    "They must never be the final `dataset_briefing.md`, final `improvement_result.json`, docs mirror, or backend profile body.",
+    "If any step blocks after startup, first recover the current full briefing",
+    "copy that full briefing to `./dataset_briefing.md` and the results directory",
     "grep -q 'Startup placeholder\\\\|startup_placeholder_not_final' dataset_briefing.md improvement_result.json",
     "If no run id or results directory is available, continue anyway.",
     "Do not block only because the run id is unavailable.",
@@ -300,6 +303,7 @@ test("improve prompt requires focused public-source improvement and hard outputs
     "Final status is `completed` only if:",
     "Neither file contains `Startup placeholder` or `startup_placeholder_not_final`.",
     "Even if blocked, keep `work.md` and `report.html` non-empty, and write `improvement_result.json`",
+    "On blocked runs, preserve the existing full dataset briefing as the final artifact instead of leaving the startup placeholder.",
     "Never print secret values.",
   ]) {
     assert.match(prompt, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
@@ -438,6 +442,50 @@ test("improvement validator blocks startup placeholder briefing artifacts", () =
   assert.ok(validation.blockers.includes("dataset_briefing.md is still the startup placeholder"));
   assert.ok(validation.blockers.includes("improvement_result.json is still the startup placeholder"));
   assert.ok(validation.blockers.includes("profile briefingMarkdown is still the startup placeholder"));
+});
+
+test("improvement validator blocks explicit blocked result status", () => {
+  const briefingMarkdown = [
+    "# Data Inventory",
+    "- `raw/federal_reserve_z1/z1_csv_files_20260319.zip`: Federal Reserve Z.1 source package.",
+    "- `raw/worldbank/WDI_CSV_2026_04_09.zip`: World Bank WDI source package.",
+    "- `raw/bis_cpmi/WS_CPMI_CASHLESS_csv_col.zip`: BIS CPMI source package.",
+  ].join("\n");
+  const validation = validateCanonicalImprovementRun({
+    datasetId: "econ",
+    executionId: "exec-123",
+    execution: { id: "exec-123", status: "ready" },
+    artifacts: [
+      { title: "dataset_briefing.md", content: { path: "/results/exec-123/dataset_briefing.md", text: briefingMarkdown } },
+      {
+        title: "improvement_result.json",
+        content: {
+          path: "/results/exec-123/improvement_result.json",
+          text: JSON.stringify({ status: "blocked", blocker: "source_access_failed" }),
+        },
+      },
+      { title: "work.md", content: { path: "/results/exec-123/work.md" } },
+      { title: "report.html", content: { path: "/results/exec-123/report.html" } },
+    ],
+    dataset: {
+      id: "econ",
+      status: "ready",
+      deploymentStatus: "ready",
+      profile: {
+        briefingMarkdown,
+        profile: {
+          quality: {
+            diskInventoryProven: true,
+            volumeInventoryRunId: "exec-123",
+            volumeInventoryUpdatedAt: "2026-05-26T21:00:00.000Z",
+          },
+        },
+        describedRunId: "exec-123",
+      },
+    },
+  });
+  assert.equal(validation.status, "blocked");
+  assert.ok(validation.blockers.includes("improvement_result.json reports blocked status"));
 });
 
 test("improvement validator blocks econ briefing inventory regressions", () => {

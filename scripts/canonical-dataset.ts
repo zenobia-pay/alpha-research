@@ -485,6 +485,16 @@ function containsStartupPlaceholder(value: string | null | undefined): boolean {
   );
 }
 
+function improvementResultStatus(value: string | null | undefined): string | null {
+  if (typeof value !== "string" || value.trim().length === 0) return null;
+  try {
+    const parsed = JSON.parse(value) as { status?: unknown };
+    return typeof parsed.status === "string" ? parsed.status : null;
+  } catch {
+    return null;
+  }
+}
+
 export function validateCanonicalImprovementRun(input: ValidationInput) {
   const blockers: string[] = [];
   const executionStatus = input.execution?.status ?? "unknown";
@@ -514,6 +524,11 @@ export function validateCanonicalImprovementRun(input: ValidationInput) {
 
   if (containsStartupPlaceholder(artifactText(input.artifacts, "improvement_result.json"))) {
     blockers.push("improvement_result.json is still the startup placeholder");
+  }
+
+  const resultStatus = improvementResultStatus(artifactText(input.artifacts, "improvement_result.json"));
+  if (resultStatus === "blocked") {
+    blockers.push("improvement_result.json reports blocked status");
   }
 
   if (status.status !== "disk_proven") {
