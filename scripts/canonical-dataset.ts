@@ -527,8 +527,8 @@ export function validateCanonicalImprovementRun(input: ValidationInput) {
   }
 
   const resultStatus = improvementResultStatus(artifactText(input.artifacts, "improvement_result.json"));
-  if (resultStatus === "blocked") {
-    blockers.push("improvement_result.json reports blocked status");
+  if (resultStatus !== null && resultStatus !== "completed") {
+    blockers.push(`improvement_result.json reports non-completed status: ${resultStatus}`);
   }
 
   if (status.status !== "disk_proven") {

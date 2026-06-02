@@ -444,7 +444,7 @@ test("improvement validator blocks startup placeholder briefing artifacts", () =
   assert.ok(validation.blockers.includes("profile briefingMarkdown is still the startup placeholder"));
 });
 
-test("improvement validator blocks explicit blocked result status", () => {
+test("improvement validator blocks explicit non-completed result status", () => {
   const briefingMarkdown = [
     "# Data Inventory",
     "- `raw/federal_reserve_z1/z1_csv_files_20260319.zip`: Federal Reserve Z.1 source package.",
@@ -461,7 +461,7 @@ test("improvement validator blocks explicit blocked result status", () => {
         title: "improvement_result.json",
         content: {
           path: "/results/exec-123/improvement_result.json",
-          text: JSON.stringify({ status: "blocked", blocker: "source_access_failed" }),
+          text: JSON.stringify({ status: "in_progress", blocker: null }),
         },
       },
       { title: "work.md", content: { path: "/results/exec-123/work.md" } },
@@ -485,7 +485,7 @@ test("improvement validator blocks explicit blocked result status", () => {
     },
   });
   assert.equal(validation.status, "blocked");
-  assert.ok(validation.blockers.includes("improvement_result.json reports blocked status"));
+  assert.ok(validation.blockers.includes("improvement_result.json reports non-completed status: in_progress"));
 });
 
 test("improvement validator blocks econ briefing inventory regressions", () => {
